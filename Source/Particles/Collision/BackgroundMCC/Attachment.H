@@ -15,6 +15,8 @@
 #include <AMReX_Random.H>
 #include <AMReX_REAL.H>
 
+#include <cmath>
+
 /**
  * \brief Transform an attached electron into one negative-ion macroparticle.
  *
