@@ -3,5 +3,8 @@ foreach(D IN LISTS WarpX_DIMS)
     target_sources(lib_${SD}
       PRIVATE
         BackgroundMCCCollision.cpp
+        BackgroundMCCCollisionInitialize.cpp
+        BackgroundMCCCollisionExecute.cpp
+        BackgroundMCCCollisionProducts.cpp
     )
 endforeach()
