@@ -27,6 +27,7 @@ enum class ScatteringProcessType {
     CHARGE_EXCHANGE,
     EXCITATION,
     IONIZATION,
+    ATTACHMENT,
 };
 
 class ScatteringProcess
@@ -76,9 +77,9 @@ public:
                                 );
 
     struct Executor {
-        /** Get the collision cross-section using a simple linear interpolator. If
-         * the energy value is lower (higher) than the given energy range the
-         * first (last) cross-section value is used.
+        /** Get the collision cross-section using a simple linear interpolator.
+         * Outside the tabulated range, either the nearest endpoint or zero is
+         * returned, according to the per-process extrapolation settings.
          *
          * @param E_coll collision energy in eV
          *
@@ -88,9 +89,9 @@ public:
         amrex::ParticleReal getCrossSection (amrex::ParticleReal E_coll) const
         {
             if (E_coll < m_energy_lo) {
-                return m_sigma_lo;
+                return m_zero_below_min ? 0.0 : m_sigma_lo;
             } else if (E_coll > m_energy_hi) {
-                return m_sigma_hi;
+                return m_zero_above_max ? 0.0 : m_sigma_hi;
             } else {
                 // Locate the pair of energy grid points bracketing E_coll using a
                 // bisection search. This does not assume an evenly spaced energy grid.
@@ -103,7 +104,8 @@ public:
                 const amrex::ParticleReal temp =
                     (E_coll - m_energies_data[idx_1])
                     / (m_energies_data[idx_2] - m_energies_data[idx_1]);
-                return m_sigmas_data[idx_1] + (m_sigmas_data[idx_2] - m_sigmas_data[idx_1]) * temp;
+                return m_sigmas_data[idx_1]
+                    + (m_sigmas_data[idx_2] - m_sigmas_data[idx_1]) * temp;
             }
         }
 
@@ -114,9 +116,11 @@ public:
         amrex::ParticleReal m_energy_penalty;
         ScatteringProcessType m_type;
         ScatteringAngleModel m_scattering_angle_model;
-        /** True if this process creates new product particles (ionization, charge exchange,
-         *  two-product reaction); false for purely scattering processes (elastic, excitation). **/
+        /** True if this process creates new product particles (ionization, attachment,
+         *  charge exchange, two-product reaction); false for purely scattering processes. **/
         bool m_produces_products = false;
+        bool m_zero_below_min = false;
+        bool m_zero_above_max = false;
     };
 
     [[nodiscard]]
@@ -133,12 +137,35 @@ public:
         return m_exe_h.getCrossSection(E_coll);
     }
 
-    [[nodiscard]] amrex::ParticleReal getEnergyPenalty () const { return m_exe_h.m_energy_penalty; }
-    [[nodiscard]] amrex::ParticleReal getMinEnergyInput () const { return m_exe_h.m_energy_lo; }
-    [[nodiscard]] amrex::ParticleReal getMaxEnergyInput () const { return m_exe_h.m_energy_hi; }
-    [[nodiscard]] amrex::ParticleReal getEnergyInputStep () const { return m_exe_h.m_dE; }
+    [[nodiscard]] amrex::ParticleReal getEnergyPenalty () const
+    {
+        return m_exe_h.m_energy_penalty;
+    }
+    [[nodiscard]] amrex::ParticleReal getMinEnergyInput () const
+    {
+        return m_exe_h.m_energy_lo;
+    }
+    [[nodiscard]] amrex::ParticleReal getMaxEnergyInput () const
+    {
+        return m_exe_h.m_energy_hi;
+    }
+    [[nodiscard]] amrex::ParticleReal getEnergyInputStep () const
+    {
+        return m_exe_h.m_dE;
+    }
+    [[nodiscard]] int getEnergyGridSize () const
+    {
+        return static_cast<int>(m_energies.size());
+    }
+    [[nodiscard]] amrex::ParticleReal getEnergyInput (int i) const
+    {
+        return m_energies[i];
+    }
 
     [[nodiscard]] ScatteringProcessType type () const { return m_exe_h.m_type; }
+
+    void setCrossSectionExtrapolation (
+        bool zero_below_min, bool zero_above_max);
 
     static
     ScatteringProcessType parseProcessType(const std::string& process);
