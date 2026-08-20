@@ -95,22 +95,42 @@ BackgroundMCCKinematics getBackgroundMCCKinematics (
     return result;
 }
 
-/** Return physical speed for a projectile kinetic energy in eV. */
+/**
+ * Return the projectile speed in the target rest frame corresponding to a
+ * center-of-momentum collision energy in eV.
+ *
+ * For a target initially at rest,
+ *
+ *   s = m^2 c^4 + M^2 c^4 + 2 gamma m M c^4,
+ *
+ * while sqrt(s) = (m+M)c^2 + E_coll. The factored expression below avoids
+ * cancellation when E_coll is small.
+ */
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-amrex::ParticleReal physicalSpeedFromKineticEnergy (
-    amrex::ParticleReal kinetic_energy_eV,
-    double projectile_mass) noexcept
+amrex::ParticleReal relativeSpeedFromCollisionEnergy (
+    amrex::ParticleReal collision_energy_eV,
+    double projectile_mass,
+    double target_mass) noexcept
 {
     using namespace amrex::literals;
 
-    if (kinetic_energy_eV <= 0.0_prt) {
+    if (collision_energy_eV <= 0.0_prt) {
         return 0.0_prt;
     }
-    const double gamma =
-        1.0 + static_cast<double>(kinetic_energy_eV)*PhysConst::q_e
-        /(projectile_mass*PhysConst::c2);
-    const double beta2 = amrex::max(1.0 - 1.0/(gamma*gamma), 0.0);
-    return static_cast<amrex::ParticleReal>(PhysConst::c*std::sqrt(beta2));
+
+    const double collision_energy =
+        static_cast<double>(collision_energy_eV)*PhysConst::q_e;
+    const double mass_sum_c2 =
+        (projectile_mass + target_mass)*PhysConst::c2;
+    const double gamma_minus_one =
+        collision_energy*(2.0*mass_sum_c2 + collision_energy)
+        /(2.0*projectile_mass*target_mass*PhysConst::c2*PhysConst::c2);
+    const double gamma = 1.0 + gamma_minus_one;
+    const double beta2 =
+        gamma_minus_one*(gamma + 1.0)/(gamma*gamma);
+
+    return static_cast<amrex::ParticleReal>(
+        PhysConst::c*std::sqrt(amrex::max(beta2, 0.0)));
 }
 
 #endif // WARPX_PARTICLES_COLLISION_BACKGROUNDMCCKINEMATICS_H_
