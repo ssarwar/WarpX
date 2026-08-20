@@ -36,6 +36,10 @@ DSMCFunc::DSMCFunc (
     for (const auto& process : m_scattering_processes) {
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(process.type() != ScatteringProcessType::INVALID,
                                         "Cannot add an unknown scattering process type");
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            process.type() != ScatteringProcessType::ATTACHMENT,
+            "Attachment processes are currently supported only by background_mcc, "
+            "where the neutral gas is represented as a fixed reservoir.");
 
         if (process.type() == ScatteringProcessType::IONIZATION || process.type() == ScatteringProcessType::TWOPRODUCT_REACTION) {
             // Only one ionization process is currently supported as part of a given
