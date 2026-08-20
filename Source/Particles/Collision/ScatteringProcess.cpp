@@ -33,13 +33,14 @@ ScatteringProcess::ScatteringProcess (
                         const ScatteringAngleModel scattering_angle_model )
 {
     m_energies.insert(m_energies.begin(), std::begin(energies), std::end(energies));
-    m_sigmas_h.insert(m_sigmas_h.begin(), std::begin(sigmas),   std::end(sigmas));
+    m_sigmas_h.insert(m_sigmas_h.begin(), std::begin(sigmas), std::end(sigmas));
 
     init(scattering_process, energy, scattering_angle_model);
 }
 
 void
-ScatteringProcess::init (const std::string& scattering_process, const amrex::ParticleReal energy,
+ScatteringProcess::init (const std::string& scattering_process,
+                         const amrex::ParticleReal energy,
                          const ScatteringAngleModel scattering_angle_model)
 {
     using namespace amrex::literals;
@@ -66,6 +67,7 @@ ScatteringProcess::init (const std::string& scattering_process, const amrex::Par
     m_exe_h.m_scattering_angle_model = scattering_angle_model;
     m_exe_h.m_produces_products = (
         m_exe_h.m_type == ScatteringProcessType::IONIZATION ||
+        m_exe_h.m_type == ScatteringProcessType::ATTACHMENT ||
         m_exe_h.m_type == ScatteringProcessType::TWOPRODUCT_REACTION ||
         m_exe_h.m_type == ScatteringProcessType::CHARGE_EXCHANGE);
 
@@ -96,6 +98,18 @@ ScatteringProcess::init (const std::string& scattering_process, const amrex::Par
 #endif
 }
 
+void
+ScatteringProcess::setCrossSectionExtrapolation (
+    bool zero_below_min, bool zero_above_max)
+{
+    m_exe_h.m_zero_below_min = zero_below_min;
+    m_exe_h.m_zero_above_max = zero_above_max;
+#ifdef AMREX_USE_GPU
+    m_exe_d.m_zero_below_min = zero_below_min;
+    m_exe_d.m_zero_above_max = zero_above_max;
+#endif
+}
+
 ScatteringProcessType
 ScatteringProcess::parseProcessType(const std::string& scattering_process)
 {
@@ -108,8 +122,10 @@ ScatteringProcess::parseProcessType(const std::string& scattering_process)
         return ScatteringProcessType::CHARGE_EXCHANGE;
     } else if (scattering_process == "two_product_reaction") {
         return ScatteringProcessType::TWOPRODUCT_REACTION;
-    } else if (scattering_process == "ionization") {
+    } else if (scattering_process.find("ionization") != std::string::npos) {
         return ScatteringProcessType::IONIZATION;
+    } else if (scattering_process.find("attachment") != std::string::npos) {
+        return ScatteringProcessType::ATTACHMENT;
     } else if (scattering_process.find("excitation") != std::string::npos) {
         return ScatteringProcessType::EXCITATION;
     } else {
@@ -124,14 +140,18 @@ ScatteringProcess::readCrossSectionFile (
                                   amrex::Gpu::HostVector<amrex::ParticleReal>& sigmas )
 {
     std::ifstream infile(cross_section_file);
-    if(!infile.is_open()) { WARPX_ABORT_WITH_MESSAGE("Failed to open cross-section data file"); }
+    if(!infile.is_open()) {
+        WARPX_ABORT_WITH_MESSAGE("Failed to open cross-section data file");
+    }
 
     amrex::ParticleReal energy, sigma;
     while (infile >> energy >> sigma) {
         energies.push_back(energy);
         sigmas.push_back(sigma);
     }
-    if (infile.bad()) { WARPX_ABORT_WITH_MESSAGE("Failed to read cross-section data from file."); }
+    if (infile.bad()) {
+        WARPX_ABORT_WITH_MESSAGE("Failed to read cross-section data from file.");
+    }
     infile.close();
 }
 
