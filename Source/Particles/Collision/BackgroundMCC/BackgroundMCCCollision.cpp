@@ -6,6 +6,7 @@
  */
 #include "BackgroundMCCCollision.H"
 
+#include "BackgroundMCCUtils.H"
 #include "ImpactIonization.H"
 #include "Particles/Collision/BinaryCollision/BinaryCollisionUtils.H"
 #include "Particles/Collision/BinaryCollision/TwoProductUtil.H"
@@ -203,6 +204,7 @@ BackgroundMCCCollision::doCollisions (amrex::Real cur_time, amrex::Real dt, Mult
 
     if (!init_flag) {
         m_mass1 = species1.getMass();
+        m_use_relativistic_electron_kinematics = species1.AmIA<PhysicalSpecies::electron>();
 
         if (m_background_mass < 0.0_prt) {
             if (ionization_flag) {
@@ -319,6 +321,8 @@ void BackgroundMCCCollision::doBackgroundCollisionsWithinTile
 
     auto const total_collision_prob = m_total_collision_prob;
     auto const nu_max = m_nu_max;
+    auto const use_relativistic_electron_kinematics =
+        m_use_relativistic_electron_kinematics;
 
     // store projectile and target masses
     auto const m = m_mass1;
@@ -348,9 +352,8 @@ void BackgroundMCCCollision::doBackgroundCollisionsWithinTile
                               const amrex::ParticleReal n_a = n_a_func(x, y, z, t);
                               const amrex::ParticleReal T_a = T_a_func(x, y, z, t);
 
-                              amrex::ParticleReal v_coll, v_coll2, sigma_E, nu_i = 0;
-                              double gamma, E_coll;
-                              amrex::ParticleReal ua_x, ua_y, ua_z, vx, vy, vz;
+                              amrex::ParticleReal v_coll, sigma_E, E_coll, nu_i = 0;
+                              amrex::ParticleReal ua_x, ua_y, ua_z;
                               const amrex::ParticleReal col_select = amrex::Random(engine);
 
                               // get velocities of gas particles from a Maxwellian distribution
@@ -359,27 +362,33 @@ void BackgroundMCCCollision::doBackgroundCollisionsWithinTile
                               ua_y = vel_std * amrex::RandomNormal(0_prt, 1.0_prt, engine);
                               ua_z = vel_std * amrex::RandomNormal(0_prt, 1.0_prt, engine);
 
-                              // we assume the target particle is not relativistic (in
-                              // the lab frame) and therefore we can transform the projectile
-                              // velocity to a frame in which the target is stationary with
-                              // a simple Galilean boost
-                              // not doing the full Lorentz boost here saves us computation
-                              // since most particles will not actually collide
-                              vx = ux[ip] - ua_x;
-                              vy = uy[ip] - ua_y;
-                              vz = uz[ip] - ua_z;
-                              v_coll2 = (vx*vx + vy*vy + vz*vz);
-                              v_coll = std::sqrt(v_coll2);
-
-                              // calculate the collision energy in eV
-                              ParticleUtils::getCollisionEnergy(v_coll2, m, M, gamma, E_coll);
+                              if (use_relativistic_electron_kinematics) {
+                                  // Cross-section data for electron-neutral collisions use the
+                                  // electron kinetic energy in the neutral rest frame. Scalar
+                                  // invariants avoid a full Lorentz transformation here.
+                                  BackgroundMCCUtils::getElectronNeutralCollisionParameters(
+                                      ux[ip], uy[ip], uz[ip], ua_x, ua_y, ua_z, m,
+                                      E_coll, v_coll);
+                              } else {
+                                  // Retain the existing COM-energy convention for non-electron
+                                  // projectiles.
+                                  const amrex::ParticleReal vx = ux[ip] - ua_x;
+                                  const amrex::ParticleReal vy = uy[ip] - ua_y;
+                                  const amrex::ParticleReal vz = uz[ip] - ua_z;
+                                  const amrex::ParticleReal v_coll2 = vx*vx + vy*vy + vz*vz;
+                                  double gamma, E_coll_dbl;
+                                  v_coll = std::sqrt(v_coll2);
+                                  ParticleUtils::getCollisionEnergy(
+                                      v_coll2, m, M, gamma, E_coll_dbl);
+                                  E_coll = static_cast<amrex::ParticleReal>(E_coll_dbl);
+                              }
 
                               // loop through all collision pathways
                               for (int i = 0; i < process_count; i++) {
                                   auto const& scattering_process = *(scattering_processes + i);
 
                                   // get collision cross-section
-                                  sigma_E = scattering_process.getCrossSection(static_cast<amrex::ParticleReal>(E_coll));
+                                  sigma_E = scattering_process.getCrossSection(E_coll);
 
                                   // calculate normalized collision frequency
                                   nu_i += n_a * sigma_E * v_coll / nu_max;
