@@ -18,8 +18,8 @@ C = 299792458.0
 E_CHARGE = 1.602176634e-19
 ELECTRON_MASS = 9.1093837139e-31
 
-ENERGY_GRID = np.array([0.0, 1000.0, 5000.0, 100000.0])
-CROSS_SECTION_GRID = np.array([0.0, 1.0e-20, 1.0e-20, 1.0e-21])
+ENERGY_GRID = np.array([0.0, 1.0e-4, 1000.0, 5000.0, 100000.0, 2500000.0])
+CROSS_SECTION_GRID = np.array([0.0, 0.0, 1.0e-20, 1.0e-20, 1.0e-21, 0.0])
 
 
 def load_histogram(path: Path) -> tuple[np.ndarray, np.ndarray]:
@@ -34,11 +34,27 @@ def load_histogram(path: Path) -> tuple[np.ndarray, np.ndarray]:
     return centers, data[-1, 2:]
 
 
+def electron_speed(energy_ev: np.ndarray | float) -> np.ndarray | float:
+    tau = np.asarray(energy_ev) * E_CHARGE / (ELECTRON_MASS * C**2)
+    return C * np.sqrt(tau * (tau + 2.0)) / (tau + 1.0)
+
+
+def automatic_nu_max() -> float:
+    interval_bounds = []
+    for left, right, sigma_left, sigma_right in zip(
+        ENERGY_GRID[:-1],
+        ENERGY_GRID[1:],
+        CROSS_SECTION_GRID[:-1],
+        CROSS_SECTION_GRID[1:],
+    ):
+        del left
+        interval_bounds.append(max(sigma_left, sigma_right) * electron_speed(right))
+    interval_bounds.append(CROSS_SECTION_GRID[-1] * C)
+    return BACKGROUND_DENSITY * max(interval_bounds)
+
+
 def expected_collision_fraction() -> float:
-    scan_energy = np.arange(0.0, 100000.0, 0.2)
-    scan_sigma = np.interp(scan_energy, ENERGY_GRID, CROSS_SECTION_GRID)
-    scan_speed = np.sqrt(2.0 * E_CHARGE * scan_energy / ELECTRON_MASS)
-    nu_max = BACKGROUND_DENSITY * np.max(scan_sigma * scan_speed)
+    nu_max = automatic_nu_max()
 
     gamma = math.sqrt(1.0 + INITIAL_UZ**2)
     electron_speed = C * INITIAL_UZ / gamma

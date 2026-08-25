@@ -82,10 +82,36 @@ in accuracy. A full three-vector Lorentz transformation is likewise not needed.
 Thus, the frequency for process :math:`i` is
 :math:`\nu_i=n_n\sigma_i(E_{\mathrm{lookup}})g_{\mathrm{coll}}`.
 
-For impact ionization, neutral thermal motion is neglected in the collision
-draw because typical ionization thresholds are far above neutral thermal
-energies. This avoids three random-number draws per ionization candidate. For
-non-electron projectiles, the existing center-of-momentum collision-energy
+All configured processes, including impact ionization, compete in one draw. A
+particle therefore undergoes at most one accepted process in each Background
+MCC collision substep. In-place elastic and excitation outcomes are applied
+immediately; an accepted ionization is recorded and passed to the existing
+particle-creation transform without a second collision draw.
+
+By default, the null-collision majorant is constructed from the union of all
+cross-section table knots. Between consecutive knots the summed cross section
+is linear, so WarpX bounds each interval with the larger endpoint cross section
+and the speed at the upper endpoint. A k-way merge visits each tabulated knot
+once, giving initialization cost proportional to the total number of table
+points times the logarithm of the number of processes. It does not scale with
+the total energy span divided by the finest table spacing. For electrons, the
+constant high-energy table extrapolation is also bounded using
+:math:`g_{\mathrm{coll}}<c`.
+
+A user can bypass automatic construction with a collision-level majorant in
+:math:`\mathrm{s}^{-1}`::
+
+    mcc.nu_max = 1.0e12
+
+or with ``picmi.MCCCollisions(..., nu_max=1.0e12)``. The supplied value must
+bound the sum of all configured process frequencies for every particle state
+and background density encountered by that MCC object; an underestimated value
+biases the collision probabilities. Each MCC object retains its own majorant.
+The candidate probability is recalculated from the current collision timestep
+as :math:`P_{\max}=1-\exp(-\nu_{\max}\Delta t_{\mathrm{coll}})`, so
+collision subcycling and variable timesteps use the appropriate probability.
+
+For non-electron projectiles, the existing center-of-momentum collision-energy
 convention from ``ParticleUtils::getCollisionEnergy()`` is retained.
 
 The configured ``background_mass`` always denotes the neutral target mass and
