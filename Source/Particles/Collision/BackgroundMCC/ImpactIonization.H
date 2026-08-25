@@ -7,6 +7,7 @@
 #ifndef WARPX_PARTICLES_COLLISION_IMPACT_IONIZATION_H_
 #define WARPX_PARTICLES_COLLISION_IMPACT_IONIZATION_H_
 
+#include "BackgroundMCCUtils.H"
 #include "Particles/Collision/ScatteringProcess.H"
 
 #include "Particles/Algorithms/KineticEnergy.H"
@@ -75,7 +76,6 @@ public:
     ) const noexcept
     {
         using namespace amrex;
-        using std::sqrt;
 
         // determine if this particle should collide
         if (Random(engine) > m_total_collision_prob) { return false; }
@@ -83,7 +83,6 @@ public:
         // get references to the particle to get its position
         const auto& p = ptd.getSuperParticle(i);
         ParticleReal x, y, z;
-        double E_coll;
         get_particle_position(p, x, y, z);
 
         // calculate neutral density at particle location
@@ -94,16 +93,19 @@ public:
         const ParticleReal uy = ptd.m_rdata[PIdx::uy][i];
         const ParticleReal uz = ptd.m_rdata[PIdx::uz][i];
 
-        // calculate kinetic energy
-        constexpr auto eV = PhysConst::q_e;
-        E_coll = Algorithms::KineticEnergy<double>(ux, uy, uz, static_cast<amrex::ParticleReal>(m_mass))/eV;
+        // Impact-ionization thresholds are far above neutral thermal energies.
+        // Neglecting neutral motion here avoids three additional random draws.
+        const ParticleReal neutral_velocity = 0.0;
+        ParticleReal E_coll, v_coll;
+        BackgroundMCCUtils::getElectronNeutralCollisionParameters(
+            ux, uy, uz, neutral_velocity, neutral_velocity, neutral_velocity,
+            static_cast<ParticleReal>(m_mass), E_coll, v_coll);
 
         // get collision cross-section
-        const ParticleReal sigma_E = m_mcc_process.getCrossSection(static_cast<amrex::ParticleReal>(E_coll));
+        const ParticleReal sigma_E = m_mcc_process.getCrossSection(E_coll);
 
         // calculate normalized collision frequency
-        const ParticleReal u_coll2 = ux*ux + uy*uy + uz*uz;
-        const ParticleReal nu_i = n_a * sigma_E * sqrt(u_coll2) / m_nu_max;
+        const ParticleReal nu_i = n_a * sigma_E * v_coll / m_nu_max;
 
         // check if this collision should be performed
         return (Random(engine) <= nu_i);
