@@ -138,6 +138,16 @@ public:
     [[nodiscard]] amrex::ParticleReal getMaxEnergyInput () const { return m_exe_h.m_energy_hi; }
     [[nodiscard]] amrex::ParticleReal getEnergyInputStep () const { return m_exe_h.m_dE; }
 
+    [[nodiscard]] amrex::Vector<amrex::ParticleReal> const& getEnergyGrid () const
+    {
+        return m_energies;
+    }
+
+    [[nodiscard]] amrex::Gpu::HostVector<amrex::ParticleReal> const& getCrossSectionGrid () const
+    {
+        return m_sigmas_h;
+    }
+
     [[nodiscard]] ScatteringProcessType type () const { return m_exe_h.m_type; }
 
     static
