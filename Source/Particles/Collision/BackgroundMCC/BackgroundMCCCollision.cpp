@@ -363,9 +363,9 @@ void BackgroundMCCCollision::doBackgroundCollisionsWithinTile
                               ua_z = vel_std * amrex::RandomNormal(0_prt, 1.0_prt, engine);
 
                               if (use_relativistic_electron_kinematics) {
-                                  // Cross-section data for electron-neutral collisions use the
-                                  // electron kinetic energy in the neutral rest frame. Scalar
-                                  // invariants avoid a full Lorentz transformation here.
+                                  // Use a fast approximate relative proper velocity. This is
+                                  // exact in the stationary-neutral and non-relativistic limits,
+                                  // while still converting proper speed to physical rate speed.
                                   BackgroundMCCUtils::getElectronNeutralCollisionParameters(
                                       ux[ip], uy[ip], uz[ip], ua_x, ua_y, ua_z, m,
                                       E_coll, v_coll);
