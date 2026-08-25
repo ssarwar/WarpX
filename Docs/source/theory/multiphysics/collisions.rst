@@ -34,55 +34,53 @@ Maxwellian distribution. WarpX particle momentum components are normalized
 momenta, or proper velocities,
 :math:`\boldsymbol{u}=\gamma\boldsymbol{v}`.
 
-For an electron projectile, only scalar relative kinematics are needed for the
-collision draw. Expanding consistently for a non-relativistic neutral gives
+For electron projectiles, Background MCC uses the fast approximate relative
+proper velocity
 
     .. math::
 
-       \gamma_{\mathrm{rel}}-1 \simeq
-       (\gamma_e-1)
-       - \frac{\boldsymbol{u}_e\cdot\boldsymbol{V}_n}{c^2}
-       + \gamma_e\frac{V_n^2}{2c^2}.
-
-The terms shown are important at very low electron speed: in the
-non-relativistic limit they reduce to
-:math:`|\boldsymbol{v}_e-\boldsymbol{V}_n|^2/(2c^2)`. The cross-section lookup
-energy and collision-rate speed are evaluated as
-
-    .. math::
-
-       E_{\mathrm{lookup}} = (\gamma_{\mathrm{rel}}-1)m_e c^2,
+       \widetilde{\boldsymbol{u}}
+       = \boldsymbol{u}_e-\boldsymbol{V}_n,
        \qquad
-       g_{\mathrm{coll}} \simeq
-       \frac{c\sqrt{(\gamma_{\mathrm{rel}}-1)(\gamma_{\mathrm{rel}}+1)}}
-            {\gamma_e}.
+       \widetilde{\gamma}
+       = \sqrt{1+\frac{\widetilde{u}^2}{c^2}}.
 
-The omitted neutral-Lorentz-factor correction in the flux prefactor is of
-relative order :math:`V_n^2/c^2`. In the stationary-neutral limit,
-:math:`g_{\mathrm{coll}}` is the ordinary electron speed, not the proper speed
-:math:`|\boldsymbol{u}_e|`.
+This subtraction is exact to leading order when the electron is
+non-relativistic, because :math:`\boldsymbol{u}_e\simeq\boldsymbol{v}_e`, and
+is exact for a stationary neutral at any electron energy. When the electron is
+relativistic, the neglected correction due to neutral motion has relative size
+of order :math:`V_n/c`, which is negligible for a classical gas. This
+approximation is specific to relativistic electrons colliding with
+non-relativistic neutrals; it is not a general relativistic relative-velocity
+formula.
 
-The lookup energy above is the electron kinetic energy in the sampled neutral
-rest frame. The total center-of-momentum kinetic energy is
+The cross-section lookup energy and physical collision-rate speed are
 
     .. math::
 
-       E_{\mathrm{COM}} =
-       \left[\sqrt{m_e^2+M^2+2m_eM\gamma_{\mathrm{rel}}}
-       -(m_e+M)\right]c^2.
+       E_{\mathrm{lookup}}
+       = \frac{m_e\widetilde{u}^2}
+              {e(\widetilde{\gamma}+1)},
+       \qquad
+       g_{\mathrm{coll}}
+       = \frac{\lvert\widetilde{\boldsymbol{u}}\rvert}
+              {\widetilde{\gamma}},
 
-For electron collisions with atomic or molecular neutrals, the relative
-difference between these two energies is of order :math:`m_e/M` until the
-electron becomes extremely relativistic. They can therefore be treated as the
-same cross-section argument over the intended range. WarpX evaluates
-:math:`E_{\mathrm{lookup}}` directly: using
-``ParticleUtils::getCollisionEnergy()`` would require reconstructing the
-relative proper speed and would add two square roots to each collision
-candidate.
+where :math:`E_{\mathrm{lookup}}` is in electronvolts. In the
+stationary-neutral limit, :math:`g_{\mathrm{coll}}` is the ordinary electron
+speed, not the stored proper speed :math:`\lvert\boldsymbol{u}_e\rvert`.
+
+The lookup energy approximates the electron kinetic energy in the neutral rest
+frame. For an electron incident on an atomic or molecular neutral, its
+difference from the total center-of-momentum kinetic energy is of relative
+order :math:`m_e/M` until extreme relativistic energies. WarpX therefore does
+not distinguish these two energies for cross-section lookup in this model.
+Using ``ParticleUtils::getCollisionEnergy()`` would evaluate the exact two-body
+center-of-momentum energy and add another square root without a useful increase
+in accuracy. A full three-vector Lorentz transformation is likewise not needed.
 
 Thus, the frequency for process :math:`i` is
-:math:`\nu_i=n_n\sigma_i(E_{\mathrm{lookup}})g_{\mathrm{coll}}`. A full
-three-vector Lorentz transformation is not performed.
+:math:`\nu_i=n_n\sigma_i(E_{\mathrm{lookup}})g_{\mathrm{coll}}`.
 
 For impact ionization, neutral thermal motion is neglected in the collision
 draw because typical ionization thresholds are far above neutral thermal
