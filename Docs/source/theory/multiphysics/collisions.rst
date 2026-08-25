@@ -34,35 +34,55 @@ Maxwellian distribution. WarpX particle momentum components are normalized
 momenta, or proper velocities,
 :math:`\boldsymbol{u}=\gamma\boldsymbol{v}`.
 
-For an electron projectile, cross sections are evaluated at the electron kinetic
-energy in the rest frame of the sampled neutral. The scalar relative Lorentz
-factor is
+For an electron projectile, only scalar relative kinematics are needed for the
+collision draw. Expanding consistently for a non-relativistic neutral gives
 
     .. math::
 
-       \gamma_{\mathrm{rel}}
-       = \gamma_n\left(\gamma_e
-         - \frac{\boldsymbol{u}_e\cdot\boldsymbol{V}_n}{c^2}\right),
-       \qquad
-       \gamma_n \simeq 1 + \frac{V_n^2}{2c^2},
+       \gamma_{\mathrm{rel}}-1 \simeq
+       (\gamma_e-1)
+       - \frac{\boldsymbol{u}_e\cdot\boldsymbol{V}_n}{c^2}
+       + \gamma_e\frac{V_n^2}{2c^2}.
 
-where the second expression uses the non-relativistic neutral-gas assumption.
-The collision energy and invariant flux speed are then
+The terms shown are important at very low electron speed: in the
+non-relativistic limit they reduce to
+:math:`|\boldsymbol{v}_e-\boldsymbol{V}_n|^2/(2c^2)`. The cross-section lookup
+energy and collision-rate speed are evaluated as
 
     .. math::
 
-       E_{\mathrm{coll}} = (\gamma_{\mathrm{rel}}-1)m_e c^2,
+       E_{\mathrm{lookup}} = (\gamma_{\mathrm{rel}}-1)m_e c^2,
        \qquad
-       g_M = \frac{c\sqrt{\gamma_{\mathrm{rel}}^2-1}}
-                        {\gamma_e\gamma_n}.
+       g_{\mathrm{coll}} \simeq
+       \frac{c\sqrt{(\gamma_{\mathrm{rel}}-1)(\gamma_{\mathrm{rel}}+1)}}
+            {\gamma_e}.
+
+The omitted neutral-Lorentz-factor correction in the flux prefactor is of
+relative order :math:`V_n^2/c^2`. In the stationary-neutral limit,
+:math:`g_{\mathrm{coll}}` is the ordinary electron speed, not the proper speed
+:math:`|\boldsymbol{u}_e|`.
+
+The lookup energy above is the electron kinetic energy in the sampled neutral
+rest frame. The total center-of-momentum kinetic energy is
+
+    .. math::
+
+       E_{\mathrm{COM}} =
+       \left[\sqrt{m_e^2+M^2+2m_eM\gamma_{\mathrm{rel}}}
+       -(m_e+M)\right]c^2.
+
+For electron collisions with atomic or molecular neutrals, the relative
+difference between these two energies is of order :math:`m_e/M` until the
+electron becomes extremely relativistic. They can therefore be treated as the
+same cross-section argument over the intended range. WarpX evaluates
+:math:`E_{\mathrm{lookup}}` directly: using
+``ParticleUtils::getCollisionEnergy()`` would require reconstructing the
+relative proper speed and would add two square roots to each collision
+candidate.
 
 Thus, the frequency for process :math:`i` is
-:math:`\nu_i=n_n\sigma_i(E_{\mathrm{coll}})g_M`. Only these scalar invariants
-are needed for the collision draw; a full three-vector Lorentz transformation
-is not performed. The neutral Lorentz factor is evaluated through second order
-in :math:`V_n/c`, avoiding an additional square root in the particle loop. In
-the stationary-neutral limit, :math:`g_M` is the ordinary electron speed, not
-the proper speed :math:`|\boldsymbol{u}_e|`.
+:math:`\nu_i=n_n\sigma_i(E_{\mathrm{lookup}})g_{\mathrm{coll}}`. A full
+three-vector Lorentz transformation is not performed.
 
 For impact ionization, neutral thermal motion is neglected in the collision
 draw because typical ionization thresholds are far above neutral thermal
