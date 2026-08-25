@@ -26,29 +26,54 @@ collision consideration. Only these pre-selected particles are then individually
 considered for a collision based on their energy and the cross-sections of all
 the different collisional processes included.
 
-The MCC implementation assumes that the background neutral particles are **thermal**,
-and are moving at non-relativistic velocities in the lab frame. For each
-simulation particle considered for a collision, a velocity vector for a neutral
-particle is randomly chosen given the user specified neutral temperature. The
-particle velocity is then boosted to the stationary frame of the neutral through
-a Galilean transformation. The energy of the collision is calculated using the
-particle utility function, ``ParticleUtils::getCollisionEnergy()``, as
+The MCC implementation assumes that the background neutral particles are
+**thermal** and move at non-relativistic velocities in the laboratory frame.
+For each simulation particle considered for a collision, a neutral ordinary
+velocity :math:`\boldsymbol{V}_n` is sampled from the user-specified classical
+Maxwellian distribution. WarpX particle momentum components are normalized
+momenta, or proper velocities,
+:math:`\boldsymbol{u}=\gamma\boldsymbol{v}`.
+
+For an electron projectile, cross sections are evaluated at the electron kinetic
+energy in the rest frame of the sampled neutral. The scalar relative Lorentz
+factor is
 
     .. math::
 
-       \begin{aligned}
-        E_{coll} &= \sqrt{(\gamma mc^2 + Mc^2)^2 - (mu)^2} - (mc^2 + Mc^2) \\
-                 &= \frac{2Mmu^2}{M + m + \sqrt{M^2+m^2+2\gamma mM}}\frac{1}{\gamma + 1}
-       \end{aligned}
+       \gamma_{\mathrm{rel}}
+       = \gamma_n\left(\gamma_e
+         - \frac{\boldsymbol{u}_e\cdot\boldsymbol{V}_n}{c^2}\right),
+       \qquad
+       \gamma_n \simeq 1 + \frac{V_n^2}{2c^2},
 
-where :math:`u` is the speed of the particle as tracked in WarpX (i.e.
-:math:`u = \gamma v` with :math:`v` the particle speed), while :math:`m` and
-:math:`M` are the rest masses of the simulation and background species,
-respectively. The Lorentz factor is defined in the usual way,
-:math:`\gamma \equiv \sqrt{1 + u^2/c^2}`. Note that if :math:`\gamma\to1` the above
-expression reduces to the classical equation
-:math:`E_{coll} = \frac{1}{2}\frac{Mm}{M+m} u^2`. The collision cross-sections
-for all scattering processes are evaluated at the energy as calculated above.
+where the second expression uses the non-relativistic neutral-gas assumption.
+The collision energy and invariant flux speed are then
+
+    .. math::
+
+       E_{\mathrm{coll}} = (\gamma_{\mathrm{rel}}-1)m_e c^2,
+       \qquad
+       g_M = \frac{c\sqrt{\gamma_{\mathrm{rel}}^2-1}}
+                        {\gamma_e\gamma_n}.
+
+Thus, the frequency for process :math:`i` is
+:math:`\nu_i=n_n\sigma_i(E_{\mathrm{coll}})g_M`. Only these scalar invariants
+are needed for the collision draw; a full three-vector Lorentz transformation
+is not performed. The neutral Lorentz factor is evaluated through second order
+in :math:`V_n/c`, avoiding an additional square root in the particle loop. In
+the stationary-neutral limit, :math:`g_M` is the ordinary electron speed, not
+the proper speed :math:`|\boldsymbol{u}_e|`.
+
+For impact ionization, neutral thermal motion is neglected in the collision
+draw because typical ionization thresholds are far above neutral thermal
+energies. This avoids three random-number draws per ionization candidate. For
+non-electron projectiles, the existing center-of-momentum collision-energy
+convention from ``ParticleUtils::getCollisionEnergy()`` is retained.
+
+The configured ``background_mass`` always denotes the neutral target mass and
+is kept separate from the mass of any ionization product species. If it is
+omitted for an ionizing electron-neutral collision, the neutral mass is inferred
+from the positive-ion product mass plus one electron mass.
 
 Once a particle is selected for a specific collision process, that process determines how the particle is scattered as outlined below.
 
