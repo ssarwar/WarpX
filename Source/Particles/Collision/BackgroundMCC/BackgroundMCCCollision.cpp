@@ -80,10 +80,8 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
         "The maximum background density must be greater than 0."
     );
 
-    // if the neutral mass is specified use it, but if ionization is
-    // included the mass of the secondary species of that interaction
-    // will be used. If no neutral mass is specified and ionization is not
-    // included the mass of the colliding species will be used
+    // The background mass is the mass of the neutral target. It is independent
+    // of any charged product species created by ionization.
     m_background_mass = -1;
     utils::parser::queryWithParser(
         pp_collision_name, "background_mass", m_background_mass);
@@ -206,6 +204,20 @@ BackgroundMCCCollision::doCollisions (amrex::Real cur_time, amrex::Real dt, Mult
     if (!init_flag) {
         m_mass1 = species1.getMass();
 
+        if (m_background_mass < 0.0_prt) {
+            if (ionization_flag) {
+                // Infer the pre-ionization neutral mass from the positive-ion product.
+                m_background_mass = species2.getMass() + PhysConst::m_e;
+            } else {
+                // Preserve the legacy ion-neutral default when no neutral mass is given.
+                m_background_mass = species1.getMass();
+            }
+        }
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            m_background_mass > 0.0_prt,
+            "The background neutral mass must be greater than 0."
+        );
+
         // calculate maximum collision frequency without ionization
         m_nu_max = get_nu_max(m_scattering_processes);
 
@@ -237,16 +249,6 @@ BackgroundMCCCollision::doCollisions (amrex::Real cur_time, amrex::Real dt, Mult
                           std::to_string(coll_n_ioniz) + " is > 0.1 and ionization probability is = " +
                           std::to_string(m_total_collision_prob_ioniz) + "\n");
             }
-
-            // if an ionization process is included the secondary species mass
-            // is taken as the background mass
-            m_background_mass = species2.getMass();
-        }
-        // if no neutral species mass was specified and ionization is not
-        // included assume that the collisions will be with neutrals of the
-        // same mass as the colliding species (as in ion-neutral collisions)
-        else if (m_background_mass == -1) {
-            m_background_mass = species1.getMass();
         }
 
         amrex::Print() << Utils::TextMsg::Info(
