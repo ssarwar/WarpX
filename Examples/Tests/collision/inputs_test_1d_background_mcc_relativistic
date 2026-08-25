@@ -43,7 +43,9 @@ mcc.type = background_mcc
 mcc.species = electrons
 mcc.background_density = 1.0e20
 mcc.max_background_density = 1.0e20
-mcc.background_temperature = 0.0
+# Exercise the moving-neutral path while keeping thermal corrections far
+# below the statistical tolerance of this relativistic-rate test.
+mcc.background_temperature = 300.0
 mcc.background_mass = 100.0*m_e
 mcc.scattering_processes = elastic ionization
 mcc.elastic_cross_section = ../../../Examples/Tests/collision/background_mcc_relativistic_elastic.txt
