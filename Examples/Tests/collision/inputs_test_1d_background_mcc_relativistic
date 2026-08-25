@@ -1,0 +1,63 @@
+max_step = 1
+
+amr.n_cell = 1
+amr.max_grid_size = 1
+amr.blocking_factor = 1
+amr.max_level = 0
+
+geometry.dims = 1
+geometry.prob_lo = 0.0
+geometry.prob_hi = 1.0
+
+boundary.field_lo = periodic
+boundary.field_hi = periodic
+
+algo.maxwell_solver = none
+algo.particle_shape = 1
+warpx.const_dt = 1.0062975508741132e-9
+warpx.verbose = 1
+warpx.serialize_initial_conditions = 1
+
+particles.species_names = electrons ion_product
+
+electrons.species_type = electron
+electrons.injection_style = NRandomPerCell
+electrons.num_particles_per_cell = 131072
+electrons.profile = constant
+electrons.density = 1.0
+electrons.momentum_distribution_type = constant
+electrons.ux = 0.0
+electrons.uy = 0.0
+electrons.uz = 0.5810524930349901
+electrons.do_not_deposit = 1
+
+# Deliberately differ from the neutral mass to verify that the ion product
+# does not replace the configured background target mass.
+ion_product.charge = q_e
+ion_product.mass = 1000.0*m_e
+ion_product.injection_style = none
+ion_product.do_not_deposit = 1
+
+collisions.collision_names = mcc
+mcc.type = background_mcc
+mcc.species = electrons
+mcc.background_density = 1.0e20
+mcc.max_background_density = 1.0e20
+mcc.background_temperature = 0.0
+mcc.background_mass = 100.0*m_e
+mcc.scattering_processes = elastic ionization
+mcc.elastic_cross_section = ../../../Examples/Tests/collision/background_mcc_relativistic_elastic.txt
+mcc.elastic_scattering_angle_model = backward
+mcc.ionization_energy = 1.0
+mcc.ionization_cross_section = ../../../Examples/Tests/collision/background_mcc_zero_ionization.txt
+mcc.ionization_species = ion_product
+
+warpx.reduced_diags_names = hist_uz
+hist_uz.type = ParticleHistogram
+hist_uz.intervals = 1
+hist_uz.path = ./
+hist_uz.species = electrons
+hist_uz.bin_number = 2800
+hist_uz.bin_min = -0.7
+hist_uz.bin_max = 0.7
+hist_uz.histogram_function(t,x,y,z,ux,uy,uz) = uz
