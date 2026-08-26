@@ -19,11 +19,11 @@ C = picmi.constants.c
 Q_E = picmi.constants.q_e
 M_E = picmi.constants.m_e
 
-GAMMA = 1.0 + ELECTRON_ENERGY_EV*Q_E/(M_E*C**2)
-ELECTRON_SPEED = C*math.sqrt(1.0 - 1.0/GAMMA**2)
-ELECTRON_PROPER_SPEED = GAMMA*ELECTRON_SPEED
-NU_MAX = BACKGROUND_DENSITY*2.0*CROSS_SECTION*ELECTRON_SPEED
-DT = COLLISION_OPTICAL_DEPTH/NU_MAX
+GAMMA = 1.0 + ELECTRON_ENERGY_EV * Q_E / (M_E * C**2)
+ELECTRON_SPEED = C * math.sqrt(1.0 - 1.0 / GAMMA**2)
+ELECTRON_PROPER_SPEED = GAMMA * ELECTRON_SPEED
+NU_MAX = BACKGROUND_DENSITY * 2.0 * CROSS_SECTION * ELECTRON_SPEED
+DT = COLLISION_OPTICAL_DEPTH / NU_MAX
 
 source_dir = Path(__file__).resolve().parent
 
@@ -50,10 +50,31 @@ electrons = picmi.Species(
     warpx_do_not_deposit=True,
     warpx_do_not_gather=True,
 )
+electrons_reordered = picmi.Species(
+    particle_type="electron",
+    name="electrons_reordered",
+    initial_distribution=picmi.UniformDistribution(
+        density=1.0,
+        directed_velocity=[0.0, 0.0, ELECTRON_SPEED],
+    ),
+    warpx_do_not_deposit=True,
+    warpx_do_not_gather=True,
+)
 ion_product = picmi.Species(
     name="ion_product",
     charge="q_e",
-    mass=1000.0*M_E,
+    mass=1000.0 * M_E,
+    initial_distribution=picmi.UniformDistribution(
+        density=1.0,
+        directed_velocity=[0.0, 0.0, 0.0],
+    ),
+    warpx_do_not_deposit=True,
+    warpx_do_not_gather=True,
+)
+ion_product_reordered = picmi.Species(
+    name="ion_product_reordered",
+    charge="q_e",
+    mass=1000.0 * M_E,
     initial_distribution=picmi.UniformDistribution(
         density=1.0,
         directed_velocity=[0.0, 0.0, 0.0],
@@ -78,8 +99,28 @@ collision = picmi.MCCCollisions(
     species=electrons,
     background_density=BACKGROUND_DENSITY,
     background_temperature=0.0,
-    background_mass=100.0*M_E,
+    background_mass=100.0 * M_E,
     scattering_processes=processes,
+    nu_max=NU_MAX,
+)
+processes_reordered = {
+    "ionization": {
+        "cross_section": str(source_dir / "background_mcc_selector_ionization.txt"),
+        "energy": 15.0,
+        "species": ion_product_reordered,
+    },
+    "elastic": {
+        "cross_section": str(source_dir / "background_mcc_selector_elastic.txt"),
+        "scattering_angle_model": "backward",
+    },
+}
+collision_reordered = picmi.MCCCollisions(
+    name="mcc_reordered",
+    species=electrons_reordered,
+    background_density=BACKGROUND_DENSITY,
+    background_temperature=0.0,
+    background_mass=100.0 * M_E,
+    scattering_processes=processes_reordered,
     nu_max=NU_MAX,
 )
 
@@ -87,20 +128,24 @@ sim = picmi.Simulation(
     solver=solver,
     time_step_size=DT,
     max_steps=1,
-    warpx_collisions=[collision],
+    warpx_collisions=[collision, collision_reordered],
     verbose=1,
 )
 sim.add_species(
     electrons,
-    layout=picmi.GriddedLayout(
-        n_macroparticle_per_cell=[PARTICLE_COUNT], grid=grid
-    ),
+    layout=picmi.GriddedLayout(n_macroparticle_per_cell=[PARTICLE_COUNT], grid=grid),
+)
+sim.add_species(
+    electrons_reordered,
+    layout=picmi.GriddedLayout(n_macroparticle_per_cell=[PARTICLE_COUNT], grid=grid),
 )
 sim.add_species(
     ion_product,
-    layout=picmi.GriddedLayout(
-        n_macroparticle_per_cell=[INITIAL_ION_COUNT], grid=grid
-    ),
+    layout=picmi.GriddedLayout(n_macroparticle_per_cell=[INITIAL_ION_COUNT], grid=grid),
+)
+sim.add_species(
+    ion_product_reordered,
+    layout=picmi.GriddedLayout(n_macroparticle_per_cell=[INITIAL_ION_COUNT], grid=grid),
 )
 
 sim.initialize_inputs()
@@ -108,26 +153,42 @@ collision_bucket = next(
     bucket for bucket in Collisions.collisions_list if bucket.instancename == "mcc"
 )
 assert math.isclose(collision_bucket.nu_max, NU_MAX, rel_tol=1.0e-15)
+reordered_bucket = next(
+    bucket
+    for bucket in Collisions.collisions_list
+    if bucket.instancename == "mcc_reordered"
+)
+assert math.isclose(reordered_bucket.nu_max, NU_MAX, rel_tol=1.0e-15)
 
 sim.initialize_warpx()
 sim.step(1)
-
-electron_container = sim.particles.get("electrons")
-ion_container = sim.particles.get("ion_product")
-
-electron_count = electron_container.number_of_particles(only_local=True)
-ion_count = ion_container.number_of_particles(only_local=True)
 
 
 def to_numpy(array):
     return array.get() if hasattr(array, "get") else np.asarray(array)
 
 
-uz = np.concatenate(
-    [to_numpy(pti["uz"]) for pti in electron_container.iterator(level=0)]
+def event_counts(electron_name, ion_name):
+    electron_container = sim.particles.get(electron_name)
+    ion_container = sim.particles.get(ion_name)
+    electron_count = electron_container.number_of_particles(only_local=True)
+    ion_count = ion_container.number_of_particles(only_local=True)
+    uz = np.concatenate(
+        [to_numpy(pti["uz"]) for pti in electron_container.iterator(level=0)]
+    )
+    elastic_events = int(np.count_nonzero(uz < -0.9 * ELECTRON_PROPER_SPEED))
+    ionization_events = int(ion_count - INITIAL_ION_COUNT)
+    return electron_count, elastic_events, ionization_events
+
+
+electron_count, elastic_events, ionization_events = event_counts(
+    "electrons", "ion_product"
 )
-elastic_events = int(np.count_nonzero(uz < -0.9*ELECTRON_PROPER_SPEED))
-ionization_events = int(ion_count - INITIAL_ION_COUNT)
+(
+    reordered_electron_count,
+    reordered_elastic_events,
+    reordered_ionization_events,
+) = event_counts("electrons_reordered", "ion_product_reordered")
 
 if libwarpx.amr.ParallelDescriptor.MyProc() == 0:
     np.savez(
@@ -135,6 +196,9 @@ if libwarpx.amr.ParallelDescriptor.MyProc() == 0:
         electron_count=electron_count,
         elastic_events=elastic_events,
         ionization_events=ionization_events,
+        reordered_electron_count=reordered_electron_count,
+        reordered_elastic_events=reordered_elastic_events,
+        reordered_ionization_events=reordered_ionization_events,
     )
 
 sim.finalize()

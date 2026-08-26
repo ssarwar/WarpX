@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Performance smoke test for many attachment channels sharing one product."""
 
+import argparse
 import math
 import time
 from pathlib import Path
@@ -9,14 +10,28 @@ import numpy as np
 
 from pywarpx import libwarpx, picmi
 
-PARTICLE_COUNT = 32768
+parser = argparse.ArgumentParser()
+parser.add_argument("--particle-count", type=int, default=32768)
+parser.add_argument("--process-count", type=int, default=64)
+parser.add_argument("--steps", type=int, default=1)
+parser.add_argument("--subcycles", type=int, default=1)
+args = parser.parse_args()
+
+PARTICLE_COUNT = args.particle_count
 INITIAL_NEGATIVE_COUNT = 1
-PROCESS_COUNT = 64
+PROCESS_COUNT = args.process_count
+STEPS = args.steps
+COLLISION_SUBCYCLES = args.subcycles
 BACKGROUND_DENSITY = 1.0e20
 BACKGROUND_MASS = 1000.0 * picmi.constants.m_e
 CROSS_SECTION_PER_PROCESS = 1.0e-24
 ELECTRON_ENERGY_EV = 1000.0
 MAJORANT_OPTICAL_DEPTH = 0.2
+
+assert PARTICLE_COUNT > 0
+assert PROCESS_COUNT > 0
+assert STEPS > 0
+assert COLLISION_SUBCYCLES > 0
 
 C = picmi.constants.c
 Q_E = picmi.constants.q_e
@@ -24,12 +39,7 @@ M_E = picmi.constants.m_e
 
 GAMMA = 1.0 + ELECTRON_ENERGY_EV * Q_E / (M_E * C**2)
 ELECTRON_SPEED = C * math.sqrt(1.0 - 1.0 / GAMMA**2)
-RATE_UPPER_BOUND = (
-    BACKGROUND_DENSITY
-    * PROCESS_COUNT
-    * CROSS_SECTION_PER_PROCESS
-    * C
-)
+RATE_UPPER_BOUND = BACKGROUND_DENSITY * PROCESS_COUNT * CROSS_SECTION_PER_PROCESS * C
 DT = MAJORANT_OPTICAL_DEPTH / RATE_UPPER_BOUND
 
 cross_section_path = Path("background_mcc_many_attachment.txt").resolve()
@@ -77,6 +87,7 @@ negative_ions = picmi.Species(
 processes = {
     f"attachment{index}": {
         "cross_section": cross_section_file,
+        "cross_section_units": "m2",
         "species": negative_ions,
     }
     for index in range(PROCESS_COUNT)
@@ -88,20 +99,19 @@ collision = picmi.MCCCollisions(
     background_temperature=0.0,
     background_mass=BACKGROUND_MASS,
     scattering_processes=processes,
+    ndt_subcycle=COLLISION_SUBCYCLES,
 )
 
 sim = picmi.Simulation(
     solver=solver,
     time_step_size=DT,
-    max_steps=1,
+    max_steps=STEPS,
     warpx_collisions=[collision],
     verbose=1,
 )
 sim.add_species(
     electrons,
-    layout=picmi.GriddedLayout(
-        n_macroparticle_per_cell=[PARTICLE_COUNT], grid=grid
-    ),
+    layout=picmi.GriddedLayout(n_macroparticle_per_cell=[PARTICLE_COUNT], grid=grid),
 )
 sim.add_species(
     negative_ions,
@@ -110,24 +120,40 @@ sim.add_species(
     ),
 )
 
+sim.initialize_inputs()
+initialization_start = time.perf_counter()
 sim.initialize_warpx()
+initialization_elapsed = time.perf_counter() - initialization_start
 start = time.perf_counter()
-sim.step(1)
+sim.step(STEPS)
 elapsed = time.perf_counter() - start
 
-electron_count = sim.particles.get("electrons").number_of_particles(
-    only_local=True
-)
-negative_count = sim.particles.get("negative_ions").number_of_particles(
-    only_local=True
-)
+electron_count = sim.particles.get("electrons").number_of_particles(only_local=True)
+negative_count = sim.particles.get("negative_ions").number_of_particles(only_local=True)
+attachment_events = negative_count - INITIAL_NEGATIVE_COUNT
+nominal_particles_per_second = PARTICLE_COUNT * STEPS * COLLISION_SUBCYCLES / elapsed
 
 if libwarpx.amr.ParallelDescriptor.MyProc() == 0:
     np.savez(
         "background_mcc_many_attachment_results.npz",
         electron_count=electron_count,
-        attachment_events=negative_count - INITIAL_NEGATIVE_COUNT,
+        attachment_events=attachment_events,
+        particle_count=PARTICLE_COUNT,
+        process_count=PROCESS_COUNT,
+        steps=STEPS,
+        subcycles=COLLISION_SUBCYCLES,
+        initialization_elapsed=initialization_elapsed,
         elapsed=elapsed,
+        nominal_particles_per_second=nominal_particles_per_second,
+        product_passes_per_collision_call=1,
+    )
+    print(
+        "MCC benchmark: "
+        f"processes={PROCESS_COUNT}, particles={PARTICLE_COUNT}, steps={STEPS}, "
+        f"subcycles={COLLISION_SUBCYCLES}, accepted={attachment_events}, "
+        f"initialization={initialization_elapsed:.6f} s, elapsed={elapsed:.6f} s, "
+        f"nominal_throughput={nominal_particles_per_second:.3e} particle-calls/s, "
+        "product_passes_per_call=1"
     )
 
 sim.finalize()
