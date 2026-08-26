@@ -23,17 +23,26 @@ jobs:
           .github/workflows/source/check_analysis_file_type.py
 
   gcc-python-1d:
+    name: gcc-python-1d-${{ matrix.precision }}
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        precision: [double, single]
     env:
       CC: gcc-13
       CXX: g++-13
-      CXXFLAGS: -Werror
     steps:
       - uses: actions/checkout@v7
       - name: Install dependencies
         run: .github/workflows/dependencies/pyfull.sh
       - name: Configure and build
         run: |
+          export CXXFLAGS=-Werror
+          precision_args=""
+          if [[ "${{ matrix.precision }}" == "single" ]]; then
+            precision_args="-DWarpX_PRECISION=SINGLE -DWarpX_PARTICLE_PRECISION=SINGLE"
+          fi
           cmake -S . -B build                 \
             -GNinja                           \
             -DWarpX_DIMS=1                    \
@@ -43,36 +52,12 @@ jobs:
             -DWarpX_OPENPMD=OFF               \
             -DWarpX_PYTHON=ON                 \
             -DWarpX_QED=OFF                   \
-            -DWarpX_QED_TABLE_GEN=OFF
+            -DWarpX_QED_TABLE_GEN=OFF         \
+            ${precision_args}
           cmake --build build -j 4 --target pip_install
       - name: Run focused Background MCC tests
         run: |
           export OMP_NUM_THREADS=1
           ctest --test-dir build \
-            -R "test_1d_background_mcc_(relativistic|selector_picmi)" \
+            -R "test_1d_background_mcc_(attachment|many_attachment|relativistic|selector)" \
             --output-on-failure
-
-  gcc-single-precision-1d:
-    runs-on: ubuntu-24.04
-    env:
-      CC: gcc-13
-      CXX: g++-13
-      CXXFLAGS: -Werror
-    steps:
-      - uses: actions/checkout@v7
-      - name: Install dependencies
-        run: .github/workflows/dependencies/gcc.sh 13
-      - name: Configure and build
-        run: |
-          cmake -S . -B build                 \
-            -GNinja                           \
-            -DWarpX_DIMS=1                    \
-            -DWarpX_EB=OFF                    \
-            -DWarpX_FFT=OFF                   \
-            -DWarpX_MPI=OFF                   \
-            -DWarpX_OPENPMD=OFF               \
-            -DWarpX_PRECISION=SINGLE          \
-            -DWarpX_PARTICLE_PRECISION=SINGLE \
-            -DWarpX_QED=OFF                   \
-            -DWarpX_QED_TABLE_GEN=OFF
-          cmake --build build -j 4
