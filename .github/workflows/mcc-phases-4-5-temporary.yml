@@ -4,16 +4,101 @@ on:
   push:
     branches:
       - automation-mcc-phases-2-3
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.ref }}-mcc-phases-4-5
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
+  apply-compile-fixes:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: automation-mcc-phases-2-3
+      - name: Apply focused MCC compile fixes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          replacements = {
+              Path("Source/Particles/Collision/BackgroundMCC/BackgroundMCCCollision.cpp"): [
+                  (
+                      '''            amrex::ParticleReal third_body_density;
+                      if (utils::parser::queryWithParser(
+                              pp_collision_name,
+                              process.name() + "_third_body_density",
+                              third_body_density))''',
+                      '''            amrex::ParticleReal third_body_density;
+                      auto const third_body_density_key =
+                          process.name() + "_third_body_density";
+                      if (utils::parser::queryWithParser(
+                              pp_collision_name,
+                              third_body_density_key.c_str(),
+                              third_body_density))''',
+                  ),
+              ],
+              Path("Source/Particles/ParticleCreation/FilterCopyTransform.H"): [
+                  (
+                      '''    auto new_np = std::max(dst_index + num_added, dst.numParticles());''',
+                      '''    auto const new_np = std::max(
+                          dst_index + num_added, static_cast<Index>(dst.numParticles()));''',
+                  ),
+                  (
+                      '''    auto new_np1 = std::max(dst1_index + num_added, dst1.numParticles());''',
+                      '''    auto const new_np1 = std::max(
+                          dst1_index + num_added, static_cast<Index>(dst1.numParticles()));''',
+                  ),
+                  (
+                      '''    auto new_np2 = std::max(dst2_index + num_added, dst2.numParticles());''',
+                      '''    auto const new_np2 = std::max(
+                          dst2_index + num_added, static_cast<Index>(dst2.numParticles()));''',
+                  ),
+              ],
+          }
+
+          changed = False
+          for path, file_replacements in replacements.items():
+              text = path.read_text()
+              for old, new in file_replacements:
+                  count = text.count(old)
+                  if count == 1:
+                      text = text.replace(old, new)
+                      changed = True
+                  elif count != 0:
+                      raise RuntimeError(
+                          f"Expected zero or one exact match in {path}, found {count}"
+                      )
+              path.write_text(text)
+
+          if not changed:
+              print("Focused compile fixes are already present.")
+          PY
+          git diff --check
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            Source/Particles/Collision/BackgroundMCC/BackgroundMCCCollision.cpp \
+            Source/Particles/ParticleCreation/FilterCopyTransform.H
+          git commit -m "Fix MCC validation compile errors"
+          git push origin HEAD:automation-mcc-phases-2-3
+
   source:
+    needs: apply-compile-fixes
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: automation-mcc-phases-2-3
       - name: Source checks
         run: |
           .github/workflows/source/hasNonASCII
@@ -23,6 +108,7 @@ jobs:
           .github/workflows/source/check_analysis_file_type.py
 
   gcc-python-1d:
+    needs: apply-compile-fixes
     name: gcc-python-1d-${{ matrix.precision }}
     runs-on: ubuntu-24.04
     strategy:
@@ -34,6 +120,8 @@ jobs:
       CXX: g++-13
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: automation-mcc-phases-2-3
       - name: Install dependencies
         run: .github/workflows/dependencies/pyfull.sh
       - name: Configure and build
