@@ -15,7 +15,8 @@ Background Monte Carlo Collisions (MCC)
 
 Several types of collisions between simulation particles and a neutral
 background gas are supported including elastic scattering, back scattering,
-charge exchange, excitation collisions and impact ionization.
+charge exchange, excitation collisions, impact ionization and electron
+attachment.
 
 The so-called null collision strategy is used in order to minimize the
 computational burden of the MCC module. This strategy is standard in PIC-MCC and
@@ -82,11 +83,12 @@ in accuracy. A full three-vector Lorentz transformation is likewise not needed.
 Thus, the frequency for process :math:`i` is
 :math:`\nu_i=n_n\sigma_i(E_{\mathrm{lookup}})g_{\mathrm{coll}}`.
 
-All configured processes, including impact ionization, compete in one draw. A
-particle therefore undergoes at most one accepted process in each Background
-MCC collision substep. In-place elastic and excitation outcomes are applied
-immediately; an accepted ionization is recorded and passed to the existing
-particle-creation transform without a second collision draw.
+All configured processes, including impact ionization and attachment, compete
+in one draw. A particle therefore undergoes at most one accepted process in
+each Background MCC collision substep. In-place elastic and excitation outcomes
+are applied immediately. Product-changing outcomes are recorded and then
+created in passes grouped by process type and destination species, so channels
+that share a product species do not require one full particle scan per channel.
 
 By default, the null-collision majorant is constructed from the union of all
 cross-section table knots. Between consecutive knots the summed cross section
@@ -106,7 +108,10 @@ A user can bypass automatic construction with a collision-level majorant in
 or with ``picmi.MCCCollisions(..., nu_max=1.0e12)``. The supplied value must
 bound the sum of all configured process frequencies for every particle state
 and background density encountered by that MCC object; an underestimated value
-biases the collision probabilities. Each MCC object retains its own majorant.
+biases the collision probabilities. This includes the relative speeds produced
+by thermal-neutral sampling. WarpX checks the bound for sampled collision
+candidates and aborts if it is violated. Each MCC object retains its own
+majorant.
 The candidate probability is recalculated from the current collision timestep
 as :math:`P_{\max}=1-\exp(-\nu_{\max}\Delta t_{\mathrm{coll}})`, so
 collision subcycling and variable timesteps use the appropriate probability.
@@ -117,7 +122,34 @@ convention from ``ParticleUtils::getCollisionEnergy()`` is retained.
 The configured ``background_mass`` always denotes the neutral target mass and
 is kept separate from the mass of any ionization product species. If it is
 omitted for an ionizing electron-neutral collision, the neutral mass is inferred
-from the positive-ion product mass plus one electron mass.
+from the positive-ion product mass plus one electron mass. Attachment-only MCC
+objects must specify ``background_mass`` because a dissociative negative-ion
+product does not uniquely determine the original neutral mass.
+
+Ionization and attachment process names may have unique suffixes, for example
+``ionization_N2`` and ``attachment_O2_dissociative``. Each such process names
+its destination species with ``<process>_species``. An ionization event keeps
+the incident electron, creates one additional electron and one singly charged
+positive ion, while an attachment event consumes the incident electron and
+creates one singly charged negative ion. Created macroparticles inherit the
+incident electron weight and receive new particle IDs. Positive and negative
+product species must have charge ``+q_e`` and ``-q_e``, respectively.
+
+Attachment cross-section units are explicit. Set
+``<process>_cross_section_units = m2`` when the table already contains an
+effective two-body cross section. For a raw three-body table, set
+``<process>_cross_section_units = m5`` and provide a positive
+``<process>_third_body_density`` in :math:`\mathrm{m}^{-3}`. WarpX multiplies
+the raw table by this density exactly once before constructing the majorant.
+The unscaled values are retained in double precision so that small
+:math:`\mathrm{m}^{5}` values do not underflow in single-precision builds.
+
+The current ionization product transform retains the legacy equal sharing of
+the post-threshold electron energy and isotropic electron directions. It is not
+an exact three-product energy--momentum-conserving model. Likewise, Background
+MCC currently permits at most one event per particle per collision substep.
+Use ``ndt_subcycle`` and verify convergence when the collision optical depth is
+not small. These limitations are important for quantitative air simulations.
 
 Once a particle is selected for a specific collision process, that process determines how the particle is scattered as outlined below.
 

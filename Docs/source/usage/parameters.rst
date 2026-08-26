@@ -3071,7 +3071,8 @@ Details about the collision models can be found in the :ref:`theory section <mul
     Can also provide ``<collision_name>.background_density(x,y,z,t)`` using the parser
     initialization style for spatially and temporally varying density. With ``background_mcc``, if a function
     is used for the background density, the input parameter ``<collision_name>.max_background_density``
-    must also be provided to calculate the maximum collision probability.
+    must also be provided to calculate the automatic maximum collision probability, unless
+    :pp:param:`<collision_name>.nu_max` is supplied.
 
     The arguments ``x``, ``y`` and ``z`` are the Cartesian coordinates of the macroparticle, in every
     geometry. In ``RZ``, ``RCYLINDER`` and ``RSPHERE`` geometry this means that the radius must be
@@ -3086,13 +3087,37 @@ Details about the collision models can be found in the :ref:`theory section <mul
     initialization style for spatially and temporally varying temperature. The arguments follow the
     same convention as for :pp:param:`<collision_name>.background_density`.
 
+.. pp:param:: <collision_name>.max_background_density
+    :type: ``float``
+    :optional:
+
+    Only for ``background_mcc``. Upper bound on the background density in
+    :math:`m^{-3}` used to construct the automatic null-collision majorant. It is
+    required when ``background_density(x,y,z,t)`` is used and ``nu_max`` is not
+    supplied. For a scalar background density, that value is used by default.
+
+.. pp:param:: <collision_name>.nu_max
+    :type: ``float``
+    :optional:
+
+    Only for ``background_mcc``. User-supplied null-collision majorant in
+    :math:`s^{-1}`. It must bound the sum of all configured process frequencies
+    for every particle state, thermal-neutral sample and background density
+    encountered by this collision object. If omitted, WarpX constructs a
+    majorant from the union of the cross-section table knots and
+    ``max_background_density``. Each collision object has an independent
+    majorant.
+
 .. pp:param:: <collision_name>.background_mass
     :type: ``float``
     :optional:
 
     Only for ``background_mcc`` and ``background_stopping``. The mass of the background gas in kg.
-    With ``background_mcc``, if not given the mass of the colliding species will be used unless ionization is
-    included in which case the mass of the product species will be used.
+    With ``background_mcc``, this is always the neutral target mass. If omitted
+    for an ionizing electron-neutral collision, it is inferred as the positive-ion
+    product mass plus one electron mass. It is required for attachment-only
+    collision objects. If no product-forming process is present, it defaults to
+    the incident species mass.
     With ``background_stopping``, and ``background_type`` set to ``electrons``, if not given defaults to the electron mass. With
     ``background_type`` set to ``ions``, the mass must be given.
 
@@ -3137,14 +3162,13 @@ Details about the collision models can be found in the :ref:`theory section <mul
     :type: ``strings`` separated by spaces
 
     Only for ``dsmc`` and ``background_mcc``. The scattering processes that should be
-    included. Available options are ``elasticX``, ``excitationX``, ``twoproduct_reaction`` and ``charge_exchange``
-    for ions and ``elasticX``, ``excitationX`` and ``ionization`` for electrons.
-    Multiple elastic and excitation events can be included, corresponding e.g. to
-    excitation to different levels or to several elastic channels (with different
-    cross-sections and/or scattering angle models); the ``X`` above can be changed
-    to a unique identifier for each such process. For each scattering process specified
-    a path to a cross-section data file must also be given. We use
-    ``<scattering_process>`` as a placeholder going forward.
+    included. Available options are ``elasticX``, ``excitationX``,
+    ``twoproduct_reaction`` and ``charge_exchange`` for ions. Electron Background
+    MCC supports ``elasticX``, ``excitationX``, ``ionizationX`` and
+    ``attachmentX``. Multiple channels of each prefix-matched Background MCC
+    process can be included; ``X`` must make each process name unique. For each
+    scattering process specified, a path to a cross-section data file must also
+    be given. We use ``<scattering_process>`` as a placeholder going forward.
 
     For ``elasticX``, ``excitationX``, ``charge_exchange`` and ``twoproduct_reaction``, the
     angular distribution is controlled by the per-process
@@ -3156,17 +3180,21 @@ Details about the collision models can be found in the :ref:`theory section <mul
     Only for ``dsmc`` and ``background_mcc``. Path to the file containing cross-section data
     for the given scattering processes. The cross-section file must have exactly
     2 columns of data, the first containing energies in eV and the
-    second the corresponding cross-section in :math:`m^2`. The energy column should
+    second the corresponding cross-section. It is in :math:`m^2` except for an
+    attachment process explicitly configured with
+    ``<scattering_process>_cross_section_units = m5``. The energy column should
     represent the kinetic energy of the center-of-mass frame. The energy values in this column
-    must be in strictly increasing order.
+    must be finite, non-negative and in strictly increasing order. Cross sections
+    must be finite and non-negative.
 
 .. pp:param:: <collision_name>.<scattering_process>_energy
     :type: ``float``
 
     Only for ``dsmc`` and ``background_mcc``. The energy cost of the process, in eV. It is
-    required for ``excitationX`` and ``ionization``, optional for ``charge_exchange`` and
+    required for ``excitationX`` and ``ionizationX``, optional for ``charge_exchange`` and
     ``twoproduct_reaction`` (which may impose a fixed energy loss, defaulting to 0), and
-    ignored for ``elasticX`` processes (which have no energy cost).
+    not used for ``elasticX`` and ``attachmentX`` processes. If supplied for a
+    supported process, the value must be finite and non-negative.
 
 .. pp:param:: <collision_name>.<scattering_process>_scattering_angle_model
     :type: ``string``
@@ -3184,12 +3212,31 @@ Details about the collision models can be found in the :ref:`theory section <mul
     With ``backward``, the scattering angle is set to :math:`\pi`, i.e. the products are emitted in
     the opposite direction of the incident particle (in the center of mass frame).
 
-.. pp:param:: <collision_name>.ionization_species
+.. pp:param:: <collision_name>.<scattering_process>_species
+    :type: ``string``
+
+    Required for each ``ionizationX`` or ``attachmentX`` process in
+    ``background_mcc``. This names the positive-ion or negative-ion destination
+    species, respectively. The incident species must be electrons. The product
+    charge must be exactly ``+q_e`` for ionization or ``-q_e`` for attachment.
+
+.. pp:param:: <collision_name>.<scattering_process>_cross_section_units
+    :type: ``string``
+
+    Required for each ``attachmentX`` process in ``background_mcc``. The allowed
+    values are ``m2`` for an effective two-body cross section in
+    :math:`\mathrm{m}^{2}` and ``m5`` for a raw three-body cross section in
+    :math:`\mathrm{m}^{5}`. The latter also requires
+    ``<scattering_process>_third_body_density``.
+
+.. pp:param:: <collision_name>.<scattering_process>_third_body_density
     :type: ``float``
 
-    Only for ``background_mcc``. If the scattering process is ``ionization`` the
-    produced species must also be given. For example if argon properties is used
-    for the background gas, a species of argon ions should be specified here.
+    Required only when an attachment process uses ``cross_section_units = m5``.
+    This is the third-body density in :math:`\mathrm{m}^{-3}`. WarpX multiplies
+    the raw :math:`\mathrm{m}^{5}` table by this value once to obtain the
+    effective :math:`\mathrm{m}^{2}` cross section. It must be finite and
+    greater than zero and must not be supplied for ``m2`` tables.
 
 .. pp:param:: <collision_name>.ionization_target_species
     :type: ``string``

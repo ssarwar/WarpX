@@ -3225,7 +3225,11 @@ class MCCCollisions(picmistandard.base._ClassWithInit):
         The temperature of the background. An string expression as a function of (x, y, z, t) can be used.
 
     scattering_processes: dictionary
-        The scattering process to use and any needed information
+        The scattering processes and their parameters. Each entry requires a
+        ``cross_section`` path. Background-MCC ionization and attachment entries
+        also require a product ``species``. Attachment entries require
+        ``cross_section_units`` equal to ``"m2"`` or ``"m5"``; ``"m5"``
+        additionally requires ``third_body_density`` in m^-3.
 
     background_mass: float, optional
         The mass of the background particle. If not supplied, the default depends
