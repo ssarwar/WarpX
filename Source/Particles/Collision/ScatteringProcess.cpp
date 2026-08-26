@@ -12,6 +12,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <fstream>
+#include <limits>
 
 ScatteringProcess::ScatteringProcess (
                         const std::string& scattering_process,
@@ -19,8 +21,9 @@ ScatteringProcess::ScatteringProcess (
                         const amrex::ParticleReal energy,
                         const ScatteringAngleModel scattering_angle_model )
 {
-    // read the cross-section data file into memory
-    readCrossSectionFile(cross_section_file, m_energies, m_sigmas_h);
+    // Retain the unscaled values in double precision. Three-body attachment
+    // tables in m^5 can be much smaller than the single-precision range.
+    readCrossSectionFileRaw(cross_section_file, m_energies, m_sigmas_unscaled);
 
     init(scattering_process, energy, scattering_angle_model);
 }
@@ -33,8 +36,14 @@ ScatteringProcess::ScatteringProcess (
                         const amrex::ParticleReal energy,
                         const ScatteringAngleModel scattering_angle_model )
 {
-    m_energies.insert(m_energies.begin(), std::begin(energies), std::end(energies));
-    m_sigmas_h.insert(m_sigmas_h.begin(), std::begin(sigmas),   std::end(sigmas));
+    m_energies.reserve(energies.size());
+    m_sigmas_unscaled.reserve(sigmas.size());
+    for (auto const value : energies) {
+        m_energies.push_back(static_cast<amrex::ParticleReal>(value));
+    }
+    for (auto const value : sigmas) {
+        m_sigmas_unscaled.push_back(static_cast<double>(value));
+    }
 
     init(scattering_process, energy, scattering_angle_model);
 }
@@ -45,8 +54,10 @@ ScatteringProcess::init (const std::string& scattering_process, const amrex::Par
 {
     using namespace amrex::literals;
 
+    m_name = scattering_process;
+
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-        m_energies.size() == m_sigmas_h.size(),
+        m_energies.size() == m_sigmas_unscaled.size(),
         "Cross-section energy and value arrays must have the same length."
     );
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
@@ -54,13 +65,14 @@ ScatteringProcess::init (const std::string& scattering_process, const amrex::Par
         "Cross-section tables must contain at least two points."
     );
     sanityCheckEnergyGrid(m_energies);
-    for (auto const sigma : m_sigmas_h) {
+    for (auto const sigma : m_sigmas_unscaled) {
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-            std::isfinite(static_cast<double>(sigma)) && sigma >= 0.0_prt,
+            std::isfinite(sigma) && sigma >= 0.0,
             "Cross-section values must be finite and non-negative."
         );
     }
 
+    m_sigmas_h.resize(m_sigmas_unscaled.size());
     m_exe_h.m_energies_data = m_energies.data();
     m_exe_h.m_sigmas_data = m_sigmas_h.data();
 
@@ -69,11 +81,8 @@ ScatteringProcess::init (const std::string& scattering_process, const amrex::Par
     m_exe_h.m_grid_size = grid_size;
     m_exe_h.m_energy_lo = m_energies[0];
     m_exe_h.m_energy_hi = m_energies[grid_size-1];
-    m_exe_h.m_sigma_lo = m_sigmas_h[0];
-    m_exe_h.m_sigma_hi = m_sigmas_h[grid_size-1];
     // The energy grid does not need to be evenly spaced; `m_dE` is only used as a
-    // representative energy step (e.g. to set the scan resolution when computing the
-    // maximum collision frequency). Use the smallest spacing so that finely resolved
+    // representative energy step. Use the smallest spacing so that finely resolved
     // regions of a non-uniform grid are not skipped over.
     m_exe_h.m_dE = m_energies[grid_size-1] - m_energies[0];
     for (int i = 1; i < grid_size; i++) {
@@ -84,8 +93,11 @@ ScatteringProcess::init (const std::string& scattering_process, const amrex::Par
     m_exe_h.m_scattering_angle_model = scattering_angle_model;
     m_exe_h.m_produces_products = (
         m_exe_h.m_type == ScatteringProcessType::IONIZATION ||
+        m_exe_h.m_type == ScatteringProcessType::ATTACHMENT ||
         m_exe_h.m_type == ScatteringProcessType::TWOPRODUCT_REACTION ||
         m_exe_h.m_type == ScatteringProcessType::CHARGE_EXCHANGE);
+
+    setCrossSectionMultiplier(1.0);
 
     // check that the cross-section is 0 at the energy cost if the energy
     // cost is > 0 - this is to prevent the possibility of negative left
@@ -96,6 +108,32 @@ ScatteringProcess::init (const std::string& scattering_process, const amrex::Par
             "Cross-section > 0 at energy cost for collision."
         );
     }
+}
+
+void
+ScatteringProcess::setCrossSectionMultiplier (double const multiplier)
+{
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+        std::isfinite(multiplier) && multiplier > 0.0,
+        "Cross-section multiplier must be finite and greater than 0."
+    );
+
+    auto const max_value = static_cast<long double>(
+        std::numeric_limits<amrex::ParticleReal>::max());
+    for (std::size_t i = 0; i < m_sigmas_unscaled.size(); ++i)
+    {
+        auto const scaled =
+            static_cast<long double>(m_sigmas_unscaled[i]) * multiplier;
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            std::isfinite(scaled) && scaled <= max_value,
+            "Scaled cross-section is not representable as ParticleReal."
+        );
+        m_sigmas_h[i] = static_cast<amrex::ParticleReal>(scaled);
+    }
+
+    m_exe_h.m_sigmas_data = m_sigmas_h.data();
+    m_exe_h.m_sigma_lo = m_sigmas_h.front();
+    m_exe_h.m_sigma_hi = m_sigmas_h.back();
 
 #ifdef AMREX_USE_GPU
     m_exe_d = m_exe_h;
@@ -114,18 +152,23 @@ ScatteringProcess::init (const std::string& scattering_process, const amrex::Par
 ScatteringProcessType
 ScatteringProcess::parseProcessType(const std::string& scattering_process)
 {
-    if (scattering_process.find("elastic") != std::string::npos) {
-        // `elastic` is matched as a prefix (like `excitationX`) so that several distinct
-        // elastic channels (e.g. with different cross-sections and/or scattering angle
-        // models) can be included in the same collision under unique names.
+    auto const starts_with = [&scattering_process] (std::string const& prefix)
+    {
+        return scattering_process.rfind(prefix, 0) == 0;
+    };
+
+    if (starts_with("elastic")) {
+        // Prefix matching allows several uniquely named channels in one collision.
         return ScatteringProcessType::ELASTIC;
     } else if (scattering_process == "charge_exchange") {
         return ScatteringProcessType::CHARGE_EXCHANGE;
     } else if (scattering_process == "two_product_reaction") {
         return ScatteringProcessType::TWOPRODUCT_REACTION;
-    } else if (scattering_process == "ionization") {
+    } else if (starts_with("ionization")) {
         return ScatteringProcessType::IONIZATION;
-    } else if (scattering_process.find("excitation") != std::string::npos) {
+    } else if (starts_with("attachment")) {
+        return ScatteringProcessType::ATTACHMENT;
+    } else if (starts_with("excitation")) {
         return ScatteringProcessType::EXCITATION;
     } else {
         return ScatteringProcessType::INVALID;
@@ -133,21 +176,39 @@ ScatteringProcess::parseProcessType(const std::string& scattering_process)
 }
 
 void
-ScatteringProcess::readCrossSectionFile (
-                                  const std::string& cross_section_file,
-                                  amrex::Vector<amrex::ParticleReal>& energies,
-                                  amrex::Gpu::HostVector<amrex::ParticleReal>& sigmas )
+ScatteringProcess::readCrossSectionFileRaw (
+    const std::string& cross_section_file,
+    amrex::Vector<amrex::ParticleReal>& energies,
+    std::vector<double>& sigmas)
 {
     std::ifstream infile(cross_section_file);
-    if(!infile.is_open()) { WARPX_ABORT_WITH_MESSAGE("Failed to open cross-section data file"); }
+    if (!infile.is_open()) {
+        WARPX_ABORT_WITH_MESSAGE("Failed to open cross-section data file");
+    }
 
-    amrex::ParticleReal energy, sigma;
+    double energy;
+    double sigma;
     while (infile >> energy >> sigma) {
-        energies.push_back(energy);
+        energies.push_back(static_cast<amrex::ParticleReal>(energy));
         sigmas.push_back(sigma);
     }
-    if (infile.bad()) { WARPX_ABORT_WITH_MESSAGE("Failed to read cross-section data from file."); }
-    infile.close();
+    if (infile.bad()) {
+        WARPX_ABORT_WITH_MESSAGE("Failed to read cross-section data from file.");
+    }
+}
+
+void
+ScatteringProcess::readCrossSectionFile (
+    const std::string& cross_section_file,
+    amrex::Vector<amrex::ParticleReal>& energies,
+    amrex::Gpu::HostVector<amrex::ParticleReal>& sigmas)
+{
+    std::vector<double> raw_sigmas;
+    readCrossSectionFileRaw(cross_section_file, energies, raw_sigmas);
+    sigmas.reserve(raw_sigmas.size());
+    for (auto const sigma : raw_sigmas) {
+        sigmas.push_back(static_cast<amrex::ParticleReal>(sigma));
+    }
 }
 
 void

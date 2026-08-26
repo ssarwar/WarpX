@@ -19,6 +19,7 @@
 #include <AMReX_Vector.H>
 
 #include <string>
+#include <vector>
 
 enum class ScatteringProcessType {
     INVALID,
@@ -27,6 +28,7 @@ enum class ScatteringProcessType {
     CHARGE_EXCHANGE,
     EXCITATION,
     IONIZATION,
+    ATTACHMENT,
 };
 
 class ScatteringProcess
@@ -114,8 +116,7 @@ public:
         amrex::ParticleReal m_energy_penalty;
         ScatteringProcessType m_type;
         ScatteringAngleModel m_scattering_angle_model;
-        /** True if this process creates new product particles (ionization, charge exchange,
-         *  two-product reaction); false for purely scattering processes (elastic, excitation). **/
+        /** True if this process creates or removes particles. */
         bool m_produces_products = false;
     };
 
@@ -133,6 +134,14 @@ public:
         return m_exe_h.getCrossSection(E_coll);
     }
 
+    /** Set a one-time multiplicative conversion from the tabulated values to m^2.
+     *
+     * The unscaled values are retained in double precision. This is important for
+     * three-body attachment tables in m^5, whose entries can underflow in a
+     * single-precision build before multiplication by the third-body density.
+     */
+    void setCrossSectionMultiplier (double multiplier);
+
     [[nodiscard]] amrex::ParticleReal getEnergyPenalty () const { return m_exe_h.m_energy_penalty; }
     [[nodiscard]] amrex::ParticleReal getMinEnergyInput () const { return m_exe_h.m_energy_lo; }
     [[nodiscard]] amrex::ParticleReal getMaxEnergyInput () const { return m_exe_h.m_energy_hi; }
@@ -148,17 +157,24 @@ public:
         return m_sigmas_h;
     }
 
+    [[nodiscard]] std::string const& name () const { return m_name; }
     [[nodiscard]] ScatteringProcessType type () const { return m_exe_h.m_type; }
 
     static
     ScatteringProcessType parseProcessType(const std::string& process);
 
 private:
+    static void readCrossSectionFileRaw (
+        const std::string& cross_section_file,
+        amrex::Vector<amrex::ParticleReal>& energies,
+        std::vector<double>& sigmas);
 
     void init (const std::string& scattering_process, amrex::ParticleReal energy,
                ScatteringAngleModel scattering_angle_model);
 
+    std::string m_name;
     amrex::Vector<amrex::ParticleReal> m_energies;
+    std::vector<double> m_sigmas_unscaled;
 
 #ifdef AMREX_USE_GPU
     amrex::Gpu::DeviceVector<amrex::ParticleReal> m_energies_d;
