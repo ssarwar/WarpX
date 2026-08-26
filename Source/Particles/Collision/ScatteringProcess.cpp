@@ -57,7 +57,7 @@ ScatteringProcess::init (const std::string& scattering_process, const amrex::Par
     m_name = scattering_process;
 
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-        m_energies.size() == m_sigmas_unscaled.size(),
+        m_energies.size() == static_cast<amrex::Long>(m_sigmas_unscaled.size()),
         "Cross-section energy and value arrays must have the same length."
     );
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
