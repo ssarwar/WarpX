@@ -6,8 +6,8 @@
  */
 #include "BackgroundMCCCollision.H"
 
+#include "BackgroundMCCProducts.H"
 #include "BackgroundMCCUtils.H"
-#include "ImpactIonization.H"
 #include "Particles/Collision/BinaryCollision/BinaryCollisionUtils.H"
 #include "Particles/Collision/BinaryCollision/TwoProductUtil.H"
 #include "Particles/ParticleCreation/FilterCopyTransform.H"
@@ -26,6 +26,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <memory>
 #include <queue>
 #include <string>
 #include <vector>
@@ -137,26 +138,71 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
         pp_collision_name, "background_mass", m_background_mass);
 
     auto processes = BinaryCollisionUtils::parse_scattering_processes(collision_name);
+    amrex::Vector<int> process_product_group;
+    process_product_group.reserve(processes.size());
+
     for (auto& process : processes)
     {
+        auto const process_type = process.type();
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-            process.type() != ScatteringProcessType::INVALID,
+            process_type != ScatteringProcessType::INVALID,
             "Cannot add an unknown scattering process type."
         );
 
-        if (process.type() == ScatteringProcessType::IONIZATION)
+        if (process_type == ScatteringProcessType::ATTACHMENT)
         {
-            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-                !ionization_flag,
-                "Background MCC currently supports one ionization process per object."
-            );
-            ionization_flag = true;
-            m_ionization_process_index = static_cast<int>(m_processes.size());
-
-            std::string secondary_species;
-            pp_collision_name.get("ionization_species", secondary_species);
-            m_species_names.push_back(secondary_species);
+            amrex::ParticleReal third_body_density;
+            if (utils::parser::queryWithParser(
+                    pp_collision_name,
+                    process.name() + "_third_body_density",
+                    third_body_density))
+            {
+                WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                    std::isfinite(static_cast<double>(third_body_density)) &&
+                    third_body_density > 0.0_prt,
+                    "Attachment third_body_density must be finite and greater than 0."
+                );
+                process.setCrossSectionMultiplier(
+                    static_cast<double>(third_body_density));
+            }
         }
+
+        int product_group = -1;
+        if (process_type == ScatteringProcessType::IONIZATION ||
+            process_type == ScatteringProcessType::ATTACHMENT)
+        {
+            m_has_ionization_processes = m_has_ionization_processes ||
+                process_type == ScatteringProcessType::IONIZATION;
+            m_has_attachment_processes = m_has_attachment_processes ||
+                process_type == ScatteringProcessType::ATTACHMENT;
+
+            std::string product_species;
+            pp_collision_name.get(process.name() + "_species", product_species);
+
+            for (int i = 0; i < static_cast<int>(m_product_groups.size()); ++i)
+            {
+                if (m_product_groups[i].type == process_type &&
+                    m_product_groups[i].species_name == product_species)
+                {
+                    product_group = i;
+                    break;
+                }
+            }
+            if (product_group < 0)
+            {
+                product_group = static_cast<int>(m_product_groups.size());
+                m_product_groups.push_back({process_type, product_species});
+            }
+
+            if (std::find(
+                    m_species_names.begin(), m_species_names.end(), product_species) ==
+                m_species_names.end())
+            {
+                m_species_names.push_back(product_species);
+            }
+        }
+
+        process_product_group.push_back(product_group);
         m_processes.push_back(std::move(process));
     }
 
@@ -172,10 +218,20 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
         host_processes.begin(),
         host_processes.end(),
         m_processes_exe.begin());
+
+    m_process_product_group.resize(process_product_group.size());
+    amrex::Gpu::copyAsync(
+        amrex::Gpu::hostToDevice,
+        process_product_group.begin(),
+        process_product_group.end(),
+        m_process_product_group.begin());
     amrex::Gpu::streamSynchronize();
 #else
     for (auto const& process : m_processes) {
         m_processes_exe.push_back(process.executor());
+    }
+    for (auto const product_group : process_product_group) {
+        m_process_product_group.push_back(product_group);
     }
 #endif
 }
@@ -304,9 +360,6 @@ BackgroundMCCCollision::doCollisions (
     using namespace amrex::literals;
 
     auto& species1 = mypc->GetParticleContainerFromName(m_species_names[0]);
-    auto& species2 = (m_species_names.size() == 2)
-        ? mypc->GetParticleContainerFromName(m_species_names[1])
-        : species1;
 
     bool const first_call = !init_flag;
     if (!init_flag)
@@ -315,14 +368,82 @@ BackgroundMCCCollision::doCollisions (
         m_use_relativistic_electron_kinematics =
             species1.AmIA<PhysicalSpecies::electron>();
 
-        if (m_background_mass < 0.0_prt)
+        if (!m_product_groups.empty())
         {
-            if (ionization_flag) {
-                m_background_mass = species2.getMass() + PhysConst::m_e;
-            } else {
-                m_background_mass = species1.getMass();
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                m_use_relativistic_electron_kinematics,
+                "Background MCC ionization and attachment require an electron "
+                "incident species."
+            );
+
+            amrex::ParticleReal inferred_background_mass = -1.0_prt;
+            auto const charge_tolerance = 0.01_prt*PhysConst::q_e;
+            auto const mass_tolerance = 100.0_prt*
+                std::numeric_limits<amrex::ParticleReal>::epsilon();
+
+            for (auto const& product_group : m_product_groups)
+            {
+                auto& product = mypc->GetParticleContainerFromName(
+                    product_group.species_name);
+                WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                    product_group.species_name != m_species_names[0],
+                    "Background MCC product species must differ from the incident "
+                    "electron species."
+                );
+
+                if (product_group.type == ScatteringProcessType::IONIZATION)
+                {
+                    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                        std::abs(product.getCharge() - PhysConst::q_e) <=
+                            charge_tolerance,
+                        "Background MCC ionization product species must have charge +q_e."
+                    );
+
+                    auto const candidate_mass = product.getMass() + PhysConst::m_e;
+                    if (inferred_background_mass < 0.0_prt)
+                    {
+                        inferred_background_mass = candidate_mass;
+                    }
+                    else
+                    {
+                        auto const mass_scale = std::max(
+                            std::abs(inferred_background_mass),
+                            std::abs(candidate_mass));
+                        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                            std::abs(candidate_mass - inferred_background_mass) <=
+                                mass_tolerance*mass_scale,
+                            "Ionization product masses imply different neutral masses. "
+                            "Specify background_mass explicitly for dissociative or "
+                            "multi-target channels."
+                        );
+                    }
+                }
+                else
+                {
+                    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                        std::abs(product.getCharge() + PhysConst::q_e) <=
+                            charge_tolerance,
+                        "Background MCC attachment product species must have charge -q_e."
+                    );
+                }
+            }
+
+            if (m_background_mass < 0.0_prt)
+            {
+                WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                    inferred_background_mass > 0.0_prt,
+                    "background_mass is required for attachment-only Background MCC "
+                    "blocks because dissociative product mass does not determine the "
+                    "target-neutral mass."
+                );
+                m_background_mass = inferred_background_mass;
             }
         }
+        else if (m_background_mass < 0.0_prt)
+        {
+            m_background_mass = species1.getMass();
+        }
+
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
             m_background_mass > 0.0_prt,
             "The background neutral mass must be greater than 0."
@@ -357,6 +478,7 @@ BackgroundMCCCollision::doCollisions (
             + (m_user_nu_max ? " (user supplied)" : " (automatic)")
             + "\n     total collision probability: "
             + std::to_string(m_total_collision_prob)
+            + "\n     product groups: " + std::to_string(m_product_groups.size())
         );
     }
 
@@ -364,7 +486,7 @@ BackgroundMCCCollision::doCollisions (
 
     auto const finest_level = species1.finestLevel();
 
-    if (!ionization_flag)
+    if (m_product_groups.empty())
     {
         for (int lev = 0; lev <= finest_level; ++lev)
         {
@@ -381,7 +503,8 @@ BackgroundMCCCollision::doCollisions (
                 }
                 auto wt = static_cast<amrex::Real>(amrex::second());
 
-                doBackgroundCollisionsWithinTile(pti, cur_time, nullptr);
+                doBackgroundCollisionsWithinTile(
+                    pti, cur_time, nullptr, nullptr, nullptr, nullptr);
 
                 if (cost && WarpX::load_balance_costs_update_algo ==
                             LoadBalanceCostsUpdateAlgo::Timers)
@@ -396,18 +519,23 @@ BackgroundMCCCollision::doCollisions (
     }
 
     const SmartCopyFactory copy_factory_elec(species1, species1);
-    const SmartCopyFactory copy_factory_ion(species1, species2);
     const auto CopyElec = copy_factory_elec.getSmartCopy();
-    const auto CopyIon = copy_factory_ion.getSmartCopy();
 
-    const amrex::ParticleReal sqrt_kb_m =
-        std::sqrt(PhysConst::kb/m_background_mass);
-    const auto Transform = ImpactIonizationTransformFunc(
-        m_processes[m_ionization_process_index].getEnergyPenalty(),
-        m_mass1,
-        sqrt_kb_m,
-        m_background_temperature_func,
-        cur_time);
+    std::vector<WarpXParticleContainer*> product_species;
+    std::vector<std::unique_ptr<SmartCopyFactory>> product_copy_factories;
+    std::vector<SmartCopy> product_copies;
+    product_species.reserve(m_product_groups.size());
+    product_copy_factories.reserve(m_product_groups.size());
+    product_copies.reserve(m_product_groups.size());
+
+    for (auto const& product_group : m_product_groups)
+    {
+        auto& product = mypc->GetParticleContainerFromName(product_group.species_name);
+        product_species.push_back(&product);
+        product_copy_factories.push_back(
+            std::make_unique<SmartCopyFactory>(species1, product));
+        product_copies.push_back(product_copy_factories.back()->getSmartCopy());
+    }
 
     for (int lev = 0; lev <= finest_level; ++lev)
     {
@@ -424,30 +552,105 @@ BackgroundMCCCollision::doCollisions (
             }
             auto wt = static_cast<amrex::Real>(amrex::second());
 
-            auto& elec_tile = species1.ParticlesAt(lev, pti);
-            auto& ion_tile = species2.ParticlesAt(lev, pti);
-            const amrex::Long np_elec = elec_tile.numParticles();
-            const amrex::Long np_ion = ion_tile.numParticles();
+            auto& source_tile = species1.ParticlesAt(lev, pti);
+            amrex::Long const np_source = source_tile.numParticles();
+            if (np_source > 0)
+            {
+                amrex::Long const metadata_size = m_has_ionization_processes
+                    ? 2*np_source : np_source;
+                amrex::Gpu::DeviceVector<int> selected_process(metadata_size);
+                amrex::Gpu::DeviceVector<amrex::ParticleReal> neutral_vx(np_source);
+                amrex::Gpu::DeviceVector<amrex::ParticleReal> neutral_vy(np_source);
+                amrex::Gpu::DeviceVector<amrex::ParticleReal> neutral_vz(np_source);
 
-            amrex::Gpu::DeviceVector<amrex::Long> ionization_mask(np_elec);
-            doBackgroundCollisionsWithinTile(
-                pti, cur_time, ionization_mask.dataPtr());
+                if (metadata_size > np_source)
+                {
+                    int* const selected = selected_process.dataPtr();
+                    amrex::ParallelFor(
+                        np_source,
+                        [=] AMREX_GPU_HOST_DEVICE (amrex::Long i) noexcept
+                        {
+                            selected[np_source + i] = -1;
+                        });
+                }
 
-            const auto num_added = filterCopyTransformParticles<1>(
-                species1,
-                species2,
-                elec_tile,
-                ion_tile,
-                elec_tile,
-                ionization_mask.dataPtr(),
-                np_elec,
-                np_ion,
-                CopyElec,
-                CopyIon,
-                Transform);
+                doBackgroundCollisionsWithinTile(
+                    pti,
+                    cur_time,
+                    selected_process.dataPtr(),
+                    neutral_vx.dataPtr(),
+                    neutral_vy.dataPtr(),
+                    neutral_vz.dataPtr());
 
-            setNewParticleIDs(elec_tile, np_elec, num_added);
-            setNewParticleIDs(ion_tile, np_ion, num_added);
+                for (int group_index = 0;
+                     group_index < static_cast<int>(m_product_groups.size());
+                     ++group_index)
+                {
+                    auto& product = *product_species[group_index];
+                    auto& product_tile = product.ParticlesAt(lev, pti);
+                    amrex::Long const old_product_count =
+                        product_tile.numParticles();
+
+                    const auto Filter = BackgroundMCCProductFilterFunc(
+                        group_index,
+                        selected_process.dataPtr(),
+                        m_process_product_group.dataPtr());
+
+                    amrex::Long num_added = 0;
+                    if (m_product_groups[group_index].type ==
+                        ScatteringProcessType::ATTACHMENT)
+                    {
+                        const auto Transform = AttachmentTransformFunc(
+                            neutral_vx.dataPtr(),
+                            neutral_vy.dataPtr(),
+                            neutral_vz.dataPtr());
+                        num_added = filterCopyTransformParticles<1>(
+                            product,
+                            product_tile,
+                            source_tile,
+                            old_product_count,
+                            Filter,
+                            product_copies[group_index],
+                            Transform);
+                        setNewParticleIDs(
+                            product_tile, old_product_count, num_added);
+                    }
+                    else
+                    {
+                        amrex::Long const old_electron_count =
+                            source_tile.numParticles();
+                        const auto Transform = ImpactIonizationTransformFunc(
+                            m_processes_exe.data(),
+                            selected_process.dataPtr(),
+                            neutral_vx.dataPtr(),
+                            neutral_vy.dataPtr(),
+                            neutral_vz.dataPtr(),
+                            m_mass1);
+                        num_added = filterCopyTransformParticles<1>(
+                            species1,
+                            product,
+                            source_tile,
+                            product_tile,
+                            source_tile,
+                            old_electron_count,
+                            old_product_count,
+                            Filter,
+                            CopyElec,
+                            product_copies[group_index],
+                            Transform);
+                        setNewParticleIDs(
+                            source_tile, old_electron_count, num_added);
+                        setNewParticleIDs(
+                            product_tile, old_product_count, num_added);
+
+                        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                            source_tile.numParticles() <= metadata_size,
+                            "Background MCC created more than one electron per "
+                            "original incident particle."
+                        );
+                    }
+                }
+            }
 
             if (cost && WarpX::load_balance_costs_update_algo ==
                         LoadBalanceCostsUpdateAlgo::Timers)
@@ -458,11 +661,20 @@ BackgroundMCCCollision::doCollisions (
             }
         }
     }
+
+    if (m_has_attachment_processes) {
+        species1.deleteInvalidParticles();
+    }
 }
 
 void
 BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
-    WarpXParIter& pti, amrex::Real t, amrex::Long* ionization_mask)
+    WarpXParIter& pti,
+    amrex::Real t,
+    int* selected_process,
+    amrex::ParticleReal* neutral_vx,
+    amrex::ParticleReal* neutral_vy,
+    amrex::ParticleReal* neutral_vz)
 {
     using namespace amrex::literals;
     using std::sqrt;
@@ -473,9 +685,11 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
 
     auto* processes = m_processes_exe.data();
     auto const process_count = static_cast<int>(m_processes_exe.size());
-    auto const ionization_process_index = m_ionization_process_index;
+    auto const* process_product_group = m_process_product_group.data();
     auto const total_collision_prob = m_total_collision_prob;
     auto const nu_max = m_nu_max;
+    auto const user_nu_max = m_user_nu_max;
+    auto const max_background_density = m_max_background_density;
     auto const use_relativistic_electron_kinematics =
         m_use_relativistic_electron_kinematics;
 
@@ -488,12 +702,15 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
     amrex::ParticleReal* const AMREX_RESTRICT uy = attribs[PIdx::uy].dataPtr();
     amrex::ParticleReal* const AMREX_RESTRICT uz = attribs[PIdx::uz].dataPtr();
 
+    auto const tolerance = 64.0_prt*
+        std::numeric_limits<amrex::ParticleReal>::epsilon();
+
     amrex::ParallelForRNG(
         np,
         [=] AMREX_GPU_HOST_DEVICE (
             long ip, amrex::RandomEngine const& engine)
         {
-            if (ionization_mask != nullptr) { ionization_mask[ip] = 0; }
+            if (selected_process != nullptr) { selected_process[ip] = -1; }
             if (amrex::Random(engine) > total_collision_prob) { return; }
 
             amrex::ParticleReal x, y, z;
@@ -501,6 +718,26 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
 
             const amrex::ParticleReal n_a = n_a_func(x, y, z, t);
             const amrex::ParticleReal T_a = T_a_func(x, y, z, t);
+
+            bool const valid_density = n_a >= 0.0_prt &&
+                (user_nu_max ||
+                 n_a <= max_background_density*(1.0_prt + tolerance));
+            bool const valid_temperature = T_a >= 0.0_prt;
+            AMREX_IF_ON_DEVICE((
+                AMREX_DEVICE_ASSERT(valid_density);
+                AMREX_DEVICE_ASSERT(valid_temperature);
+            ))
+            AMREX_IF_ON_HOST((
+                if (!valid_density) {
+                    amrex::Abort(
+                        "Background MCC density is negative or exceeds "
+                        "max_background_density.");
+                }
+                if (!valid_temperature) {
+                    amrex::Abort("Background MCC temperature is negative.");
+                }
+            ))
+            if (n_a == 0.0_prt) { return; }
 
             const auto vel_std = sqrt(PhysConst::kb*T_a/M);
             const amrex::ParticleReal ua_x =
@@ -533,35 +770,62 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
 
             const amrex::ParticleReal process_draw = amrex::Random(engine);
             amrex::ParticleReal cumulative_probability = 0.0_prt;
+            int chosen_process = -1;
 
             for (int i = 0; i < process_count; ++i)
             {
                 auto const& process = processes[i];
                 const auto sigma = process.getCrossSection(E_coll);
                 cumulative_probability += n_a*sigma*v_coll/nu_max;
-                if (process_draw > cumulative_probability) { continue; }
-
-                if (i == ionization_process_index)
+                if (chosen_process < 0 &&
+                    process_draw <= cumulative_probability)
                 {
-                    ionization_mask[ip] = 1;
-                    break;
+                    chosen_process = i;
+                    if (!user_nu_max) { break; }
                 }
-
-                amrex::ParticleReal u1x_out, u1y_out, u1z_out;
-                amrex::ParticleReal u2x_out, u2y_out, u2z_out;
-                TwoProductComputeProductMomenta(
-                    ux[ip], uy[ip], uz[ip], m,
-                    ua_x, ua_y, ua_z, M,
-                    u1x_out, u1y_out, u1z_out, m,
-                    u2x_out, u2y_out, u2z_out, M,
-                    -process.m_energy_penalty*PhysConst::q_e,
-                    process.m_scattering_angle_model,
-                    engine);
-
-                ux[ip] = u1x_out;
-                uy[ip] = u1y_out;
-                uz[ip] = u1z_out;
-                break;
             }
+
+            if (user_nu_max)
+            {
+                bool const valid_majorant =
+                    cumulative_probability <= 1.0_prt + tolerance;
+                AMREX_IF_ON_DEVICE((
+                    AMREX_DEVICE_ASSERT(valid_majorant);
+                ))
+                AMREX_IF_ON_HOST((
+                    if (!valid_majorant) {
+                        amrex::Abort(
+                            "User-specified Background MCC nu_max is smaller "
+                            "than the local total collision frequency.");
+                    }
+                ))
+            }
+
+            if (chosen_process < 0) { return; }
+
+            if (process_product_group[chosen_process] >= 0)
+            {
+                selected_process[ip] = chosen_process;
+                neutral_vx[ip] = ua_x;
+                neutral_vy[ip] = ua_y;
+                neutral_vz[ip] = ua_z;
+                return;
+            }
+
+            auto const& process = processes[chosen_process];
+            amrex::ParticleReal u1x_out, u1y_out, u1z_out;
+            amrex::ParticleReal u2x_out, u2y_out, u2z_out;
+            TwoProductComputeProductMomenta(
+                ux[ip], uy[ip], uz[ip], m,
+                ua_x, ua_y, ua_z, M,
+                u1x_out, u1y_out, u1z_out, m,
+                u2x_out, u2y_out, u2z_out, M,
+                -process.m_energy_penalty*PhysConst::q_e,
+                process.m_scattering_angle_model,
+                engine);
+
+            ux[ip] = u1x_out;
+            uy[ip] = u1y_out;
+            uz[ip] = u1z_out;
         });
 }

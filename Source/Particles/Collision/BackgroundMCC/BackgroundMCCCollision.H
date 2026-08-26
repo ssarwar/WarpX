@@ -46,28 +46,42 @@ public:
 
     /** Select and apply at most one Background MCC process per particle.
      *
-     * Product-producing ionization events are recorded in ionization_mask and
-     * transformed in a later particle-creation pass. Pure scattering events are
-     * applied in place.
+     * Product-changing events are recorded for a later grouped particle-creation
+     * pass. Pure scattering events are applied in place.
      *
      * @param pti particle iterator
      * @param t current time
-     * @param ionization_mask optional per-particle mask for ionization events
+     * @param selected_process optional selected process index per particle
+     * @param neutral_vx optional sampled neutral x velocity per particle
+     * @param neutral_vy optional sampled neutral y velocity per particle
+     * @param neutral_vz optional sampled neutral z velocity per particle
      */
     void doBackgroundCollisionsWithinTile (
-        WarpXParIter& pti, amrex::Real t, amrex::Long* ionization_mask);
+        WarpXParIter& pti,
+        amrex::Real t,
+        int* selected_process,
+        amrex::ParticleReal* neutral_vx,
+        amrex::ParticleReal* neutral_vy,
+        amrex::ParticleReal* neutral_vz);
 
 private:
+    struct ProductGroup
+    {
+        ScatteringProcessType type = ScatteringProcessType::INVALID;
+        std::string species_name;
+    };
+
     amrex::Vector<ScatteringProcess> m_processes;
     amrex::Gpu::DeviceVector<ScatteringProcess::Executor> m_processes_exe;
+    amrex::Vector<ProductGroup> m_product_groups;
+    amrex::Gpu::DeviceVector<int> m_process_product_group;
 
     bool init_flag = false;
-    bool ionization_flag = false;
+    bool m_has_ionization_processes = false;
+    bool m_has_attachment_processes = false;
     bool m_use_relativistic_electron_kinematics = false;
     bool m_user_nu_max = false;
     bool m_warned_large_dt = false;
-
-    int m_ionization_process_index = -1;
 
     amrex::ParticleReal m_mass1 = 0;
     amrex::ParticleReal m_max_background_density = 0;
