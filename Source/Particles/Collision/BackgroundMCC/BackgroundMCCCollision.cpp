@@ -152,9 +152,11 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
         if (process_type == ScatteringProcessType::ATTACHMENT)
         {
             amrex::ParticleReal third_body_density;
+            auto const third_body_density_key =
+                process.name() + "_third_body_density";
             if (utils::parser::queryWithParser(
                     pp_collision_name,
-                    process.name() + "_third_body_density",
+                    third_body_density_key.c_str(),
                     third_body_density))
             {
                 WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
