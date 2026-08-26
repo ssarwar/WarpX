@@ -12,6 +12,16 @@ add_warpx_test(
 )
 
 add_warpx_test(
+    test_1d_background_mcc_bad_inputs_picmi  # name
+    1  # dims
+    1  # nprocs
+    inputs_test_1d_background_mcc_bad_inputs_picmi.py  # inputs
+    OFF  # analysis
+    OFF  # checksum
+    OFF  # dependency
+)
+
+add_warpx_test(
     test_1d_background_mcc_many_attachment_picmi  # name
     1  # dims
     1  # nprocs

@@ -133,7 +133,8 @@ namespace BinaryCollisionUtils{
                 process_type == ScatteringProcessType::IONIZATION) {
                 utils::parser::getWithParser(
                     pp_collision_name, kw_energy.c_str(), energy);
-            } else if (process_type != ScatteringProcessType::ELASTIC) {
+            } else if (process_type == ScatteringProcessType::CHARGE_EXCHANGE ||
+                       process_type == ScatteringProcessType::TWOPRODUCT_REACTION) {
                 utils::parser::queryWithParser(
                     pp_collision_name, kw_energy.c_str(), energy);
             }

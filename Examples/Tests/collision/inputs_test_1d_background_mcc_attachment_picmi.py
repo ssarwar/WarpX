@@ -27,13 +27,7 @@ KB = picmi.constants.kb
 
 GAMMA = 1.0 + ELECTRON_ENERGY_EV * Q_E / (M_E * C**2)
 ELECTRON_SPEED = C * math.sqrt(1.0 - 1.0 / GAMMA**2)
-NU_MAX = (
-    MAJORANT_SAFETY
-    * BACKGROUND_DENSITY
-    * 4.0
-    * CROSS_SECTION
-    * ELECTRON_SPEED
-)
+NU_MAX = MAJORANT_SAFETY * BACKGROUND_DENSITY * 4.0 * CROSS_SECTION * ELECTRON_SPEED
 DT = COLLISION_OPTICAL_DEPTH / NU_MAX
 NEUTRAL_VELOCITY_STD = math.sqrt(KB * BACKGROUND_TEMPERATURE / BACKGROUND_MASS)
 
@@ -79,12 +73,8 @@ electrons = picmi.Species(
 )
 ion_a = make_product_species("ion_a", "q_e", BACKGROUND_MASS - M_E)
 ion_b = make_product_species("ion_b", "q_e", BACKGROUND_MASS - M_E)
-negative_a = make_product_species(
-    "negative_a", "-q_e", BACKGROUND_MASS + M_E
-)
-negative_b = make_product_species(
-    "negative_b", "-q_e", BACKGROUND_MASS + M_E
-)
+negative_a = make_product_species("negative_a", "-q_e", BACKGROUND_MASS + M_E)
+negative_b = make_product_species("negative_b", "-q_e", BACKGROUND_MASS + M_E)
 
 collision = picmi.MCCCollisions(
     name="mcc",
@@ -108,15 +98,13 @@ collision = picmi.MCCCollisions(
             "species": ion_b,
         },
         "attachment_dissociative": {
-            "cross_section": str(
-                source_dir / "background_mcc_attachment_m2.txt"
-            ),
+            "cross_section": str(source_dir / "background_mcc_attachment_m2.txt"),
+            "cross_section_units": "m2",
             "species": negative_a,
         },
         "attachment_three_body": {
-            "cross_section": str(
-                source_dir / "background_mcc_attachment_m5.txt"
-            ),
+            "cross_section": str(source_dir / "background_mcc_attachment_m5.txt"),
+            "cross_section_units": "m5",
             "third_body_density": THIRD_BODY_DENSITY,
             "species": negative_b,
         },
@@ -133,9 +121,7 @@ sim = picmi.Simulation(
 )
 sim.add_species(
     electrons,
-    layout=picmi.GriddedLayout(
-        n_macroparticle_per_cell=[PARTICLE_COUNT], grid=grid
-    ),
+    layout=picmi.GriddedLayout(n_macroparticle_per_cell=[PARTICLE_COUNT], grid=grid),
 )
 for species in [ion_a, ion_b, negative_a, negative_b]:
     sim.add_species(
@@ -144,9 +130,6 @@ for species in [ion_a, ion_b, negative_a, negative_b]:
             n_macroparticle_per_cell=[INITIAL_PRODUCT_COUNT], grid=grid
         ),
     )
-
-sim.initialize_warpx()
-sim.step(1)
 
 
 def to_numpy(array):
@@ -159,23 +142,40 @@ def get_component(container, component):
     )
 
 
+def get_ids(container):
+    return np.concatenate(
+        [
+            to_numpy(libwarpx.amr.unpack_ids(pti["idcpu"]))
+            for pti in container.iterator(level=0)
+        ]
+    )
+
+
+sim.initialize_inputs()
+sim.initialize_warpx()
+electron_container = sim.particles.get("electrons")
+initial_electron_w = get_component(electron_container, "w")
+initial_electron_ids = get_ids(electron_container)
+sim.step(1)
+
+
 def product_data(name):
     container = sim.particles.get(name)
     count = container.number_of_particles(only_local=True)
     components = {
         component: get_component(container, component)
-        for component in ["ux", "uy", "uz"]
+        for component in ["ux", "uy", "uz", "w"]
     }
-    return count, components
+    return count, components, get_ids(container)
 
 
-electron_count = sim.particles.get("electrons").number_of_particles(
-    only_local=True
-)
-ion_a_count, ion_a_u = product_data("ion_a")
-ion_b_count, ion_b_u = product_data("ion_b")
-negative_a_count, negative_a_u = product_data("negative_a")
-negative_b_count, negative_b_u = product_data("negative_b")
+electron_count = electron_container.number_of_particles(only_local=True)
+electron_w = get_component(electron_container, "w")
+electron_ids = get_ids(electron_container)
+ion_a_count, ion_a_data, ion_a_ids = product_data("ion_a")
+ion_b_count, ion_b_data, ion_b_ids = product_data("ion_b")
+negative_a_count, negative_a_data, negative_a_ids = product_data("negative_a")
+negative_b_count, negative_b_data, negative_b_ids = product_data("negative_b")
 
 if libwarpx.amr.ParallelDescriptor.MyProc() == 0:
     np.savez(
@@ -185,18 +185,30 @@ if libwarpx.amr.ParallelDescriptor.MyProc() == 0:
         ion_b_events=ion_b_count - INITIAL_PRODUCT_COUNT,
         negative_a_events=negative_a_count - INITIAL_PRODUCT_COUNT,
         negative_b_events=negative_b_count - INITIAL_PRODUCT_COUNT,
-        ion_a_ux=ion_a_u["ux"][INITIAL_PRODUCT_COUNT:],
-        ion_a_uy=ion_a_u["uy"][INITIAL_PRODUCT_COUNT:],
-        ion_a_uz=ion_a_u["uz"][INITIAL_PRODUCT_COUNT:],
-        ion_b_ux=ion_b_u["ux"][INITIAL_PRODUCT_COUNT:],
-        ion_b_uy=ion_b_u["uy"][INITIAL_PRODUCT_COUNT:],
-        ion_b_uz=ion_b_u["uz"][INITIAL_PRODUCT_COUNT:],
-        negative_a_ux=negative_a_u["ux"][INITIAL_PRODUCT_COUNT:],
-        negative_a_uy=negative_a_u["uy"][INITIAL_PRODUCT_COUNT:],
-        negative_a_uz=negative_a_u["uz"][INITIAL_PRODUCT_COUNT:],
-        negative_b_ux=negative_b_u["ux"][INITIAL_PRODUCT_COUNT:],
-        negative_b_uy=negative_b_u["uy"][INITIAL_PRODUCT_COUNT:],
-        negative_b_uz=negative_b_u["uz"][INITIAL_PRODUCT_COUNT:],
+        initial_electron_w=initial_electron_w,
+        initial_electron_ids=initial_electron_ids,
+        electron_w=electron_w,
+        electron_ids=electron_ids,
+        ion_a_w=ion_a_data["w"][INITIAL_PRODUCT_COUNT:],
+        ion_a_ids=ion_a_ids[INITIAL_PRODUCT_COUNT:],
+        ion_a_ux=ion_a_data["ux"][INITIAL_PRODUCT_COUNT:],
+        ion_a_uy=ion_a_data["uy"][INITIAL_PRODUCT_COUNT:],
+        ion_a_uz=ion_a_data["uz"][INITIAL_PRODUCT_COUNT:],
+        ion_b_w=ion_b_data["w"][INITIAL_PRODUCT_COUNT:],
+        ion_b_ids=ion_b_ids[INITIAL_PRODUCT_COUNT:],
+        ion_b_ux=ion_b_data["ux"][INITIAL_PRODUCT_COUNT:],
+        ion_b_uy=ion_b_data["uy"][INITIAL_PRODUCT_COUNT:],
+        ion_b_uz=ion_b_data["uz"][INITIAL_PRODUCT_COUNT:],
+        negative_a_w=negative_a_data["w"][INITIAL_PRODUCT_COUNT:],
+        negative_a_ids=negative_a_ids[INITIAL_PRODUCT_COUNT:],
+        negative_a_ux=negative_a_data["ux"][INITIAL_PRODUCT_COUNT:],
+        negative_a_uy=negative_a_data["uy"][INITIAL_PRODUCT_COUNT:],
+        negative_a_uz=negative_a_data["uz"][INITIAL_PRODUCT_COUNT:],
+        negative_b_w=negative_b_data["w"][INITIAL_PRODUCT_COUNT:],
+        negative_b_ids=negative_b_ids[INITIAL_PRODUCT_COUNT:],
+        negative_b_ux=negative_b_data["ux"][INITIAL_PRODUCT_COUNT:],
+        negative_b_uy=negative_b_data["uy"][INITIAL_PRODUCT_COUNT:],
+        negative_b_uz=negative_b_data["uz"][INITIAL_PRODUCT_COUNT:],
         neutral_velocity_std=NEUTRAL_VELOCITY_STD,
     )
 

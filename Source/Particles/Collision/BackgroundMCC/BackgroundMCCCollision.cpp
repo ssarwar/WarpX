@@ -70,8 +70,9 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
             pp_collision_name, "background_density", background_density))
     {
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-            background_density > 0,
-            "The background density must be greater than 0."
+            std::isfinite(static_cast<double>(background_density)) &&
+                background_density > 0,
+            "The background density must be finite and greater than 0."
         );
         m_background_density_parser = utils::parser::makeParser(
             std::to_string(background_density), {"x", "y", "z", "t"});
@@ -90,8 +91,9 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
             pp_collision_name, "background_temperature", background_temperature))
     {
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-            background_temperature >= 0,
-            "The background temperature must be non-negative."
+            std::isfinite(static_cast<double>(background_temperature)) &&
+                background_temperature >= 0,
+            "The background temperature must be finite and non-negative."
         );
         m_background_temperature_parser = utils::parser::makeParser(
             std::to_string(background_temperature), {"x", "y", "z", "t"});
@@ -120,8 +122,16 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
         );
     }
 
-    utils::parser::queryWithParser(
+    auto const has_max_background_density = utils::parser::queryWithParser(
         pp_collision_name, "max_background_density", m_max_background_density);
+    if (has_max_background_density)
+    {
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            std::isfinite(static_cast<double>(m_max_background_density)) &&
+                m_max_background_density > 0.0_prt,
+            "The maximum background density must be finite and greater than 0."
+        );
+    }
     if (m_max_background_density == 0 && background_density != 0) {
         m_max_background_density = background_density;
     }
@@ -151,14 +161,35 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
 
         if (process_type == ScatteringProcessType::ATTACHMENT)
         {
-            amrex::ParticleReal third_body_density;
+            auto const units_key = process.name() + "_cross_section_units";
+            std::string cross_section_units;
+            auto const has_cross_section_units =
+                pp_collision_name.query(units_key, cross_section_units);
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                has_cross_section_units,
+                "Every attachment process must specify <process>_cross_section_units "
+                "as either m2 or m5."
+            );
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                cross_section_units == "m2" || cross_section_units == "m5",
+                "Attachment cross_section_units must be either m2 or m5."
+            );
+
+            amrex::ParticleReal third_body_density = 0.0_prt;
             auto const third_body_density_key =
                 process.name() + "_third_body_density";
-            if (utils::parser::queryWithParser(
-                    pp_collision_name,
-                    third_body_density_key.c_str(),
-                    third_body_density))
+            auto const has_third_body_density = utils::parser::queryWithParser(
+                pp_collision_name,
+                third_body_density_key.c_str(),
+                third_body_density);
+
+            if (cross_section_units == "m5")
             {
+                WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                    has_third_body_density,
+                    "Attachment cross sections in m5 require a positive "
+                    "<process>_third_body_density in m^-3."
+                );
                 WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
                     std::isfinite(static_cast<double>(third_body_density)) &&
                     third_body_density > 0.0_prt,
@@ -166,6 +197,14 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
                 );
                 process.setCrossSectionMultiplier(
                     static_cast<double>(third_body_density));
+            }
+            else
+            {
+                WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                    !has_third_body_density,
+                    "Attachment third_body_density is only valid when "
+                    "cross_section_units = m5."
+                );
             }
         }
 
@@ -379,7 +418,8 @@ BackgroundMCCCollision::doCollisions (
             );
 
             amrex::ParticleReal inferred_background_mass = -1.0_prt;
-            auto const charge_tolerance = 0.01_prt*PhysConst::q_e;
+            auto const charge_tolerance = 100.0_prt*
+                std::numeric_limits<amrex::ParticleReal>::epsilon()*PhysConst::q_e;
             auto const mass_tolerance = 100.0_prt*
                 std::numeric_limits<amrex::ParticleReal>::epsilon();
 
@@ -447,8 +487,9 @@ BackgroundMCCCollision::doCollisions (
         }
 
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-            m_background_mass > 0.0_prt,
-            "The background neutral mass must be greater than 0."
+            std::isfinite(static_cast<double>(m_background_mass)) &&
+                m_background_mass > 0.0_prt,
+            "The background neutral mass must be finite and greater than 0."
         );
 
         if (!m_user_nu_max) {
@@ -584,6 +625,8 @@ BackgroundMCCCollision::doCollisions (
                     neutral_vy.dataPtr(),
                     neutral_vz.dataPtr());
 
+                ABLASTR_PROFILE_VAR(
+                    "BackgroundMCCCollision::createProducts()", prof_create_products);
                 for (int group_index = 0;
                      group_index < static_cast<int>(m_product_groups.size());
                      ++group_index)
@@ -652,6 +695,7 @@ BackgroundMCCCollision::doCollisions (
                         );
                     }
                 }
+                ABLASTR_PROFILE_VAR_STOP(prof_create_products);
             }
 
             if (cost && WarpX::load_balance_costs_update_algo ==
@@ -664,7 +708,9 @@ BackgroundMCCCollision::doCollisions (
         }
     }
 
-    if (m_has_attachment_processes) {
+    if (m_has_attachment_processes)
+    {
+        ABLASTR_PROFILE("BackgroundMCCCollision::compactAttachedElectrons()");
         species1.deleteInvalidParticles();
     }
 }
@@ -678,6 +724,7 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
     amrex::ParticleReal* neutral_vy,
     amrex::ParticleReal* neutral_vz)
 {
+    ABLASTR_PROFILE("BackgroundMCCCollision::selectAndScatter()");
     using namespace amrex::literals;
     using std::sqrt;
 
@@ -722,9 +769,11 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
             const amrex::ParticleReal T_a = T_a_func(x, y, z, t);
 
             bool const valid_density = n_a >= 0.0_prt &&
+                n_a <= std::numeric_limits<amrex::ParticleReal>::max() &&
                 (user_nu_max ||
                  n_a <= max_background_density*(1.0_prt + tolerance));
-            bool const valid_temperature = T_a >= 0.0_prt;
+            bool const valid_temperature = T_a >= 0.0_prt &&
+                T_a <= std::numeric_limits<amrex::ParticleReal>::max();
             AMREX_IF_ON_DEVICE((
                 AMREX_DEVICE_ASSERT(valid_density);
                 AMREX_DEVICE_ASSERT(valid_temperature);

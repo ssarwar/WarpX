@@ -14,6 +14,7 @@
 #include <cmath>
 #include <fstream>
 #include <limits>
+#include <sstream>
 
 ScatteringProcess::ScatteringProcess (
                         const std::string& scattering_process,
@@ -55,6 +56,11 @@ ScatteringProcess::init (const std::string& scattering_process, const amrex::Par
     using namespace amrex::literals;
 
     m_name = scattering_process;
+
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+        std::isfinite(static_cast<double>(energy)) && energy >= 0.0_prt,
+        "The scattering-process energy cost must be finite and non-negative."
+    );
 
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
         m_energies.size() == static_cast<amrex::Long>(m_sigmas_unscaled.size()),
@@ -186,9 +192,30 @@ ScatteringProcess::readCrossSectionFileRaw (
         WARPX_ABORT_WITH_MESSAGE("Failed to open cross-section data file");
     }
 
-    double energy;
-    double sigma;
-    while (infile >> energy >> sigma) {
+    std::string line;
+    int line_number = 0;
+    while (std::getline(infile, line))
+    {
+        ++line_number;
+        std::istringstream row(line);
+        row >> std::ws;
+        if (row.eof() || row.peek() == '#') { continue; }
+
+        double energy;
+        double sigma;
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            static_cast<bool>(row >> energy >> sigma),
+            "Each cross-section table row must contain an energy and a cross-section. "
+            "Invalid row " + std::to_string(line_number) + " in " + cross_section_file + "."
+        );
+
+        std::string trailing;
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            !(row >> trailing) || trailing.rfind('#', 0) == 0,
+            "Cross-section tables must contain exactly two columns. Invalid row " +
+            std::to_string(line_number) + " in " + cross_section_file + "."
+        );
+
         energies.push_back(static_cast<amrex::ParticleReal>(energy));
         sigmas.push_back(sigma);
     }

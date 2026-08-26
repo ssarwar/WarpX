@@ -30,14 +30,80 @@ total_events = int(process_events.sum())
 assert electron_count == PARTICLE_COUNT + ionization_events - attachment_events
 assert total_events <= PARTICLE_COUNT
 
+# Every created macroparticle must retain the incident electron's weight. Check
+# the weight balance directly rather than inferring it only from particle counts.
+initial_electron_w = results["initial_electron_w"]
+electron_w = results["electron_w"]
+assert initial_electron_w.size == PARTICLE_COUNT
+assert electron_w.size == electron_count
+assert np.all(np.isfinite(initial_electron_w))
+assert np.all(initial_electron_w > 0.0)
+source_weight = initial_electron_w[0]
+assert np.all(initial_electron_w == source_weight)
+assert np.all(electron_w == source_weight)
+
+product_weight_keys = [
+    "ion_a_w",
+    "ion_b_w",
+    "negative_a_w",
+    "negative_b_w",
+]
+for key, event_count in zip(product_weight_keys, process_events):
+    weights = results[key]
+    assert weights.size == event_count
+    assert np.all(weights == source_weight)
+
+ion_weight = sum(
+    np.sum(results[key], dtype=np.float64) for key in product_weight_keys[:2]
+)
+negative_weight = sum(
+    np.sum(results[key], dtype=np.float64) for key in product_weight_keys[2:]
+)
+initial_electron_weight = np.sum(initial_electron_w, dtype=np.float64)
+final_electron_weight = np.sum(electron_w, dtype=np.float64)
+assert negative_weight == float(source_weight) * attachment_events
+
+# Charge is expressed in units of q_e. Initial product particles are excluded
+# from both sides because they are unchanged by the MCC step.
+charge_residual = (
+    -final_electron_weight + ion_weight - negative_weight + initial_electron_weight
+)
+weight_epsilon = np.finfo(initial_electron_w.dtype).eps
+assert abs(charge_residual) < 64.0 * weight_epsilon * initial_electron_weight
+
+# Newly created electrons and ions must receive valid, globally distinct IDs;
+# attachment must remove exactly the selected original electron IDs.
+initial_electron_ids = results["initial_electron_ids"]
+electron_ids = results["electron_ids"]
+assert initial_electron_ids.size == PARTICLE_COUNT
+assert electron_ids.size == electron_count
+assert np.unique(initial_electron_ids).size == initial_electron_ids.size
+assert np.unique(electron_ids).size == electron_ids.size
+
+new_electron_ids = np.setdiff1d(electron_ids, initial_electron_ids)
+removed_electron_ids = np.setdiff1d(initial_electron_ids, electron_ids)
+assert new_electron_ids.size == ionization_events
+assert removed_electron_ids.size == attachment_events
+
+created_product_ids = np.concatenate(
+    [
+        results["ion_a_ids"],
+        results["ion_b_ids"],
+        results["negative_a_ids"],
+        results["negative_b_ids"],
+    ]
+)
+all_created_ids = np.concatenate([new_electron_ids, created_product_ids])
+assert np.all(all_created_ids > 0)
+assert np.unique(all_created_ids).size == all_created_ids.size
+assert np.intersect1d(all_created_ids, initial_electron_ids).size == 0
+
 # The user majorant is 1% above the actual rate. Neutral thermal motion changes
 # the 1 keV relative speed by far less than the statistical uncertainty here.
 expected_total_fraction = -math.expm1(-OPTICAL_DEPTH) / MAJORANT_SAFETY
 observed_total_fraction = total_events / PARTICLE_COUNT
 standard_error = math.sqrt(
-    expected_total_fraction
-    * (1.0 - expected_total_fraction)
-    / PARTICLE_COUNT
+    expected_total_fraction * (1.0 - expected_total_fraction) / PARTICLE_COUNT
 )
 assert abs(observed_total_fraction - expected_total_fraction) < 7.0 * standard_error
 
