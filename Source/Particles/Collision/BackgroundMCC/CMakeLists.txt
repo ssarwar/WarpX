@@ -5,5 +5,6 @@ foreach(D IN LISTS WarpX_DIMS)
         BackgroundMCCCollision.cpp
         BackgroundMCCElasticScattering.cpp
         BackgroundMCCIonization.cpp
+        BackgroundMCCProcessSelector.cpp
     )
 endforeach()

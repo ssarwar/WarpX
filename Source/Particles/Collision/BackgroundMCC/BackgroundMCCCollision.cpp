@@ -341,6 +341,9 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
         m_processes.push_back(std::move(process));
     }
 
+    m_process_selector =
+        std::make_unique<BackgroundMCCProcessSelector>(m_processes);
+
     amrex::Gpu::HostVector<BackgroundMCCElasticScatteringModel::Executor>
         host_differential_scattering_processes;
     host_differential_scattering_processes.reserve(m_processes.size());
@@ -911,6 +914,7 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
 
     auto* processes = m_processes_exe.data();
     auto const process_count = static_cast<int>(m_processes_exe.size());
+    auto const process_selector = m_process_selector->executor();
     auto const* differential_scattering_processes =
         m_differential_scattering_processes_exe.data();
     auto const* process_product_group = m_process_product_group.data();
@@ -997,21 +1001,36 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
                     v_coll2, m, M, gamma, E_coll_double);
                 E_coll = static_cast<amrex::ParticleReal>(E_coll_double);
             }
+            if (v_coll <= 0.0_prt || nu_max <= 0.0_prt) { return; }
 
             const amrex::ParticleReal process_draw = amrex::Random(engine);
             amrex::ParticleReal cumulative_probability = 0.0_prt;
             int chosen_process = -1;
 
-            for (int i = 0; i < process_count; ++i)
+            if (process_selector.enabled())
             {
-                auto const& process = processes[i];
-                const auto sigma = process.getCrossSection(E_coll);
-                cumulative_probability += n_a*sigma*v_coll/nu_max;
-                if (chosen_process < 0 &&
-                    process_draw <= cumulative_probability)
+                auto const probability_per_cross_section = n_a * v_coll / nu_max;
+                auto const cross_section_draw =
+                    process_draw / probability_per_cross_section;
+                amrex::ParticleReal total_cross_section;
+                process_selector.select(
+                    E_coll, cross_section_draw, chosen_process, total_cross_section);
+                cumulative_probability =
+                    probability_per_cross_section * total_cross_section;
+            }
+            else
+            {
+                for (int i = 0; i < process_count; ++i)
                 {
-                    chosen_process = i;
-                    if (!user_nu_max) { break; }
+                    auto const& process = processes[i];
+                    const auto sigma = process.getCrossSection(E_coll);
+                    cumulative_probability += n_a*sigma*v_coll/nu_max;
+                    if (chosen_process < 0 &&
+                        process_draw <= cumulative_probability)
+                    {
+                        chosen_process = i;
+                        if (!user_nu_max) { break; }
+                    }
                 }
             }
 
