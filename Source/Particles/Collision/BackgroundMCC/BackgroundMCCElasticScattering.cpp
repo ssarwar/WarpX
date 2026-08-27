@@ -105,7 +105,12 @@ namespace
             for (std::size_t angle_index = 1; angle_index < angle_count; ++angle_index)
             {
                 auto const theta = static_cast<double>(angle_index) * angle_step;
-                auto const density = dcs[angle_index] * std::sin(theta);
+                // sin(theta) vanishes exactly at both poles. Enforce the
+                // endpoint value to avoid accepting a zero-integral table due
+                // to roundoff in sin(pi).
+                auto const density = angle_index + 1u == angle_count
+                    ? 0.0
+                    : dcs[angle_index] * std::sin(theta);
                 cumulative[angle_index] = cumulative[angle_index - 1] +
                     0.5 * (previous_density + density) * angle_step;
                 previous_density = density;

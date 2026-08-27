@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check Background MCC attachment inputs in isolated subprocesses."""
+"""Check invalid Background MCC inputs in isolated subprocesses."""
 
 import argparse
 import os
@@ -12,27 +12,53 @@ from pywarpx import amrex, picmi
 CASES = {
     "missing_cross_section_units": (
         "Every attachment process must specify",
+        "attachment",
         {},
     ),
     "missing_third_body_density": (
         "Attachment cross sections in m5 require a positive",
+        "attachment",
         {"cross_section_units": "m5"},
     ),
     "invalid_cross_section_units": (
         "Attachment cross_section_units must be either m2 or m5.",
+        "attachment",
         {"cross_section_units": "barn"},
     ),
     "density_with_m2": (
         "Attachment third_body_density is only valid",
+        "attachment",
         {"cross_section_units": "m2", "third_body_density": 1.0e25},
     ),
     "malformed_cross_section": (
         "Each cross-section table row must contain",
+        "attachment",
         {"cross_section_units": "m2"},
     ),
     "wrong_product_charge": (
         "attachment product species must have charge -q_e",
+        "attachment",
         {"cross_section_units": "m2"},
+    ),
+    "iaa_elastic_missing_dcs": (
+        "IAA elastic scattering requires a",
+        "elastic",
+        {"scattering_angle_model": "IAA"},
+    ),
+    "elastic_dcs_without_iaa": (
+        "<process>_differential_cross_section requires",
+        "elastic",
+        {"differential_cross_section": "valid"},
+    ),
+    "inconsistent_elastic_dcs": (
+        "Elastic differential-cross-section rows must have the same number",
+        "elastic",
+        {"scattering_angle_model": "IAA", "differential_cross_section": "inconsistent"},
+    ),
+    "zero_integral_elastic_dcs": (
+        "Every elastic differential-cross-section energy row must have a",
+        "elastic",
+        {"scattering_angle_model": "IAA", "differential_cross_section": "zero"},
     ),
 }
 
@@ -41,11 +67,30 @@ def run_invalid_case(case):
     amrex.throw_exception = 1
     amrex.signal_handling = 0
 
+    _, process_type, process_options = CASES[case]
+    process_options = process_options.copy()
+
     source_dir = Path(__file__).resolve().parent
     cross_section = source_dir / "background_mcc_attachment_m2.txt"
+    if process_type == "elastic":
+        cross_section = source_dir / "background_mcc_relativistic_elastic.txt"
     if case == "malformed_cross_section":
         cross_section = Path("background_mcc_malformed_cross_section.txt").resolve()
         cross_section.write_text("0.0 1.0e-22\nnot-a-number 1.0e-22\n")
+
+    dcs_kind = process_options.pop("differential_cross_section", None)
+    if dcs_kind is not None:
+        differential_cross_section = Path(
+            "background_mcc_invalid_elastic_dcs.txt"
+        ).resolve()
+        if dcs_kind == "valid":
+            differential_cross_section.write_text("10 1 1 1\n100 1 1 1\n")
+        elif dcs_kind == "inconsistent":
+            differential_cross_section.write_text("10 1 1 1\n100 1 1 1 1\n")
+        else:
+            assert dcs_kind == "zero"
+            differential_cross_section.write_text("10 1 0 1\n100 1 0 1\n")
+        process_options["differential_cross_section"] = str(differential_cross_section)
 
     grid = picmi.Cartesian1DGrid(
         number_of_cells=[1],
@@ -79,18 +124,16 @@ def run_invalid_case(case):
         warpx_do_not_gather=True,
     )
 
-    process = {
-        "cross_section": str(cross_section),
-        "species": negative_ions,
-        **CASES[case][1],
-    }
+    process = {"cross_section": str(cross_section), **process_options}
+    if process_type == "attachment":
+        process["species"] = negative_ions
     collision = picmi.MCCCollisions(
         name="mcc",
         species=electrons,
         background_density=1.0e20,
         background_temperature=0.0,
         background_mass=32.0 * picmi.constants.m_p,
-        scattering_processes={"attachment": process},
+        scattering_processes={process_type: process},
         nu_max=1.0e6,
     )
     sim = picmi.Simulation(
@@ -114,7 +157,7 @@ def run_invalid_case(case):
 
 
 def check_invalid_cases():
-    for case, (expected_message, _) in CASES.items():
+    for case, (expected_message, _, _) in CASES.items():
         environment = os.environ.copy()
         environment["PYTHONFAULTHANDLER"] = "0"
         result = subprocess.run(
