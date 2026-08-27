@@ -152,7 +152,7 @@ ionization event rate. By default, WarpX subtracts the configured threshold
 ``<process>_energy`` and shares the remaining energy equally between the two
 outgoing electrons. The per-process ``RBEQ`` energy-sharing model instead uses
 the relativistic binary-encounter Bethe, or RBEQ, singly differential cross
-section described by :cite:t:`Schmalzried2023`::
+section described by :cite:t:`b-Schmalzried2023`::
 
     mcc.ionization_N2_energy_sharing_model = RBEQ
     mcc.ionization_N2_rbeq_target = N2
@@ -252,7 +252,7 @@ neutral target heavier than the electron.
 The elmolcs data are distributed separately from WarpX and are not copied into
 the BSD-licensed source tree. Users must obtain the tables separately and comply
 with their license. The construction and intended range of the IAA database are
-documented in :cite:t:`Schmalzried2023`.
+documented in :cite:t:`b-Schmalzried2023`.
 
 Collision timestep
 ^^^^^^^^^^^^^^^^^^
