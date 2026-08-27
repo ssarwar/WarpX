@@ -6,6 +6,7 @@
  */
 #include "BackgroundMCCCollision.H"
 
+#include "BackgroundMCCElasticKinematics.H"
 #include "BackgroundMCCProducts.H"
 #include "BackgroundMCCUtils.H"
 #include "Particles/Collision/BinaryCollision/BinaryCollisionUtils.H"
@@ -152,8 +153,10 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
     process_product_group.reserve(processes.size());
     amrex::Vector<IonizationEnergySharingModel> ionization_energy_models;
     amrex::Vector<BackgroundMCCIonizationTarget> ionization_targets;
+    amrex::Vector<std::string> elastic_differential_cross_sections;
     ionization_energy_models.reserve(processes.size());
     ionization_targets.reserve(processes.size());
+    elastic_differential_cross_sections.reserve(processes.size());
     amrex::ParticleReal n2_maximum_energy = 0.0_prt;
     amrex::ParticleReal o2_maximum_energy = 0.0_prt;
 
@@ -206,11 +209,43 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
             }
         }
 
-        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-            process.scatteringAngleModel() != ScatteringAngleModel::IAA ||
-                process_type == ScatteringProcessType::IONIZATION,
-            "The IAA scattering-angle model currently applies only to ionization."
-        );
+        std::string differential_cross_section;
+        auto const has_differential_cross_section = pp_collision_name.query(
+            process.name() + "_differential_cross_section", differential_cross_section);
+        if (process.scatteringAngleModel() == ScatteringAngleModel::IAA)
+        {
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                process_type == ScatteringProcessType::ELASTIC ||
+                    process_type == ScatteringProcessType::IONIZATION,
+                "The IAA scattering-angle model applies only to Background MCC "
+                "elastic and ionization processes."
+            );
+            if (process_type == ScatteringProcessType::ELASTIC)
+            {
+                WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                    has_differential_cross_section,
+                    "IAA elastic scattering requires a "
+                    "<process>_differential_cross_section file."
+                );
+                m_has_iaa_elastic_processes = true;
+            }
+            else
+            {
+                WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                    !has_differential_cross_section,
+                    "An elastic differential-cross-section file is not valid for "
+                    "IAA ionization scattering."
+                );
+            }
+        }
+        else
+        {
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                !has_differential_cross_section,
+                "<process>_differential_cross_section requires "
+                "<process>_scattering_angle_model = IAA."
+            );
+        }
 
         if (process_type == ScatteringProcessType::ATTACHMENT)
         {
@@ -299,7 +334,26 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
         process_product_group.push_back(product_group);
         ionization_energy_models.push_back(energy_sharing_model);
         ionization_targets.push_back(ionization_target);
+        elastic_differential_cross_sections.push_back(
+            std::move(differential_cross_section));
         m_processes.push_back(std::move(process));
+    }
+
+    amrex::Gpu::HostVector<BackgroundMCCElasticScatteringModel::Executor>
+        host_elastic_scattering_processes;
+    host_elastic_scattering_processes.reserve(m_processes.size());
+    m_elastic_scattering_models.resize(m_processes.size());
+    for (int i = 0; i < static_cast<int>(m_processes.size()); ++i)
+    {
+        BackgroundMCCElasticScatteringModel::Executor executor;
+        if (!elastic_differential_cross_sections[i].empty())
+        {
+            m_elastic_scattering_models[i] =
+                std::make_unique<BackgroundMCCElasticScatteringModel>(
+                    elastic_differential_cross_sections[i]);
+            executor = m_elastic_scattering_models[i]->executor();
+        }
+        host_elastic_scattering_processes.push_back(executor);
     }
 
     if (n2_maximum_energy > 0.0_prt)
@@ -351,6 +405,14 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
         host_ionization_processes.end(),
         m_ionization_processes_exe.begin());
 
+    m_elastic_scattering_processes_exe.resize(
+        host_elastic_scattering_processes.size());
+    amrex::Gpu::copyAsync(
+        amrex::Gpu::hostToDevice,
+        host_elastic_scattering_processes.begin(),
+        host_elastic_scattering_processes.end(),
+        m_elastic_scattering_processes_exe.begin());
+
     m_process_product_group.resize(process_product_group.size());
     amrex::Gpu::copyAsync(
         amrex::Gpu::hostToDevice,
@@ -364,6 +426,9 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
     }
     for (auto const& ionization_process : host_ionization_processes) {
         m_ionization_processes_exe.push_back(ionization_process);
+    }
+    for (auto const& elastic_scattering_process : host_elastic_scattering_processes) {
+        m_elastic_scattering_processes_exe.push_back(elastic_scattering_process);
     }
     for (auto const product_group : process_product_group) {
         m_process_product_group.push_back(product_group);
@@ -585,6 +650,18 @@ BackgroundMCCCollision::doCollisions (
                 m_background_mass > 0.0_prt,
             "The background neutral mass must be finite and greater than 0."
         );
+        if (m_has_iaa_elastic_processes)
+        {
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                m_use_relativistic_electron_kinematics,
+                "IAA elastic scattering requires an electron incident species."
+            );
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                m_background_mass > m_mass1,
+                "IAA elastic scattering requires a neutral target heavier than "
+                "the incident electron."
+            );
+        }
 
         if (!m_user_nu_max) {
             m_nu_max = get_nu_max(m_processes);
@@ -830,6 +907,8 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
 
     auto* processes = m_processes_exe.data();
     auto const process_count = static_cast<int>(m_processes_exe.size());
+    auto const* elastic_scattering_processes =
+        m_elastic_scattering_processes_exe.data();
     auto const* process_product_group = m_process_product_group.data();
     auto const total_collision_prob = m_total_collision_prob;
     auto const nu_max = m_nu_max;
@@ -962,14 +1041,25 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
             auto const& process = processes[chosen_process];
             amrex::ParticleReal u1x_out, u1y_out, u1z_out;
             amrex::ParticleReal u2x_out, u2y_out, u2z_out;
-            TwoProductComputeProductMomenta(
-                ux[ip], uy[ip], uz[ip], m,
-                ua_x, ua_y, ua_z, M,
-                u1x_out, u1y_out, u1z_out, m,
-                u2x_out, u2y_out, u2z_out, M,
-                -process.m_energy_penalty*PhysConst::q_e,
-                process.m_scattering_angle_model,
-                engine);
+            if (process.m_scattering_angle_model == ScatteringAngleModel::IAA)
+            {
+                auto const cosine = elastic_scattering_processes[chosen_process].sampleCosine(
+                    E_coll, amrex::Random(engine));
+                BackgroundMCCElasticKinematics::compute(
+                    ux[ip], uy[ip], uz[ip], ua_x, ua_y, ua_z, m, M, cosine, engine,
+                    u1x_out, u1y_out, u1z_out, u2x_out, u2y_out, u2z_out);
+            }
+            else
+            {
+                TwoProductComputeProductMomenta(
+                    ux[ip], uy[ip], uz[ip], m,
+                    ua_x, ua_y, ua_z, M,
+                    u1x_out, u1y_out, u1z_out, m,
+                    u2x_out, u2y_out, u2z_out, M,
+                    -process.m_energy_penalty*PhysConst::q_e,
+                    process.m_scattering_angle_model,
+                    engine);
+            }
 
             ux[ip] = u1x_out;
             uy[ip] = u1y_out;

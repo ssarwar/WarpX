@@ -7,6 +7,7 @@
 #ifndef WARPX_PARTICLES_COLLISION_BACKGROUNDMCC_IONIZATION_KINEMATICS_H_
 #define WARPX_PARTICLES_COLLISION_BACKGROUNDMCC_IONIZATION_KINEMATICS_H_
 
+#include "BackgroundMCCKinematics.H"
 #include "Utils/WarpXAlgorithmSelection.H"
 #include "Utils/WarpXConst.H"
 
@@ -19,81 +20,16 @@
 
 namespace BackgroundMCCIonizationKinematics
 {
-    struct Vector3
-    {
-        double x;
-        double y;
-        double z;
-    };
-
-    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE double dot (Vector3 const& a,
-                                                         Vector3 const& b) noexcept
-    {
-        return a.x * b.x + a.y * b.y + a.z * b.z;
-    }
-
-    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE Vector3 scale (Vector3 const& vector,
-                                                            double const factor) noexcept
-    {
-        return {factor * vector.x, factor * vector.y, factor * vector.z};
-    }
-
-    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE Vector3 add (Vector3 const& a,
-                                                          Vector3 const& b) noexcept
-    {
-        return {a.x + b.x, a.y + b.y, a.z + b.z};
-    }
-
-    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE Vector3 subtract (Vector3 const& a,
-                                                               Vector3 const& b) noexcept
-    {
-        return {a.x - b.x, a.y - b.y, a.z - b.z};
-    }
-
-    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE Vector3
-    boostToLab (Vector3 const& rest_frame_velocity, Vector3 const& frame_velocity,
-                double const frame_gamma, double const spatial_factor) noexcept
-    {
-        constexpr double inv_c2 = PhysConst::inv_c2_v<double>;
-
-        auto const rest_gamma =
-            std::sqrt(1.0 + dot(rest_frame_velocity, rest_frame_velocity) * inv_c2);
-        auto const factor =
-            spatial_factor * dot(frame_velocity, rest_frame_velocity) + frame_gamma * rest_gamma;
-        return add(rest_frame_velocity, scale(frame_velocity, factor));
-    }
-
-    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE double
-    properSpeedFromKineticEnergy (double const energy_ev, double const mass) noexcept
-    {
-        constexpr double c = PhysConst::c_v<double>;
-        constexpr double c2 = PhysConst::c2_v<double>;
-        constexpr double elementary_charge = PhysConst::q_e_v<double>;
-
-        auto const normalized_energy = amrex::max(energy_ev * elementary_charge / (mass * c2), 0.0);
-        return c * std::sqrt(normalized_energy * (normalized_energy + 2.0));
-    }
-
-    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE double
-    kineticEnergyFromProperVelocity (Vector3 const& velocity, double const mass) noexcept
-    {
-        constexpr double inv_c2 = PhysConst::inv_c2_v<double>;
-        constexpr double elementary_charge = PhysConst::q_e_v<double>;
-
-        auto const proper_speed_sq = dot(velocity, velocity);
-        auto const gamma = std::sqrt(1.0 + proper_speed_sq * inv_c2);
-        return mass * proper_speed_sq / ((gamma + 1.0) * elementary_charge);
-    }
-
-    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE Vector3 directionFromPolarAngle (
-        Vector3 const& incident_direction, Vector3 const& transverse_1, Vector3 const& transverse_2,
-        double const cosine, double const azimuth) noexcept
-    {
-        auto const sine = std::sqrt(amrex::max(1.0 - cosine * cosine, 0.0));
-        auto const transverse =
-            add(scale(transverse_1, std::cos(azimuth)), scale(transverse_2, std::sin(azimuth)));
-        return add(scale(incident_direction, cosine), scale(transverse, sine));
-    }
+    using BackgroundMCCKinematics::Vector3;
+    using BackgroundMCCKinematics::add;
+    using BackgroundMCCKinematics::boostToLab;
+    using BackgroundMCCKinematics::directionFromPolarAngle;
+    using BackgroundMCCKinematics::dot;
+    using BackgroundMCCKinematics::kineticEnergyFromProperVelocity;
+    using BackgroundMCCKinematics::properSpeedFromKineticEnergy;
+    using BackgroundMCCKinematics::scale;
+    using BackgroundMCCKinematics::subtract;
+    using BackgroundMCCKinematics::transverseDirections;
 
     /** Compute electron-ion impact-ionization kinematics in the neutral rest frame.
      *
@@ -150,10 +86,8 @@ namespace BackgroundMCCIonizationKinematics
         auto const boost_spatial_factor =
             neutral_gamma * neutral_gamma / ((neutral_gamma + 1.0) * c2);
 
-        auto const incident_lab_gamma = std::sqrt(1.0 + dot(incident_lab, incident_lab) * inv_c2);
-        auto const rest_frame_factor = boost_spatial_factor * dot(neutral_velocity, incident_lab) -
-                                       neutral_gamma * incident_lab_gamma;
-        auto const incident_rest = add(incident_lab, scale(neutral_velocity, rest_frame_factor));
+        auto const incident_rest = BackgroundMCCKinematics::boostToRest(
+            incident_lab, neutral_velocity, neutral_gamma, boost_spatial_factor);
 
         auto const incident_speed = std::sqrt(dot(incident_rest, incident_rest));
         Vector3 incident_direction{0.0, 0.0, 1.0};
@@ -163,21 +97,8 @@ namespace BackgroundMCCIonizationKinematics
         }
 
         Vector3 transverse_1;
-        auto const transverse_xy = std::sqrt(incident_direction.x * incident_direction.x +
-                                             incident_direction.y * incident_direction.y);
-        if (transverse_xy > std::numeric_limits<double>::epsilon())
-        {
-            transverse_1 = {-incident_direction.y / transverse_xy,
-                            incident_direction.x / transverse_xy, 0.0};
-        }
-        else
-        {
-            transverse_1 = {1.0, 0.0, 0.0};
-        }
-        Vector3 const transverse_2{
-            incident_direction.y * transverse_1.z - incident_direction.z * transverse_1.y,
-            incident_direction.z * transverse_1.x - incident_direction.x * transverse_1.z,
-            incident_direction.x * transverse_1.y - incident_direction.y * transverse_1.x};
+        Vector3 transverse_2;
+        transverseDirections(incident_direction, transverse_1, transverse_2);
 
         auto const incident_energy = kineticEnergyFromProperVelocity(incident_rest, electron_mass);
         auto const binding = static_cast<double>(binding_energy);
