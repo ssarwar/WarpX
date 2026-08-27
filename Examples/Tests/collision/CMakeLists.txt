@@ -22,6 +22,16 @@ add_warpx_test(
 )
 
 add_warpx_test(
+    test_1d_background_mcc_iaa_elastic_picmi  # name
+    1  # dims
+    1  # nprocs
+    inputs_test_1d_background_mcc_iaa_elastic_picmi.py  # inputs
+    "analysis_background_mcc_iaa_elastic.py"  # analysis
+    OFF  # checksum
+    OFF  # dependency
+)
+
+add_warpx_test(
     test_1d_background_mcc_many_attachment_picmi  # name
     1  # dims
     1  # nprocs
