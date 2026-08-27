@@ -1053,13 +1053,16 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
             ))
             if (n_a == 0.0_prt) { return; }
 
-            const auto vel_std = sqrt(PhysConst::kb*T_a/M);
-            const amrex::ParticleReal ua_x =
-                vel_std*amrex::RandomNormal(0_prt, 1.0_prt, engine);
-            const amrex::ParticleReal ua_y =
-                vel_std*amrex::RandomNormal(0_prt, 1.0_prt, engine);
-            const amrex::ParticleReal ua_z =
-                vel_std*amrex::RandomNormal(0_prt, 1.0_prt, engine);
+            amrex::ParticleReal ua_x = 0.0_prt;
+            amrex::ParticleReal ua_y = 0.0_prt;
+            amrex::ParticleReal ua_z = 0.0_prt;
+            if (T_a > 0.0_prt)
+            {
+                auto const vel_std = sqrt(PhysConst::kb*T_a/M);
+                ua_x = vel_std*amrex::RandomNormal(0_prt, 1.0_prt, engine);
+                ua_y = vel_std*amrex::RandomNormal(0_prt, 1.0_prt, engine);
+                ua_z = vel_std*amrex::RandomNormal(0_prt, 1.0_prt, engine);
+            }
 
             amrex::ParticleReal E_coll;
             amrex::ParticleReal v_coll;
