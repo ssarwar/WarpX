@@ -144,12 +144,122 @@ the raw table by this density exactly once before constructing the majorant.
 The unscaled values are retained in double precision so that small
 :math:`\mathrm{m}^{5}` values do not underflow in single-precision builds.
 
-The current ionization product transform retains the legacy equal sharing of
-the post-threshold electron energy and isotropic electron directions. It is not
-an exact three-product energy--momentum-conserving model. Likewise, Background
-MCC currently permits at most one event per particle per collision substep.
+Ionization energy sharing and kinematics
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The user-supplied integral cross-section table always determines the
+ionization event rate. By default, WarpX subtracts the configured threshold
+``<process>_energy`` and shares the remaining energy equally between the two
+outgoing electrons. The per-process ``RBEQ`` energy-sharing model instead uses
+the relativistic binary-encounter Bethe, or RBEQ, singly differential cross
+section described by :cite:t:`Schmalzried2023`::
+
+    mcc.ionization_N2_energy_sharing_model = RBEQ
+    mcc.ionization_N2_rbeq_target = N2
+    mcc.ionization_N2_energy = 15.58
+
+``RBEQ`` is available for ``N2`` and ``O2``. WarpX first selects one of five
+:math:`\mathrm{N}_2` or six :math:`\mathrm{O}_2` subshells from its positive
+RBEQ partial cross section. The selected binding energy :math:`B_i`, rather
+than only the outer-shell threshold, is then removed from the incident energy.
+The lower-energy electron is sampled from the conditional RBEQ distribution on
+
+    .. math::
+
+       0 \leq T_s \leq \frac{T-B_i}{2},
+
+and the other electron receives the remainder, apart from molecular-ion recoil.
+The configured process threshold must match the target outer-shell binding
+energy within 0.05 eV: 15.58 eV for :math:`\mathrm{N}_2` and 12.07 eV for
+:math:`\mathrm{O}_2`.
+
+Some unit-oscillator-strength RBEQ partials become slightly negative immediately
+above their subshell thresholds. A negative partial is unphysical and cannot
+define a probability, so WarpX clamps it to zero until the analytic expression
+becomes positive; it is never reflected with an absolute value. Shell
+probabilities and conditional inverse CDFs are precomputed on a logarithmic
+energy grid during initialization. Each accepted event then requires one
+logarithm and fixed-size interpolation, with no device allocation or iterative
+root solve.
+
+The angular model is selected independently from energy sharing. With
+``<process>_scattering_angle_model = IAA``, the collision is evaluated in the
+sampled neutral rest frame. Let :math:`T_a=T-B_i`, and let :math:`T_p` and
+:math:`T_s` be the unrecoiled primary and secondary energies. The primary
+electron follows the relativistic binary-encounter relation
+
+    .. math::
+
+       \cos\theta_p =
+       \sqrt{\frac{T_p(T_a+2m_ec^2)}{T_a(T_p+2m_ec^2)}}.
+
+The same expression gives the free-electron value
+:math:`\cos\theta_{s,\mathrm{free}}` after replacing :math:`T_p` with
+:math:`T_s`. The bound-electron interpolation from the IAA model is
+
+    .. math::
+
+       \cos\theta_s =
+       \frac{T_s}{T_s+B_i}\cos\theta_{s,\mathrm{free}}
+       + \frac{B_i}{T_s+B_i}\xi,
+       \qquad \xi\sim\mathcal{U}[-1,1].
+
+The electron azimuths differ by :math:`\pi`; the product ion receives the
+remaining momentum. Two fixed recoil corrections conserve energy through
+:math:`O((m_e/M)^3)` without a device-side convergence loop, and the three
+products are Lorentz transformed back to the simulation frame.
+
+IAA/elmolcs elastic differential scattering
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For elastic electron scattering, ``IAA`` selects an angular differential cross
+section (DCS) table such as the :math:`\mathrm{N}_2` and :math:`\mathrm{O}_2`
+tables from the `elmolcs project <https://codeberg.org/jesenek/elmolcs>`_::
+
+    mcc.elastic_N2_scattering_angle_model = IAA
+    mcc.elastic_N2_differential_cross_section = /path/to/DCS.e-N2
+
+This DCS table is separate from ``<process>_cross_section``: the latter controls
+the event rate, while the DCS controls only the conditional scattering angle.
+Each non-comment DCS row contains a positive, strictly increasing energy in eV
+followed by at least three non-negative angular values. All rows must have the
+same number of values, uniformly spaced from :math:`0` to :math:`\pi`. The
+elmolcs tables contain 361 values at 0.5-degree spacing. Their DCS units are
+:math:`10^{-20}\,\mathrm{m}^2\,\mathrm{sr}^{-1}`, although a common positive
+scale cancels from angular sampling.
+
+For a DCS :math:`D(E,\theta)`, WarpX constructs the polar-angle density
+
+    .. math::
+
+       p(\theta\mid E) =
+       \frac{D(E,\theta)\sin\theta}
+            {\int_0^\pi D(E,\vartheta)\sin\vartheta\,d\vartheta}.
+
+The solid-angle Jacobian is therefore integrated by the trapezoidal rule in
+:math:`\theta`, not in :math:`\cos\theta`. WarpX precomputes a tail-resolving
+inverse CDF for every table energy on the host and copies it to the device.
+Runtime sampling uses an energy-grid bisection and fixed-size interpolation.
+Energies outside the table range use the nearest endpoint distribution; inside
+the range, inverse-CDF cosines are interpolated linearly in energy.
+
+The sampled DCS angle is the outgoing-electron angle for a stationary target,
+not a center-of-momentum angle. WarpX applies exact relativistic two-body recoil
+in the sampled neutral rest frame and transforms the electron back to the
+simulation frame. This model therefore requires an electron projectile and a
+neutral target heavier than the electron.
+
+The elmolcs data are distributed separately from WarpX and are not copied into
+the BSD-licensed source tree. Users must obtain the tables separately and comply
+with their license. The construction and intended range of the IAA database are
+documented in :cite:t:`Schmalzried2023`.
+
+Collision timestep
+^^^^^^^^^^^^^^^^^^
+
+Background MCC permits at most one event per particle per collision substep.
 Use ``ndt_subcycle`` and verify convergence when the collision optical depth is
-not small. These limitations are important for quantitative air simulations.
+not small. This remains important for quantitative air simulations.
 
 Once a particle is selected for a specific collision process, that process determines how the particle is scattered as outlined below.
 

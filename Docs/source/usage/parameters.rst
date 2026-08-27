@@ -3170,9 +3170,11 @@ Details about the collision models can be found in the :ref:`theory section <mul
     scattering process specified, a path to a cross-section data file must also
     be given. We use ``<scattering_process>`` as a placeholder going forward.
 
-    For ``elasticX``, ``excitationX``, ``charge_exchange`` and ``twoproduct_reaction``, the
+    For ``elasticX``, ``excitationX``, ``charge_exchange`` and
+    ``twoproduct_reaction``, and for ``ionizationX`` in Background MCC, the
     angular distribution is controlled by the per-process
-    :pp:param:`<collision_name>.<scattering_process>_scattering_angle_model` argument.
+    :pp:param:`<collision_name>.<scattering_process>_scattering_angle_model`
+    argument.
 
 .. pp:param:: <collision_name>.<scattering_process>_cross_section
     :type: ``string``
@@ -3183,9 +3185,11 @@ Details about the collision models can be found in the :ref:`theory section <mul
     second the corresponding cross-section. It is in :math:`m^2` except for an
     attachment process explicitly configured with
     ``<scattering_process>_cross_section_units = m5``. The energy column should
-    represent the kinetic energy of the center-of-mass frame. The energy values in this column
-    must be finite, non-negative and in strictly increasing order. Cross sections
-    must be finite and non-negative.
+    represent the kinetic energy of the center-of-mass frame, except that
+    electron Background MCC uses the electron kinetic energy in the neutral
+    rest-frame approximation described in :ref:`multiphysics-collisions-mcc`.
+    The energy values in this column must be finite, non-negative and in strictly
+    increasing order. Cross sections must be finite and non-negative.
 
 .. pp:param:: <collision_name>.<scattering_process>_energy
     :type: ``float``
@@ -3195,22 +3199,66 @@ Details about the collision models can be found in the :ref:`theory section <mul
     ``twoproduct_reaction`` (which may impose a fixed energy loss, defaulting to 0), and
     not used for ``elasticX`` and ``attachmentX`` processes. If supplied for a
     supported process, the value must be finite and non-negative.
+    For Background MCC ionization with ``energy_sharing_model = RBEQ``, this
+    threshold must match the selected target's outer-shell binding energy to
+    within 0.05 eV: 15.58 eV for ``N2`` or 12.07 eV for ``O2``.
 
 .. pp:param:: <collision_name>.<scattering_process>_scattering_angle_model
     :type: ``string``
     :optional:
 
-    Only for ``dsmc`` and ``background_mcc``, and only for ``elasticX``, ``excitationX``,
-    ``charge_exchange`` and ``twoproduct_reaction``.
-    The model used to determine the scattering angle of the products
-    in the center-of-mass frame. The possible values are ``isotropic``, ``forward`` and ``backward``.
-    The default is ``isotropic`` for ``elasticX`` and ``excitationX``, and ``forward`` for
-    ``charge_exchange`` and ``twoproduct_reaction``.
+    Only for ``dsmc`` and ``background_mcc``, and only for ``elasticX``,
+    ``excitationX``, ``charge_exchange`` and ``twoproduct_reaction``. Background
+    MCC also supports this parameter for ``ionizationX``.
+    The possible values are ``isotropic``, ``forward`` and ``backward``. The
+    default is ``isotropic`` for ``elasticX``, ``excitationX`` and
+    ``ionizationX``, and ``forward`` for ``charge_exchange`` and
+    ``twoproduct_reaction``.
     With ``isotropic``, the scattering angle is drawn from an isotropic distribution.
     With ``forward``, the scattering angle is set to zero, i.e. the products keep the same direction
     as the incident particle (in the center of mass frame).
     With ``backward``, the scattering angle is set to :math:`\pi`, i.e. the products are emitted in
     the opposite direction of the incident particle (in the center of mass frame).
+
+    Electron Background MCC additionally accepts ``IAA`` for ``elasticX`` and
+    ``ionizationX``. For ionization, this uses the IAA primary- and
+    secondary-electron angle model in the neutral rest frame and does not use a
+    differential-cross-section file. For elastic scattering, it samples the
+    stationary-target electron angle from the required
+    ``<scattering_process>_differential_cross_section`` table and applies exact
+    relativistic molecular recoil.
+
+.. pp:param:: <collision_name>.<scattering_process>_differential_cross_section
+    :type: ``string``
+
+    Required only for an electron Background MCC ``elasticX`` process with
+    ``scattering_angle_model = IAA``. Path to an angular differential
+    cross-section table. Every non-comment row must contain a positive,
+    strictly increasing energy in eV followed by at least three finite,
+    non-negative DCS values at angles uniformly spaced from 0 to 180 degrees.
+    Every row must contain the same number of angular values and have a positive
+    angular integral. The IAA/elmolcs tables use 361 values at 0.5-degree
+    spacing. The DCS controls only angle sampling; the ordinary
+    ``<scattering_process>_cross_section`` table controls the event rate.
+
+.. pp:param:: <collision_name>.<scattering_process>_energy_sharing_model
+    :type: ``string``
+    :default: ``equal``
+    :optional:
+
+    Only for an ``ionizationX`` process in electron Background MCC. ``equal``
+    divides the post-threshold electron energy equally. ``RBEQ`` samples a
+    target subshell and the RBEQ singly differential cross section, giving the
+    selected binding-energy loss and the lower-energy outgoing electron. The
+    integral event rate continues to come from the process cross-section table.
+    ``RBEQ`` also requires ``<scattering_process>_rbeq_target``.
+
+.. pp:param:: <collision_name>.<scattering_process>_rbeq_target
+    :type: ``string``
+
+    Required only for an ``ionizationX`` process in electron Background MCC
+    with ``energy_sharing_model = RBEQ``. The supported molecular targets are
+    ``N2`` and ``O2`` (case-insensitive).
 
 .. pp:param:: <collision_name>.<scattering_process>_species
     :type: ``string``

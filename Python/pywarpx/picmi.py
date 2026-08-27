@@ -3229,7 +3229,12 @@ class MCCCollisions(picmistandard.base._ClassWithInit):
         ``cross_section`` path. Background-MCC ionization and attachment entries
         also require a product ``species``. Attachment entries require
         ``cross_section_units`` equal to ``"m2"`` or ``"m5"``; ``"m5"``
-        additionally requires ``third_body_density`` in m^-3.
+        additionally requires ``third_body_density`` in m^-3. Ionization entries
+        can select ``energy_sharing_model="RBEQ"`` with an ``rbeq_target`` of
+        ``"N2"`` or ``"O2"``, independently of their ``scattering_angle_model``.
+        The ``"IAA"`` angle model implements IAA ionization kinematics or, for
+        elastic electron scattering, samples the required
+        ``differential_cross_section`` table.
 
     background_mass: float, optional
         The mass of the background particle. If not supplied, the default depends
