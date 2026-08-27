@@ -777,12 +777,31 @@ BackgroundMCCCollision::doCollisions (
 
     if (first_call)
     {
+        std::string selector_description;
+        if (m_processes.empty())
+        {
+            selector_description = "none";
+        }
+        else if (m_process_selector->enabled())
+        {
+            selector_description =
+                "cumulative prefix table (" +
+                std::to_string(m_process_selector->energyGrid().size()) +
+                " energy points, " + std::to_string(m_process_selector->tableBytes()) +
+                " bytes per host/device copy)";
+        }
+        else
+        {
+            selector_description = "exact per-process fallback";
+        }
         amrex::Print() << Utils::TextMsg::Info(
             "Setting up Monte-Carlo collisions for " + m_species_names[0] + " with:\n"
             + "     nu_max: " + std::to_string(m_nu_max)
             + (m_user_nu_max ? " (user supplied)" : " (automatic)")
             + "\n     total collision probability: "
             + std::to_string(m_total_collision_prob)
+            + "\n     processes: " + std::to_string(m_processes.size())
+            + "\n     process selection: " + selector_description
             + "\n     product groups: " + std::to_string(m_product_groups.size())
         );
     }

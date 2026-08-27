@@ -3168,7 +3168,10 @@ Details about the collision models can be found in the :ref:`theory section <mul
     ``attachmentX``. Multiple channels of each prefix-matched Background MCC
     process can be included; ``X`` must make each process name unique. For each
     scattering process specified, a path to a cross-section data file must also
-    be given. We use ``<scattering_process>`` as a placeholder going forward.
+    be given. Background MCC selects among all listed processes with the common
+    cumulative algorithm described in :ref:`multiphysics-collisions-mcc`; each
+    selected channel retains its own discrete energy loss. We use
+    ``<scattering_process>`` as a placeholder going forward.
 
     For ``elasticX``, ``excitationX``, ``charge_exchange`` and
     ``twoproduct_reaction``, and for ``ionizationX`` in Background MCC, the

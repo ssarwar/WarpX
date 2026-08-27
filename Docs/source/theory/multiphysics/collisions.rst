@@ -91,13 +91,16 @@ created in passes grouped by process type and destination species, so channels
 that share a product species do not require one full particle scan per channel.
 
 By default, the null-collision majorant is constructed from the union of all
-cross-section table knots. Between consecutive knots the summed cross section
-is linear, so WarpX bounds each interval with the larger endpoint cross section
-and the speed at the upper endpoint. A k-way merge visits each tabulated knot
-once, giving initialization cost proportional to the total number of table
-points times the logarithm of the number of processes. It does not scale with
-the total energy span divided by the finest table spacing. For electrons, the
-constant high-energy table extrapolation is also bounded using
+cross-section table knots. WarpX reuses the total-cross-section row of the
+cumulative process table described below. Between consecutive union knots the
+summed cross section is linear. WarpX evaluates both endpoints and, on a
+decreasing segment, the one possible analytic stationary point of
+:math:`\sigma_{\mathrm{tot}}(E)g_{\mathrm{coll}}(E)`. This is a tighter bound
+than multiplying the larger endpoint cross section by the upper-endpoint
+speed. If the cumulative table is disabled by its memory limit, a k-way merge
+constructs the same union intervals without materializing the table. Neither
+path steps through the total energy span using the smallest input spacing. For
+electrons, the constant high-energy table extrapolation is also bounded using
 :math:`g_{\mathrm{coll}}<c`.
 
 A user can bypass automatic construction with a collision-level majorant in
@@ -282,21 +285,115 @@ angle to the nearest kinematically allowed value.
 Many-channel selection and DCS reuse
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Background MCC preserves every configured process and its discrete energy loss,
-including configurations with tens of excitation channels. During
-initialization, WarpX forms the union of all process cross-section energy knots
-and tabulates cumulative cross sections on that grid. Because individual
-cross sections are piecewise linear, interpolating each cumulative value on the
-union grid is exact. An accepted collision therefore uses one energy bisection
-and a logarithmic search of the process prefixes, instead of evaluating and
-scanning every process on the device.
+The cumulative selector covers **all** processes listed in one Background MCC
+object: elastic, excitation, ionization, attachment, charge exchange and
+two-product reactions. It is not an excitation-only table. The original input
+order defines process indices :math:`i=0,\ldots,P-1`. During initialization,
+WarpX constructs the sorted union
 
-The cumulative table is limited to 64 MiB per collision object. An unusually
-large collection of mutually disjoint grids that exceeds this limit retains the
-exact per-process selection path. Elastic and excitation channels that name the
-same DCS file share one precomputed inverse-CDF table and one device allocation.
-This avoids duplicating initialization work and device memory when many
-excitation channels use the same target DCS.
+    .. math::
+
+       \mathcal{E} = \operatorname{unique}\!\left(
+       \bigcup_{i=0}^{P-1}\mathcal{E}_i\right)
+       = \{E_0,\ldots,E_{U-1}\}
+
+of the knots from every integral cross-section grid, then stores the prefix
+rows
+
+    .. math::
+
+       C_j(E_k) = \sum_{i=0}^{j}\sigma_i(E_k),
+       \qquad j=0,\ldots,P-1.
+
+Each :math:`\sigma_i` is evaluated with the same piecewise-linear interpolation
+and endpoint clamping as an ordinary ``ScatteringProcess`` lookup. Every input
+breakpoint is present in :math:`\mathcal{E}`, so all :math:`\sigma_i` and all
+:math:`C_j` are linear between adjacent union knots. Linear interpolation of a
+prefix row is therefore exact relative to the stored cross-section
+representation, apart from floating-point roundoff; resampling onto the union
+does not smooth a threshold or otherwise approximate a channel.
+
+For each particle that passes the global null-collision preselection, WarpX
+samples one neutral velocity and calculates one collision energy. Process
+selection then consists of:
+
+#. one bisection of :math:`\mathcal{E}` to obtain the bracketing index
+   :math:`k` and interpolation fraction;
+#. one interpolation of the last prefix row
+   :math:`C_{P-1}(E)=\sigma_{\mathrm{tot}}(E)`;
+#. one uniform draw converted from collision-probability units to
+   cross-section units; and
+#. one binary search over :math:`j` for the first interpolated prefix with
+   :math:`C_j(E)` above that draw.
+
+Thus, yes: when every process was supplied on a common grid, that grid is also
+the union and the cross-section energy interval is found only once per
+candidate particle. The same remains true when the input grids differ, because
+they were combined at initialization. The selector cost is
+:math:`O(\log U+\log P)` rather than :math:`P` separate energy bisections plus a
+linear process scan. For example, 64 processes require at most six prefix
+comparisons after the energy search.
+
+"One energy search" refers specifically to the integral cross sections used
+for event acceptance and process choice. A selected IAA angular DCS has its own
+independent energy grid and performs one additional DCS bisection, but only for
+the chosen process. RBEQ energy sharing likewise uses its own fixed logarithmic
+coordinate. WarpX never searches the angular or RBEQ tables for processes that
+were not selected.
+
+The prefix table contains cumulative cross-section weights only; it does not
+contain or average energy losses. The binary search returns the original
+process index :math:`j`.
+WarpX then reads that process's unchanged discrete ``<process>_energy``, type,
+angular model, ionization model and product-species group. An excitation event
+therefore subtracts exactly the loss configured for its selected channel. An
+ionization or attachment event records the same process index for the grouped
+particle-creation pass, so cumulative selection cannot disconnect a product
+from its channel.
+
+The storage in one host or device copy is
+
+    .. math::
+
+       (P+1)U\,\mathrm{sizeof}(\mathtt{ParticleReal}),
+
+where the extra row is the union energy grid and the :math:`P` other rows are
+the prefixes. WarpX enables the selector only when this total is at most
+64 MiB. Consequently,
+
+    .. math::
+
+       U_{\max} = \left\lfloor
+       \frac{64\,\mathrm{MiB}}
+            {(P+1)\,\mathrm{sizeof}(\mathtt{ParticleReal})}
+       \right\rfloor.
+
+For 64 processes this permits 129,055 union points with double-precision
+particles or 258,111 with single-precision particles. For 128 processes the
+limits are 65,027 and 130,055 points, respectively. Typical cross-section sets
+are far smaller: if 64 channels each use the same 100-point grid, then
+:math:`U=100`, not 6,400. Only completely distinct knots can make :math:`U`
+approach the sum of the individual grid sizes. A GPU build retains one host
+copy and one device copy, each subject to the 64 MiB limit. Original process
+grids, angular DCS tables and RBEQ tables are separate allocations.
+
+If the limit would be exceeded, WarpX does not truncate or coarsen any grid. It
+uses the exact legacy fallback, which evaluates each process cross section and
+scans the cumulative probabilities at runtime. The first-step information
+message reports the active selection path, union point count and bytes per
+copy, making an accidental fallback visible in production logs.
+
+Prefix rows are stored process-major. Particles in a GPU warp begin each
+process binary search at the same middle prefix, while nearby particle energies
+usually address nearby entries within that row. All selector arrays are fixed,
+contiguous device data; selection performs no allocation, virtual dispatch or
+iterative solve in the particle kernel.
+
+Elastic and excitation channels that name the same DCS file share one
+precomputed inverse-CDF table and one device allocation. This avoids duplicating
+initialization work and device memory when many excitation channels use the
+same target DCS. Use the same path string for channels that should share a
+table.
 
 The elmolcs data are distributed separately from WarpX and are not copied into
 the BSD-licensed source tree. Users must obtain the tables separately and comply
