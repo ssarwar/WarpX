@@ -7,10 +7,9 @@
 #ifndef WARPX_PARTICLES_COLLISION_BACKGROUNDMCCPRODUCTS_H_
 #define WARPX_PARTICLES_COLLISION_BACKGROUNDMCCPRODUCTS_H_
 
-#include "Particles/Algorithms/KineticEnergy.H"
 #include "Particles/Collision/BackgroundMCC/BackgroundMCCIonization.H"
+#include "Particles/Collision/BackgroundMCC/BackgroundMCCIonizationKinematics.H"
 #include "Particles/Collision/ScatteringProcess.H"
-#include "Utils/ParticleUtils.H"
 #include "Utils/WarpXConst.H"
 
 #include <AMReX_Particle.H>
@@ -81,14 +80,16 @@ public:
         amrex::ParticleReal const* neutral_vx,
         amrex::ParticleReal const* neutral_vy,
         amrex::ParticleReal const* neutral_vz,
-        double const mass1)
+        double const mass1,
+        double const ion_mass)
         : m_processes(processes),
           m_ionization_processes(ionization_processes),
           m_selected_process(selected_process),
           m_neutral_vx(neutral_vx),
           m_neutral_vy(neutral_vy),
           m_neutral_vz(neutral_vz),
-          m_mass1(mass1)
+          m_mass1(mass1),
+          m_ion_mass(ion_mass)
     {}
 
     template <typename DstData, typename SrcData>
@@ -120,48 +121,54 @@ public:
         ParticleReal const energy_cost =
             m_processes[process_index].m_energy_penalty;
 
-        constexpr auto eV = PhysConst::q_e;
-        ParticleReal const relative_ux = ux - m_neutral_vx[i_src];
-        ParticleReal const relative_uy = uy - m_neutral_vy[i_src];
-        ParticleReal const relative_uz = uz - m_neutral_vz[i_src];
-        double const E_coll = Algorithms::KineticEnergy<double>(
-            relative_ux, relative_uy, relative_uz, m_mass1)/eV;
+        constexpr double inv_c2 = PhysConst::inv_c2_v<double>;
+        constexpr double elementary_charge = PhysConst::q_e_v<double>;
+        double const relative_ux = static_cast<double>(ux) - m_neutral_vx[i_src];
+        double const relative_uy = static_cast<double>(uy) - m_neutral_vy[i_src];
+        double const relative_uz = static_cast<double>(uz) - m_neutral_vz[i_src];
+        double const relative_u_sq =
+            relative_ux*relative_ux + relative_uy*relative_uy +
+            relative_uz*relative_uz;
+        double const relative_gamma = std::sqrt(
+            1.0 + relative_u_sq*inv_c2);
+        double const collision_energy =
+            m_mass1*relative_u_sq/
+            ((relative_gamma + 1.0)*elementary_charge);
 
         ParticleReal binding_energy;
         ParticleReal secondary_energy;
         m_ionization_processes[process_index].sampleEnergy(
-            static_cast<ParticleReal>(E_coll),
+            static_cast<ParticleReal>(collision_energy),
             energy_cost,
             amrex::Random(engine),
             amrex::Random(engine),
             binding_energy,
             secondary_energy);
-        auto const primary_energy = amrex::max(
-            static_cast<ParticleReal>(E_coll) - binding_energy - secondary_energy,
+        auto const available_energy = amrex::max(
+            static_cast<ParticleReal>(collision_energy) - binding_energy,
             0.0_prt);
+        auto const secondary_fraction = available_energy > 0.0_prt
+            ? secondary_energy/available_energy : 0.0_prt;
 
-        constexpr double c2 = PhysConst::c2_v<double>;
-        auto const mc2 = m_mass1*c2;
-        auto const primary_energy_joule =
-            static_cast<double>(primary_energy)*eV;
-        auto const secondary_energy_joule =
-            static_cast<double>(secondary_energy)*eV;
-        auto const primary_up = static_cast<ParticleReal>(
-            std::sqrt(primary_energy_joule*(primary_energy_joule + 2.0*mc2)/c2)/
-            m_mass1);
-        auto const secondary_up = static_cast<ParticleReal>(
-            std::sqrt(
-                secondary_energy_joule*(secondary_energy_joule + 2.0*mc2)/c2)/
-            m_mass1);
-
-        ParticleUtils::RandomizeVelocity(ux, uy, uz, primary_up, engine);
-        ParticleUtils::RandomizeVelocity(
-            e_ux, e_uy, e_uz, secondary_up, engine);
-
-        BackgroundMCCProducts::setProperVelocityFromPhysicalVelocity(
+        BackgroundMCCIonizationKinematics::compute(
+            ux,
+            uy,
+            uz,
             m_neutral_vx[i_src],
             m_neutral_vy[i_src],
             m_neutral_vz[i_src],
+            m_mass1,
+            m_ion_mass,
+            binding_energy,
+            secondary_fraction,
+            m_processes[process_index].m_scattering_angle_model,
+            engine,
+            ux,
+            uy,
+            uz,
+            e_ux,
+            e_uy,
+            e_uz,
             i_ux,
             i_uy,
             i_uz);
@@ -175,6 +182,7 @@ private:
     amrex::ParticleReal const* m_neutral_vy;
     amrex::ParticleReal const* m_neutral_vz;
     double m_mass1;
+    double m_ion_mass;
 };
 
 /** Create a negative ion at the sampled neutral velocity and remove the electron. */

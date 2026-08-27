@@ -159,6 +159,10 @@ public:
 
     [[nodiscard]] std::string const& name () const { return m_name; }
     [[nodiscard]] ScatteringProcessType type () const { return m_exe_h.m_type; }
+    [[nodiscard]] ScatteringAngleModel scatteringAngleModel () const
+    {
+        return m_exe_h.m_scattering_angle_model;
+    }
 
     static
     ScatteringProcessType parseProcessType(const std::string& process);

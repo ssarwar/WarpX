@@ -100,6 +100,7 @@ def make_collision(name, electrons, ions, target, energy_ev, binding_energy, mas
             "energy": binding_energy,
             "energy_sharing_model": "RBEQ",
             "rbeq_target": target,
+            "scattering_angle_model": "IAA",
             "species": ions,
         }
     }
@@ -173,31 +174,73 @@ initial_ids = {
 sim.step(1)
 
 
-def kinetic_energy_ev(ux, uy, uz):
+def kinetic_energy_ev(ux, uy, uz, mass):
     ux = np.asarray(ux, dtype=np.float64)
     uy = np.asarray(uy, dtype=np.float64)
     uz = np.asarray(uz, dtype=np.float64)
     proper_speed_sq = ux**2 + uy**2 + uz**2
     gamma = np.sqrt(1.0 + proper_speed_sq / C**2)
-    return M_E * proper_speed_sq / ((gamma + 1.0) * Q_E)
+    return mass * proper_speed_sq / ((gamma + 1.0) * Q_E)
+
+
+def cosine_to_z(ux, uy, uz):
+    proper_speed = np.sqrt(ux**2 + uy**2 + uz**2)
+    return np.divide(
+        uz,
+        proper_speed,
+        out=np.zeros_like(proper_speed, dtype=np.float64),
+        where=proper_speed > 0.0,
+    )
 
 
 results = {}
-for name, _, energy_ev, _, _ in CASES:
+for name, _, energy_ev, binding_energy, neutral_mass in CASES:
     container = sim.particles.get(f"electrons_{name}")
     ids = particle_ids(container)
-    energies = kinetic_energy_ev(
-        component(container, "ux"),
-        component(container, "uy"),
-        component(container, "uz"),
-    )
-    is_secondary = ~np.isin(ids, initial_ids[name])
+    electron_ux = component(container, "ux").astype(np.float64)
+    electron_uy = component(container, "uy").astype(np.float64)
+    electron_uz = component(container, "uz").astype(np.float64)
+    energies = kinetic_energy_ev(electron_ux, electron_uy, electron_uz, M_E)
+    is_original = np.isin(ids, initial_ids[name])
+    is_secondary = ~is_original
     secondary_energies = energies[is_secondary]
     event_count = secondary_energies.size
-    sampled_binding_mean = (PARTICLE_COUNT * energy_ev - np.sum(energies)) / event_count
+    is_primary = is_original & (energies < energy_ev - 0.25 * binding_energy)
+
+    ion_container = sim.particles.get(f"ions_{name}")
+    ion_ux = component(ion_container, "ux").astype(np.float64)
+    ion_uy = component(ion_container, "uy").astype(np.float64)
+    ion_uz = component(ion_container, "uz").astype(np.float64)
+    ion_mass = neutral_mass - M_E
+    ion_energies = kinetic_energy_ev(ion_ux, ion_uy, ion_uz, ion_mass)
+    sampled_binding_mean = (
+        PARTICLE_COUNT * energy_ev - np.sum(energies) - np.sum(ion_energies)
+    ) / event_count
+
+    final_momentum = np.array(
+        [np.sum(electron_ux), np.sum(electron_uy), np.sum(electron_uz)]
+    )
+    final_momentum += (
+        ion_mass / M_E * np.array([np.sum(ion_ux), np.sum(ion_uy), np.sum(ion_uz)])
+    )
+    initial_momentum = np.array(
+        [0.0, 0.0, PARTICLE_COUNT * electron_proper_speed(energy_ev)]
+    )
     results[f"{name}_event_count"] = event_count
+    results[f"{name}_ion_count"] = ion_ux.size - INITIAL_ION_COUNT
     results[f"{name}_secondary_energies"] = secondary_energies
     results[f"{name}_binding_mean"] = sampled_binding_mean
+    results[f"{name}_primary_cosines"] = cosine_to_z(
+        electron_ux[is_primary], electron_uy[is_primary], electron_uz[is_primary]
+    )
+    results[f"{name}_secondary_cosines"] = cosine_to_z(
+        electron_ux[is_secondary],
+        electron_uy[is_secondary],
+        electron_uz[is_secondary],
+    )
+    results[f"{name}_momentum_residual"] = (
+        final_momentum - initial_momentum
+    ) / np.linalg.norm(initial_momentum)
 
 if libwarpx.amr.ParallelDescriptor.MyProc() == 0:
     np.savez("background_mcc_rbeq_results.npz", **results)

@@ -206,6 +206,12 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
             }
         }
 
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            process.scatteringAngleModel() != ScatteringAngleModel::IAA ||
+                process_type == ScatteringProcessType::IONIZATION,
+            "The IAA scattering-angle model currently applies only to ionization."
+        );
+
         if (process_type == ScatteringProcessType::ATTACHMENT)
         {
             auto const units_key = process.name() + "_cross_section_units";
@@ -759,7 +765,8 @@ BackgroundMCCCollision::doCollisions (
                             neutral_vx.dataPtr(),
                             neutral_vy.dataPtr(),
                             neutral_vz.dataPtr(),
-                            m_mass1);
+                            m_mass1,
+                            product.getMass());
                         num_added = filterCopyTransformParticles<1>(
                             species1,
                             product,

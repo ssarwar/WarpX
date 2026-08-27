@@ -102,6 +102,10 @@ def expected_statistics(target, incident_energy, cdf_probe):
     secondary_mean = 0.0
     secondary_second_moment = 0.0
     cdf_at_probe = 0.0
+    primary_cosine_mean = 0.0
+    primary_cosine_second_moment = 0.0
+    secondary_cosine_mean = 0.0
+    secondary_cosine_second_moment = 0.0
     for probability, shell, term in zip(probabilities, shells, terms):
         if probability == 0.0:
             continue
@@ -117,13 +121,48 @@ def expected_statistics(target, incident_energy, cdf_probe):
         cdf_at_probe += probability * conditional_cdf(
             cdf_probe, incident_energy, shell, term
         )
+        pdf = np.maximum(np.gradient(cdf, grid, edge_order=2), 0.0)
+        pdf /= np.trapezoid(pdf, grid)
+        available = incident_energy - shell[0]
+        primary_energy = available - grid
+        primary_cosine = np.sqrt(
+            primary_energy
+            * (available + 2.0 * MC2_EV)
+            / (available * (primary_energy + 2.0 * MC2_EV))
+        )
+        secondary_kinematic_cosine = np.sqrt(
+            grid * (available + 2.0 * MC2_EV) / (available * (grid + 2.0 * MC2_EV))
+        )
+        free_weight = grid / (grid + shell[0])
+        secondary_conditional_mean = free_weight * secondary_kinematic_cosine
+        secondary_conditional_second_moment = (
+            secondary_conditional_mean**2 + (1.0 - free_weight) ** 2 / 3.0
+        )
+        primary_cosine_mean += probability * np.trapezoid(primary_cosine * pdf, grid)
+        primary_cosine_second_moment += probability * np.trapezoid(
+            primary_cosine**2 * pdf, grid
+        )
+        secondary_cosine_mean += probability * np.trapezoid(
+            secondary_conditional_mean * pdf, grid
+        )
+        secondary_cosine_second_moment += probability * np.trapezoid(
+            secondary_conditional_second_moment * pdf, grid
+        )
     secondary_variance = secondary_second_moment - secondary_mean**2
+    primary_cosine_variance = primary_cosine_second_moment - primary_cosine_mean**2
+    secondary_cosine_variance = (
+        secondary_cosine_second_moment - secondary_cosine_mean**2
+    )
     return (
         binding_mean,
         binding_variance,
         secondary_mean,
         secondary_variance,
         cdf_at_probe,
+        primary_cosine_mean,
+        primary_cosine_variance,
+        secondary_cosine_mean,
+        secondary_cosine_variance,
     )
 
 
@@ -131,6 +170,9 @@ data = np.load("background_mcc_rbeq_results.npz")
 for name, target, incident_energy in CASES:
     event_count = int(data[f"{name}_event_count"])
     secondary = data[f"{name}_secondary_energies"]
+    primary_cosines = data[f"{name}_primary_cosines"]
+    secondary_cosines = data[f"{name}_secondary_cosines"]
+    momentum_residual = data[f"{name}_momentum_residual"]
     observed_binding_mean = float(data[f"{name}_binding_mean"])
     outer_binding = np.min(SHELLS[target][:, 0])
     cdf_probe = 0.1 * (incident_energy - outer_binding)
@@ -140,6 +182,10 @@ for name, target, incident_energy in CASES:
         expected_secondary_mean,
         expected_secondary_variance,
         expected_cdf,
+        expected_primary_cosine,
+        expected_primary_cosine_variance,
+        expected_secondary_cosine,
+        expected_secondary_cosine_variance,
     ) = expected_statistics(target, incident_energy, cdf_probe)
 
     expected_event_fraction = -math.expm1(-5.0)
@@ -149,6 +195,9 @@ for name, target, incident_energy in CASES:
     assert abs(event_count / PARTICLE_COUNT - expected_event_fraction) < (
         7.0 * event_standard_error
     )
+    assert int(data[f"{name}_ion_count"]) == event_count
+    assert primary_cosines.size == event_count
+    assert secondary_cosines.size == event_count
     assert np.isfinite(secondary).all()
     assert np.all(secondary >= 0.0)
     assert np.max(secondary) <= 0.5 * (incident_energy - outer_binding)
@@ -165,9 +214,30 @@ for name, target, incident_energy in CASES:
     cdf_standard_error = math.sqrt(expected_cdf * (1.0 - expected_cdf) / event_count)
     assert abs(observed_cdf - expected_cdf) < 7.0 * cdf_standard_error + 4.0e-3
 
+    assert np.isfinite(primary_cosines).all()
+    assert np.isfinite(secondary_cosines).all()
+    assert np.all(np.abs(primary_cosines) <= 1.0)
+    assert np.all(np.abs(secondary_cosines) <= 1.0)
+    primary_cosine_standard_error = math.sqrt(
+        expected_primary_cosine_variance / event_count
+    )
+    secondary_cosine_standard_error = math.sqrt(
+        expected_secondary_cosine_variance / event_count
+    )
+    assert abs(np.mean(primary_cosines) - expected_primary_cosine) < (
+        7.0 * primary_cosine_standard_error + 5.0e-3
+    )
+    assert abs(np.mean(secondary_cosines) - expected_secondary_cosine) < (
+        7.0 * secondary_cosine_standard_error + 5.0e-3
+    )
+    assert np.linalg.norm(momentum_residual) < 2.0e-5
+
     print(
         f"{name}: events={event_count}, binding mean="
         f"{observed_binding_mean:.5f}/{expected_binding_mean:.5f} eV, "
         f"secondary mean={np.mean(secondary):.5f}/{expected_secondary_mean:.5f} eV, "
-        f"P(W<={cdf_probe:.3g} eV)={observed_cdf:.5f}/{expected_cdf:.5f}"
+        f"P(W<={cdf_probe:.3g} eV)={observed_cdf:.5f}/{expected_cdf:.5f}, "
+        f"<cos1>={np.mean(primary_cosines):.5f}/{expected_primary_cosine:.5f}, "
+        f"<cos2>={np.mean(secondary_cosines):.5f}/{expected_secondary_cosine:.5f}, "
+        f"|dp|/p0={np.linalg.norm(momentum_residual):.3e}"
     )
