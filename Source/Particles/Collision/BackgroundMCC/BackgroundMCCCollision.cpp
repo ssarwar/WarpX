@@ -76,6 +76,8 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
                 background_density > 0,
             "The background density must be finite and greater than 0."
         );
+        m_background_density_is_constant = true;
+        m_background_density = background_density;
         m_background_density_parser = utils::parser::makeParser(
             std::to_string(background_density), {"x", "y", "z", "t"});
     }
@@ -97,6 +99,8 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
                 background_temperature >= 0,
             "The background temperature must be finite and non-negative."
         );
+        m_background_temperature_is_constant = true;
+        m_background_temperature = background_temperature;
         m_background_temperature_parser = utils::parser::makeParser(
             std::to_string(background_temperature), {"x", "y", "z", "t"});
     }
@@ -991,6 +995,11 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
     const long np = pti.numParticles();
     auto n_a_func = m_background_density_func;
     auto T_a_func = m_background_temperature_func;
+    auto const background_density_is_constant = m_background_density_is_constant;
+    auto const background_temperature_is_constant =
+        m_background_temperature_is_constant;
+    auto const background_density = m_background_density;
+    auto const background_temperature = m_background_temperature;
 
     auto* processes = m_processes_exe.data();
     auto const process_count = static_cast<int>(m_processes_exe.size());
@@ -1025,11 +1034,20 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
             if (selected_process != nullptr) { selected_process[ip] = -1; }
             if (amrex::Random(engine) > total_collision_prob) { return; }
 
-            amrex::ParticleReal x, y, z;
-            GetPosition(ip, x, y, z);
-
-            const amrex::ParticleReal n_a = n_a_func(x, y, z, t);
-            const amrex::ParticleReal T_a = T_a_func(x, y, z, t);
+            amrex::ParticleReal n_a = background_density;
+            amrex::ParticleReal T_a = background_temperature;
+            if (!background_density_is_constant ||
+                !background_temperature_is_constant)
+            {
+                amrex::ParticleReal x, y, z;
+                GetPosition(ip, x, y, z);
+                if (!background_density_is_constant) {
+                    n_a = n_a_func(x, y, z, t);
+                }
+                if (!background_temperature_is_constant) {
+                    T_a = T_a_func(x, y, z, t);
+                }
+            }
 
             bool const valid_density = n_a >= 0.0_prt &&
                 n_a <= std::numeric_limits<amrex::ParticleReal>::max() &&

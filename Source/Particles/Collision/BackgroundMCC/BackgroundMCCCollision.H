@@ -97,8 +97,12 @@ private:
     bool m_use_relativistic_electron_kinematics = false;
     bool m_user_nu_max = false;
     bool m_warned_large_dt = false;
+    bool m_background_density_is_constant = false;
+    bool m_background_temperature_is_constant = false;
 
     amrex::ParticleReal m_mass1 = 0;
+    amrex::ParticleReal m_background_density = 0;
+    amrex::ParticleReal m_background_temperature = 0;
     amrex::ParticleReal m_max_background_density = 0;
     amrex::ParticleReal m_background_mass = -1;
     amrex::ParticleReal m_total_collision_prob = 0;
