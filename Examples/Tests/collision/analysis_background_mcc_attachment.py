@@ -121,16 +121,24 @@ for count in process_events:
 difference_error = math.sqrt(process_events[2] + process_events[3])
 assert abs(process_events[2] - process_events[3]) < 7.0 * difference_error
 
-# Product ions inherit the sampled neutral velocity. At this temperature the
-# sampled neutral is non-relativistic, so proper and physical velocity agree to
-# far beyond this statistical test's precision.
+# Negative ions created by attachment inherit the sampled neutral velocity. At
+# this temperature the sampled neutral is non-relativistic, so proper and
+# physical velocity agree to far beyond this statistical test's precision.
 expected_std = float(results["neutral_velocity_std"])
-for species in ["ion_a", "ion_b", "negative_a", "negative_b"]:
+for species in ["negative_a", "negative_b"]:
     for direction in ["ux", "uy", "uz"]:
         values = results[f"{species}_{direction}"]
         assert values.size > 1000
         assert abs(np.mean(values)) < 0.08 * expected_std
         assert abs(np.std(values) / expected_std - 1.0) < 0.08
+
+# Positive ions receive the residual momentum from three-product ionization
+# kinematics, so they must not be compared with the unmodified neutral sample.
+for species in ["ion_a", "ion_b"]:
+    for direction in ["ux", "uy", "uz"]:
+        values = results[f"{species}_{direction}"]
+        assert values.size > 1000
+        assert np.all(np.isfinite(values))
 
 print(
     "events: "
