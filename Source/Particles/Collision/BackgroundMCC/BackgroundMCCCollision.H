@@ -78,18 +78,18 @@ private:
     amrex::Vector<ScatteringProcess> m_processes;
     amrex::Gpu::DeviceVector<ScatteringProcess::Executor> m_processes_exe;
     amrex::Gpu::DeviceVector<BackgroundMCCElasticScatteringModel::Executor>
-        m_elastic_scattering_processes_exe;
+        m_differential_scattering_processes_exe;
     amrex::Gpu::DeviceVector<BackgroundMCCIonizationModel::Executor>
         m_ionization_processes_exe;
     std::vector<std::unique_ptr<BackgroundMCCElasticScatteringModel>>
-        m_elastic_scattering_models;
+        m_differential_scattering_models;
     std::unique_ptr<BackgroundMCCIonizationModel> m_n2_ionization_model;
     std::unique_ptr<BackgroundMCCIonizationModel> m_o2_ionization_model;
     amrex::Vector<ProductGroup> m_product_groups;
     amrex::Gpu::DeviceVector<int> m_process_product_group;
 
     bool init_flag = false;
-    bool m_has_iaa_elastic_processes = false;
+    bool m_has_iaa_differential_processes = false;
     bool m_has_ionization_processes = false;
     bool m_has_attachment_processes = false;
     bool m_use_relativistic_electron_kinematics = false;

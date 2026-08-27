@@ -41,7 +41,7 @@ CASES = {
         {"cross_section_units": "m2"},
     ),
     "iaa_elastic_missing_dcs": (
-        "IAA elastic scattering requires a",
+        "IAA elastic or excitation scattering requires a",
         "elastic",
         {"scattering_angle_model": "IAA"},
     ),

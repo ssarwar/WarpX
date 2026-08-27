@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sample a tabulated elastic DCS and record recoil and performance metrics."""
+"""Sample a tabulated DCS for elastic and excitation MCC processes."""
 
 import argparse
 import math
@@ -118,16 +118,10 @@ def interpolated_dcs_statistics(dcs_lo, dcs_hi, energy_fraction):
     return moments, 1.0 - zero_probability
 
 
-cross_section_path = Path("background_mcc_iaa_elastic_cross_section.txt").resolve()
-np.savetxt(
-    cross_section_path,
-    np.array([[0.0, CROSS_SECTION], [1.0e9, CROSS_SECTION]]),
-)
-
 if args.n2_dcs is None:
     dcs_path = Path("background_mcc_iaa_elastic_dcs.txt").resolve()
-    table_energies = np.array([10.0, 100.0, 1000.0, 10000.0])
-    anisotropies = np.array([-0.6, 0.0, 0.0, 0.9])
+    table_energies = np.array([10.0, 100.0, 1000.0, 10000.0, 1.0e9])
+    anisotropies = np.array([-0.6, 0.0, 0.0, 0.9, 0.3])
     theta = np.linspace(0.0, math.pi, 361)
     table = np.column_stack(
         (table_energies, np.array([1.0 + a * np.cos(theta) for a in anisotropies]))
@@ -141,32 +135,105 @@ if args.n2_dcs is None:
         ),
     )
     dcs_rows = table[:, 1:]
-    sampled_energies = (10.0, 100.0, 550.0, 5050.0, 10000.0)
+    sampled_energies = (10.0, 100.0, 550.0, 5050.0, 10000.0, 1.0e9)
     sampled_statistics = (
         analytic_dcs_statistics(-0.6),
         analytic_dcs_statistics(0.0),
         analytic_dcs_statistics(0.0),
         interpolated_dcs_statistics(dcs_rows[2], dcs_rows[3], 0.45),
         analytic_dcs_statistics(0.9),
+        analytic_dcs_statistics(0.3),
     )
     cases = [
-        (f"analytic_{index}", energy, 28.0134 * AMU, dcs_path, statistics)
+        (
+            f"elastic_analytic_{index}",
+            energy,
+            28.0134 * AMU,
+            dcs_path,
+            statistics,
+            "elastic",
+            0.0,
+        )
         for index, (energy, statistics) in enumerate(
             zip(sampled_energies, sampled_statistics)
         )
     ]
+    excitation_energy = 7.0
+    cases += [
+        (
+            "excitation_threshold",
+            excitation_energy,
+            28.0134 * AMU,
+            dcs_path,
+            analytic_dcs_statistics(-0.6),
+            "excitation",
+            excitation_energy,
+        ),
+        (
+            "excitation_low",
+            10.0,
+            28.0134 * AMU,
+            dcs_path,
+            analytic_dcs_statistics(-0.6),
+            "excitation",
+            excitation_energy,
+        ),
+        (
+            "excitation_interpolated",
+            550.0,
+            28.0134 * AMU,
+            dcs_path,
+            analytic_dcs_statistics(0.0),
+            "excitation",
+            excitation_energy,
+        ),
+        (
+            "excitation_gev",
+            1.0e9,
+            28.0134 * AMU,
+            dcs_path,
+            analytic_dcs_statistics(0.3),
+            "excitation",
+            excitation_energy,
+        ),
+    ]
 else:
     cases = []
-    for target, mass, path in (
-        ("n2", 28.0134 * AMU, args.n2_dcs.resolve()),
-        ("o2", 31.9988 * AMU, args.o2_dcs.resolve()),
+    for target, mass, excitation_energy, path in (
+        ("n2", 28.0134 * AMU, 6.0, args.n2_dcs.resolve()),
+        ("o2", 31.9988 * AMU, 1.0, args.o2_dcs.resolve()),
     ):
-        for energy in (0.1, 1000.0, 1.0e6):
-            cases.append((f"{target}_{energy:g}", energy, mass, path, None))
+        for energy in (0.1, 1000.0, 1.0e6, 1.0e9):
+            cases.append(
+                (
+                    f"elastic_{target}_{energy:g}",
+                    energy,
+                    mass,
+                    path,
+                    None,
+                    "elastic",
+                    0.0,
+                )
+            )
+        for energy in (1000.0, 1.0e9):
+            cases.append(
+                (
+                    f"excitation_{target}_{energy:g}",
+                    energy,
+                    mass,
+                    path,
+                    None,
+                    "excitation",
+                    excitation_energy,
+                )
+            )
 
 case_names = []
 case_energies = []
 case_masses = []
+case_process_types = []
+case_energy_losses = []
+case_rate_fractions = []
 expected_moments = []
 expected_backward_probabilities = []
 species = []
@@ -185,7 +252,15 @@ grid = picmi.Cartesian1DGrid(
 )
 solver = picmi.ElectromagneticSolver(grid=grid, method="Yee", cfl=0.9)
 
-for name, energy_ev, neutral_mass, dcs_file, statistics in cases:
+for (
+    name,
+    energy_ev,
+    neutral_mass,
+    dcs_file,
+    statistics,
+    process_type,
+    energy_loss,
+) in cases:
     electrons = picmi.Species(
         particle_type="electron",
         name=f"electrons_{name}",
@@ -198,10 +273,29 @@ for name, energy_ev, neutral_mass, dcs_file, statistics in cases:
         warpx_do_not_deposit=True,
         warpx_do_not_gather=True,
     )
+    cross_section_path = Path(f"background_mcc_iaa_{name}_cross_section.txt").resolve()
+    if process_type == "elastic":
+        cross_section_table = np.array([[0.0, CROSS_SECTION], [1.0e9, CROSS_SECTION]])
+    else:
+        cross_section_table = np.array(
+            [
+                [0.0, 0.0],
+                [energy_loss, 0.0],
+                [energy_loss + 1.0e-3, 0.0],
+                [energy_loss + 2.0e-3, CROSS_SECTION],
+                [1.0e9, CROSS_SECTION],
+            ]
+        )
+    np.savetxt(cross_section_path, cross_section_table)
+    local_cross_section = np.interp(energy_ev, *cross_section_table.T)
+    case_rate_fraction = RATE_FRACTION * local_cross_section / CROSS_SECTION
+
     process = {
         "cross_section": str(cross_section_path),
         "scattering_angle_model": SCATTERING_ANGLE_MODEL,
     }
+    if process_type == "excitation":
+        process["energy"] = energy_loss
     if SCATTERING_ANGLE_MODEL == "IAA":
         process["differential_cross_section"] = str(dcs_file)
     collision = picmi.MCCCollisions(
@@ -212,7 +306,7 @@ for name, energy_ev, neutral_mass, dcs_file, statistics in cases:
         ),
         background_temperature=0.0,
         background_mass=neutral_mass,
-        scattering_processes={"elastic": process},
+        scattering_processes={process_type: process},
         nu_max=NU_MAX,
     )
     species.append(electrons)
@@ -220,6 +314,9 @@ for name, energy_ev, neutral_mass, dcs_file, statistics in cases:
     case_names.append(name)
     case_energies.append(energy_ev)
     case_masses.append(neutral_mass)
+    case_process_types.append(process_type)
+    case_energy_losses.append(energy_loss)
+    case_rate_fractions.append(case_rate_fraction)
 
     if SCATTERING_ANGLE_MODEL == "isotropic":
         reference_moments, reference_backward = analytic_dcs_statistics(0.0)
@@ -270,6 +367,9 @@ results = {
     "case_names": np.array(case_names),
     "case_energies": np.array(case_energies),
     "case_masses": np.array(case_masses),
+    "case_process_types": np.array(case_process_types),
+    "case_energy_losses": np.array(case_energy_losses),
+    "case_rate_fractions": np.array(case_rate_fractions),
     "expected_moments": np.array(expected_moments),
     "expected_backward_probabilities": np.array(expected_backward_probabilities),
     "particle_count": PARTICLE_COUNT,
@@ -279,7 +379,7 @@ results = {
     "step_elapsed": step_elapsed,
     "particle_calls_per_second": PARTICLE_COUNT * len(cases) / step_elapsed,
 }
-for name, energy_ev, _, _, _ in cases:
+for name, energy_ev, _, _, _, _, _ in cases:
     container = sim.particles.get(f"electrons_{name}")
     ux = component(container, "ux")
     uy = component(container, "uy")
@@ -298,7 +398,7 @@ for name, energy_ev, _, _, _ in cases:
 if libwarpx.amr.ParallelDescriptor.MyProc() == 0:
     np.savez("background_mcc_iaa_elastic_results.npz", **results)
     print(
-        "IAA elastic benchmark: "
+        "IAA differential-scattering benchmark: "
         f"model={SCATTERING_ANGLE_MODEL}, cases={len(cases)}, "
         f"particles/case={PARTICLE_COUNT}, "
         f"initialization={initialization_elapsed:.6f} s, "
