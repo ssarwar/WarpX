@@ -3220,26 +3220,32 @@ Details about the collision models can be found in the :ref:`theory section <mul
     With ``backward``, the scattering angle is set to :math:`\pi`, i.e. the products are emitted in
     the opposite direction of the incident particle (in the center of mass frame).
 
-    Electron Background MCC additionally accepts ``IAA`` for ``elasticX`` and
-    ``ionizationX``. For ionization, this uses the IAA primary- and
-    secondary-electron angle model in the neutral rest frame and does not use a
-    differential-cross-section file. For elastic scattering, it samples the
-    stationary-target electron angle from the required
-    ``<scattering_process>_differential_cross_section`` table and applies exact
-    relativistic molecular recoil.
+    Electron Background MCC additionally accepts ``IAA`` for ``elasticX``,
+    ``excitationX`` and ``ionizationX``. For ionization, this uses the IAA
+    primary- and secondary-electron angle model in the neutral rest frame and
+    does not use a differential-cross-section file. For elastic and excitation
+    scattering, it samples the stationary-target electron angle from the
+    required ``<scattering_process>_differential_cross_section`` table and
+    applies exact relativistic molecular recoil. Excitation also removes the
+    configured ``<scattering_process>_energy`` as a discrete internal-energy
+    loss.
 
 .. pp:param:: <collision_name>.<scattering_process>_differential_cross_section
     :type: ``string``
 
-    Required only for an electron Background MCC ``elasticX`` process with
-    ``scattering_angle_model = IAA``. Path to an angular differential
-    cross-section table. Every non-comment row must contain a positive,
-    strictly increasing energy in eV followed by at least three finite,
-    non-negative DCS values at angles uniformly spaced from 0 to 180 degrees.
-    Every row must contain the same number of angular values and have a positive
-    angular integral. The IAA/elmolcs tables use 361 values at 0.5-degree
-    spacing. The DCS controls only angle sampling; the ordinary
-    ``<scattering_process>_cross_section`` table controls the event rate.
+    Required for an electron Background MCC ``elasticX`` or ``excitationX``
+    process with ``scattering_angle_model = IAA``. Path to an angular
+    differential cross-section table in the IAA/elmolcs ``DCS.e-N2`` or
+    ``DCS.e-O2`` format. Rows whose first token is not numeric are treated as
+    headers or separators and ignored. Every numeric row must contain a
+    positive, strictly increasing energy in eV followed by at least three
+    finite, non-negative DCS values at angles uniformly spaced from 0 to
+    180 degrees. Every numeric row must contain the same number of angular
+    values and have a positive angular integral. The IAA/elmolcs tables use
+    361 values at 0.5-degree spacing and extend to 1 GeV. The DCS controls only
+    angle sampling; the ordinary ``<scattering_process>_cross_section`` table
+    controls the event rate. Outside the DCS energy range, WarpX uses the
+    nearest endpoint angular distribution.
 
 .. pp:param:: <collision_name>.<scattering_process>_energy_sharing_model
     :type: ``string``

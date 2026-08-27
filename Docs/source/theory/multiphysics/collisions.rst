@@ -178,9 +178,18 @@ above their subshell thresholds. A negative partial is unphysical and cannot
 define a probability, so WarpX clamps it to zero until the analytic expression
 becomes positive; it is never reflected with an absolute value. Shell
 probabilities and conditional inverse CDFs are precomputed on a logarithmic
-energy grid during initialization. Each accepted event then requires one
-logarithm and fixed-size interpolation, with no device allocation or iterative
-root solve.
+energy grid during initialization. The inverse CDF uses 513 samples of the
+symmetric probability map
+
+    .. math::
+
+       q(x) = \frac{x^4}{x^4+(1-x)^4}, \qquad 0 \leq x \leq 1,
+
+which resolves both high-energy probability tails without linearly
+interpolating from an interior quantile to the physical endpoint. The tables
+cover incident energies through at least 1 GeV. Each accepted event then
+requires one logarithm and fixed-size interpolation, with no device allocation
+or iterative root solve.
 
 The angular model is selected independently from energy sharing. With
 ``<process>_scattering_angle_model = IAA``, the collision is evaluated in the
@@ -209,22 +218,29 @@ remaining momentum. Two fixed recoil corrections conserve energy through
 :math:`O((m_e/M)^3)` without a device-side convergence loop, and the three
 products are Lorentz transformed back to the simulation frame.
 
-IAA/elmolcs elastic differential scattering
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+IAA/elmolcs differential scattering
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-For elastic electron scattering, ``IAA`` selects an angular differential cross
-section (DCS) table such as the :math:`\mathrm{N}_2` and :math:`\mathrm{O}_2`
-tables from the `elmolcs project <https://codeberg.org/jesenek/elmolcs>`_::
+For elastic and excitation electron scattering, ``IAA`` selects an angular
+differential cross-section (DCS) table such as the :math:`\mathrm{N}_2` and
+:math:`\mathrm{O}_2` tables from the
+`elmolcs project <https://codeberg.org/jesenek/elmolcs>`_::
 
     mcc.elastic_N2_scattering_angle_model = IAA
     mcc.elastic_N2_differential_cross_section = /path/to/DCS.e-N2
+    mcc.excitation_N2_scattering_angle_model = IAA
+    mcc.excitation_N2_differential_cross_section = /path/to/DCS.e-N2
+    mcc.excitation_N2_energy = 6.17
 
 This DCS table is separate from ``<process>_cross_section``: the latter controls
 the event rate, while the DCS controls only the conditional scattering angle.
-Each non-comment DCS row contains a positive, strictly increasing energy in eV
-followed by at least three non-negative angular values. All rows must have the
-same number of values, uniformly spaced from :math:`0` to :math:`\pi`. The
-elmolcs tables contain 361 values at 0.5-degree spacing. Their DCS units are
+WarpX reads the elmolcs ``DCS.e-N2`` and ``DCS.e-O2`` files directly. It ignores
+header, metadata and separator rows whose first token is not numeric. Each
+numeric row contains a positive, strictly increasing energy in eV followed by
+at least three non-negative angular values. All numeric rows must have the same
+number of values, uniformly spaced from :math:`0` to :math:`\pi`. The elmolcs
+tables contain 361 values at 0.5-degree spacing and extend from their low-energy
+endpoint through 1 GeV. Their DCS units are
 :math:`10^{-20}\,\mathrm{m}^2\,\mathrm{sr}^{-1}`, although a common positive
 scale cancels from angular sampling.
 
@@ -244,10 +260,41 @@ Energies outside the table range use the nearest endpoint distribution; inside
 the range, inverse-CDF cosines are interpolated linearly in energy.
 
 The sampled DCS angle is the outgoing-electron angle for a stationary target,
-not a center-of-momentum angle. WarpX applies exact relativistic two-body recoil
-in the sampled neutral rest frame and transforms the electron back to the
-simulation frame. This model therefore requires an electron projectile and a
-neutral target heavier than the electron.
+not a center-of-momentum angle. For elastic scattering, WarpX applies exact
+relativistic two-body recoil in the sampled neutral rest frame. For excitation,
+the target's final rest energy is increased by the configured discrete loss
+:math:`Q`. The outgoing momentum magnitude is the analytic two-body solution of
+
+    .. math::
+
+       T + m_ec^2 + Mc^2 = T' + m_ec^2
+       + \sqrt{(Mc^2+Q)^2 + c^2\lvert\boldsymbol{p}-\boldsymbol{p}'\rvert^2},
+
+for the sampled angle. This conserves energy and momentum, including molecular
+recoil, before transforming the electron back to the simulation frame. The
+model therefore requires an electron projectile and a neutral target heavier
+than the electron. In the extremely narrow interval between the configured
+loss and the recoil-shifted physical threshold, WarpX projects the sampled
+angle to the nearest kinematically allowed value.
+
+Many-channel selection and DCS reuse
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Background MCC preserves every configured process and its discrete energy loss,
+including configurations with tens of excitation channels. During
+initialization, WarpX forms the union of all process cross-section energy knots
+and tabulates cumulative cross sections on that grid. Because individual
+cross sections are piecewise linear, interpolating each cumulative value on the
+union grid is exact. An accepted collision therefore uses one energy bisection
+and a logarithmic search of the process prefixes, instead of evaluating and
+scanning every process on the device.
+
+The cumulative table is limited to 64 MiB per collision object. An unusually
+large collection of mutually disjoint grids that exceeds this limit retains the
+exact per-process selection path. Elastic and excitation channels that name the
+same DCS file share one precomputed inverse-CDF table and one device allocation.
+This avoids duplicating initialization work and device memory when many
+excitation channels use the same target DCS.
 
 The elmolcs data are distributed separately from WarpX and are not copied into
 the BSD-licensed source tree. Users must obtain the tables separately and comply
