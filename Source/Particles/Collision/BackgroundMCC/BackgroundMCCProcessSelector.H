@@ -14,6 +14,8 @@
 #include <AMReX_REAL.H>
 #include <AMReX_Vector.H>
 
+#include <cstddef>
+
 /** Exact cumulative cross-section table for Background MCC process selection.
  *
  * The host constructor merges all process energy knots. A sum of piecewise
@@ -25,6 +27,9 @@
 class BackgroundMCCProcessSelector
 {
 public:
+    /** Maximum combined host or device storage for the energy and prefix tables. */
+    static constexpr std::size_t maximum_table_bytes = 64u * 1024u * 1024u;
+
     struct Executor
     {
         /** Select the process whose cumulative cross section contains a draw.
@@ -110,6 +115,34 @@ public:
 
     explicit BackgroundMCCProcessSelector (
         amrex::Vector<ScatteringProcess> const& processes);
+
+    [[nodiscard]] bool enabled () const noexcept
+    {
+        return m_executor_h.enabled();
+    }
+
+    /** Host energy grid used by the selector and automatic-majorant setup. */
+    [[nodiscard]] amrex::Gpu::HostVector<amrex::ParticleReal> const&
+    energyGrid () const noexcept
+    {
+        return m_energies_h;
+    }
+
+    /** Host row containing the sum of all process cross sections. */
+    [[nodiscard]] amrex::ParticleReal const* totalCrossSectionGrid () const noexcept
+    {
+        if (!enabled()) { return nullptr; }
+        auto const row_offset =
+            (m_executor_h.m_process_count - 1) * m_executor_h.m_energy_count;
+        return m_cumulative_cross_sections_h.data() + row_offset;
+    }
+
+    /** Combined energy- and prefix-table bytes in each host or device copy. */
+    [[nodiscard]] std::size_t tableBytes () const noexcept
+    {
+        return sizeof(amrex::ParticleReal) *
+            (m_energies_h.size() + m_cumulative_cross_sections_h.size());
+    }
 
     [[nodiscard]] Executor const& executor () const
     {

@@ -6,7 +6,6 @@ from pathlib import Path
 
 import numpy as np
 
-
 HISTOGRAM_PATH = Path("hist_uz.txt")
 PARTICLE_COUNT = 131072
 INITIAL_UZ = 0.5810524930349901
@@ -40,17 +39,29 @@ def electron_speed(energy_ev: np.ndarray | float) -> np.ndarray | float:
 
 
 def automatic_nu_max() -> float:
-    interval_bounds = []
+    interval_maxima = []
+    rest_energy = ELECTRON_MASS * C**2 / E_CHARGE
     for left, right, sigma_left, sigma_right in zip(
         ENERGY_GRID[:-1],
         ENERGY_GRID[1:],
         CROSS_SECTION_GRID[:-1],
         CROSS_SECTION_GRID[1:],
     ):
-        del left
-        interval_bounds.append(max(sigma_left, sigma_right) * electron_speed(right))
-    interval_bounds.append(CROSS_SECTION_GRID[-1] * C)
-    return BACKGROUND_DENSITY * max(interval_bounds)
+        candidates = [
+            sigma_left * electron_speed(left),
+            sigma_right * electron_speed(right),
+        ]
+        slope = (sigma_right - sigma_left) / (right - left)
+        if slope < 0.0:
+            intercept = sigma_left - slope * left
+            gamma_cubed = 1.0 - intercept / (slope * rest_energy)
+            stationary_energy = rest_energy * (np.cbrt(gamma_cubed) - 1.0)
+            if left < stationary_energy < right:
+                stationary_sigma = intercept + slope * stationary_energy
+                candidates.append(stationary_sigma * electron_speed(stationary_energy))
+        interval_maxima.append(max(candidates))
+    interval_maxima.append(CROSS_SECTION_GRID[-1] * C)
+    return BACKGROUND_DENSITY * max(interval_maxima)
 
 
 def expected_collision_fraction() -> float:

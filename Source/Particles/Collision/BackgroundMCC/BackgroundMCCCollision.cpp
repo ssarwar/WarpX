@@ -460,34 +460,6 @@ BackgroundMCCCollision::get_nu_max (
 
     if (processes.empty()) { return 0; }
 
-    std::priority_queue<
-        CrossSectionKnot,
-        std::vector<CrossSectionKnot>,
-        CompareCrossSectionKnots> next_knots;
-
-    std::vector<Accumulator> process_slopes(processes.size(), 0.0L);
-    Accumulator total_sigma = 0.0L;
-    Accumulator total_slope = 0.0L;
-
-    for (int ip = 0; ip < static_cast<int>(processes.size()); ++ip)
-    {
-        auto const& energies = processes[ip].getEnergyGrid();
-        auto const& sigmas = processes[ip].getCrossSectionGrid();
-
-        total_sigma += static_cast<Accumulator>(sigmas[0]);
-
-        int next_knot = 0;
-        if (energies[0] == 0.0)
-        {
-            process_slopes[ip] =
-                (static_cast<Accumulator>(sigmas[1]) - sigmas[0]) /
-                (static_cast<Accumulator>(energies[1]) - energies[0]);
-            total_slope += process_slopes[ip];
-            next_knot = 1;
-        }
-        next_knots.push({energies[next_knot], ip, next_knot});
-    }
-
     auto const collision_speed = [this] (Accumulator const energy)
     {
         if (energy <= 0.0L) { return 0.0L; }
@@ -504,47 +476,146 @@ BackgroundMCCCollision::get_nu_max (
         return std::sqrt(2.0L*q_e*energy/mass);
     };
 
-    Accumulator left_energy = 0.0L;
-    Accumulator left_sigma = total_sigma;
     Accumulator max_sigma_v = 0.0L;
-
-    while (!next_knots.empty())
+    auto const update_interval_maximum =
+        [this, &collision_speed, &max_sigma_v] (
+            Accumulator const left_energy, Accumulator const left_sigma,
+            Accumulator const right_energy, Accumulator const right_sigma)
     {
-        auto const right_energy =
-            static_cast<Accumulator>(next_knots.top().energy);
-        auto right_sigma = left_sigma + total_slope*(right_energy - left_energy);
-        right_sigma = std::max(0.0L, right_sigma);
-
         max_sigma_v = std::max(
             max_sigma_v,
-            std::max(left_sigma, right_sigma)*collision_speed(right_energy));
+            std::max(left_sigma * collision_speed(left_energy),
+                     right_sigma * collision_speed(right_energy)));
+        if (right_energy <= left_energy || right_sigma >= left_sigma) { return; }
 
-        left_energy = right_energy;
-        left_sigma = right_sigma;
-
-        while (!next_knots.empty() &&
-               static_cast<Accumulator>(next_knots.top().energy) == right_energy)
+        // sigma(E) is linear on a union-grid interval. Only a decreasing
+        // segment can have an interior maximum after multiplication by the
+        // monotonically increasing collision speed.
+        auto const slope =
+            (right_sigma - left_sigma) / (right_energy - left_energy);
+        auto const intercept = left_sigma - slope * left_energy;
+        Accumulator stationary_energy;
+        if (m_use_relativistic_electron_kinematics)
         {
-            auto const event = next_knots.top();
-            next_knots.pop();
+            auto const mass = static_cast<Accumulator>(m_mass1);
+            auto const c2 = static_cast<Accumulator>(PhysConst::c2_v<double>);
+            auto const q_e = static_cast<Accumulator>(PhysConst::q_e_v<double>);
+            auto const rest_energy = mass * c2 / q_e;
+            auto const gamma_cubed = 1.0L - intercept / (slope * rest_energy);
+            stationary_energy = gamma_cubed > 1.0L
+                ? rest_energy * (std::cbrt(gamma_cubed) - 1.0L)
+                : -1.0L;
+        }
+        else
+        {
+            stationary_energy = -intercept / (3.0L * slope);
+        }
 
-            auto const& energies = processes[event.process_index].getEnergyGrid();
-            auto const& sigmas = processes[event.process_index].getCrossSectionGrid();
+        if (stationary_energy > left_energy && stationary_energy < right_energy)
+        {
+            auto const stationary_sigma =
+                intercept + slope * stationary_energy;
+            max_sigma_v = std::max(
+                max_sigma_v,
+                stationary_sigma * collision_speed(stationary_energy));
+        }
+    };
 
-            total_slope -= process_slopes[event.process_index];
-            if (event.knot_index + 1 < static_cast<int>(energies.size()))
+    Accumulator left_energy = 0.0L;
+    Accumulator left_sigma = 0.0L;
+
+    if (m_process_selector && m_process_selector->enabled())
+    {
+        // The selector already tabulated the exact total cross section on the
+        // union grid. Reuse it instead of merging every process grid again.
+        auto const& energies = m_process_selector->energyGrid();
+        auto const* total_cross_sections =
+            m_process_selector->totalCrossSectionGrid();
+        left_sigma = static_cast<Accumulator>(total_cross_sections[0]);
+        update_interval_maximum(
+            0.0L, left_sigma, static_cast<Accumulator>(energies[0]), left_sigma);
+        for (std::size_t i = 0; i + 1u < energies.size(); ++i)
+        {
+            auto const right_energy = static_cast<Accumulator>(energies[i + 1u]);
+            auto const right_sigma =
+                static_cast<Accumulator>(total_cross_sections[i + 1u]);
+            update_interval_maximum(
+                static_cast<Accumulator>(energies[i]),
+                static_cast<Accumulator>(total_cross_sections[i]),
+                right_energy,
+                right_sigma);
+            left_energy = right_energy;
+            left_sigma = right_sigma;
+        }
+    }
+    else
+    {
+        std::priority_queue<
+            CrossSectionKnot,
+            std::vector<CrossSectionKnot>,
+            CompareCrossSectionKnots> next_knots;
+
+        std::vector<Accumulator> process_slopes(processes.size(), 0.0L);
+        Accumulator total_sigma = 0.0L;
+        Accumulator total_slope = 0.0L;
+
+        for (int ip = 0; ip < static_cast<int>(processes.size()); ++ip)
+        {
+            auto const& energies = processes[ip].getEnergyGrid();
+            auto const& sigmas = processes[ip].getCrossSectionGrid();
+
+            total_sigma += static_cast<Accumulator>(sigmas[0]);
+
+            int next_knot = 0;
+            if (energies[0] == 0.0)
             {
-                auto const j = event.knot_index;
-                process_slopes[event.process_index] =
-                    (static_cast<Accumulator>(sigmas[j+1]) - sigmas[j]) /
-                    (static_cast<Accumulator>(energies[j+1]) - energies[j]);
-                next_knots.push({energies[j+1], event.process_index, j+1});
+                process_slopes[ip] =
+                    (static_cast<Accumulator>(sigmas[1]) - sigmas[0]) /
+                    (static_cast<Accumulator>(energies[1]) - energies[0]);
+                total_slope += process_slopes[ip];
+                next_knot = 1;
             }
-            else
+            next_knots.push({energies[next_knot], ip, next_knot});
+        }
+
+        left_sigma = total_sigma;
+        while (!next_knots.empty())
+        {
+            auto const right_energy =
+                static_cast<Accumulator>(next_knots.top().energy);
+            auto right_sigma = left_sigma + total_slope*(right_energy - left_energy);
+            right_sigma = std::max(0.0L, right_sigma);
+
+            update_interval_maximum(
+                left_energy, left_sigma, right_energy, right_sigma);
+
+            left_energy = right_energy;
+            left_sigma = right_sigma;
+
+            while (!next_knots.empty() &&
+                   static_cast<Accumulator>(next_knots.top().energy) == right_energy)
             {
-                process_slopes[event.process_index] = 0.0L;
+                auto const event = next_knots.top();
+                next_knots.pop();
+
+                auto const& energies = processes[event.process_index].getEnergyGrid();
+                auto const& sigmas = processes[event.process_index].getCrossSectionGrid();
+
+                total_slope -= process_slopes[event.process_index];
+                if (event.knot_index + 1 < static_cast<int>(energies.size()))
+                {
+                    auto const j = event.knot_index;
+                    process_slopes[event.process_index] =
+                        (static_cast<Accumulator>(sigmas[j+1]) - sigmas[j]) /
+                        (static_cast<Accumulator>(energies[j+1]) - energies[j]);
+                    next_knots.push({energies[j+1], event.process_index, j+1});
+                }
+                else
+                {
+                    process_slopes[event.process_index] = 0.0L;
+                }
+                total_slope += process_slopes[event.process_index];
             }
-            total_slope += process_slopes[event.process_index];
         }
     }
 

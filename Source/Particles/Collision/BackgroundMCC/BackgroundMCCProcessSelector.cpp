@@ -42,17 +42,18 @@ BackgroundMCCProcessSelector::BackgroundMCCProcessSelector (
 
     auto const energy_count = union_energies.size();
     auto const process_count = static_cast<std::size_t>(processes.size());
-    constexpr std::size_t max_table_bytes = 64u * 1024u * 1024u;
     constexpr std::size_t max_table_entries =
-        max_table_bytes / sizeof(amrex::ParticleReal);
+        maximum_table_bytes / sizeof(amrex::ParticleReal);
+    auto const table_column_count = process_count + 1u;
     if (energy_count < 2u ||
         energy_count > static_cast<std::size_t>(std::numeric_limits<int>::max()) ||
         process_count > static_cast<std::size_t>(std::numeric_limits<int>::max()) ||
-        process_count > max_table_entries / energy_count)
+        table_column_count > max_table_entries / energy_count)
     {
         // Very heterogeneous tables can make the exact prefix representation
-        // quadratic in input size. The collision kernel retains its linear-scan
-        // fallback for this uncommon case.
+        // quadratic in input size. Limit the combined energy and prefix tables
+        // to 64 MiB per host or device copy. The collision kernel retains its
+        // linear-scan fallback for this uncommon case.
         return;
     }
 
@@ -88,9 +89,12 @@ BackgroundMCCProcessSelector::BackgroundMCCProcessSelector (
                 auto const fraction =
                     static_cast<long double>(energy - energies[interval]) /
                     static_cast<long double>(energies[interval + 1u] - energies[interval]);
-                cross_section = static_cast<long double>(cross_sections[interval]) +
-                    fraction * static_cast<long double>(
-                        cross_sections[interval + 1u] - cross_sections[interval]);
+                auto const cross_section_lo =
+                    static_cast<long double>(cross_sections[interval]);
+                auto const cross_section_hi =
+                    static_cast<long double>(cross_sections[interval + 1u]);
+                cross_section = cross_section_lo +
+                    fraction * (cross_section_hi - cross_section_lo);
             }
 
             cumulative[energy_index] += cross_section;
