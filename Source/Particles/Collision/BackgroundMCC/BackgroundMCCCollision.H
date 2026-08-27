@@ -7,6 +7,7 @@
 #ifndef WARPX_PARTICLES_COLLISION_BACKGROUNDMCCCOLLISION_H_
 #define WARPX_PARTICLES_COLLISION_BACKGROUNDMCCCOLLISION_H_
 
+#include "BackgroundMCCIonization.H"
 #include "Particles/Collision/CollisionBase.H"
 #include "Particles/Collision/ScatteringProcess.H"
 #include "Particles/MultiParticleContainer.H"
@@ -16,6 +17,7 @@
 #include <AMReX_REAL.H>
 #include <AMReX_Vector.H>
 
+#include <memory>
 #include <string>
 
 class BackgroundMCCCollision final
@@ -73,6 +75,10 @@ private:
 
     amrex::Vector<ScatteringProcess> m_processes;
     amrex::Gpu::DeviceVector<ScatteringProcess::Executor> m_processes_exe;
+    amrex::Gpu::DeviceVector<BackgroundMCCIonizationModel::Executor>
+        m_ionization_processes_exe;
+    std::unique_ptr<BackgroundMCCIonizationModel> m_n2_ionization_model;
+    std::unique_ptr<BackgroundMCCIonizationModel> m_o2_ionization_model;
     amrex::Vector<ProductGroup> m_product_groups;
     amrex::Gpu::DeviceVector<int> m_process_product_group;
 

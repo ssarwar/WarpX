@@ -203,4 +203,11 @@ AMREX_ENUM(ScatteringAngleModel,
            Default = Isotropic  /**< Isotropic */
 );
 
+/** \brief Energy-sharing model for the two outgoing electrons in impact ionization. */
+AMREX_ENUM(IonizationEnergySharingModel,
+           Equal,  /**< Divide the post-threshold energy equally */
+           RBEQ,  /**< Sample the RBEQ singly differential cross section */
+           Default = Equal  /**< Equal sharing */
+);
+
 #endif // WARPX_UTILS_WARPXALGORITHMSELECTION_H_

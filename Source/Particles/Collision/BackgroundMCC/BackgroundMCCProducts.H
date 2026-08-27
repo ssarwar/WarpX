@@ -8,6 +8,7 @@
 #define WARPX_PARTICLES_COLLISION_BACKGROUNDMCCPRODUCTS_H_
 
 #include "Particles/Algorithms/KineticEnergy.H"
+#include "Particles/Collision/BackgroundMCC/BackgroundMCCIonization.H"
 #include "Particles/Collision/ScatteringProcess.H"
 #include "Utils/ParticleUtils.H"
 #include "Utils/WarpXConst.H"
@@ -15,6 +16,8 @@
 #include <AMReX_Particle.H>
 #include <AMReX_Random.H>
 #include <AMReX_REAL.H>
+
+#include <cmath>
 
 /** Select particles whose previously chosen process belongs to one product group. */
 class BackgroundMCCProductFilterFunc
@@ -67,18 +70,20 @@ namespace BackgroundMCCProducts
     }
 }
 
-/** Apply the existing equal-energy-sharing ionization outcome for a selected channel. */
+/** Apply the configured ionization energy-sharing outcome for a selected channel. */
 class ImpactIonizationTransformFunc
 {
 public:
     ImpactIonizationTransformFunc (
         ScatteringProcess::Executor const* processes,
+        BackgroundMCCIonizationModel::Executor const* ionization_processes,
         int const* selected_process,
         amrex::ParticleReal const* neutral_vx,
         amrex::ParticleReal const* neutral_vy,
         amrex::ParticleReal const* neutral_vz,
         double const mass1)
         : m_processes(processes),
+          m_ionization_processes(ionization_processes),
           m_selected_process(selected_process),
           m_neutral_vx(neutral_vx),
           m_neutral_vy(neutral_vy),
@@ -98,7 +103,7 @@ public:
         amrex::RandomEngine const& engine) const noexcept
     {
         using namespace amrex;
-        using std::sqrt;
+        using namespace amrex::literals;
 
         auto& ux = src.m_rdata[PIdx::ux][i_src];
         auto& uy = src.m_rdata[PIdx::uy][i_src];
@@ -116,19 +121,42 @@ public:
             m_processes[process_index].m_energy_penalty;
 
         constexpr auto eV = PhysConst::q_e;
-        double const E_coll =
-            Algorithms::KineticEnergy<double>(ux, uy, uz, m_mass1)/eV;
-        double const E_available = E_coll > static_cast<double>(energy_cost)
-            ? E_coll - static_cast<double>(energy_cost) : 0.0;
-        ParticleReal const E_out = static_cast<ParticleReal>(0.5*E_available*eV);
+        ParticleReal const relative_ux = ux - m_neutral_vx[i_src];
+        ParticleReal const relative_uy = uy - m_neutral_vy[i_src];
+        ParticleReal const relative_uz = uz - m_neutral_vz[i_src];
+        double const E_coll = Algorithms::KineticEnergy<double>(
+            relative_ux, relative_uy, relative_uz, m_mass1)/eV;
 
-        constexpr auto c2 = PhysConst::c2;
+        ParticleReal binding_energy;
+        ParticleReal secondary_energy;
+        m_ionization_processes[process_index].sampleEnergy(
+            static_cast<ParticleReal>(E_coll),
+            energy_cost,
+            amrex::Random(engine),
+            amrex::Random(engine),
+            binding_energy,
+            secondary_energy);
+        auto const primary_energy = amrex::max(
+            static_cast<ParticleReal>(E_coll) - binding_energy - secondary_energy,
+            0.0_prt);
+
+        constexpr double c2 = PhysConst::c2_v<double>;
         auto const mc2 = m_mass1*c2;
-        ParticleReal const up =
-            sqrt(E_out*(E_out + 2.0_prt*mc2)/c2)/m_mass1;
+        auto const primary_energy_joule =
+            static_cast<double>(primary_energy)*eV;
+        auto const secondary_energy_joule =
+            static_cast<double>(secondary_energy)*eV;
+        auto const primary_up = static_cast<ParticleReal>(
+            std::sqrt(primary_energy_joule*(primary_energy_joule + 2.0*mc2)/c2)/
+            m_mass1);
+        auto const secondary_up = static_cast<ParticleReal>(
+            std::sqrt(
+                secondary_energy_joule*(secondary_energy_joule + 2.0*mc2)/c2)/
+            m_mass1);
 
-        ParticleUtils::RandomizeVelocity(ux, uy, uz, up, engine);
-        ParticleUtils::RandomizeVelocity(e_ux, e_uy, e_uz, up, engine);
+        ParticleUtils::RandomizeVelocity(ux, uy, uz, primary_up, engine);
+        ParticleUtils::RandomizeVelocity(
+            e_ux, e_uy, e_uz, secondary_up, engine);
 
         BackgroundMCCProducts::setProperVelocityFromPhysicalVelocity(
             m_neutral_vx[i_src],
@@ -141,6 +169,7 @@ public:
 
 private:
     ScatteringProcess::Executor const* m_processes;
+    BackgroundMCCIonizationModel::Executor const* m_ionization_processes;
     int const* m_selected_process;
     amrex::ParticleReal const* m_neutral_vx;
     amrex::ParticleReal const* m_neutral_vy;

@@ -150,6 +150,12 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
     auto processes = BinaryCollisionUtils::parse_scattering_processes(collision_name);
     amrex::Vector<int> process_product_group;
     process_product_group.reserve(processes.size());
+    amrex::Vector<IonizationEnergySharingModel> ionization_energy_models;
+    amrex::Vector<BackgroundMCCIonizationTarget> ionization_targets;
+    ionization_energy_models.reserve(processes.size());
+    ionization_targets.reserve(processes.size());
+    amrex::ParticleReal n2_maximum_energy = 0.0_prt;
+    amrex::ParticleReal o2_maximum_energy = 0.0_prt;
 
     for (auto& process : processes)
     {
@@ -158,6 +164,47 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
             process_type != ScatteringProcessType::INVALID,
             "Cannot add an unknown scattering process type."
         );
+
+        auto energy_sharing_model = IonizationEnergySharingModel::Equal;
+        auto ionization_target = BackgroundMCCIonizationTarget::None;
+        if (process_type == ScatteringProcessType::IONIZATION)
+        {
+            pp_collision_name.query_enum_case_insensitive(
+                process.name() + "_energy_sharing_model", energy_sharing_model);
+
+            if (energy_sharing_model == IonizationEnergySharingModel::RBEQ)
+            {
+                std::string target_name;
+                pp_collision_name.get(
+                    process.name() + "_rbeq_target", target_name);
+                ionization_target =
+                    BackgroundMCCIonizationModel::parseTarget(target_name);
+                WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                    ionization_target != BackgroundMCCIonizationTarget::None,
+                    "RBEQ ionization target must be N2 or O2."
+                );
+
+                auto const outer_binding =
+                    BackgroundMCCIonizationModel::outerBindingEnergy(
+                        ionization_target);
+                WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                    std::abs(process.getEnergyPenalty() - outer_binding) <= 0.05_prt,
+                    "RBEQ ionization energy must match the target's outer-shell "
+                    "binding energy to within 0.05 eV."
+                );
+
+                if (ionization_target == BackgroundMCCIonizationTarget::N2)
+                {
+                    n2_maximum_energy = std::max(
+                        n2_maximum_energy, process.getMaxEnergyInput());
+                }
+                else
+                {
+                    o2_maximum_energy = std::max(
+                        o2_maximum_energy, process.getMaxEnergyInput());
+                }
+            }
+        }
 
         if (process_type == ScatteringProcessType::ATTACHMENT)
         {
@@ -244,7 +291,38 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
         }
 
         process_product_group.push_back(product_group);
+        ionization_energy_models.push_back(energy_sharing_model);
+        ionization_targets.push_back(ionization_target);
         m_processes.push_back(std::move(process));
+    }
+
+    if (n2_maximum_energy > 0.0_prt)
+    {
+        m_n2_ionization_model = std::make_unique<BackgroundMCCIonizationModel>(
+            BackgroundMCCIonizationTarget::N2, n2_maximum_energy);
+    }
+    if (o2_maximum_energy > 0.0_prt)
+    {
+        m_o2_ionization_model = std::make_unique<BackgroundMCCIonizationModel>(
+            BackgroundMCCIonizationTarget::O2, o2_maximum_energy);
+    }
+
+    amrex::Gpu::HostVector<BackgroundMCCIonizationModel::Executor>
+        host_ionization_processes;
+    host_ionization_processes.reserve(m_processes.size());
+    for (int i = 0; i < static_cast<int>(m_processes.size()); ++i)
+    {
+        BackgroundMCCIonizationModel::Executor executor;
+        executor.m_model = ionization_energy_models[i];
+        if (ionization_targets[i] == BackgroundMCCIonizationTarget::N2)
+        {
+            executor = m_n2_ionization_model->executor();
+        }
+        else if (ionization_targets[i] == BackgroundMCCIonizationTarget::O2)
+        {
+            executor = m_o2_ionization_model->executor();
+        }
+        host_ionization_processes.push_back(executor);
     }
 
 #ifdef AMREX_USE_GPU
@@ -260,6 +338,13 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
         host_processes.end(),
         m_processes_exe.begin());
 
+    m_ionization_processes_exe.resize(host_ionization_processes.size());
+    amrex::Gpu::copyAsync(
+        amrex::Gpu::hostToDevice,
+        host_ionization_processes.begin(),
+        host_ionization_processes.end(),
+        m_ionization_processes_exe.begin());
+
     m_process_product_group.resize(process_product_group.size());
     amrex::Gpu::copyAsync(
         amrex::Gpu::hostToDevice,
@@ -270,6 +355,9 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
 #else
     for (auto const& process : m_processes) {
         m_processes_exe.push_back(process.executor());
+    }
+    for (auto const& ionization_process : host_ionization_processes) {
+        m_ionization_processes_exe.push_back(ionization_process);
     }
     for (auto const product_group : process_product_group) {
         m_process_product_group.push_back(product_group);
@@ -666,6 +754,7 @@ BackgroundMCCCollision::doCollisions (
                             source_tile.numParticles();
                         const auto Transform = ImpactIonizationTransformFunc(
                             m_processes_exe.data(),
+                            m_ionization_processes_exe.data(),
                             selected_process.dataPtr(),
                             neutral_vx.dataPtr(),
                             neutral_vy.dataPtr(),
