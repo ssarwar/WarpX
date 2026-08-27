@@ -477,7 +477,18 @@ BackgroundMCCCollision::get_nu_max (
             auto const tau = energy*q_e/(mass*c2);
             return c*std::sqrt(tau*(tau + 2.0L))/(tau + 1.0L);
         }
-        return std::sqrt(2.0L*q_e*energy/mass);
+
+        // Invert ParticleUtils::getCollisionEnergy exactly, then convert the
+        // relative proper speed to the ordinary collision-rate speed. The
+        // collision energy depends on both projectile and neutral masses.
+        auto const target_mass = static_cast<Accumulator>(m_background_mass);
+        auto const c = static_cast<Accumulator>(PhysConst::c_v<double>);
+        auto const c2 = static_cast<Accumulator>(PhysConst::c2_v<double>);
+        auto const energy_mass = energy*q_e/c2;
+        auto const tau = energy_mass *
+            (2.0L*(mass + target_mass) + energy_mass) /
+            (2.0L*mass*target_mass);
+        return c*std::sqrt(tau*(tau + 2.0L))/(tau + 1.0L);
     };
 
     Accumulator max_sigma_v = 0.0L;
@@ -512,7 +523,50 @@ BackgroundMCCCollision::get_nu_max (
         }
         else
         {
-            stationary_energy = -intercept / (3.0L * slope);
+            // The exact non-electron energy-speed relation includes both
+            // masses. Its derivative has one root on a decreasing linear
+            // cross-section segment. Locate that initialization-only root by
+            // bisection instead of using the infinite-target approximation.
+            auto const mass = static_cast<Accumulator>(m_mass1);
+            auto const target_mass = static_cast<Accumulator>(m_background_mass);
+            auto const c2 = static_cast<Accumulator>(PhysConst::c2_v<double>);
+            auto const energy_to_mass =
+                static_cast<Accumulator>(PhysConst::q_e_v<double>)/c2;
+            auto const derivative_numerator =
+                [=] (Accumulator const energy)
+            {
+                auto const energy_mass = energy*energy_to_mass;
+                auto const tau = energy_mass *
+                    (2.0L*(mass + target_mass) + energy_mass) /
+                    (2.0L*mass*target_mass);
+                auto const tau_derivative = energy_to_mass *
+                    (mass + target_mass + energy_mass) /
+                    (mass*target_mass);
+                auto const sigma = intercept + slope*energy;
+                return slope*tau*(tau + 2.0L)*(tau + 1.0L) +
+                    sigma*tau_derivative;
+            };
+
+            auto lower = left_energy;
+            auto upper = right_energy;
+            if (derivative_numerator(lower) > 0.0L &&
+                derivative_numerator(upper) < 0.0L)
+            {
+                for (int iteration = 0; iteration < 80; ++iteration)
+                {
+                    auto const midpoint = 0.5L*(lower + upper);
+                    if (derivative_numerator(midpoint) > 0.0L) {
+                        lower = midpoint;
+                    } else {
+                        upper = midpoint;
+                    }
+                }
+                stationary_energy = 0.5L*(lower + upper);
+            }
+            else
+            {
+                stationary_energy = -1.0L;
+            }
         }
 
         if (stationary_energy > left_energy && stationary_energy < right_energy)
@@ -624,7 +678,7 @@ BackgroundMCCCollision::get_nu_max (
     }
 
     // Electron speed is bounded by c, so this also covers the constant
-    // high-energy extrapolation used by ScatteringProcess::getCrossSection.
+    // high-energy extrapolation used by ScatteringProcess.
     if (m_use_relativistic_electron_kinematics)
     {
         auto const c = static_cast<Accumulator>(PhysConst::c_v<double>);
@@ -1116,10 +1170,10 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
                 const amrex::ParticleReal v_coll2 = vx*vx + vy*vy + vz*vz;
                 double gamma;
                 double E_coll_double;
-                v_coll = sqrt(v_coll2);
                 ParticleUtils::getCollisionEnergy(
                     v_coll2, m, M, gamma, E_coll_double);
                 E_coll = static_cast<amrex::ParticleReal>(E_coll_double);
+                v_coll = sqrt(v_coll2) / static_cast<amrex::ParticleReal>(gamma);
             }
             if (v_coll <= 0.0_prt || nu_max <= 0.0_prt) { return; }
 
@@ -1154,21 +1208,25 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
                 }
             }
 
-            if (user_nu_max)
-            {
-                bool const valid_majorant =
-                    cumulative_probability <= 1.0_prt + tolerance;
-                AMREX_IF_ON_DEVICE((
-                    AMREX_DEVICE_ASSERT(valid_majorant);
-                ))
-                AMREX_IF_ON_HOST((
-                    if (!valid_majorant) {
+            bool const valid_majorant =
+                cumulative_probability <= 1.0_prt + tolerance;
+            AMREX_IF_ON_DEVICE((
+                AMREX_DEVICE_ASSERT(valid_majorant);
+            ))
+            AMREX_IF_ON_HOST((
+                if (!valid_majorant)
+                {
+                    if (user_nu_max) {
                         amrex::Abort(
                             "User-specified Background MCC nu_max is smaller "
                             "than the local total collision frequency.");
+                    } else {
+                        amrex::Abort(
+                            "Automatic Background MCC nu_max is smaller than "
+                            "the local total collision frequency.");
                     }
-                ))
-            }
+                }
+            ))
 
             if (chosen_process < 0) { return; }
 

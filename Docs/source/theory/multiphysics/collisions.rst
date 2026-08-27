@@ -94,14 +94,15 @@ By default, the null-collision majorant is constructed from the union of all
 cross-section table knots. WarpX reuses the total-cross-section row of the
 cumulative process table described below. Between consecutive union knots the
 summed cross section is linear. WarpX evaluates both endpoints and, on a
-decreasing segment, the one possible analytic stationary point of
-:math:`\sigma_{\mathrm{tot}}(E)g_{\mathrm{coll}}(E)`. This is a tighter bound
-than multiplying the larger endpoint cross section by the upper-endpoint
-speed. If the cumulative table is disabled by its memory limit, a k-way merge
-constructs the same union intervals without materializing the table. Neither
-path steps through the total energy span using the smallest input spacing. For
-electrons, the constant high-energy table extrapolation is also bounded using
-:math:`g_{\mathrm{coll}}<c`.
+decreasing segment, the one possible stationary point of
+:math:`\sigma_{\mathrm{tot}}(E)g_{\mathrm{coll}}(E)`. The electron stationary
+point is analytic; the initialization-only non-electron path uses a fixed
+bisection. This is a tighter bound than multiplying the larger endpoint cross
+section by the upper-endpoint speed. If the cumulative table is disabled by its
+memory limit, a k-way merge constructs the same union intervals without
+materializing the table. Neither path steps through the total energy span using
+the smallest input spacing. For electrons, the constant high-energy table
+extrapolation is also bounded using :math:`g_{\mathrm{coll}}<c`.
 
 A user can bypass automatic construction with a collision-level majorant in
 :math:`\mathrm{s}^{-1}`::
@@ -120,7 +121,14 @@ as :math:`P_{\max}=1-\exp(-\nu_{\max}\Delta t_{\mathrm{coll}})`, so
 collision subcycling and variable timesteps use the appropriate probability.
 
 For non-electron projectiles, the existing center-of-momentum collision-energy
-convention from ``ParticleUtils::getCollisionEnergy()`` is retained.
+convention from ``ParticleUtils::getCollisionEnergy()`` is retained. Its inverse
+uses both projectile and neutral masses when constructing the automatic
+majorant. The collision rate uses the corresponding ordinary relative speed,
+not proper speed. This distinction is negligible in the intended
+non-relativistic ion regime, but keeps the rate physical and bounded by
+:math:`c`. The automatic non-electron majorant covers the tabulated energy
+range. Supply ``nu_max`` when non-electron particles can exceed that range and
+the endpoint-clamped total cross section is nonzero.
 
 The configured ``background_mass`` always denotes the neutral target mass and
 is kept separate from the mass of any ionization product species. If it is

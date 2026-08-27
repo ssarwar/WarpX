@@ -52,6 +52,16 @@ add_warpx_test(
 )
 
 add_warpx_test(
+    test_1d_background_mcc_nonrelativistic_majorant_picmi  # name
+    1  # dims
+    1  # nprocs
+    inputs_test_1d_background_mcc_nonrelativistic_majorant_picmi.py  # inputs
+    "analysis_background_mcc_nonrelativistic_majorant.py"  # analysis
+    OFF  # checksum
+    OFF  # dependency
+)
+
+add_warpx_test(
     test_1d_background_mcc_relativistic  # name
     1  # dims
     1  # nprocs
