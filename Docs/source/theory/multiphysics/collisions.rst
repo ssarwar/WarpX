@@ -257,7 +257,9 @@ The solid-angle Jacobian is therefore integrated by the trapezoidal rule in
 inverse CDF for every table energy on the host and copies it to the device.
 Runtime sampling uses an energy-grid bisection and fixed-size interpolation.
 Energies outside the table range use the nearest endpoint distribution; inside
-the range, inverse-CDF cosines are interpolated linearly in energy.
+the range, inverse-CDF cosines are interpolated linearly in energy. The table
+stores :math:`1-\cos\theta` rather than :math:`\cos\theta` itself, retaining
+small forward deflections in single-precision particle builds.
 
 The sampled DCS angle is the outgoing-electron angle for a stationary target,
 not a center-of-momentum angle. For elastic scattering, WarpX applies exact

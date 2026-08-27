@@ -32,7 +32,7 @@ namespace BackgroundMCCElasticKinematics
              amrex::ParticleReal const incident_uz, amrex::ParticleReal const neutral_vx,
              amrex::ParticleReal const neutral_vy, amrex::ParticleReal const neutral_vz,
              double const electron_mass, double const neutral_mass,
-             amrex::ParticleReal const scattering_cosine, amrex::RandomEngine const& engine,
+             double const scattering_cosine, amrex::RandomEngine const& engine,
              amrex::ParticleReal& electron_ux, amrex::ParticleReal& electron_uy,
              amrex::ParticleReal& electron_uz, amrex::ParticleReal& recoil_ux,
              amrex::ParticleReal& recoil_uy, amrex::ParticleReal& recoil_uz) noexcept
@@ -79,8 +79,7 @@ namespace BackgroundMCCElasticKinematics
         Vector3 transverse_2;
         transverseDirections(incident_direction, transverse_1, transverse_2);
 
-        auto const cosine = amrex::max(
-            -1.0, amrex::min(static_cast<double>(scattering_cosine), 1.0));
+        auto const cosine = amrex::max(-1.0, amrex::min(scattering_cosine, 1.0));
         auto const sine_sq = amrex::max(1.0 - cosine * cosine, 0.0);
         auto const incident_energy =
             kineticEnergyFromProperVelocity(incident_rest, electron_mass);
@@ -145,7 +144,7 @@ namespace BackgroundMCCElasticKinematics
         amrex::ParticleReal const neutral_vy, amrex::ParticleReal const neutral_vz,
         double const electron_mass, double const neutral_mass,
         amrex::ParticleReal const excitation_energy,
-        amrex::ParticleReal const scattering_cosine, amrex::RandomEngine const& engine,
+        double const scattering_cosine, amrex::RandomEngine const& engine,
         amrex::ParticleReal& electron_ux, amrex::ParticleReal& electron_uy,
         amrex::ParticleReal& electron_uz, amrex::ParticleReal& recoil_ux,
         amrex::ParticleReal& recoil_uy, amrex::ParticleReal& recoil_uz) noexcept
@@ -216,8 +215,7 @@ namespace BackgroundMCCElasticKinematics
             0.0);
         auto const kallen_quarter = 0.25 * phase_space_1 * phase_space_2;
 
-        auto cosine = amrex::max(
-            -1.0, amrex::min(static_cast<double>(scattering_cosine), 1.0));
+        auto cosine = amrex::max(-1.0, amrex::min(scattering_cosine, 1.0));
         auto const angular_scale = incident_pc * incident_pc *
             electron_rest_energy * electron_rest_energy;
         if (angular_scale > 0.0 && kallen_quarter < angular_scale)

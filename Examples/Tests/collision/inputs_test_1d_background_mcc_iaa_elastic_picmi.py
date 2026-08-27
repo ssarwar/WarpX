@@ -126,6 +126,10 @@ if args.n2_dcs is None:
     table = np.column_stack(
         (table_energies, np.array([1.0 + a * np.cos(theta) for a in anisotropies]))
     )
+    # Exercise the strongly forward-peaked high-energy tail of the real elmolcs
+    # tables. Storing cos(theta) directly would round a measurable fraction of
+    # these deflections to exactly zero in a single-precision build.
+    table[-1, 1:] = np.exp(-0.5 * (theta / 0.004) ** 2) + 1.0e-8
     np.savetxt(
         dcs_path,
         table,
@@ -142,7 +146,7 @@ if args.n2_dcs is None:
         analytic_dcs_statistics(0.0),
         interpolated_dcs_statistics(dcs_rows[2], dcs_rows[3], 0.45),
         analytic_dcs_statistics(0.9),
-        analytic_dcs_statistics(0.3),
+        dcs_statistics(dcs_rows[-1]),
     )
     cases = [
         (
@@ -192,7 +196,7 @@ if args.n2_dcs is None:
             1.0e9,
             28.0134 * AMU,
             dcs_path,
-            analytic_dcs_statistics(0.3),
+            dcs_statistics(dcs_rows[-1]),
             "excitation",
             excitation_energy,
         ),

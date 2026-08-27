@@ -86,14 +86,15 @@ namespace
 
     void initializeInverseCdf (
         std::vector<std::vector<double>> const& differential_cross_sections,
-        amrex::Gpu::HostVector<amrex::ParticleReal>& inverse_cdf)
+        amrex::Gpu::HostVector<amrex::ParticleReal>& inverse_cdf_deflection)
     {
         constexpr int quantile_count =
             BackgroundMCCElasticScatteringModel::quantile_grid_size;
         auto const angle_count = differential_cross_sections.front().size();
         auto const angle_step = static_cast<double>(MathConst::pi) /
                                 static_cast<double>(angle_count - 1u);
-        inverse_cdf.resize(differential_cross_sections.size() * quantile_count);
+        inverse_cdf_deflection.resize(
+            differential_cross_sections.size() * quantile_count);
 
         std::vector<double> cumulative(angle_count);
         for (std::size_t energy_index = 0;
@@ -123,7 +124,7 @@ namespace
                 "finite, positive angular integral.");
 
             auto const row_offset = energy_index * quantile_count;
-            inverse_cdf[row_offset] = 1.0;
+            inverse_cdf_deflection[row_offset] = 0.0;
             std::size_t angle_index = 1u;
             for (int quantile = 1; quantile < quantile_count - 1; ++quantile)
             {
@@ -143,10 +144,11 @@ namespace
                     cdf_delta > 0.0 ? (target - cdf_low) / cdf_delta : 0.0;
                 auto const theta =
                     (static_cast<double>(angle_index - 1u) + fraction) * angle_step;
-                inverse_cdf[row_offset + quantile] =
-                    static_cast<amrex::ParticleReal>(std::cos(theta));
+                auto const half_sine = std::sin(0.5 * theta);
+                inverse_cdf_deflection[row_offset + quantile] =
+                    static_cast<amrex::ParticleReal>(2.0 * half_sine * half_sine);
             }
-            inverse_cdf[row_offset + quantile_count - 1] = -1.0;
+            inverse_cdf_deflection[row_offset + quantile_count - 1] = 2.0;
         }
     }
 } // namespace
@@ -157,25 +159,26 @@ BackgroundMCCElasticScatteringModel::BackgroundMCCElasticScatteringModel (
     std::vector<std::vector<double>> differential_cross_sections;
     readDifferentialCrossSection(
         differential_cross_section, m_energies_h, differential_cross_sections);
-    initializeInverseCdf(differential_cross_sections, m_inverse_cdf_h);
+    initializeInverseCdf(differential_cross_sections, m_inverse_cdf_deflection_h);
 
     m_executor_h.m_energies = m_energies_h.data();
-    m_executor_h.m_inverse_cdf = m_inverse_cdf_h.data();
+    m_executor_h.m_inverse_cdf_deflection = m_inverse_cdf_deflection_h.data();
     m_executor_h.m_energy_grid_size = static_cast<int>(m_energies_h.size());
     m_executor_h.m_energy_lo = m_energies_h.front();
     m_executor_h.m_energy_hi = m_energies_h.back();
 
 #ifdef AMREX_USE_GPU
     m_energies_d.resize(m_energies_h.size());
-    m_inverse_cdf_d.resize(m_inverse_cdf_h.size());
+    m_inverse_cdf_deflection_d.resize(m_inverse_cdf_deflection_h.size());
     amrex::Gpu::copyAsync(amrex::Gpu::hostToDevice, m_energies_h.begin(), m_energies_h.end(),
                           m_energies_d.begin());
-    amrex::Gpu::copyAsync(amrex::Gpu::hostToDevice, m_inverse_cdf_h.begin(), m_inverse_cdf_h.end(),
-                          m_inverse_cdf_d.begin());
+    amrex::Gpu::copyAsync(
+        amrex::Gpu::hostToDevice, m_inverse_cdf_deflection_h.begin(),
+        m_inverse_cdf_deflection_h.end(), m_inverse_cdf_deflection_d.begin());
 
     m_executor_d = m_executor_h;
     m_executor_d.m_energies = m_energies_d.data();
-    m_executor_d.m_inverse_cdf = m_inverse_cdf_d.data();
+    m_executor_d.m_inverse_cdf_deflection = m_inverse_cdf_deflection_d.data();
     amrex::Gpu::streamSynchronize();
 #endif
 }

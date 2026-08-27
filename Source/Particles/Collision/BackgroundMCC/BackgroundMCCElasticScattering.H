@@ -18,10 +18,11 @@
 /** Precomputed inverse angular CDF for an IAA/elmolcs elastic DCS table.
  *
  * Differential cross sections are integrated in polar-angle space with the
- * sin(theta) solid-angle Jacobian. Expensive integration and CDF inversion are
- * performed once on the host. Each accepted device event uses a bisection in
- * the energy grid followed by fixed-size interpolation, without allocation or
- * an iterative solve.
+ * sin(theta) solid-angle Jacobian. The inverse CDF stores 1-cos(theta), which
+ * preserves small forward angles in single precision. Expensive integration
+ * and CDF inversion are performed once on the host. Each accepted device event
+ * uses a bisection in the energy grid followed by fixed-size interpolation,
+ * without allocation or an iterative solve.
  */
 class BackgroundMCCElasticScatteringModel
 {
@@ -35,7 +36,7 @@ public:
          * @param collision_energy electron collision energy in eV
          * @param angle_draw uniform random number in [0, 1)
          */
-        [[nodiscard]] AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::ParticleReal
+        [[nodiscard]] AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE double
         sampleCosine (amrex::ParticleReal const collision_energy,
                       amrex::ParticleReal const angle_draw) const noexcept
         {
@@ -43,7 +44,7 @@ public:
 
             if (m_energy_grid_size < 2)
             {
-                return 1.0_prt - 2.0_prt * angle_draw;
+                return 1.0 - 2.0 * static_cast<double>(angle_draw);
             }
 
             int energy_index = 0;
@@ -83,19 +84,24 @@ public:
             }
 
             auto const index = energy_index * quantile_grid_size + quantile_index;
-            auto const cosine_lo = m_inverse_cdf[index] +
-                quantile_fraction * (m_inverse_cdf[index + 1] - m_inverse_cdf[index]);
-            auto const cosine_hi = m_inverse_cdf[index + quantile_grid_size] +
-                quantile_fraction *
-                    (m_inverse_cdf[index + quantile_grid_size + 1] -
-                     m_inverse_cdf[index + quantile_grid_size]);
-            return amrex::max(
-                -1.0_prt,
-                amrex::min(cosine_lo + energy_fraction * (cosine_hi - cosine_lo), 1.0_prt));
+            auto const deflection_lo = static_cast<double>(m_inverse_cdf_deflection[index]) +
+                static_cast<double>(quantile_fraction) *
+                    (static_cast<double>(m_inverse_cdf_deflection[index + 1]) -
+                     static_cast<double>(m_inverse_cdf_deflection[index]));
+            auto const deflection_hi =
+                static_cast<double>(m_inverse_cdf_deflection[index + quantile_grid_size]) +
+                static_cast<double>(quantile_fraction) *
+                    (static_cast<double>(
+                         m_inverse_cdf_deflection[index + quantile_grid_size + 1]) -
+                     static_cast<double>(
+                         m_inverse_cdf_deflection[index + quantile_grid_size]));
+            auto const deflection = deflection_lo + static_cast<double>(energy_fraction) *
+                (deflection_hi - deflection_lo);
+            return amrex::max(-1.0, amrex::min(1.0 - deflection, 1.0));
         }
 
         amrex::ParticleReal const* m_energies = nullptr;
-        amrex::ParticleReal const* m_inverse_cdf = nullptr;
+        amrex::ParticleReal const* m_inverse_cdf_deflection = nullptr;
         int m_energy_grid_size = 0;
         amrex::ParticleReal m_energy_lo = 0.0;
         amrex::ParticleReal m_energy_hi = 0.0;
@@ -114,11 +120,11 @@ public:
 
 private:
     amrex::Gpu::HostVector<amrex::ParticleReal> m_energies_h;
-    amrex::Gpu::HostVector<amrex::ParticleReal> m_inverse_cdf_h;
+    amrex::Gpu::HostVector<amrex::ParticleReal> m_inverse_cdf_deflection_h;
 
 #ifdef AMREX_USE_GPU
     amrex::Gpu::DeviceVector<amrex::ParticleReal> m_energies_d;
-    amrex::Gpu::DeviceVector<amrex::ParticleReal> m_inverse_cdf_d;
+    amrex::Gpu::DeviceVector<amrex::ParticleReal> m_inverse_cdf_deflection_d;
     Executor m_executor_d;
 #endif
     Executor m_executor_h;
