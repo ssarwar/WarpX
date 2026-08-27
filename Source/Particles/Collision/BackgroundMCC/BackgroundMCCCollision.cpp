@@ -30,6 +30,7 @@
 #include <memory>
 #include <queue>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace
@@ -347,16 +348,24 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
     amrex::Gpu::HostVector<BackgroundMCCElasticScatteringModel::Executor>
         host_differential_scattering_processes;
     host_differential_scattering_processes.reserve(m_processes.size());
-    m_differential_scattering_models.resize(m_processes.size());
+    m_differential_scattering_models.reserve(m_processes.size());
+    std::unordered_map<std::string, std::size_t> differential_model_indices;
+    differential_model_indices.reserve(m_processes.size());
     for (int i = 0; i < static_cast<int>(m_processes.size()); ++i)
     {
         BackgroundMCCElasticScatteringModel::Executor executor;
         if (!differential_cross_sections[i].empty())
         {
-            m_differential_scattering_models[i] =
-                std::make_unique<BackgroundMCCElasticScatteringModel>(
-                    differential_cross_sections[i]);
-            executor = m_differential_scattering_models[i]->executor();
+            auto const& file_name = differential_cross_sections[i];
+            auto model = differential_model_indices.find(file_name);
+            if (model == differential_model_indices.end())
+            {
+                auto const model_index = m_differential_scattering_models.size();
+                m_differential_scattering_models.push_back(
+                    std::make_unique<BackgroundMCCElasticScatteringModel>(file_name));
+                model = differential_model_indices.emplace(file_name, model_index).first;
+            }
+            executor = m_differential_scattering_models[model->second]->executor();
         }
         host_differential_scattering_processes.push_back(executor);
     }
