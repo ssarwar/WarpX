@@ -36,7 +36,9 @@ class BackgroundMCCIonizationModel
 public:
     static constexpr int max_shell_count = 6;
     static constexpr int energy_grid_size = 257;
-    static constexpr int quantile_grid_size = 129;
+    // A symmetric fourth-power probability transform resolves both inverse-CDF
+    // tails. 513 coordinates retain the former central probability spacing.
+    static constexpr int quantile_grid_size = 513;
 
     struct Executor
     {
@@ -133,8 +135,19 @@ public:
             binding_energy = m_binding_energies[selected_shell];
             auto const available_energy = amrex::max(incident_energy - binding_energy, 0.0_prt);
 
-            auto quantile_coordinate =
-                energy_draw * static_cast<amrex::ParticleReal>(m_quantile_grid_size - 1);
+            // Invert q = x^4/(x^4 + (1-x)^4). The transformed coordinate
+            // prevents the physical W_max endpoint from contaminating the
+            // high-energy distribution while retaining fixed device work.
+            auto const probability = amrex::max(
+                0.0_prt, amrex::min(energy_draw, 1.0_prt));
+            auto const probability_root = std::sqrt(std::sqrt(probability));
+            auto const complement_root =
+                std::sqrt(std::sqrt(amrex::max(1.0_prt - probability, 0.0_prt)));
+            auto const root_sum = probability_root + complement_root;
+            auto const transformed_draw =
+                root_sum > 0.0_prt ? probability_root / root_sum : 0.0_prt;
+            auto quantile_coordinate = transformed_draw *
+                static_cast<amrex::ParticleReal>(m_quantile_grid_size - 1);
             quantile_coordinate = amrex::max(
                 0.0_prt, amrex::min(quantile_coordinate,
                                     static_cast<amrex::ParticleReal>(m_quantile_grid_size - 1)));

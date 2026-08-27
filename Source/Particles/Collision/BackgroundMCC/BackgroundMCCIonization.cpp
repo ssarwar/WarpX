@@ -160,8 +160,15 @@ void initializeTable (std::array<RBEQShell, N> const& shells, double const energ
 
             for (int quantile_index = 0; quantile_index < quantile_count; ++quantile_index)
             {
-                auto const quantile =
+                auto const coordinate =
                     static_cast<double>(quantile_index) / static_cast<double>(quantile_count - 1);
+                auto const coordinate_fourth =
+                    coordinate * coordinate * coordinate * coordinate;
+                auto const complement = 1.0 - coordinate;
+                auto const complement_fourth =
+                    complement * complement * complement * complement;
+                auto const quantile =
+                    coordinate_fourth / (coordinate_fourth + complement_fourth);
                 double fraction = quantile;
 
                 if (!use_uniform && quantile > 0.0 && quantile < 1.0)

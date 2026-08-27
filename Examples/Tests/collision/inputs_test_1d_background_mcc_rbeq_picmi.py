@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sample N2 and O2 RBEQ ionization energy sharing at three energies."""
+"""Sample N2 and O2 RBEQ ionization from threshold through 1 GeV."""
 
 import math
 from pathlib import Path
@@ -23,9 +23,11 @@ CASES = [
     ("n2_near", "N2", 15.78, 15.58, 28.0134 * AMU),
     ("n2_mid", "N2", 100.0, 15.58, 28.0134 * AMU),
     ("n2_high", "N2", 1000.0, 15.58, 28.0134 * AMU),
+    ("n2_gev", "N2", 1.0e9, 15.58, 28.0134 * AMU),
     ("o2_near", "O2", 12.27, 12.07, 31.9988 * AMU),
     ("o2_mid", "O2", 100.0, 12.07, 31.9988 * AMU),
     ("o2_high", "O2", 1000.0, 12.07, 31.9988 * AMU),
+    ("o2_gev", "O2", 1.0e9, 12.07, 31.9988 * AMU),
 ]
 
 
@@ -194,10 +196,14 @@ def cosine_to_z(ux, uy, uz):
 
 
 results = {}
+particle_real_bytes = None
 for name, _, energy_ev, binding_energy, neutral_mass in CASES:
     container = sim.particles.get(f"electrons_{name}")
     ids = particle_ids(container)
-    electron_ux = component(container, "ux").astype(np.float64)
+    electron_ux_raw = component(container, "ux")
+    if particle_real_bytes is None:
+        particle_real_bytes = electron_ux_raw.dtype.itemsize
+    electron_ux = electron_ux_raw.astype(np.float64)
     electron_uy = component(container, "uy").astype(np.float64)
     electron_uz = component(container, "uz").astype(np.float64)
     energies = kinetic_energy_ev(electron_ux, electron_uy, electron_uz, M_E)
@@ -205,7 +211,10 @@ for name, _, energy_ev, binding_energy, neutral_mass in CASES:
     is_secondary = ~is_original
     secondary_energies = energies[is_secondary]
     event_count = secondary_energies.size
-    is_primary = is_original & (energies < energy_ev - 0.25 * binding_energy)
+    # The discrete binding loss can be below one momentum ULP at 1 GeV in a
+    # single-particle-precision build. A nonzero transverse momentum identifies
+    # the scattered original electron without relying on that tiny energy change.
+    is_primary = is_original & np.logical_or(electron_ux != 0.0, electron_uy != 0.0)
 
     ion_container = sim.particles.get(f"ions_{name}")
     ion_ux = component(ion_container, "ux").astype(np.float64)
@@ -243,6 +252,7 @@ for name, _, energy_ev, binding_energy, neutral_mass in CASES:
     ) / np.linalg.norm(initial_momentum)
 
 if libwarpx.amr.ParallelDescriptor.MyProc() == 0:
+    results["particle_real_bytes"] = particle_real_bytes
     np.savez("background_mcc_rbeq_results.npz", **results)
 
 sim.finalize()
