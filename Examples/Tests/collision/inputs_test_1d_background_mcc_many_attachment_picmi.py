@@ -22,6 +22,10 @@ parser.add_argument("--mpi-timing", action="store_true")
 args = parser.parse_args()
 
 if args.mpi_timing:
+    import mpi4py
+
+    # AMReX owns MPI finalization after pywarpx initializes the simulation.
+    mpi4py.rc.finalize = False
     from mpi4py import MPI
 
     comm = MPI.COMM_WORLD
@@ -223,4 +227,7 @@ if (comm is not None and comm.rank == 0) or (
         "product_passes_per_call=1"
     )
 
-sim.finalize()
+# mpi4py owns MPI initialization in distributed benchmark mode. Let Python
+# shutdown finalize MPI and AMReX once, as in other MPI-enabled PICMI inputs.
+if comm is None:
+    sim.finalize()
