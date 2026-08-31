@@ -11,11 +11,12 @@
 
 #include "Particles/ParticleCreation/DefaultInitialization.H"
 #include "Particles/ParticleCreation/SmartCopy.H"
-#include "Particles/ParticleCreation/SmartUtils.H"
 #include "Particles/WarpXParticleContainer.H"
 #include "Utils/TextMsg.H"
 
 #include <AMReX_GpuContainers.H>
+#include <AMReX_ParallelDescriptor.H>
+#include <AMReX_Particle.H>
 #include <AMReX_REAL.H>
 #include <AMReX_Vector.H>
 
@@ -35,6 +36,14 @@ class BackgroundMCCParticleCreation
 {
     using ParticleTileType = WarpXParticleContainer::ParticleTileType;
     using ParticleTileDataType = ParticleTileType::ParticleTileDataType;
+
+    struct ProductTileMetadata
+    {
+        ParticleTileDataType m_data;
+        amrex::Long m_first_id;
+        int m_old_count;
+        int m_electron_offset;
+    };
 
 public:
     BackgroundMCCParticleCreation (
@@ -159,51 +168,44 @@ public:
             "Background MCC particle tiles must contain fewer than INT_MAX "
             "particles.");
         source_tile.resize(new_source_count);
+        amrex::Long const first_electron_id = total_ionization_events > 0
+            ? reserveParticleIDs(total_ionization_events)
+            : -1;
 
-        amrex::Gpu::HostVector<int> old_product_counts_h(group_count);
-        amrex::Gpu::HostVector<ParticleTileDataType> product_data_h(group_count);
+        amrex::Gpu::HostVector<ProductTileMetadata> product_tile_metadata_h(group_count);
         for (std::size_t group = 0; group < group_count; ++group)
         {
             auto& product_tile = *product_tiles[group];
             auto const old_count = product_tile.numParticles();
-            auto const new_count = old_count + product_counts[group];
+            auto const count = product_counts[group];
+            auto const new_count = old_count + count;
             WARPX_ALWAYS_ASSERT_WITH_MESSAGE(new_count <= std::numeric_limits<int>::max(),
                 "Background MCC particle tiles must contain fewer than INT_MAX "
                 "particles.");
-            old_product_counts_h[group] = static_cast<int>(old_count);
             product_tile.resize(new_count);
-            product_data_h[group] = product_tile.getParticleTileData();
+            product_tile_metadata_h[group] = {
+                product_tile.getParticleTileData(),
+                count > 0 ? reserveParticleIDs(count) : -1,
+                static_cast<int>(old_count),
+                electron_group_offsets_h[group]};
         }
 
         int const* product_group_types = m_product_group_types_h.data();
         double const* product_masses = m_product_masses_h.data();
         SmartCopy const* copy_products = m_copy_products_h.data();
-        int const* old_product_counts = old_product_counts_h.data();
-        int const* electron_group_offsets = electron_group_offsets_h.data();
-        ParticleTileDataType* product_data = product_data_h.data();
+        ProductTileMetadata const* product_tile_metadata =
+            product_tile_metadata_h.data();
 
 #ifdef AMREX_USE_GPU
-        amrex::Gpu::DeviceVector<int> old_product_counts_d(group_count);
-        amrex::Gpu::DeviceVector<int> electron_group_offsets_d(group_count);
-        amrex::Gpu::DeviceVector<ParticleTileDataType> product_data_d(group_count);
+        amrex::Gpu::DeviceVector<ProductTileMetadata> product_tile_metadata_d(group_count);
         amrex::Gpu::copyAsync(amrex::Gpu::hostToDevice,
-            old_product_counts_h.begin(),
-            old_product_counts_h.end(),
-            old_product_counts_d.begin());
-        amrex::Gpu::copyAsync(amrex::Gpu::hostToDevice,
-            electron_group_offsets_h.begin(),
-            electron_group_offsets_h.end(),
-            electron_group_offsets_d.begin());
-        amrex::Gpu::copyAsync(amrex::Gpu::hostToDevice,
-            product_data_h.begin(),
-            product_data_h.end(),
-            product_data_d.begin());
+            product_tile_metadata_h.begin(),
+            product_tile_metadata_h.end(),
+            product_tile_metadata_d.begin());
         product_group_types = m_product_group_types_d.data();
         product_masses = m_product_masses_d.data();
         copy_products = m_copy_products_d.data();
-        old_product_counts = old_product_counts_d.data();
-        electron_group_offsets = electron_group_offsets_d.data();
-        product_data = product_data_d.data();
+        product_tile_metadata = product_tile_metadata_d.data();
 #endif
 
         auto source_data = source_tile.getParticleTileData();
@@ -213,6 +215,7 @@ public:
         auto const* process_product_group = m_process_product_group;
         auto const electron_mass = m_electron_mass;
         auto const old_source_index = static_cast<int>(old_source_count);
+        int const cpu = amrex::ParallelDescriptor::MyProc();
 
         auto const ionization_transform = ImpactIonizationTransformFunc(processes,
             ionization_processes,
@@ -235,9 +238,10 @@ public:
 
                 int const group = process_product_group[process];
                 int const group_offset = product_offsets[source_index];
-                int const product_index = old_product_counts[group] + group_offset;
+                auto const& group_metadata = product_tile_metadata[group];
+                int const product_index = group_metadata.m_old_count + group_offset;
                 auto source = source_data;
-                auto product = product_data[group];
+                auto product = group_metadata.m_data;
                 copy_products[group](product, source, source_index, product_index, engine);
 
                 auto const type = static_cast<ScatteringProcessType>(product_group_types[group]);
@@ -248,7 +252,7 @@ public:
                 else
                 {
                     int const electron_index =
-                        old_source_index + electron_group_offsets[group] + group_offset;
+                        old_source_index + group_metadata.m_electron_offset + group_offset;
                     copy_electron(source, source, source_index, electron_index, engine);
                     ionization_transform(source,
                         product,
@@ -258,7 +262,13 @@ public:
                         product_index,
                         product_masses[group],
                         engine);
+                    source.m_idcpu[electron_index] = amrex::SetParticleIDandCPU(
+                        first_electron_id + group_metadata.m_electron_offset +
+                            group_offset,
+                        cpu);
                 }
+                product.m_idcpu[product_index] = amrex::SetParticleIDandCPU(
+                    group_metadata.m_first_id + group_offset, cpu);
             });
 
         if (total_ionization_events > 0)
@@ -267,7 +277,6 @@ public:
                 source_species,
                 static_cast<int>(old_source_count),
                 static_cast<int>(new_source_count));
-            setNewParticleIDs(source_tile, old_source_count, total_ionization_events);
         }
         for (std::size_t group = 0; group < group_count; ++group)
         {
@@ -276,11 +285,10 @@ public:
             {
                 continue;
             }
-            auto const old_count = old_product_counts_h[group];
+            auto const old_count = product_tile_metadata_h[group].m_old_count;
             auto const new_count = old_count + count;
             ParticleCreation::DefaultInitializeRuntimeAttributes(
                 *product_tiles[group], *product_species[group], old_count, new_count);
-            setNewParticleIDs(*product_tiles[group], old_count, count);
         }
 
         // Particle-tile data and group offsets are local temporaries. Complete
@@ -290,6 +298,21 @@ public:
     }
 
 private:
+    /** Reserve a contiguous range of particle IDs and return its first ID. */
+    [[nodiscard]] static amrex::Long
+    reserveParticleIDs (amrex::Long const count)
+    {
+        amrex::Long first_id;
+#ifdef AMREX_USE_OMP
+#pragma omp critical (ionization_nextid)
+#endif
+        {
+            first_id = ParticleTileType::ParticleType::NextID();
+            ParticleTileType::ParticleType::NextID(first_id + count);
+        }
+        return first_id;
+    }
+
     amrex::Gpu::HostVector<int> m_product_group_types_h;
     amrex::Gpu::HostVector<double> m_product_masses_h;
     amrex::Gpu::HostVector<SmartCopy> m_copy_products_h;
