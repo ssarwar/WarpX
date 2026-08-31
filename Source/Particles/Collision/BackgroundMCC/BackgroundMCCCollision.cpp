@@ -910,7 +910,7 @@ BackgroundMCCCollision::doCollisions (
                 auto wt = static_cast<amrex::Real>(amrex::second());
 
                 doBackgroundCollisionsWithinTile(
-                    pti, cur_time, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+                    pti, cur_time, nullptr, nullptr, nullptr);
 
                 if (cost && WarpX::load_balance_costs_update_algo ==
                             LoadBalanceCostsUpdateAlgo::Timers)
@@ -949,46 +949,60 @@ BackgroundMCCCollision::doCollisions (
             amrex::Long const np_source = source_tile.numParticles();
             if (np_source > 0)
             {
+                WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                    np_source <= std::numeric_limits<int>::max(),
+                    "Background MCC particle tiles must contain fewer than INT_MAX "
+                    "particles.");
                 auto const product_group_count =
                     static_cast<int>(m_product_groups.size());
-                amrex::Gpu::DeviceVector<int> selected_process(np_source);
-                amrex::Gpu::DeviceVector<int> product_offsets(np_source);
+                amrex::Gpu::DeviceVector<BackgroundMCCProductEvent>
+                    product_events(np_source);
                 amrex::Gpu::DeviceVector<int> product_counts(
-                    product_group_count, 0);
-                amrex::Gpu::DeviceVector<amrex::ParticleReal> neutral_vx(np_source);
-                amrex::Gpu::DeviceVector<amrex::ParticleReal> neutral_vy(np_source);
-                amrex::Gpu::DeviceVector<amrex::ParticleReal> neutral_vz(np_source);
+                    product_group_count + 1, 0);
 
                 doBackgroundCollisionsWithinTile(
                     pti,
                     cur_time,
-                    selected_process.dataPtr(),
-                    product_offsets.dataPtr(),
+                    product_events.dataPtr(),
                     product_counts.dataPtr(),
-                    neutral_vx.dataPtr(),
-                    neutral_vy.dataPtr(),
-                    neutral_vz.dataPtr());
+                    product_counts.dataPtr() + product_group_count);
 
 #ifndef AMREX_USE_GPU
                 auto const* const process_groups =
                     m_process_product_group.dataPtr();
+                int host_product_event_count = 0;
                 for (amrex::Long i = 0; i < np_source; ++i)
                 {
-                    int const process = selected_process[i];
+                    auto event = product_events[i];
+                    int const process = event.m_process;
                     if (process >= 0)
                     {
                         int const group = process_groups[process];
-                        product_offsets[i] = product_counts[group]++;
+                        event.m_group_offset = product_counts[group]++;
+                        product_events[host_product_event_count++] = event;
                     }
                 }
+                product_counts[product_group_count] = host_product_event_count;
 #endif
 
-                amrex::Vector<int> product_counts_h(product_group_count);
+                amrex::Vector<int> product_counts_h(product_group_count + 1);
                 amrex::Gpu::copy(
                     amrex::Gpu::deviceToHost,
                     product_counts.begin(),
                     product_counts.end(),
                     product_counts_h.begin());
+                int const product_event_count = product_counts_h.back();
+                product_counts_h.pop_back();
+                amrex::Long grouped_product_event_count = 0;
+                for (int const count : product_counts_h)
+                {
+                    grouped_product_event_count += count;
+                }
+                WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                    product_event_count == grouped_product_event_count &&
+                        product_event_count <= np_source,
+                    "Background MCC product-event counts must match the compact "
+                    "event queue.");
 
                 amrex::Vector<WarpXParticleContainer::ParticleTileType*>
                     product_tiles;
@@ -1005,11 +1019,7 @@ BackgroundMCCCollision::doCollisions (
                     source_tile,
                     product_species,
                     product_tiles,
-                    selected_process.dataPtr(),
-                    product_offsets.dataPtr(),
-                    neutral_vx.dataPtr(),
-                    neutral_vy.dataPtr(),
-                    neutral_vz.dataPtr(),
+                    product_events.dataPtr(),
                     product_counts_h);
                 ABLASTR_PROFILE_VAR_STOP(prof_create_products);
 
@@ -1039,15 +1049,12 @@ void
 BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
     WarpXParIter& pti,
     amrex::Real t,
-    int* selected_process,
-    int* product_offsets,
+    BackgroundMCCProductEvent* product_events,
     int* product_counts,
-    amrex::ParticleReal* neutral_vx,
-    amrex::ParticleReal* neutral_vy,
-    amrex::ParticleReal* neutral_vz)
+    int* product_event_count)
 {
     ABLASTR_PROFILE("BackgroundMCCCollision::selectAndScatter()");
-    amrex::ignore_unused(product_offsets, product_counts);
+    amrex::ignore_unused(product_counts, product_event_count);
     using namespace amrex::literals;
     using std::sqrt;
 
@@ -1090,7 +1097,12 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
         [=] AMREX_GPU_HOST_DEVICE (
             long ip, amrex::RandomEngine const& engine)
         {
-            if (selected_process != nullptr) { selected_process[ip] = -1; }
+            AMREX_IF_ON_HOST((
+                if (product_events != nullptr)
+                {
+                    product_events[ip].m_process = -1;
+                }
+            ))
             if (amrex::Random(engine) > total_collision_prob) { return; }
 
             amrex::ParticleReal n_a = background_density;
@@ -1218,15 +1230,29 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
 
             if (process_product_group[chosen_process] >= 0)
             {
-                selected_process[ip] = chosen_process;
-                neutral_vx[ip] = ua_x;
-                neutral_vy[ip] = ua_y;
-                neutral_vz[ip] = ua_z;
                 AMREX_IF_ON_DEVICE((
                     int const product_group =
                         process_product_group[chosen_process];
-                    product_offsets[ip] = amrex::Gpu::Atomic::Add(
+                    int const group_offset = amrex::Gpu::Atomic::Add(
                         &product_counts[product_group], 1);
+                    int const event_index =
+                        amrex::Gpu::Atomic::Add(product_event_count, 1);
+                    auto& event = product_events[event_index];
+                    event.m_neutral_vx = ua_x;
+                    event.m_neutral_vy = ua_y;
+                    event.m_neutral_vz = ua_z;
+                    event.m_source_index = static_cast<int>(ip);
+                    event.m_process = chosen_process;
+                    event.m_group_offset = group_offset;
+                ))
+                AMREX_IF_ON_HOST((
+                    auto& event = product_events[ip];
+                    event.m_neutral_vx = ua_x;
+                    event.m_neutral_vy = ua_y;
+                    event.m_neutral_vz = ua_z;
+                    event.m_source_index = static_cast<int>(ip);
+                    event.m_process = chosen_process;
+                    event.m_group_offset = -1;
                 ))
                 return;
             }

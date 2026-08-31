@@ -24,6 +24,7 @@
 #include <vector>
 
 class BackgroundMCCParticleCreation;
+struct BackgroundMCCProductEvent;
 class SmartCopyFactory;
 
 class BackgroundMCCCollision final
@@ -59,22 +60,16 @@ public:
      *
      * @param pti particle iterator
      * @param t current time
-     * @param selected_process optional selected process index per particle
-     * @param product_offsets optional destination-group offset per product event
+     * @param product_events optional compact product-event buffer
      * @param product_counts optional event counter for each product group
-     * @param neutral_vx optional sampled neutral x velocity per particle
-     * @param neutral_vy optional sampled neutral y velocity per particle
-     * @param neutral_vz optional sampled neutral z velocity per particle
+     * @param product_event_count optional total product-event counter
      */
     void doBackgroundCollisionsWithinTile (
         WarpXParIter& pti,
         amrex::Real t,
-        int* selected_process,
-        int* product_offsets,
+        BackgroundMCCProductEvent* product_events,
         int* product_counts,
-        amrex::ParticleReal* neutral_vx,
-        amrex::ParticleReal* neutral_vy,
-        amrex::ParticleReal* neutral_vz);
+        int* product_event_count);
 
 private:
     struct ProductGroup

@@ -48,17 +48,9 @@ public:
     ImpactIonizationTransformFunc (
         ScatteringProcess::Executor const* processes,
         BackgroundMCCIonizationModel::Executor const* ionization_processes,
-        int const* selected_process,
-        amrex::ParticleReal const* neutral_vx,
-        amrex::ParticleReal const* neutral_vy,
-        amrex::ParticleReal const* neutral_vz,
         double const mass1)
         : m_processes(processes),
           m_ionization_processes(ionization_processes),
-          m_selected_process(selected_process),
-          m_neutral_vx(neutral_vx),
-          m_neutral_vy(neutral_vy),
-          m_neutral_vz(neutral_vz),
           m_mass1(mass1)
     {}
 
@@ -71,6 +63,10 @@ public:
         int const i_src,
         int const i_dst1,
         int const i_dst2,
+        int const process_index,
+        amrex::ParticleReal const neutral_vx,
+        amrex::ParticleReal const neutral_vy,
+        amrex::ParticleReal const neutral_vz,
         double const ion_mass,
         amrex::RandomEngine const& engine) const noexcept
     {
@@ -88,15 +84,14 @@ public:
         auto& i_uy = dst2.m_rdata[PIdx::uy][i_dst2];
         auto& i_uz = dst2.m_rdata[PIdx::uz][i_dst2];
 
-        int const process_index = m_selected_process[i_src];
         ParticleReal const energy_cost =
             m_processes[process_index].m_energy_penalty;
 
         constexpr double inv_c2 = PhysConst::inv_c2_v<double>;
         constexpr double elementary_charge = PhysConst::q_e_v<double>;
-        double const relative_ux = static_cast<double>(ux) - m_neutral_vx[i_src];
-        double const relative_uy = static_cast<double>(uy) - m_neutral_vy[i_src];
-        double const relative_uz = static_cast<double>(uz) - m_neutral_vz[i_src];
+        double const relative_ux = static_cast<double>(ux) - neutral_vx;
+        double const relative_uy = static_cast<double>(uy) - neutral_vy;
+        double const relative_uz = static_cast<double>(uz) - neutral_vz;
         double const relative_u_sq =
             relative_ux*relative_ux + relative_uy*relative_uy +
             relative_uz*relative_uz;
@@ -125,9 +120,9 @@ public:
             ux,
             uy,
             uz,
-            m_neutral_vx[i_src],
-            m_neutral_vy[i_src],
-            m_neutral_vz[i_src],
+            neutral_vx,
+            neutral_vy,
+            neutral_vz,
             m_mass1,
             ion_mass,
             binding_energy,
@@ -148,10 +143,6 @@ public:
 private:
     ScatteringProcess::Executor const* m_processes;
     BackgroundMCCIonizationModel::Executor const* m_ionization_processes;
-    int const* m_selected_process;
-    amrex::ParticleReal const* m_neutral_vx;
-    amrex::ParticleReal const* m_neutral_vy;
-    amrex::ParticleReal const* m_neutral_vz;
     double m_mass1;
 };
 
@@ -159,15 +150,6 @@ private:
 class AttachmentTransformFunc
 {
 public:
-    AttachmentTransformFunc (
-        amrex::ParticleReal const* neutral_vx,
-        amrex::ParticleReal const* neutral_vy,
-        amrex::ParticleReal const* neutral_vz)
-        : m_neutral_vx(neutral_vx),
-          m_neutral_vy(neutral_vy),
-          m_neutral_vz(neutral_vz)
-    {}
-
     template <typename DstData, typename SrcData>
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
     void operator() (
@@ -175,23 +157,21 @@ public:
         SrcData& src,
         int const i_src,
         int const i_dst,
+        amrex::ParticleReal const neutral_vx,
+        amrex::ParticleReal const neutral_vy,
+        amrex::ParticleReal const neutral_vz,
         amrex::RandomEngine const&) const noexcept
     {
         BackgroundMCCProducts::setProperVelocityFromPhysicalVelocity(
-            m_neutral_vx[i_src],
-            m_neutral_vy[i_src],
-            m_neutral_vz[i_src],
+            neutral_vx,
+            neutral_vy,
+            neutral_vz,
             dst.m_rdata[PIdx::ux][i_dst],
             dst.m_rdata[PIdx::uy][i_dst],
             dst.m_rdata[PIdx::uz][i_dst]);
 
         src.m_idcpu[i_src] = amrex::ParticleIdCpus::Invalid;
     }
-
-private:
-    amrex::ParticleReal const* m_neutral_vx;
-    amrex::ParticleReal const* m_neutral_vy;
-    amrex::ParticleReal const* m_neutral_vz;
 };
 
 #endif // WARPX_PARTICLES_COLLISION_BACKGROUNDMCCPRODUCTS_H_

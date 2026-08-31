@@ -25,6 +25,17 @@
 #include <limits>
 #include <vector>
 
+/** Data retained for one selected Background MCC product-changing event. */
+struct BackgroundMCCProductEvent
+{
+    amrex::ParticleReal m_neutral_vx;
+    amrex::ParticleReal m_neutral_vy;
+    amrex::ParticleReal m_neutral_vz;
+    int m_source_index;
+    int m_process;
+    int m_group_offset;
+};
+
 /** Create every Background MCC product selected in one source particle tile.
  *
  * The collision-selection kernel assigns each product event an offset within
@@ -104,11 +115,7 @@ public:
      * @param source_tile source electron particle tile
      * @param product_species product particle containers, ordered by group
      * @param product_tiles product particle tiles, ordered by group
-     * @param selected_process selected process index for each original electron
-     * @param product_offsets destination-group offset for each product event
-     * @param neutral_vx sampled neutral x velocity for each product event
-     * @param neutral_vy sampled neutral y velocity for each product event
-     * @param neutral_vz sampled neutral z velocity for each product event
+     * @param product_events compact selected product-changing events
      * @param product_counts number of selected events in each product group
      */
     [[nodiscard]] amrex::Long
@@ -117,11 +124,7 @@ public:
         ParticleTileType& source_tile,
         std::vector<WarpXParticleContainer*> const& product_species,
         amrex::Vector<ParticleTileType*> const& product_tiles,
-        int const* selected_process,
-        int const* product_offsets,
-        amrex::ParticleReal const* neutral_vx,
-        amrex::ParticleReal const* neutral_vy,
-        amrex::ParticleReal const* neutral_vz,
+        BackgroundMCCProductEvent const* product_events,
         amrex::Vector<int> const& product_counts) const
     {
         auto const group_count = static_cast<std::size_t>(product_counts.size());
@@ -217,27 +220,18 @@ public:
         auto const old_source_index = static_cast<int>(old_source_count);
         int const cpu = amrex::ParallelDescriptor::MyProc();
 
-        auto const ionization_transform = ImpactIonizationTransformFunc(processes,
-            ionization_processes,
-            selected_process,
-            neutral_vx,
-            neutral_vy,
-            neutral_vz,
-            electron_mass);
-        auto const attachment_transform =
-            AttachmentTransformFunc(neutral_vx, neutral_vy, neutral_vz);
+        auto const ionization_transform =
+            ImpactIonizationTransformFunc(processes, ionization_processes, electron_mass);
+        AttachmentTransformFunc const attachment_transform;
 
-        amrex::ParallelForRNG(old_source_count,
-            [=] AMREX_GPU_DEVICE(int const source_index, amrex::RandomEngine const& engine) noexcept
+        amrex::ParallelForRNG(total_events,
+            [=] AMREX_GPU_DEVICE(int const event_index, amrex::RandomEngine const& engine) noexcept
             {
-                int const process = selected_process[source_index];
-                if (process < 0)
-                {
-                    return;
-                }
-
+                auto const& event = product_events[event_index];
+                int const source_index = event.m_source_index;
+                int const process = event.m_process;
                 int const group = process_product_group[process];
-                int const group_offset = product_offsets[source_index];
+                int const group_offset = event.m_group_offset;
                 auto const& group_metadata = product_tile_metadata[group];
                 int const product_index = group_metadata.m_old_count + group_offset;
                 auto source = source_data;
@@ -247,7 +241,14 @@ public:
                 auto const type = static_cast<ScatteringProcessType>(product_group_types[group]);
                 if (type == ScatteringProcessType::ATTACHMENT)
                 {
-                    attachment_transform(product, source, source_index, product_index, engine);
+                    attachment_transform(product,
+                        source,
+                        source_index,
+                        product_index,
+                        event.m_neutral_vx,
+                        event.m_neutral_vy,
+                        event.m_neutral_vz,
+                        engine);
                 }
                 else
                 {
@@ -260,6 +261,10 @@ public:
                         source_index,
                         electron_index,
                         product_index,
+                        process,
+                        event.m_neutral_vx,
+                        event.m_neutral_vy,
+                        event.m_neutral_vz,
                         product_masses[group],
                         engine);
                     source.m_idcpu[electron_index] = amrex::SetParticleIDandCPU(
