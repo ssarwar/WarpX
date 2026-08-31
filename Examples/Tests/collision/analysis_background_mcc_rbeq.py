@@ -8,13 +8,17 @@ import numpy as np
 PARTICLE_COUNT = 32768
 MC2_EV = 510998.95069
 LN2 = math.log(2.0)
+MAJORANT_MARGIN = 1.001
 
 CASES = [
     ("n2_near", "N2", 15.78),
+    ("n2_partial_guard", "N2", 19.50),
     ("n2_mid", "N2", 100.0),
     ("n2_high", "N2", 1000.0),
     ("n2_gev", "N2", 1.0e9),
     ("o2_near", "O2", 12.27),
+    ("o2_sdcs_guard", "O2", 18.702),
+    ("o2_partial_guard", "O2", 21.50),
     ("o2_mid", "O2", 100.0),
     ("o2_high", "O2", 1000.0),
     ("o2_gev", "O2", 1.0e9),
@@ -70,16 +74,75 @@ def rbeq_terms(energy, shell):
             + 0.5 * binding_sq * (ratio - 1.0)
         )
     )
-    return prefactor, ratio, binding_sq, exchange, bethe_log, max(total, 0.0)
+    return prefactor, ratio, binding_sq, exchange, bethe_log, total
 
 
-def conditional_cdf(secondary_energy, incident_energy, shell, terms):
+def differential_shape(secondary_energy, shell, terms):
+    binding, _, _, q = shell
+    _, ratio, binding_sq, exchange_coefficient, bethe_log, _ = terms
+    w = np.asarray(secondary_energy) / binding
+    forward = w + 1.0
+    exchange = ratio - w
+    return q * bethe_log * (forward**-3 + exchange**-3) + (2.0 - q) * (
+        forward**-2
+        + exchange**-2
+        + binding_sq
+        - exchange_coefficient * (forward**-1 + exchange**-1)
+    )
+
+
+def has_nonnegative_differential(energy, shell):
+    terms = rbeq_terms(energy, shell)
+    if terms is None or terms[-1] <= 0.0:
+        return False
+    maximum = 0.5 * (energy - shell[0])
+    grid = np.linspace(0.0, maximum, 16385)
+    return np.min(differential_shape(grid, shell, terms)) >= 0.0
+
+
+def find_threshold(shell, predicate):
+    lower = shell[0]
+    upper = np.nextafter(lower, math.inf)
+    while not predicate(upper, shell):
+        lower = upper
+        upper *= 1.1
+        assert upper <= 1.0e9
+    for _ in range(64):
+        midpoint = 0.5 * (lower + upper)
+        if predicate(midpoint, shell):
+            upper = midpoint
+        else:
+            lower = midpoint
+    return upper
+
+
+def positive_partial(energy, shell):
+    terms = rbeq_terms(energy, shell)
+    return terms is not None and terms[-1] > 0.0
+
+
+THRESHOLDS = {}
+for target, shells in SHELLS.items():
+    target_thresholds = []
+    for shell in shells:
+        positive = find_threshold(shell, positive_partial)
+        nonnegative = find_threshold(shell, has_nonnegative_differential)
+        uniform = max(nonnegative, shell[0] * (1.0 + 1.0e-3))
+        target_thresholds.append((positive, uniform))
+    THRESHOLDS[target] = target_thresholds
+
+
+def conditional_cdf(
+    secondary_energy, incident_energy, shell, terms, uniform_threshold
+):
     binding, _, _, q = shell
     prefactor, ratio, binding_sq, exchange, bethe_log, total = terms
     if total <= 0.0:
         return 0.0
     maximum = 0.5 * (incident_energy - binding)
     values = np.asarray(secondary_energy)
+    if incident_energy <= uniform_threshold:
+        return np.clip(values / maximum, 0.0, 1.0)
     w = np.maximum(values, 0.0) / binding
     c1 = (
         0.5
@@ -96,7 +159,9 @@ def conditional_cdf(secondary_energy, incident_energy, shell, terms):
 def expected_statistics(target, incident_energy, cdf_probes):
     shells = SHELLS[target]
     terms = [rbeq_terms(incident_energy, shell) for shell in shells]
-    partials = np.array([term[-1] if term is not None else 0.0 for term in terms])
+    partials = np.array(
+        [max(term[-1], 0.0) if term is not None else 0.0 for term in terms]
+    )
     probabilities = partials / np.sum(partials)
 
     binding_mean = np.sum(probabilities * shells[:, 0])
@@ -108,7 +173,9 @@ def expected_statistics(target, incident_energy, cdf_probes):
     primary_cosine_second_moment = 0.0
     secondary_cosine_mean = 0.0
     secondary_cosine_second_moment = 0.0
-    for probability, shell, term in zip(probabilities, shells, terms):
+    for probability, shell, term, (_, uniform_threshold) in zip(
+        probabilities, shells, terms, THRESHOLDS[target]
+    ):
         if probability == 0.0:
             continue
         maximum = 0.5 * (incident_energy - shell[0])
@@ -118,13 +185,15 @@ def expected_statistics(target, incident_energy, cdf_probes):
             max(maximum * 1.0e-14, np.finfo(float).tiny), maximum, 40001
         )
         grid = np.concatenate(([0.0], positive_grid))
-        cdf = conditional_cdf(grid, incident_energy, shell, term)
+        cdf = conditional_cdf(
+            grid, incident_energy, shell, term, uniform_threshold
+        )
         secondary_mean += probability * np.trapezoid(1.0 - cdf, grid)
         secondary_second_moment += probability * np.trapezoid(
             2.0 * grid * (1.0 - cdf), grid
         )
         cdf_at_probes += probability * conditional_cdf(
-            cdf_probes, incident_energy, shell, term
+            cdf_probes, incident_energy, shell, term, uniform_threshold
         )
         pdf = np.maximum(np.gradient(cdf, grid, edge_order=2), 0.0)
         pdf /= np.trapezoid(pdf, grid)
@@ -174,6 +243,7 @@ def expected_statistics(target, incident_energy, cdf_probes):
         secondary_cosine_second_moment - secondary_cosine_mean**2
     )
     return (
+        probabilities,
         binding_mean,
         binding_variance,
         secondary_mean,
@@ -189,8 +259,10 @@ def expected_statistics(target, incident_energy, cdf_probes):
 data = np.load("background_mcc_rbeq_results.npz")
 particle_real_bytes = int(data["particle_real_bytes"])
 for name, target, incident_energy in CASES:
+    particle_count = int(data[f"{name}_particle_count"])
     event_count = int(data[f"{name}_event_count"])
     secondary = data[f"{name}_secondary_energies"]
+    binding_losses = data[f"{name}_binding_losses"]
     primary_cosines = data[f"{name}_primary_cosines"]
     secondary_cosines = data[f"{name}_secondary_cosines"]
     momentum_residual = data[f"{name}_momentum_residual"]
@@ -201,6 +273,7 @@ for name, target, incident_energy in CASES:
         cdf_probes += [1.0e3, 1.0e6]
     cdf_probes = np.array(cdf_probes)
     (
+        expected_shell_probabilities,
         expected_binding_mean,
         expected_binding_variance,
         expected_secondary_mean,
@@ -212,26 +285,63 @@ for name, target, incident_energy in CASES:
         expected_secondary_cosine_variance,
     ) = expected_statistics(target, incident_energy, cdf_probes)
 
-    expected_event_fraction = -math.expm1(-5.0)
+    expected_event_fraction = -math.expm1(-5.0) / MAJORANT_MARGIN
     event_standard_error = math.sqrt(
-        expected_event_fraction * (1.0 - expected_event_fraction) / PARTICLE_COUNT
+        expected_event_fraction * (1.0 - expected_event_fraction) / particle_count
     )
-    assert abs(event_count / PARTICLE_COUNT - expected_event_fraction) < (
+    assert abs(event_count / particle_count - expected_event_fraction) < (
         7.0 * event_standard_error
     )
     assert int(data[f"{name}_ion_count"]) == event_count
-    missing_forward_primaries = event_count - primary_cosines.size
-    assert 0 <= missing_forward_primaries <= max(8, event_count // 100)
-    # Extremely small primary angles can round to exactly forward. They are
-    # indistinguishable from uncollided originals in the saved momenta, but the
-    # independently counted secondaries recover their multiplicity.
-    primary_cosines = np.concatenate(
-        (primary_cosines, np.ones(missing_forward_primaries))
-    )
+    assert primary_cosines.size == event_count
     assert secondary_cosines.size == event_count
     assert np.isfinite(secondary).all()
     assert np.all(secondary >= 0.0)
     assert np.max(secondary) <= 0.5 * (incident_energy - outer_binding)
+
+    if incident_energy < 1.0e8:
+        shell_distances = np.abs(binding_losses[:, None] - SHELLS[target][:, 0])
+        sampled_shells = np.argmin(shell_distances, axis=1)
+        # Event-by-event energy closure must recover one of the discrete target
+        # binding energies, including in single-particle-precision builds.
+        assert np.max(np.min(shell_distances, axis=1)) < 5.0e-2
+        observed_shell_probabilities = np.bincount(
+            sampled_shells, minlength=len(SHELLS[target])
+        ) / event_count
+        shell_standard_errors = np.sqrt(
+            expected_shell_probabilities
+            * (1.0 - expected_shell_probabilities)
+            / event_count
+        )
+        assert np.all(
+            np.abs(observed_shell_probabilities - expected_shell_probabilities)
+            < 7.0 * shell_standard_errors + 1.0e-2
+        )
+
+        # The guarded shell has an analytically negative partial at these
+        # energies and therefore must never be selected by grid interpolation.
+        forbidden_shell = {"n2_partial_guard": 2, "o2_partial_guard": 3}.get(name)
+        if forbidden_shell is not None:
+            assert np.count_nonzero(sampled_shells == forbidden_shell) == 0
+
+        # Isolate a shell whose total partial is positive while its published
+        # SDCS is locally negative. Its conservative continuation must be
+        # uniform rather than an inversion of a non-monotone CDF.
+        guarded_shell = {"o2_sdcs_guard": 4}.get(name)
+        if guarded_shell is not None:
+            guarded = secondary[sampled_shells == guarded_shell]
+            assert guarded.size >= 20
+            maximum = 0.5 * (
+                incident_energy - SHELLS[target][guarded_shell, 0]
+            )
+            uniform_samples = np.sort(guarded / maximum)
+            empirical_upper = np.arange(1, guarded.size + 1) / guarded.size
+            empirical_lower = np.arange(guarded.size) / guarded.size
+            ks_distance = max(
+                np.max(empirical_upper - uniform_samples),
+                np.max(uniform_samples - empirical_lower),
+            )
+            assert ks_distance < 2.0 / math.sqrt(guarded.size) + 2.0e-2
 
     if particle_real_bytes > 4 or incident_energy < 1.0e8:
         binding_standard_error = math.sqrt(expected_binding_variance / event_count)

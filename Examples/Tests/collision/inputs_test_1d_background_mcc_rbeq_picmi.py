@@ -10,9 +10,13 @@ from pywarpx import libwarpx, picmi
 
 PARTICLE_COUNT = 32768
 INITIAL_ION_COUNT = 1
-BACKGROUND_DENSITY = 1.0e20
+# A high test density preserves the desired optical depth in a very short
+# physical step. Original particles and products then remain much closer than
+# their initial spacing, which permits unambiguous event-by-event matching.
+BACKGROUND_DENSITY = 1.0e29
 CROSS_SECTION = 1.0e-20
 MAJORANT_OPTICAL_DEPTH = 5.0
+MAJORANT_MARGIN = 1.001
 
 C = picmi.constants.c
 Q_E = picmi.constants.q_e
@@ -21,14 +25,19 @@ AMU = 1.66053906660e-27
 
 CASES = [
     ("n2_near", "N2", 15.78, 15.58, 28.0134 * AMU),
+    ("n2_partial_guard", "N2", 19.50, 15.58, 28.0134 * AMU),
     ("n2_mid", "N2", 100.0, 15.58, 28.0134 * AMU),
     ("n2_high", "N2", 1000.0, 15.58, 28.0134 * AMU),
     ("n2_gev", "N2", 1.0e9, 15.58, 28.0134 * AMU),
     ("o2_near", "O2", 12.27, 12.07, 31.9988 * AMU),
+    ("o2_sdcs_guard", "O2", 18.702, 12.07, 31.9988 * AMU),
+    ("o2_partial_guard", "O2", 21.50, 12.07, 31.9988 * AMU),
     ("o2_mid", "O2", 100.0, 12.07, 31.9988 * AMU),
     ("o2_high", "O2", 1000.0, 12.07, 31.9988 * AMU),
     ("o2_gev", "O2", 1.0e9, 12.07, 31.9988 * AMU),
 ]
+
+PARTICLE_COUNTS = {"o2_sdcs_guard": 524288}
 
 
 def electron_gamma(energy_ev):
@@ -46,7 +55,7 @@ def electron_proper_speed(energy_ev):
 
 
 reference_speed = electron_speed(100.0)
-nu_max = BACKGROUND_DENSITY * CROSS_SECTION * reference_speed
+nu_max = MAJORANT_MARGIN * BACKGROUND_DENSITY * CROSS_SECTION * reference_speed
 dt = MAJORANT_OPTICAL_DEPTH / nu_max
 source_dir = Path(__file__).resolve().parent
 
@@ -136,11 +145,12 @@ sim = picmi.Simulation(
     warpx_collisions=collisions,
     verbose=1,
 )
-for electrons, ions in species.values():
+for name, (electrons, ions) in species.items():
     sim.add_species(
         electrons,
         layout=picmi.GriddedLayout(
-            n_macroparticle_per_cell=[PARTICLE_COUNT], grid=grid
+            n_macroparticle_per_cell=[PARTICLE_COUNTS.get(name, PARTICLE_COUNT)],
+            grid=grid,
         ),
     )
     sim.add_species(
@@ -168,10 +178,32 @@ def particle_ids(container):
     )
 
 
+def match_positions(reference_positions, target_positions):
+    """Return unique nearest-reference indices for well-separated positions."""
+    order = np.argsort(reference_positions)
+    sorted_reference = reference_positions[order]
+    right = np.clip(
+        np.searchsorted(sorted_reference, target_positions),
+        0,
+        sorted_reference.size - 1,
+    )
+    left = np.maximum(right - 1, 0)
+    use_left = np.abs(sorted_reference[left] - target_positions) < np.abs(
+        sorted_reference[right] - target_positions
+    )
+    matches = np.where(use_left, left, right)
+    assert np.unique(matches).size == target_positions.size
+    assert np.max(np.abs(sorted_reference[matches] - target_positions)) < 1.0e-5
+    return order[matches]
+
+
 sim.initialize_inputs()
 sim.initialize_warpx()
 initial_ids = {
     name: particle_ids(sim.particles.get(f"electrons_{name}")) for name, *_ in CASES
+}
+initial_ion_ids = {
+    name: particle_ids(sim.particles.get(f"ions_{name}")) for name, *_ in CASES
 }
 sim.step(1)
 
@@ -198,6 +230,7 @@ def cosine_to_z(ux, uy, uz):
 results = {}
 particle_real_bytes = None
 for name, _, energy_ev, binding_energy, neutral_mass in CASES:
+    particle_count = PARTICLE_COUNTS.get(name, PARTICLE_COUNT)
     container = sim.particles.get(f"electrons_{name}")
     ids = particle_ids(container)
     electron_ux_raw = component(container, "ux")
@@ -206,24 +239,45 @@ for name, _, energy_ev, binding_energy, neutral_mass in CASES:
     electron_ux = electron_ux_raw.astype(np.float64)
     electron_uy = component(container, "uy").astype(np.float64)
     electron_uz = component(container, "uz").astype(np.float64)
+    electron_z = component(container, "z").astype(np.float64)
     energies = kinetic_energy_ev(electron_ux, electron_uy, electron_uz, M_E)
     is_original = np.isin(ids, initial_ids[name])
     is_secondary = ~is_original
     secondary_energies = energies[is_secondary]
     event_count = secondary_energies.size
-    # The discrete binding loss can be below one momentum ULP at 1 GeV in a
-    # single-particle-precision build. A nonzero transverse momentum identifies
-    # the scattered original electron without relying on that tiny energy change.
-    is_primary = is_original & np.logical_or(electron_ux != 0.0, electron_uy != 0.0)
 
     ion_container = sim.particles.get(f"ions_{name}")
+    ion_ids = particle_ids(ion_container)
     ion_ux = component(ion_container, "ux").astype(np.float64)
     ion_uy = component(ion_container, "uy").astype(np.float64)
     ion_uz = component(ion_container, "uz").astype(np.float64)
+    ion_z = component(ion_container, "z").astype(np.float64)
     ion_mass = neutral_mass - M_E
     ion_energies = kinetic_energy_ev(ion_ux, ion_uy, ion_uz, ion_mass)
+
+    # Products retain the source-particle position. Match each secondary to its
+    # original primary and product ion so every event independently verifies
+    # the sampled discrete binding loss and three-body energy conservation.
+    secondary_z = electron_z[is_secondary]
+    original_indices = np.flatnonzero(is_original)
+    primary_indices = original_indices[
+        match_positions(electron_z[original_indices], secondary_z)
+    ]
+
+    is_product_ion = ~np.isin(ion_ids, initial_ion_ids[name])
+    product_ion_indices = np.flatnonzero(is_product_ion)
+    matched_ion_indices = product_ion_indices[
+        match_positions(ion_z[product_ion_indices], secondary_z)
+    ]
+
+    binding_losses = (
+        energy_ev
+        - energies[primary_indices]
+        - secondary_energies
+        - ion_energies[matched_ion_indices]
+    )
     sampled_binding_mean = (
-        PARTICLE_COUNT * energy_ev - np.sum(energies) - np.sum(ion_energies)
+        particle_count * energy_ev - np.sum(energies) - np.sum(ion_energies)
     ) / event_count
 
     final_momentum = np.array(
@@ -233,14 +287,18 @@ for name, _, energy_ev, binding_energy, neutral_mass in CASES:
         ion_mass / M_E * np.array([np.sum(ion_ux), np.sum(ion_uy), np.sum(ion_uz)])
     )
     initial_momentum = np.array(
-        [0.0, 0.0, PARTICLE_COUNT * electron_proper_speed(energy_ev)]
+        [0.0, 0.0, particle_count * electron_proper_speed(energy_ev)]
     )
+    results[f"{name}_particle_count"] = particle_count
     results[f"{name}_event_count"] = event_count
     results[f"{name}_ion_count"] = ion_ux.size - INITIAL_ION_COUNT
     results[f"{name}_secondary_energies"] = secondary_energies
+    results[f"{name}_binding_losses"] = binding_losses
     results[f"{name}_binding_mean"] = sampled_binding_mean
     results[f"{name}_primary_cosines"] = cosine_to_z(
-        electron_ux[is_primary], electron_uy[is_primary], electron_uz[is_primary]
+        electron_ux[primary_indices],
+        electron_uy[primary_indices],
+        electron_uz[primary_indices],
     )
     results[f"{name}_secondary_cosines"] = cosine_to_z(
         electron_ux[is_secondary],

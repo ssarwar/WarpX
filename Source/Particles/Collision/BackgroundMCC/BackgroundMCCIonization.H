@@ -92,12 +92,30 @@ public:
             {
                 auto const index_lo = energy_index * max_shell_count + shell;
                 auto const index_hi = index_lo + max_shell_count;
-                auto const interpolated = m_shell_probabilities[index_lo] +
-                                          energy_fraction * (m_shell_probabilities[index_hi] -
-                                                             m_shell_probabilities[index_lo]);
-                shell_weights[shell] = incident_energy > m_binding_energies[shell]
-                                           ? amrex::max(interpolated, 0.0_prt)
-                                           : 0.0_prt;
+                amrex::ParticleReal interpolated = 0.0_prt;
+                auto const positive_threshold = m_positive_threshold_coordinates[shell];
+                if (incident_energy > m_binding_energies[shell] &&
+                    energy_coordinate > positive_threshold)
+                {
+                    if (positive_threshold > static_cast<amrex::ParticleReal>(energy_index))
+                    {
+                        // This interval contains the analytic zero crossing.
+                        // Interpolate from zero at that crossing instead of
+                        // activating the shell at the lower grid point.
+                        auto const fraction =
+                            (energy_coordinate - positive_threshold) /
+                            (static_cast<amrex::ParticleReal>(energy_index + 1) -
+                             positive_threshold);
+                        interpolated = fraction * m_shell_cross_sections[index_hi];
+                    }
+                    else
+                    {
+                        interpolated = m_shell_cross_sections[index_lo] +
+                            energy_fraction * (m_shell_cross_sections[index_hi] -
+                                               m_shell_cross_sections[index_lo]);
+                    }
+                }
+                shell_weights[shell] = amrex::max(interpolated, 0.0_prt);
                 total_weight += shell_weights[shell];
             }
 
@@ -109,7 +127,7 @@ public:
                 for (int shell = 0; shell < m_shell_count; ++shell)
                 {
                     cumulative_weight += shell_weights[shell];
-                    if (target_weight <= cumulative_weight)
+                    if (target_weight < cumulative_weight)
                     {
                         selected_shell = shell;
                         break;
@@ -134,6 +152,18 @@ public:
 
             binding_energy = m_binding_energies[selected_shell];
             auto const available_energy = amrex::max(incident_energy - binding_energy, 0.0_prt);
+
+            if (energy_coordinate <= m_uniform_threshold_coordinates[selected_shell])
+            {
+                // The analytic RBEQ SDCS can be negative in a narrow interval
+                // above some Q=1 shell thresholds. Uniform sharing is the
+                // finite near-threshold continuation used until the complete
+                // differential distribution becomes non-negative.
+                secondary_energy =
+                    0.5_prt * available_energy * amrex::max(
+                        0.0_prt, amrex::min(energy_draw, 1.0_prt));
+                return;
+            }
 
             // Invert q = x^4/(x^4 + (1-x)^4). The transformed coordinate
             // prevents the physical W_max endpoint from contaminating the
@@ -180,7 +210,11 @@ public:
         int m_energy_grid_size = 0;
         int m_quantile_grid_size = 0;
         amrex::GpuArray<amrex::ParticleReal, max_shell_count> m_binding_energies{};
-        amrex::ParticleReal const* m_shell_probabilities = nullptr;
+        amrex::GpuArray<amrex::ParticleReal, max_shell_count>
+            m_positive_threshold_coordinates{};
+        amrex::GpuArray<amrex::ParticleReal, max_shell_count>
+            m_uniform_threshold_coordinates{};
+        amrex::ParticleReal const* m_shell_cross_sections = nullptr;
         amrex::ParticleReal const* m_inverse_cdf = nullptr;
         amrex::ParticleReal m_energy_min = 0.0;
         amrex::ParticleReal m_log_energy_min = 0.0;
@@ -205,11 +239,11 @@ public:
     outerBindingEnergy (BackgroundMCCIonizationTarget target);
 
 private:
-    amrex::Gpu::HostVector<amrex::ParticleReal> m_shell_probabilities_h;
+    amrex::Gpu::HostVector<amrex::ParticleReal> m_shell_cross_sections_h;
     amrex::Gpu::HostVector<amrex::ParticleReal> m_inverse_cdf_h;
 
 #ifdef AMREX_USE_GPU
-    amrex::Gpu::DeviceVector<amrex::ParticleReal> m_shell_probabilities_d;
+    amrex::Gpu::DeviceVector<amrex::ParticleReal> m_shell_cross_sections_d;
     amrex::Gpu::DeviceVector<amrex::ParticleReal> m_inverse_cdf_d;
     Executor m_executor_d;
 #endif

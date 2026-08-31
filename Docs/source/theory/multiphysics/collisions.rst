@@ -188,10 +188,24 @@ energy within 0.05 eV: 15.58 eV for :math:`\mathrm{N}_2` and 12.07 eV for
 Some unit-oscillator-strength RBEQ partials become slightly negative immediately
 above their subshell thresholds. A negative partial is unphysical and cannot
 define a probability, so WarpX clamps it to zero until the analytic expression
-becomes positive; it is never reflected with an absolute value. Shell
-probabilities and conditional inverse CDFs are precomputed on a logarithmic
-energy grid during initialization. The inverse CDF uses 513 samples of the
-symmetric probability map
+becomes positive; it is never reflected with an absolute value. WarpX stores
+the analytic zero-crossing coordinate and interpolates the unnormalized,
+non-negative partial cross sections. Consequently, interpolation cannot activate
+a shell below its crossing, and normalization occurs only after interpolation
+at the collision energy.
+
+For several of these shells, the integrated partial becomes positive slightly
+before the published SDCS is non-negative over its complete kinematic interval.
+A non-monotone cumulative function cannot be sampled as a probability. In that
+narrow interval, WarpX uses a uniform conditional energy distribution and
+switches to RBEQ once the complete SDCS is non-negative. This continuation is
+also used within 0.1 percent of every binding threshold, where direct evaluation
+is ill-conditioned. It preserves a finite, symmetric threshold limit without
+turning negative values into artificial positive probability.
+
+The partial cross sections and conditional inverse CDFs are precomputed on a
+logarithmic energy grid during initialization. The inverse CDF uses 513 samples
+of the symmetric probability map
 
     .. math::
 
