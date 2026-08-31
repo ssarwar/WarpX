@@ -97,6 +97,7 @@ all_created_ids = np.concatenate([new_electron_ids, created_product_ids])
 assert np.all(all_created_ids > 0)
 assert np.unique(all_created_ids).size == all_created_ids.size
 assert np.intersect1d(all_created_ids, initial_electron_ids).size == 0
+assert np.intersect1d(all_created_ids, results["initial_product_ids"]).size == 0
 
 # The user majorant is 1% above the actual rate. Neutral thermal motion changes
 # the 1 keV relative speed by far less than the statistical uncertainty here.
