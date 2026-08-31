@@ -31,14 +31,74 @@ namespace BackgroundMCCIonizationKinematics
     using BackgroundMCCKinematics::subtract;
     using BackgroundMCCKinematics::transverseDirections;
 
+    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE double
+    momentumEnergyFromKineticEnergy (double const kinetic_energy,
+                                     double const rest_energy) noexcept
+    {
+        return std::sqrt(amrex::max(kinetic_energy * (kinetic_energy + 2.0 * rest_energy),
+                                    0.0));
+    }
+
+    /** Return the three-product energy residual and its exact derivative.
+     *
+     * Momenta are represented as pc in eV. This avoids subtracting ion rest
+     * energies and makes the fixed-count Newton solve well conditioned from
+     * threshold through relativistic incident energies.
+     */
+    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE double
+    energyResidual (double const electron_energy, double const available_energy,
+                    double const incident_energy, double const electron_rest_energy,
+                    double const ion_rest_energy, double const sharing,
+                    Vector3 const& incident_direction, Vector3 const& primary_direction,
+                    Vector3 const& secondary_direction, double& derivative) noexcept
+    {
+        auto const primary_share = 1.0 - sharing;
+        auto const primary_energy = primary_share * electron_energy;
+        auto const secondary_energy = sharing * electron_energy;
+        auto const incident_momentum =
+            momentumEnergyFromKineticEnergy(incident_energy, electron_rest_energy);
+        auto const primary_momentum =
+            momentumEnergyFromKineticEnergy(primary_energy, electron_rest_energy);
+        auto const secondary_momentum =
+            momentumEnergyFromKineticEnergy(secondary_energy, electron_rest_energy);
+
+        auto const ion_momentum =
+            subtract(subtract(scale(incident_direction, incident_momentum),
+                              scale(primary_direction, primary_momentum)),
+                     scale(secondary_direction, secondary_momentum));
+        auto const ion_momentum_sq = dot(ion_momentum, ion_momentum);
+        auto const ion_total_energy =
+            std::sqrt(ion_rest_energy * ion_rest_energy + ion_momentum_sq);
+        auto const ion_energy =
+            ion_momentum_sq / (ion_total_energy + ion_rest_energy);
+
+        Vector3 momentum_derivative{};
+        if (primary_share > 0.0 && primary_momentum > 0.0)
+        {
+            auto const magnitude_derivative =
+                primary_share * (primary_energy + electron_rest_energy) / primary_momentum;
+            momentum_derivative =
+                subtract(momentum_derivative, scale(primary_direction, magnitude_derivative));
+        }
+        if (sharing > 0.0 && secondary_momentum > 0.0)
+        {
+            auto const magnitude_derivative =
+                sharing * (secondary_energy + electron_rest_energy) / secondary_momentum;
+            momentum_derivative =
+                subtract(momentum_derivative, scale(secondary_direction, magnitude_derivative));
+        }
+        derivative = 1.0 + dot(ion_momentum, momentum_derivative) / ion_total_energy;
+        return electron_energy + ion_energy - available_energy;
+    }
+
     /** Compute electron-ion impact-ionization kinematics in the neutral rest frame.
      *
      * For the IAA model, the primary polar angle follows Schmalzried Eq. (2.60),
      * and the secondary uses the bound/free interpolation of Eq. (11.132).
      * The two electron azimuths differ by pi, which gives the natural
      * coplanar binary-encounter geometry while the ion absorbs the residual
-     * momentum. Two fixed recoil corrections conserve kinetic plus binding
-     * energy to far below particle precision for molecular targets.
+     * momentum. Three fixed Newton updates conserve kinetic plus binding energy
+     * without a device-side convergence loop.
      *
      * @param incident_ux,incident_uy,incident_uz incident lab-frame proper velocity
      * @param neutral_vx,neutral_vy,neutral_vz sampled neutral lab-frame velocity
@@ -163,35 +223,33 @@ namespace BackgroundMCCIonizationKinematics
                 two_pi * static_cast<double>(amrex::Random(engine)));
         }
 
-        Vector3 primary_rest{};
-        Vector3 secondary_rest{};
-        Vector3 ion_rest{};
+        auto const electron_rest_energy = electron_mass * c2 / elementary_charge;
+        auto const ion_rest_energy = ion_mass * c2 / elementary_charge;
         auto electron_energy = available_energy;
 
-        // Ion recoil is a small O(m_e/M) correction. Two fixed iterations leave
-        // an O((m_e/M)^3) residual and avoid a divergent device-side loop.
-        for (int iteration = 0; iteration < 2; ++iteration)
+        // Fixed-count Newton updates avoid device divergence. The analytic
+        // derivative includes the energy dependence of both electron momenta.
+        for (int iteration = 0; iteration < 3; ++iteration)
         {
-            auto const secondary_energy = sharing * electron_energy;
-            auto const primary_energy = electron_energy - secondary_energy;
-            primary_rest = scale(primary_direction,
-                                 properSpeedFromKineticEnergy(primary_energy, electron_mass));
-            secondary_rest = scale(secondary_direction,
-                                   properSpeedFromKineticEnergy(secondary_energy, electron_mass));
-            ion_rest = scale(subtract(subtract(incident_rest, primary_rest), secondary_rest),
-                             electron_mass / ion_mass);
-            auto const ion_energy = kineticEnergyFromProperVelocity(ion_rest, ion_mass);
-            electron_energy = amrex::max(available_energy - ion_energy, 0.0);
+            double derivative;
+            auto const residual = energyResidual(
+                electron_energy, available_energy, incident_energy, electron_rest_energy,
+                ion_rest_energy, sharing, incident_direction, primary_direction,
+                secondary_direction, derivative);
+            electron_energy = amrex::max(
+                0.0, amrex::min(electron_energy - residual / derivative, available_energy));
         }
 
         auto const final_secondary_energy = sharing * electron_energy;
         auto const final_primary_energy = electron_energy - final_secondary_energy;
-        primary_rest = scale(primary_direction,
-                             properSpeedFromKineticEnergy(final_primary_energy, electron_mass));
-        secondary_rest = scale(secondary_direction,
-                               properSpeedFromKineticEnergy(final_secondary_energy, electron_mass));
-        ion_rest = scale(subtract(subtract(incident_rest, primary_rest), secondary_rest),
-                         electron_mass / ion_mass);
+        auto const primary_rest = scale(
+            primary_direction, properSpeedFromKineticEnergy(final_primary_energy, electron_mass));
+        auto const secondary_rest = scale(
+            secondary_direction,
+            properSpeedFromKineticEnergy(final_secondary_energy, electron_mass));
+        auto const ion_rest = scale(
+            subtract(subtract(incident_rest, primary_rest), secondary_rest),
+            electron_mass / ion_mass);
 
         auto const primary_lab =
             boostToLab(primary_rest, neutral_velocity, neutral_gamma, boost_spatial_factor);

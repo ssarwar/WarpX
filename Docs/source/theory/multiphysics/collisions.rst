@@ -245,9 +245,13 @@ sampled result is restricted to the physical cosine interval
 square-window model.
 
 The electron azimuths differ by :math:`\pi`; the product ion receives the
-remaining momentum. Two fixed recoil corrections conserve energy through
-:math:`O((m_e/M)^3)` without a device-side convergence loop, and the three
-products are Lorentz transformed back to the simulation frame.
+remaining momentum. WarpX solves for the total electron energy after ion recoil
+with three fixed Newton updates. The analytic derivative includes both outgoing
+electron momenta, while a stable :math:`pc` representation avoids subtracting
+the ion rest energy. Thus even deliberately adverse backward and isotropic
+events retain energy and momentum conservation through 1 GeV without a
+device-side convergence loop. The three products are then Lorentz transformed
+back to the simulation frame.
 
 IAA/elmolcs differential scattering
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -11,17 +11,20 @@ LN2 = math.log(2.0)
 MAJORANT_MARGIN = 1.001
 
 CASES = [
-    ("n2_near", "N2", 15.78),
-    ("n2_partial_guard", "N2", 19.50),
-    ("n2_mid", "N2", 100.0),
-    ("n2_high", "N2", 1000.0),
-    ("n2_gev", "N2", 1.0e9),
-    ("o2_near", "O2", 12.27),
-    ("o2_sdcs_guard", "O2", 18.702),
-    ("o2_partial_guard", "O2", 21.50),
-    ("o2_mid", "O2", 100.0),
-    ("o2_high", "O2", 1000.0),
-    ("o2_gev", "O2", 1.0e9),
+    ("n2_near", "N2", 15.78, "IAA"),
+    ("n2_partial_guard", "N2", 19.50, "IAA"),
+    ("n2_mid", "N2", 100.0, "IAA"),
+    ("n2_high", "N2", 1000.0, "IAA"),
+    ("n2_gev", "N2", 1.0e9, "IAA"),
+    ("n2_forward_gev", "N2", 1.0e9, "forward"),
+    ("n2_backward_gev", "N2", 1.0e9, "backward"),
+    ("n2_isotropic_gev", "N2", 1.0e9, "isotropic"),
+    ("o2_near", "O2", 12.27, "IAA"),
+    ("o2_sdcs_guard", "O2", 18.702, "IAA"),
+    ("o2_partial_guard", "O2", 21.50, "IAA"),
+    ("o2_mid", "O2", 100.0, "IAA"),
+    ("o2_high", "O2", 1000.0, "IAA"),
+    ("o2_gev", "O2", 1.0e9, "IAA"),
 ]
 
 SHELLS = {
@@ -156,7 +159,7 @@ def conditional_cdf(
     return np.where(values >= maximum, 1.0, cdf)
 
 
-def expected_statistics(target, incident_energy, cdf_probes):
+def expected_statistics(target, incident_energy, cdf_probes, angle_model):
     shells = SHELLS[target]
     terms = [rbeq_terms(incident_energy, shell) for shell in shells]
     partials = np.array(
@@ -195,48 +198,58 @@ def expected_statistics(target, incident_energy, cdf_probes):
         cdf_at_probes += probability * conditional_cdf(
             cdf_probes, incident_energy, shell, term, uniform_threshold
         )
-        pdf = np.maximum(np.gradient(cdf, grid, edge_order=2), 0.0)
-        pdf /= np.trapezoid(pdf, grid)
-        available = incident_energy - shell[0]
-        primary_energy = available - grid
-        primary_cosine = np.sqrt(
-            primary_energy
-            * (available + 2.0 * MC2_EV)
-            / (available * (primary_energy + 2.0 * MC2_EV))
-        )
-        denominator = grid + shell[0]
-        free_component = np.sqrt(grid / incident_energy) * (
-            grid + 0.5 * shell[0]
-        ) / denominator
-        bound_weight = shell[0] / denominator
+        if angle_model == "IAA":
+            pdf = np.maximum(np.gradient(cdf, grid, edge_order=2), 0.0)
+            pdf /= np.trapezoid(pdf, grid)
+            available = incident_energy - shell[0]
+            primary_energy = available - grid
+            primary_cosine = np.sqrt(
+                primary_energy
+                * (available + 2.0 * MC2_EV)
+                / (available * (primary_energy + 2.0 * MC2_EV))
+            )
+            denominator = grid + shell[0]
+            free_component = np.sqrt(grid / incident_energy) * (
+                grid + 0.5 * shell[0]
+            ) / denominator
+            bound_weight = shell[0] / denominator
 
-        # Eq. (11.132) is uniform on [a-b, a+b], followed by the same physical
-        # cosine clamp as the device implementation. Integrate the clipped
-        # interval analytically so the near-threshold test is sensitive to the
-        # exact IAA expression rather than only to its unbounded first moment.
-        lower = free_component - bound_weight
-        upper = free_component + bound_weight
-        clipped = upper > 1.0
-        secondary_conditional_mean = free_component.copy()
-        secondary_conditional_second_moment = (
-            free_component**2 + bound_weight**2 / 3.0
-        )
-        secondary_conditional_mean[clipped] = (
-            0.5 * (1.0 - lower[clipped] ** 2) + upper[clipped] - 1.0
-        ) / (2.0 * bound_weight[clipped])
-        secondary_conditional_second_moment[clipped] = (
-            (1.0 - lower[clipped] ** 3) / 3.0 + upper[clipped] - 1.0
-        ) / (2.0 * bound_weight[clipped])
-        primary_cosine_mean += probability * np.trapezoid(primary_cosine * pdf, grid)
-        primary_cosine_second_moment += probability * np.trapezoid(
-            primary_cosine**2 * pdf, grid
-        )
-        secondary_cosine_mean += probability * np.trapezoid(
-            secondary_conditional_mean * pdf, grid
-        )
-        secondary_cosine_second_moment += probability * np.trapezoid(
-            secondary_conditional_second_moment * pdf, grid
-        )
+            # Eq. (11.132) is uniform on [a-b, a+b], followed by the same
+            # physical cosine clamp as the device implementation.
+            lower = free_component - bound_weight
+            upper = free_component + bound_weight
+            clipped = upper > 1.0
+            secondary_conditional_mean = free_component.copy()
+            secondary_conditional_second_moment = (
+                free_component**2 + bound_weight**2 / 3.0
+            )
+            secondary_conditional_mean[clipped] = (
+                0.5 * (1.0 - lower[clipped] ** 2) + upper[clipped] - 1.0
+            ) / (2.0 * bound_weight[clipped])
+            secondary_conditional_second_moment[clipped] = (
+                (1.0 - lower[clipped] ** 3) / 3.0 + upper[clipped] - 1.0
+            ) / (2.0 * bound_weight[clipped])
+            primary_cosine_mean += probability * np.trapezoid(
+                primary_cosine * pdf, grid
+            )
+            primary_cosine_second_moment += probability * np.trapezoid(
+                primary_cosine**2 * pdf, grid
+            )
+            secondary_cosine_mean += probability * np.trapezoid(
+                secondary_conditional_mean * pdf, grid
+            )
+            secondary_cosine_second_moment += probability * np.trapezoid(
+                secondary_conditional_second_moment * pdf, grid
+            )
+    if angle_model == "forward":
+        primary_cosine_mean = secondary_cosine_mean = 1.0
+        primary_cosine_second_moment = secondary_cosine_second_moment = 1.0
+    elif angle_model == "backward":
+        primary_cosine_mean = secondary_cosine_mean = -1.0
+        primary_cosine_second_moment = secondary_cosine_second_moment = 1.0
+    elif angle_model == "isotropic":
+        primary_cosine_mean = secondary_cosine_mean = 0.0
+        primary_cosine_second_moment = secondary_cosine_second_moment = 1.0 / 3.0
     secondary_variance = secondary_second_moment - secondary_mean**2
     primary_cosine_variance = primary_cosine_second_moment - primary_cosine_mean**2
     secondary_cosine_variance = (
@@ -258,7 +271,7 @@ def expected_statistics(target, incident_energy, cdf_probes):
 
 data = np.load("background_mcc_rbeq_results.npz")
 particle_real_bytes = int(data["particle_real_bytes"])
-for name, target, incident_energy in CASES:
+for name, target, incident_energy, angle_model in CASES:
     particle_count = int(data[f"{name}_particle_count"])
     event_count = int(data[f"{name}_event_count"])
     secondary = data[f"{name}_secondary_energies"]
@@ -283,7 +296,7 @@ for name, target, incident_energy in CASES:
         expected_primary_cosine_variance,
         expected_secondary_cosine,
         expected_secondary_cosine_variance,
-    ) = expected_statistics(target, incident_energy, cdf_probes)
+    ) = expected_statistics(target, incident_energy, cdf_probes, angle_model)
 
     expected_event_fraction = -math.expm1(-5.0) / MAJORANT_MARGIN
     event_standard_error = math.sqrt(
@@ -299,7 +312,7 @@ for name, target, incident_energy in CASES:
     assert np.all(secondary >= 0.0)
     assert np.max(secondary) <= 0.5 * (incident_energy - outer_binding)
 
-    if incident_energy < 1.0e8:
+    if particle_real_bytes > 4 or incident_energy < 1.0e8:
         shell_distances = np.abs(binding_losses[:, None] - SHELLS[target][:, 0])
         sampled_shells = np.argmin(shell_distances, axis=1)
         # Event-by-event energy closure must recover one of the discrete target

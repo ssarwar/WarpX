@@ -24,20 +24,28 @@ M_E = picmi.constants.m_e
 AMU = 1.66053906660e-27
 
 CASES = [
-    ("n2_near", "N2", 15.78, 15.58, 28.0134 * AMU),
-    ("n2_partial_guard", "N2", 19.50, 15.58, 28.0134 * AMU),
-    ("n2_mid", "N2", 100.0, 15.58, 28.0134 * AMU),
-    ("n2_high", "N2", 1000.0, 15.58, 28.0134 * AMU),
-    ("n2_gev", "N2", 1.0e9, 15.58, 28.0134 * AMU),
-    ("o2_near", "O2", 12.27, 12.07, 31.9988 * AMU),
-    ("o2_sdcs_guard", "O2", 18.702, 12.07, 31.9988 * AMU),
-    ("o2_partial_guard", "O2", 21.50, 12.07, 31.9988 * AMU),
-    ("o2_mid", "O2", 100.0, 12.07, 31.9988 * AMU),
-    ("o2_high", "O2", 1000.0, 12.07, 31.9988 * AMU),
-    ("o2_gev", "O2", 1.0e9, 12.07, 31.9988 * AMU),
+    ("n2_near", "N2", 15.78, 15.58, 28.0134 * AMU, "IAA"),
+    ("n2_partial_guard", "N2", 19.50, 15.58, 28.0134 * AMU, "IAA"),
+    ("n2_mid", "N2", 100.0, 15.58, 28.0134 * AMU, "IAA"),
+    ("n2_high", "N2", 1000.0, 15.58, 28.0134 * AMU, "IAA"),
+    ("n2_gev", "N2", 1.0e9, 15.58, 28.0134 * AMU, "IAA"),
+    ("n2_forward_gev", "N2", 1.0e9, 15.58, 28.0134 * AMU, "forward"),
+    ("n2_backward_gev", "N2", 1.0e9, 15.58, 28.0134 * AMU, "backward"),
+    ("n2_isotropic_gev", "N2", 1.0e9, 15.58, 28.0134 * AMU, "isotropic"),
+    ("o2_near", "O2", 12.27, 12.07, 31.9988 * AMU, "IAA"),
+    ("o2_sdcs_guard", "O2", 18.702, 12.07, 31.9988 * AMU, "IAA"),
+    ("o2_partial_guard", "O2", 21.50, 12.07, 31.9988 * AMU, "IAA"),
+    ("o2_mid", "O2", 100.0, 12.07, 31.9988 * AMU, "IAA"),
+    ("o2_high", "O2", 1000.0, 12.07, 31.9988 * AMU, "IAA"),
+    ("o2_gev", "O2", 1.0e9, 12.07, 31.9988 * AMU, "IAA"),
 ]
 
-PARTICLE_COUNTS = {"o2_sdcs_guard": 524288}
+PARTICLE_COUNTS = {
+    "n2_forward_gev": 8192,
+    "n2_backward_gev": 8192,
+    "n2_isotropic_gev": 8192,
+    "o2_sdcs_guard": 524288,
+}
 
 
 def electron_gamma(energy_ev):
@@ -102,7 +110,9 @@ def make_ions(name, neutral_mass):
     )
 
 
-def make_collision(name, electrons, ions, target, energy_ev, binding_energy, mass):
+def make_collision(
+    name, electrons, ions, target, energy_ev, binding_energy, mass, angle_model
+):
     process = {
         "ionization": {
             "cross_section": str(
@@ -111,7 +121,7 @@ def make_collision(name, electrons, ions, target, energy_ev, binding_energy, mas
             "energy": binding_energy,
             "energy_sharing_model": "RBEQ",
             "rbeq_target": target,
-            "scattering_angle_model": "IAA",
+            "scattering_angle_model": angle_model,
             "species": ions,
         }
     }
@@ -130,12 +140,21 @@ def make_collision(name, electrons, ions, target, energy_ev, binding_energy, mas
 
 species = {}
 collisions = []
-for name, target, energy_ev, binding_energy, mass in CASES:
+for name, target, energy_ev, binding_energy, mass, angle_model in CASES:
     electrons = make_electrons(name, energy_ev)
     ions = make_ions(name, mass)
     species[name] = (electrons, ions)
     collisions.append(
-        make_collision(name, electrons, ions, target, energy_ev, binding_energy, mass)
+        make_collision(
+            name,
+            electrons,
+            ions,
+            target,
+            energy_ev,
+            binding_energy,
+            mass,
+            angle_model,
+        )
     )
 
 sim = picmi.Simulation(
@@ -229,7 +248,7 @@ def cosine_to_z(ux, uy, uz):
 
 results = {}
 particle_real_bytes = None
-for name, _, energy_ev, binding_energy, neutral_mass in CASES:
+for name, _, energy_ev, binding_energy, neutral_mass, _ in CASES:
     particle_count = PARTICLE_COUNTS.get(name, PARTICLE_COUNT)
     container = sim.particles.get(f"electrons_{name}")
     ids = particle_ids(container)
