@@ -216,11 +216,37 @@ void findShellThresholds (std::array<RBEQShell, N> const& shells,
 }
 
 template <std::size_t N>
-void initializeTable (std::array<RBEQShell, N> const& shells, double const energy_min,
-                      double const log_energy_step,
-                      std::array<double, N> const& uniform_thresholds,
-                      amrex::Gpu::HostVector<amrex::ParticleReal>& shell_cross_sections,
-                      amrex::Gpu::HostVector<amrex::ParticleReal>& inverse_cdf)
+void initializeShellCrossSections (
+    std::array<RBEQShell, N> const& shells, double const energy_min,
+    double const shell_log_energy_step,
+    amrex::Gpu::HostVector<amrex::ParticleReal>& shell_cross_sections)
+{
+    constexpr int max_shells = BackgroundMCCIonizationModel::max_shell_count;
+    constexpr int shell_energy_count =
+        BackgroundMCCIonizationModel::shell_energy_grid_size;
+    for (int energy_index = 0; energy_index < shell_energy_count; ++energy_index)
+    {
+        auto const incident_energy = energy_min *
+            std::exp(shell_log_energy_step * static_cast<double>(energy_index));
+        for (int shell_index = 0; shell_index < static_cast<int>(N); ++shell_index)
+        {
+            // Some Q=1 partial cross sections are negative immediately above
+            // their thresholds because the RBEQ dipole correction is too
+            // strong. A negative partial cannot be sampled; it enters only once
+            // positive.
+            auto const partial =
+                std::max(rbeqTerms(incident_energy, shells[shell_index]).total, 0.0);
+            shell_cross_sections[energy_index * max_shells + shell_index] =
+                static_cast<amrex::ParticleReal>(partial);
+        }
+    }
+}
+
+template <std::size_t N>
+void initializeInverseCdf (std::array<RBEQShell, N> const& shells, double const energy_min,
+                           double const log_energy_step,
+                           std::array<double, N> const& uniform_thresholds,
+                           amrex::Gpu::HostVector<amrex::ParticleReal>& inverse_cdf)
 {
     constexpr int inverse_iterations = 36;
     constexpr int max_shells = BackgroundMCCIonizationModel::max_shell_count;
@@ -236,13 +262,6 @@ void initializeTable (std::array<RBEQShell, N> const& shells, double const energ
         for (int shell_index = 0; shell_index < static_cast<int>(N); ++shell_index)
         {
             terms[shell_index] = rbeqTerms(incident_energy, shells[shell_index]);
-            // Some Q=1 partial cross sections are negative immediately above
-            // their thresholds because the RBEQ dipole correction is too
-            // strong. A negative partial cannot be sampled; it enters only once
-            // positive.
-            auto const partial = std::max(terms[shell_index].total, 0.0);
-            shell_cross_sections[energy_index * max_shells + shell_index] =
-                static_cast<amrex::ParticleReal>(partial);
         }
 
         for (int shell_index = 0; shell_index < static_cast<int>(N); ++shell_index)
@@ -315,12 +334,16 @@ BackgroundMCCIonizationModel::BackgroundMCCIonizationModel (
     auto const energy_max = std::max(static_cast<double>(maximum_energy), 1.0e9);
     auto const log_energy_step =
         std::log(energy_max / energy_min) / static_cast<double>(energy_grid_size - 1);
+    auto const shell_log_energy_step =
+        std::log(energy_max / energy_min) /
+        static_cast<double>(shell_energy_grid_size - 1);
 
-    m_shell_cross_sections_h.assign(energy_grid_size * max_shell_count, 0.0_prt);
+    m_shell_cross_sections_h.assign(shell_energy_grid_size * max_shell_count, 0.0_prt);
     m_inverse_cdf_h.assign(energy_grid_size * max_shell_count * quantile_grid_size, 0.0_prt);
 
     m_executor_h.m_model = IonizationEnergySharingModel::RBEQ;
     m_executor_h.m_energy_grid_size = energy_grid_size;
+    m_executor_h.m_shell_energy_grid_size = shell_energy_grid_size;
     m_executor_h.m_quantile_grid_size = quantile_grid_size;
     m_executor_h.m_energy_min = static_cast<amrex::ParticleReal>(energy_min);
     m_executor_h.m_log_energy_min = static_cast<amrex::ParticleReal>(std::log(energy_min));
@@ -339,13 +362,16 @@ BackgroundMCCIonizationModel::BackgroundMCCIonizationModel (
                 static_cast<amrex::ParticleReal>(n2_shells[i].binding_energy);
             m_executor_h.m_positive_threshold_coordinates[i] =
                 static_cast<amrex::ParticleReal>(
-                    std::log(positive_thresholds[i] / energy_min) / log_energy_step);
+                    std::log(positive_thresholds[i] / energy_min) /
+                    shell_log_energy_step);
             m_executor_h.m_uniform_threshold_coordinates[i] =
                 static_cast<amrex::ParticleReal>(
                     std::log(uniform_thresholds[i] / energy_min) / log_energy_step);
         }
-        initializeTable(n2_shells, energy_min, log_energy_step, uniform_thresholds,
-                        m_shell_cross_sections_h, m_inverse_cdf_h);
+        initializeShellCrossSections(
+            n2_shells, energy_min, shell_log_energy_step, m_shell_cross_sections_h);
+        initializeInverseCdf(
+            n2_shells, energy_min, log_energy_step, uniform_thresholds, m_inverse_cdf_h);
     }
     else
     {
@@ -359,13 +385,16 @@ BackgroundMCCIonizationModel::BackgroundMCCIonizationModel (
                 static_cast<amrex::ParticleReal>(o2_shells[i].binding_energy);
             m_executor_h.m_positive_threshold_coordinates[i] =
                 static_cast<amrex::ParticleReal>(
-                    std::log(positive_thresholds[i] / energy_min) / log_energy_step);
+                    std::log(positive_thresholds[i] / energy_min) /
+                    shell_log_energy_step);
             m_executor_h.m_uniform_threshold_coordinates[i] =
                 static_cast<amrex::ParticleReal>(
                     std::log(uniform_thresholds[i] / energy_min) / log_energy_step);
         }
-        initializeTable(o2_shells, energy_min, log_energy_step, uniform_thresholds,
-                        m_shell_cross_sections_h, m_inverse_cdf_h);
+        initializeShellCrossSections(
+            o2_shells, energy_min, shell_log_energy_step, m_shell_cross_sections_h);
+        initializeInverseCdf(
+            o2_shells, energy_min, log_energy_step, uniform_thresholds, m_inverse_cdf_h);
     }
 
     m_executor_h.m_shell_cross_sections = m_shell_cross_sections_h.data();

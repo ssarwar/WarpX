@@ -203,9 +203,14 @@ also used within 0.1 percent of every binding threshold, where direct evaluation
 is ill-conditioned. It preserves a finite, symmetric threshold limit without
 turning negative values into artificial positive probability.
 
-The partial cross sections and conditional inverse CDFs are precomputed on a
-logarithmic energy grid during initialization. The inverse CDF uses 513 samples
-of the symmetric probability map
+The partial cross sections and conditional inverse CDFs are precomputed on
+logarithmic energy grids during initialization. Subshell selection uses 2,049
+energy points, while the much larger inverse-CDF data use 257. The two grids
+cover the same range, so the shell coordinate is obtained from the inverse-CDF
+coordinate by one fixed scale factor rather than another logarithm or search.
+This independently resolves sharp shell onsets without multiplying the
+inverse-CDF memory footprint. The inverse CDF uses 513 samples of the symmetric
+probability map
 
     .. math::
 

@@ -36,6 +36,7 @@ class BackgroundMCCIonizationModel
 public:
     static constexpr int max_shell_count = 6;
     static constexpr int energy_grid_size = 257;
+    static constexpr int shell_energy_grid_size = 2049;
     // A symmetric fourth-power probability transform resolves both inverse-CDF
     // tails. 513 coordinates retain the former central probability spacing.
     static constexpr int quantile_grid_size = 513;
@@ -86,33 +87,47 @@ public:
                 energy_fraction = 1.0_prt;
             }
 
+            auto shell_energy_coordinate = energy_coordinate *
+                static_cast<amrex::ParticleReal>(m_shell_energy_grid_size - 1) /
+                static_cast<amrex::ParticleReal>(m_energy_grid_size - 1);
+            int shell_energy_index =
+                static_cast<int>(amrex::Math::floor(shell_energy_coordinate));
+            auto shell_energy_fraction = shell_energy_coordinate - shell_energy_index;
+            if (shell_energy_index >= m_shell_energy_grid_size - 1)
+            {
+                shell_energy_index = m_shell_energy_grid_size - 2;
+                shell_energy_fraction = 1.0_prt;
+            }
+
             amrex::ParticleReal shell_weights[max_shell_count];
             amrex::ParticleReal total_weight = 0.0_prt;
             for (int shell = 0; shell < m_shell_count; ++shell)
             {
-                auto const index_lo = energy_index * max_shell_count + shell;
+                auto const index_lo = shell_energy_index * max_shell_count + shell;
                 auto const index_hi = index_lo + max_shell_count;
                 amrex::ParticleReal interpolated = 0.0_prt;
                 auto const positive_threshold = m_positive_threshold_coordinates[shell];
                 if (incident_energy > m_binding_energies[shell] &&
-                    energy_coordinate > positive_threshold)
+                    shell_energy_coordinate > positive_threshold)
                 {
-                    if (positive_threshold > static_cast<amrex::ParticleReal>(energy_index))
+                    if (positive_threshold >
+                        static_cast<amrex::ParticleReal>(shell_energy_index))
                     {
                         // This interval contains the analytic zero crossing.
                         // Interpolate from zero at that crossing instead of
                         // activating the shell at the lower grid point.
                         auto const fraction =
-                            (energy_coordinate - positive_threshold) /
-                            (static_cast<amrex::ParticleReal>(energy_index + 1) -
+                            (shell_energy_coordinate - positive_threshold) /
+                            (static_cast<amrex::ParticleReal>(shell_energy_index + 1) -
                              positive_threshold);
                         interpolated = fraction * m_shell_cross_sections[index_hi];
                     }
                     else
                     {
                         interpolated = m_shell_cross_sections[index_lo] +
-                            energy_fraction * (m_shell_cross_sections[index_hi] -
-                                               m_shell_cross_sections[index_lo]);
+                            shell_energy_fraction *
+                                (m_shell_cross_sections[index_hi] -
+                                 m_shell_cross_sections[index_lo]);
                     }
                 }
                 shell_weights[shell] = amrex::max(interpolated, 0.0_prt);
@@ -208,6 +223,7 @@ public:
         IonizationEnergySharingModel m_model = IonizationEnergySharingModel::Equal;
         int m_shell_count = 0;
         int m_energy_grid_size = 0;
+        int m_shell_energy_grid_size = 0;
         int m_quantile_grid_size = 0;
         amrex::GpuArray<amrex::ParticleReal, max_shell_count> m_binding_energies{};
         amrex::GpuArray<amrex::ParticleReal, max_shell_count>
