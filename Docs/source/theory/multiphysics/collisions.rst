@@ -525,6 +525,60 @@ or cross-GPU synchronization. A device-to-host count transfer remains necessary
 before resizing a particle tile, because the new allocation size is a host-side
 container operation.
 
+GPU performance validation
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+CPU timing and accelerator compilation are necessary checks, but neither proves
+a GPU speedup. Validate a performance change with reference and candidate
+builds on the target cluster. Use the same compiler, optimization flags, GPU
+architecture, AMReX options, MPI layout, particle decomposition, input data and
+random seed. Discard a warm-up run, collect at least 20 timed repetitions and
+compare medians together with a confidence interval rather than a single wall
+time.
+
+The ``inputs_test_1d_background_mcc_many_attachment_picmi.py`` test accepts
+``--particle-count``, ``--process-count``, ``--steps``, ``--subcycles``,
+``--cell-count``, ``--max-grid-size`` and ``--target-acceptance`` arguments for
+stand-alone performance runs. ``--particle-count`` is the global source count
+and must be divisible by ``--cell-count``. Multiple cells and a smaller maximum
+grid size create enough boxes to occupy multiple MPI ranks and GPUs. Pass
+``--mpi-timing`` under ``mpiexec`` with a ``WarpX_MPI=ON`` build so only rank
+zero writes the generated table and the reported time is the maximum over
+ranks. The benchmark aborts if the MPI world sizes do not agree. When specified,
+``--target-acceptance`` chooses an explicit conservative majorant and, with one
+step and one subcycle, an optical depth whose expected product-event fraction
+is the requested value. Large values are useful lifecycle stress tests, but are
+not time-converged physical simulations.
+
+Exercise at least the following matrix:
+
+* 1, 8, 32, 64 and 128 processes, using both shared and different energy grids;
+* attachment-only, ionization-only and representative elastic/excitation/product
+  mixtures;
+* approximately 0, 1, 10, 50 and 90 percent product-event fractions;
+* both small and large particle tiles and single- and double-precision particles;
+* one GPU, every GPU on one node and a multi-node weak- and strong-scaling case.
+
+Use the ABLASTR profiler regions
+``BackgroundMCCCollision::selectAndScatter()``,
+``BackgroundMCCCollision::createProducts()``,
+``BackgroundMCCCollision::compactAttachedElectrons()`` and
+``BackgroundMCCCollision::doCollisions()`` to separate selection, creation,
+removal and total MCC time. Also inspect a GPU timeline and kernel metrics with
+an appropriate vendor profiler. In particular, check kernel-launch count,
+device-to-host synchronization, allocation time, atomic contention, achieved
+occupancy, register spills, cache and memory throughput, and MPI idle time.
+
+Accept an optimization only if it preserves particle counts, charge, weights,
+discrete losses and the statistical angle and energy distributions, reduces
+the total MCC median for the intended workload, does not regress the
+low-acceptance production regime and keeps peak device memory bounded. This
+measurement is also what determines the next optimization: for example,
+profiles dominated by per-tile allocation or count synchronization motivate
+reusable scratch storage or batched count transfers, while atomic-dominated
+high-acceptance runs motivate a scan-based event queue. Such changes should not
+be selected from CPU timings alone.
+
 Collision timestep
 ^^^^^^^^^^^^^^^^^^
 
