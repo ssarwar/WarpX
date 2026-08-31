@@ -34,8 +34,8 @@ namespace BackgroundMCCIonizationKinematics
     /** Compute electron-ion impact-ionization kinematics in the neutral rest frame.
      *
      * For the IAA model, the primary polar angle follows Schmalzried Eq. (2.60),
-     * and the secondary uses the bound/free interpolation of Eqs. (2.66) and
-     * (11.132). The two electron azimuths differ by pi, which gives the natural
+     * and the secondary uses the bound/free interpolation of Eq. (11.132).
+     * The two electron azimuths differ by pi, which gives the natural
      * coplanar binary-encounter geometry while the ion absorbs the residual
      * momentum. Two fixed recoil corrections conserve kinetic plus binding
      * energy to far below particle precision for molecular targets.
@@ -119,19 +119,19 @@ namespace BackgroundMCCIonizationKinematics
                                                (available_energy * (unrecoiled_primary_energy +
                                                                     2.0 * electron_rest_energy)),
                                            1.0)));
-            auto const secondary_kinematic_cosine = std::sqrt(
-                amrex::max(0.0, amrex::min(unrecoiled_secondary_energy *
-                                               (available_energy + 2.0 * electron_rest_energy) /
-                                               (available_energy * (unrecoiled_secondary_energy +
-                                                                    2.0 * electron_rest_energy)),
-                                           1.0)));
             auto const denominator = unrecoiled_secondary_energy + binding;
-            auto const free_weight =
-                denominator > 0.0 ? unrecoiled_secondary_energy / denominator : 0.0;
+            // Schmalzried Eq. (11.132) uses the incident energy before the
+            // binding loss. Combine its free-electron factor with its weight
+            // to retain the finite zero-secondary-energy limit.
+            auto const free_component =
+                denominator > 0.0 && incident_energy > 0.0
+                ? std::sqrt(unrecoiled_secondary_energy / incident_energy) *
+                    (unrecoiled_secondary_energy + 0.5 * binding) / denominator
+                : 0.0;
+            auto const bound_weight = denominator > 0.0 ? binding / denominator : 0.0;
             auto const bound_cosine = 1.0 - 2.0 * static_cast<double>(amrex::Random(engine));
             auto const secondary_cosine =
-                amrex::max(-1.0, amrex::min(free_weight * secondary_kinematic_cosine +
-                                                (1.0 - free_weight) * bound_cosine,
+                amrex::max(-1.0, amrex::min(free_component + bound_weight * bound_cosine,
                                             1.0));
             auto const azimuth = two_pi * static_cast<double>(amrex::Random(engine));
 

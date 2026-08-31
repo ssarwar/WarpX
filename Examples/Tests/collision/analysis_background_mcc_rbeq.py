@@ -135,14 +135,29 @@ def expected_statistics(target, incident_energy, cdf_probes):
             * (available + 2.0 * MC2_EV)
             / (available * (primary_energy + 2.0 * MC2_EV))
         )
-        secondary_kinematic_cosine = np.sqrt(
-            grid * (available + 2.0 * MC2_EV) / (available * (grid + 2.0 * MC2_EV))
-        )
-        free_weight = grid / (grid + shell[0])
-        secondary_conditional_mean = free_weight * secondary_kinematic_cosine
+        denominator = grid + shell[0]
+        free_component = np.sqrt(grid / incident_energy) * (
+            grid + 0.5 * shell[0]
+        ) / denominator
+        bound_weight = shell[0] / denominator
+
+        # Eq. (11.132) is uniform on [a-b, a+b], followed by the same physical
+        # cosine clamp as the device implementation. Integrate the clipped
+        # interval analytically so the near-threshold test is sensitive to the
+        # exact IAA expression rather than only to its unbounded first moment.
+        lower = free_component - bound_weight
+        upper = free_component + bound_weight
+        clipped = upper > 1.0
+        secondary_conditional_mean = free_component.copy()
         secondary_conditional_second_moment = (
-            secondary_conditional_mean**2 + (1.0 - free_weight) ** 2 / 3.0
+            free_component**2 + bound_weight**2 / 3.0
         )
+        secondary_conditional_mean[clipped] = (
+            0.5 * (1.0 - lower[clipped] ** 2) + upper[clipped] - 1.0
+        ) / (2.0 * bound_weight[clipped])
+        secondary_conditional_second_moment[clipped] = (
+            (1.0 - lower[clipped] ** 3) / 3.0 + upper[clipped] - 1.0
+        ) / (2.0 * bound_weight[clipped])
         primary_cosine_mean += probability * np.trapezoid(primary_cosine * pdf, grid)
         primary_cosine_second_moment += probability * np.trapezoid(
             primary_cosine**2 * pdf, grid
@@ -262,7 +277,7 @@ for name, target, incident_energy in CASES:
         7.0 * primary_cosine_standard_error + 5.0e-3
     )
     assert abs(np.mean(secondary_cosines) - expected_secondary_cosine) < (
-        7.0 * secondary_cosine_standard_error + 5.0e-3
+        7.0 * secondary_cosine_standard_error + 2.0e-3
     )
     assert np.linalg.norm(momentum_residual) < 2.0e-5
 

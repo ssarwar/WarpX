@@ -214,16 +214,21 @@ electron follows the relativistic binary-encounter relation
        \cos\theta_p =
        \sqrt{\frac{T_p(T_a+2m_ec^2)}{T_a(T_p+2m_ec^2)}}.
 
-The same expression gives the free-electron value
-:math:`\cos\theta_{s,\mathrm{free}}` after replacing :math:`T_p` with
-:math:`T_s`. The bound-electron interpolation from the IAA model is
+The bound/free interpolation for the secondary electron follows
+Schmalzried Eq. (11.132) directly:
 
     .. math::
 
        \cos\theta_s =
-       \frac{T_s}{T_s+B_i}\cos\theta_{s,\mathrm{free}}
+       \frac{T_s}{T_s+B_i}
+       \frac{T_s+B_i/2}{\sqrt{T_s T}}
        + \frac{B_i}{T_s+B_i}\xi,
        \qquad \xi\sim\mathcal{U}[-1,1].
+
+Here :math:`T` is the incident electron energy before the binding loss. The
+sampled result is restricted to the physical cosine interval
+:math:`[-1,1]`; this affects only the upper edge of the crude near-threshold
+square-window model.
 
 The electron azimuths differ by :math:`\pi`; the product ion receives the
 remaining momentum. Two fixed recoil corrections conserve energy through
