@@ -467,9 +467,11 @@ Product creation and attachment removal
 
 Ionization and attachment preserve the original selected process index in a
 compact product-event record. The record also contains the source-particle
-index, sampled neutral velocity and destination-group offset. Consequently,
-the creation kernel still reads the selected channel's discrete energy loss,
-ionization model and angular model; grouping never averages channel physics.
+index, sampled neutral velocity, collision energy and destination-group offset.
+Consequently, the creation kernel still reads the selected channel's discrete
+energy loss, ionization model and angular model; grouping never averages channel
+physics. Carrying the already calculated collision energy also avoids repeating
+its square root for every accepted ionization event.
 
 On a GPU, the selection kernel reserves one slot in the compact event queue and
 one offset in the destination group for each product-changing event. These are

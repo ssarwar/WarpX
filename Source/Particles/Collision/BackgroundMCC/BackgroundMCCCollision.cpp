@@ -1196,7 +1196,7 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
                     const auto sigma = process.getCrossSection(E_coll);
                     cumulative_probability += n_a*sigma*v_coll/nu_max;
                     if (chosen_process < 0 &&
-                        process_draw <= cumulative_probability)
+                        process_draw < cumulative_probability)
                     {
                         chosen_process = i;
                         if (!user_nu_max) { break; }
@@ -1239,6 +1239,7 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
                     event.m_neutral_vx = ua_x;
                     event.m_neutral_vy = ua_y;
                     event.m_neutral_vz = ua_z;
+                    event.m_collision_energy = E_coll;
                     event.m_source_index = static_cast<int>(ip);
                     event.m_process = chosen_process;
                     event.m_group_offset = group_offset;
@@ -1248,6 +1249,7 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
                     event.m_neutral_vx = ua_x;
                     event.m_neutral_vy = ua_y;
                     event.m_neutral_vz = ua_z;
+                    event.m_collision_energy = E_coll;
                     event.m_source_index = static_cast<int>(ip);
                     event.m_process = chosen_process;
                     event.m_group_offset = -1;

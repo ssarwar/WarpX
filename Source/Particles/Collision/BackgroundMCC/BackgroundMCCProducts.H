@@ -64,6 +64,7 @@ public:
         int const i_dst1,
         int const i_dst2,
         int const process_index,
+        amrex::ParticleReal const collision_energy,
         amrex::ParticleReal const neutral_vx,
         amrex::ParticleReal const neutral_vy,
         amrex::ParticleReal const neutral_vz,
@@ -87,31 +88,17 @@ public:
         ParticleReal const energy_cost =
             m_processes[process_index].m_energy_penalty;
 
-        constexpr double inv_c2 = PhysConst::inv_c2_v<double>;
-        constexpr double elementary_charge = PhysConst::q_e_v<double>;
-        double const relative_ux = static_cast<double>(ux) - neutral_vx;
-        double const relative_uy = static_cast<double>(uy) - neutral_vy;
-        double const relative_uz = static_cast<double>(uz) - neutral_vz;
-        double const relative_u_sq =
-            relative_ux*relative_ux + relative_uy*relative_uy +
-            relative_uz*relative_uz;
-        double const relative_gamma = std::sqrt(
-            1.0 + relative_u_sq*inv_c2);
-        double const collision_energy =
-            m_mass1*relative_u_sq/
-            ((relative_gamma + 1.0)*elementary_charge);
-
         ParticleReal binding_energy;
         ParticleReal secondary_energy;
         m_ionization_processes[process_index].sampleEnergy(
-            static_cast<ParticleReal>(collision_energy),
+            collision_energy,
             energy_cost,
             amrex::Random(engine),
             amrex::Random(engine),
             binding_energy,
             secondary_energy);
         auto const available_energy = amrex::max(
-            static_cast<ParticleReal>(collision_energy) - binding_energy,
+            collision_energy - binding_energy,
             0.0_prt);
         auto const secondary_fraction = available_energy > 0.0_prt
             ? secondary_energy/available_energy : 0.0_prt;

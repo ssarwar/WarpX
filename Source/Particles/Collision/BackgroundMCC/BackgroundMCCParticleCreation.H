@@ -31,6 +31,7 @@ struct BackgroundMCCProductEvent
     amrex::ParticleReal m_neutral_vx;
     amrex::ParticleReal m_neutral_vy;
     amrex::ParticleReal m_neutral_vz;
+    amrex::ParticleReal m_collision_energy;
     int m_source_index;
     int m_process;
     int m_group_offset;
@@ -262,6 +263,7 @@ public:
                         electron_index,
                         product_index,
                         process,
+                        event.m_collision_energy,
                         event.m_neutral_vx,
                         event.m_neutral_vy,
                         event.m_neutral_vz,
