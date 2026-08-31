@@ -675,13 +675,11 @@ BackgroundMCCCollision::get_nu_max (
         }
     }
 
-    // Electron speed is bounded by c, so this also covers the constant
-    // high-energy extrapolation used by ScatteringProcess.
-    if (m_use_relativistic_electron_kinematics)
-    {
-        auto const c = static_cast<Accumulator>(PhysConst::c_v<double>);
-        max_sigma_v = std::max(max_sigma_v, left_sigma*c);
-    }
+    // The collision-rate speed is bounded by c for every projectile. This
+    // covers the constant high-energy extrapolation used by ScatteringProcess,
+    // including relativistic non-electron projectiles beyond the last knot.
+    auto const c = static_cast<Accumulator>(PhysConst::c_v<double>);
+    max_sigma_v = std::max(max_sigma_v, left_sigma*c);
 
     auto nu_max = static_cast<Accumulator>(m_max_background_density)*max_sigma_v;
     if (nu_max <= 0.0L) { return 0; }

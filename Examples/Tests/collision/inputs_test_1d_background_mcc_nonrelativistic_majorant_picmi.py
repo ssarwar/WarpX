@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise the automatic MCC majorant for equal projectile and target masses."""
+"""Exercise the automatic MCC majorant for non-electron projectiles."""
 
 import math
 from pathlib import Path
@@ -14,6 +14,7 @@ PARTICLE_MASS = 4.0 * picmi.constants.m_p
 PEAK_ENERGY_EV = 10.0
 PEAK_CROSS_SECTION = 1.0e-20
 MAJORANT_OPTICAL_DEPTH = 0.1
+TAIL_RELATIVE_PROPER_SPEED = 100.0 * picmi.constants.c
 
 C = picmi.constants.c
 Q_E = picmi.constants.q_e
@@ -29,6 +30,7 @@ collision_frequency = (
     BACKGROUND_DENSITY * PEAK_CROSS_SECTION * collision_speed
 )
 time_step = MAJORANT_OPTICAL_DEPTH / collision_frequency
+tail_cross_section = PEAK_CROSS_SECTION * collision_speed / C
 
 cross_section_path = Path("background_mcc_nonrelativistic_majorant.txt").resolve()
 np.savetxt(
@@ -38,6 +40,18 @@ np.savetxt(
             [0.0, 0.0],
             [PEAK_ENERGY_EV, PEAK_CROSS_SECTION],
             [2.0 * PEAK_ENERGY_EV, 0.0],
+        ]
+    ),
+)
+tail_cross_section_path = Path(
+    "background_mcc_nonrelativistic_majorant_tail.txt"
+).resolve()
+np.savetxt(
+    tail_cross_section_path,
+    np.array(
+        [
+            [0.0, tail_cross_section],
+            [PEAK_ENERGY_EV, tail_cross_section],
         ]
     ),
 )
@@ -55,8 +69,8 @@ grid = picmi.Cartesian1DGrid(
 )
 solver = picmi.ElectromagneticSolver(grid=grid, method="Yee", cfl=0.9)
 
-ions = picmi.Species(
-    name="ions",
+peak_ions = picmi.Species(
+    name="peak_ions",
     charge="q_e",
     mass=PARTICLE_MASS,
     initial_distribution=picmi.UniformDistribution(
@@ -66,9 +80,20 @@ ions = picmi.Species(
     warpx_do_not_deposit=True,
     warpx_do_not_gather=True,
 )
-collision = picmi.MCCCollisions(
-    name="mcc",
-    species=ions,
+tail_ions = picmi.Species(
+    name="tail_ions",
+    charge="q_e",
+    mass=PARTICLE_MASS,
+    initial_distribution=picmi.UniformDistribution(
+        density=1.0,
+        directed_velocity=[0.0, 0.0, TAIL_RELATIVE_PROPER_SPEED],
+    ),
+    warpx_do_not_deposit=True,
+    warpx_do_not_gather=True,
+)
+peak_collision = picmi.MCCCollisions(
+    name="peak_mcc",
+    species=peak_ions,
     background_density=BACKGROUND_DENSITY,
     background_temperature=0.0,
     background_mass=PARTICLE_MASS,
@@ -79,15 +104,34 @@ collision = picmi.MCCCollisions(
         }
     },
 )
+tail_collision = picmi.MCCCollisions(
+    name="tail_mcc",
+    species=tail_ions,
+    background_density=BACKGROUND_DENSITY,
+    background_temperature=0.0,
+    background_mass=PARTICLE_MASS,
+    scattering_processes={
+        "elastic": {
+            "cross_section": str(tail_cross_section_path),
+            "scattering_angle_model": "backward",
+        }
+    },
+)
 simulation = picmi.Simulation(
     solver=solver,
     time_step_size=time_step,
     max_steps=1,
-    warpx_collisions=[collision],
+    warpx_collisions=[peak_collision, tail_collision],
     verbose=1,
 )
 simulation.add_species(
-    ions,
+    peak_ions,
+    layout=picmi.GriddedLayout(
+        n_macroparticle_per_cell=[PARTICLE_COUNT], grid=grid
+    ),
+)
+simulation.add_species(
+    tail_ions,
     layout=picmi.GriddedLayout(
         n_macroparticle_per_cell=[PARTICLE_COUNT], grid=grid
     ),
@@ -100,20 +144,33 @@ def to_numpy(array):
     return array.get() if hasattr(array, "get") else np.asarray(array)
 
 
-container = simulation.particles.get("ions")
-uz = np.concatenate(
-    [to_numpy(pti["uz"]) for pti in container.iterator(level=0)]
+peak_container = simulation.particles.get("peak_ions")
+peak_uz = np.concatenate(
+    [to_numpy(pti["uz"]) for pti in peak_container.iterator(level=0)]
 ).astype(np.float64)
-collided = uz < 0.5 * relative_proper_speed
+peak_collided = peak_uz < 0.5 * relative_proper_speed
+
+tail_container = simulation.particles.get("tail_ions")
+tail_uz = np.concatenate(
+    [to_numpy(pti["uz"]) for pti in tail_container.iterator(level=0)]
+).astype(np.float64)
+tail_collided = tail_uz < 0.5 * TAIL_RELATIVE_PROPER_SPEED
+tail_gamma = math.sqrt(1.0 + (TAIL_RELATIVE_PROPER_SPEED / C) ** 2)
+tail_collision_speed = TAIL_RELATIVE_PROPER_SPEED / tail_gamma
 
 if libwarpx.amr.ParallelDescriptor.MyProc() == 0:
     np.savez(
         "background_mcc_nonrelativistic_majorant_results.npz",
         particle_count=PARTICLE_COUNT,
         optical_depth=MAJORANT_OPTICAL_DEPTH,
-        event_count=np.count_nonzero(collided),
-        maximum_collided_speed=np.max(np.abs(uz[collided])),
-        relative_proper_speed=relative_proper_speed,
+        peak_event_count=np.count_nonzero(peak_collided),
+        peak_maximum_collided_speed=np.max(np.abs(peak_uz[peak_collided])),
+        peak_relative_proper_speed=relative_proper_speed,
+        tail_event_count=np.count_nonzero(tail_collided),
+        tail_maximum_collided_speed=np.max(np.abs(tail_uz[tail_collided])),
+        tail_relative_proper_speed=TAIL_RELATIVE_PROPER_SPEED,
+        tail_collision_speed=tail_collision_speed,
+        tail_collision_speed_over_c=tail_collision_speed / C,
     )
 
 simulation.finalize()
