@@ -13,9 +13,11 @@ case_masses = data["case_masses"]
 case_process_types = data["case_process_types"]
 case_energy_losses = data["case_energy_losses"]
 case_rate_fractions = data["case_rate_fractions"]
+case_screening_radii = data["case_screening_radii"]
 expected_moments = data["expected_moments"]
 expected_backward_probabilities = data["expected_backward_probabilities"]
 particle_count = int(data["particle_count"])
+scattering_angle_model = str(data["scattering_angle_model"])
 
 electron_rest_energy = m_e * c**2 / electron_volt
 
@@ -65,7 +67,9 @@ for index, raw_name in enumerate(case_names):
     process_type = str(case_process_types[index])
     energy_loss = float(case_energy_losses[index])
     rate_fraction = float(case_rate_fractions[index])
+    screening_radius = float(case_screening_radii[index])
     cosines = data[f"{name}_cosines"]
+    deflections = data[f"{name}_deflections"]
     azimuth_x = data[f"{name}_azimuth_x"]
     azimuth_y = data[f"{name}_azimuth_y"]
     energies = data[f"{name}_energies"]
@@ -85,6 +89,38 @@ for index, raw_name in enumerate(case_names):
     assert np.isfinite(energies).all()
     assert np.all(np.abs(cosines) <= 1.0 + 2.0e-7)
     assert np.all(energies >= 0.0)
+
+    if (
+        scattering_angle_model == "IAA"
+        and screening_radius > 0.0
+        and incident_energy >= 1.0e4
+    ):
+        fine_structure = 7.2973525693e-3
+        tau = incident_energy / electron_rest_energy
+        k_sq = tau * (tau + 2.0) / fine_structure**2
+        eta = 1.0 / (4.0 * screening_radius**2 * k_sq)
+        reconstructed_draws = deflections * (1.0 + eta) / (
+            deflections + 2.0 * eta
+        )
+        assert np.isfinite(reconstructed_draws).all()
+        assert np.all(reconstructed_draws >= -2.0e-6)
+        assert np.all(reconstructed_draws <= 1.0 + 2.0e-6)
+        sample_size = reconstructed_draws.size
+        mean_standard_error = math.sqrt(1.0 / (12.0 * sample_size))
+        second_moment_standard_error = math.sqrt((4.0 / 45.0) / sample_size)
+        assert abs(float(np.mean(reconstructed_draws)) - 0.5) < (
+            7.0 * mean_standard_error + 2.0e-5
+        )
+        assert abs(float(np.mean(reconstructed_draws**2)) - 1.0 / 3.0) < (
+            7.0 * second_moment_standard_error + 2.0e-5
+        )
+        ordered_draws = np.sort(np.clip(reconstructed_draws, 0.0, 1.0))
+        ranks = np.arange(1, sample_size + 1, dtype=np.float64) / sample_size
+        ks_distance = max(
+            float(np.max(ranks - ordered_draws)),
+            float(np.max(ordered_draws - (ranks - 1.0 / sample_size))),
+        )
+        assert ks_distance < 4.0 / math.sqrt(sample_size)
 
     reference_moments = expected_moments[index]
     observed_moments = np.array([np.mean(cosines**order) for order in range(1, 5)])

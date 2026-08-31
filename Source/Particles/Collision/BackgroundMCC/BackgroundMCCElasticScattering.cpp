@@ -23,7 +23,8 @@ namespace
 {
     void readDifferentialCrossSection (
         std::string const& file_name, amrex::Gpu::HostVector<amrex::ParticleReal>& energies,
-        std::vector<std::vector<double>>& differential_cross_sections)
+        std::vector<std::vector<double>>& differential_cross_sections,
+        double& screening_radius)
     {
         std::ifstream input(file_name);
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
@@ -36,7 +37,26 @@ namespace
         {
             std::istringstream row_stream(line);
             double energy;
-            if (!(row_stream >> energy)) { continue; }
+            if (!(row_stream >> energy))
+            {
+                std::istringstream metadata_stream(line);
+                std::string label;
+                std::string projectile;
+                std::string separator;
+                std::string target;
+                metadata_stream >> label;
+                if (label == "#") { metadata_stream >> label; }
+                if (metadata_stream >> projectile >> separator >> target &&
+                    label == "SPECIES:" && projectile == "e" && separator == "/")
+                {
+                    if (target == "N2") {
+                        screening_radius = 0.6052;
+                    } else if (target == "O2") {
+                        screening_radius = 0.5677;
+                    }
+                }
+                continue;
+            }
 
             std::vector<double> row;
             double value;
@@ -157,8 +177,10 @@ BackgroundMCCElasticScatteringModel::BackgroundMCCElasticScatteringModel (
     std::string const& differential_cross_section)
 {
     std::vector<std::vector<double>> differential_cross_sections;
+    double screening_radius = 0.0;
     readDifferentialCrossSection(
-        differential_cross_section, m_energies_h, differential_cross_sections);
+        differential_cross_section, m_energies_h, differential_cross_sections,
+        screening_radius);
     initializeInverseCdf(differential_cross_sections, m_inverse_cdf_deflection_h);
 
     m_executor_h.m_energies = m_energies_h.data();
@@ -166,6 +188,7 @@ BackgroundMCCElasticScatteringModel::BackgroundMCCElasticScatteringModel (
     m_executor_h.m_energy_grid_size = static_cast<int>(m_energies_h.size());
     m_executor_h.m_energy_lo = m_energies_h.front();
     m_executor_h.m_energy_hi = m_energies_h.back();
+    m_executor_h.m_screening_radius = screening_radius;
 
 #ifdef AMREX_USE_GPU
     m_energies_d.resize(m_energies_h.size());

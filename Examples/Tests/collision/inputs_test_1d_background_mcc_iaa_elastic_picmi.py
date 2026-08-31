@@ -52,6 +52,29 @@ def electron_proper_speed(energy_ev):
     return C * math.sqrt(gamma**2 - 1.0)
 
 
+def dcs_screening_radius(path):
+    for line in path.read_text().splitlines():
+        fields = line.split()
+        if len(fields) == 4 and fields[:3] == ["SPECIES:", "e", "/"]:
+            return {"N2": 0.6052, "O2": 0.5677}.get(fields[3], 0.0)
+    return 0.0
+
+
+def screened_rutherford_statistics(energy_ev, screening_radius):
+    fine_structure = 7.2973525693e-3
+    tau = energy_ev / (M_E * C**2 / Q_E)
+    k_sq = tau * (tau + 2.0) / fine_structure**2
+    eta = 1.0 / (4.0 * screening_radius**2 * k_sq)
+    probabilities = np.linspace(0.0, 1.0, 200001)
+    deflection = 2.0 * eta * probabilities / (1.0 - probabilities + eta)
+    cosine = 1.0 - deflection
+    moments = np.array(
+        [np.trapezoid(cosine**order, probabilities) for order in range(1, 9)]
+    )
+    backward_probability = eta / (1.0 + 2.0 * eta)
+    return moments, backward_probability
+
+
 def read_dcs_row(path, energy_ev):
     rows = []
     for line in path.read_text().splitlines():
@@ -120,33 +143,46 @@ def interpolated_dcs_statistics(dcs_lo, dcs_hi, energy_fraction):
 
 if args.n2_dcs is None:
     dcs_path = Path("background_mcc_iaa_elastic_dcs.txt").resolve()
+    o2_dcs_path = Path("background_mcc_iaa_elastic_o2_dcs.txt").resolve()
     table_energies = np.array([10.0, 100.0, 1000.0, 10000.0, 1.0e9])
     anisotropies = np.array([-0.6, 0.0, 0.0, 0.9, 0.3])
     theta = np.linspace(0.0, math.pi, 361)
     table = np.column_stack(
         (table_energies, np.array([1.0 + a * np.cos(theta) for a in anisotropies]))
     )
-    # Exercise the strongly forward-peaked high-energy tail of the real elmolcs
-    # tables. Storing cos(theta) directly would round a measurable fraction of
-    # these deflections to exactly zero in a single-precision build.
+    # Deliberately make the unresolved 1 GeV row inconsistent with the analytic
+    # continuation. The test must prove that recognized N2/O2 metadata selects
+    # screened Rutherford rather than interpolating this row.
     table[-1, 1:] = np.exp(-0.5 * (theta / 0.004) ** 2) + 1.0e-8
     np.savetxt(
         dcs_path,
         table,
         header=(
             "Synthetic DCS with the IAA/elmolcs row layout\n"
+            "SPECIES: e / N2\n"
             "COLUMNS: theta = linspace(0, 180, 361) (deg)"
         ),
+        comments="",
+    )
+    np.savetxt(
+        o2_dcs_path,
+        table,
+        header=(
+            "Synthetic DCS with the IAA/elmolcs row layout\n"
+            "SPECIES: e / O2\n"
+            "COLUMNS: theta = linspace(0, 180, 361) (deg)"
+        ),
+        comments="",
     )
     dcs_rows = table[:, 1:]
-    sampled_energies = (10.0, 100.0, 550.0, 5050.0, 10000.0, 1.0e9)
+    sampled_energies = (10.0, 100.0, 550.0, 5050.0, 10100.0, 1.0e9)
     sampled_statistics = (
         analytic_dcs_statistics(-0.6),
         analytic_dcs_statistics(0.0),
         analytic_dcs_statistics(0.0),
         interpolated_dcs_statistics(dcs_rows[2], dcs_rows[3], 0.45),
-        analytic_dcs_statistics(0.9),
-        dcs_statistics(dcs_rows[-1]),
+        screened_rutherford_statistics(1.01e4, 0.6052),
+        screened_rutherford_statistics(1.0e9, 0.6052),
     )
     cases = [
         (
@@ -196,9 +232,27 @@ if args.n2_dcs is None:
             1.0e9,
             28.0134 * AMU,
             dcs_path,
-            dcs_statistics(dcs_rows[-1]),
+            screened_rutherford_statistics(1.0e9, 0.6052),
             "excitation",
             excitation_energy,
+        ),
+        (
+            "elastic_o2_10p1kev",
+            1.01e4,
+            31.9988 * AMU,
+            o2_dcs_path,
+            screened_rutherford_statistics(1.01e4, 0.5677),
+            "elastic",
+            0.0,
+        ),
+        (
+            "excitation_o2_gev",
+            1.0e9,
+            31.9988 * AMU,
+            o2_dcs_path,
+            screened_rutherford_statistics(1.0e9, 0.5677),
+            "excitation",
+            1.0,
         ),
     ]
 else:
@@ -238,6 +292,7 @@ case_masses = []
 case_process_types = []
 case_energy_losses = []
 case_rate_fractions = []
+case_screening_radii = []
 expected_moments = []
 expected_backward_probabilities = []
 species = []
@@ -321,11 +376,17 @@ for (
     case_process_types.append(process_type)
     case_energy_losses.append(energy_loss)
     case_rate_fractions.append(case_rate_fraction)
+    screening_radius = dcs_screening_radius(dcs_file)
+    case_screening_radii.append(screening_radius)
 
     if SCATTERING_ANGLE_MODEL == "isotropic":
         reference_moments, reference_backward = analytic_dcs_statistics(0.0)
     elif statistics is not None:
         reference_moments, reference_backward = statistics
+    elif screening_radius > 0.0 and energy_ev >= 1.0e4:
+        reference_moments, reference_backward = screened_rutherford_statistics(
+            energy_ev, screening_radius
+        )
     else:
         reference_moments, reference_backward = dcs_statistics(
             read_dcs_row(dcs_file, energy_ev)
@@ -374,6 +435,7 @@ results = {
     "case_process_types": np.array(case_process_types),
     "case_energy_losses": np.array(case_energy_losses),
     "case_rate_fractions": np.array(case_rate_fractions),
+    "case_screening_radii": np.array(case_screening_radii),
     "expected_moments": np.array(expected_moments),
     "expected_backward_probabilities": np.array(expected_backward_probabilities),
     "particle_count": PARTICLE_COUNT,
@@ -393,6 +455,17 @@ for name, energy_ev, _, _, _, _, _ in cases:
     gamma = np.sqrt(1.0 + proper_speed_sq / C**2)
     scattered = np.logical_or(ux != 0.0, uy != 0.0)
     results[f"{name}_cosines"] = uz[scattered] / proper_speed[scattered]
+    transverse_fraction = np.clip(
+        (ux[scattered] ** 2 + uy[scattered] ** 2) / proper_speed_sq[scattered],
+        0.0,
+        1.0,
+    )
+    absolute_cosine = np.sqrt(1.0 - transverse_fraction)
+    results[f"{name}_deflections"] = np.where(
+        uz[scattered] >= 0.0,
+        transverse_fraction / (1.0 + absolute_cosine),
+        1.0 + absolute_cosine,
+    )
     results[f"{name}_azimuth_x"] = ux[scattered] / proper_speed[scattered]
     results[f"{name}_azimuth_y"] = uy[scattered] / proper_speed[scattered]
     results[f"{name}_energies"] = (

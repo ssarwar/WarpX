@@ -269,14 +269,31 @@ For a DCS :math:`D(E,\theta)`, WarpX constructs the polar-angle density
        \frac{D(E,\theta)\sin\theta}
             {\int_0^\pi D(E,\vartheta)\sin\vartheta\,d\vartheta}.
 
-The solid-angle Jacobian is therefore integrated by the trapezoidal rule in
-:math:`\theta`, not in :math:`\cos\theta`. WarpX precomputes a tail-resolving
-inverse CDF for every table energy on the host and copies it to the device.
-Runtime sampling uses an energy-grid bisection and fixed-size interpolation.
-Energies outside the table range use the nearest endpoint distribution; inside
-the range, inverse-CDF cosines are interpolated linearly in energy. The table
-stores :math:`1-\cos\theta` rather than :math:`\cos\theta` itself, retaining
-small forward deflections in single-precision particle builds.
+Below 10 keV, the solid-angle Jacobian is integrated in :math:`\theta`, not in
+:math:`\cos\theta`. WarpX precomputes a tail-resolving inverse CDF for every
+table energy on the host and copies it to the device. The table stores
+:math:`1-\cos\theta` rather than :math:`\cos\theta` itself, retaining small
+forward deflections in single-precision particle builds.
+
+The 0.5-degree elmolcs grid cannot resolve the increasingly narrow forward
+lobe at relativistic energies. Consequently, increasing only the inverse-CDF
+resolution cannot recover the missing sub-grid probability. For files whose
+``SPECIES:`` metadata identifies :math:`\mathrm{N}_2` or :math:`\mathrm{O}_2`,
+WarpX follows the IAA high-energy prescription at and above 10 keV and samples
+the screened-Rutherford continuation analytically:
+
+    .. math::
+
+       \eta = \frac{1}{(2ak)^2}, \qquad
+       1-\cos\theta = \frac{2\eta\xi}{1-\xi+\eta},
+       \qquad \xi\sim\mathcal{U}[0,1),
+
+where :math:`k=\sqrt{\tau(\tau+2)}/\alpha` in inverse Bohr radii,
+:math:`\tau=T/(m_ec^2)`, and the fitted screening radii are
+:math:`a=0.6052\,a_0` for :math:`\mathrm{N}_2` and
+:math:`a=0.5677\,a_0` for :math:`\mathrm{O}_2`. This path is valid through the
+1 GeV IAA endpoint and avoids an energy bisection and inverse-CDF table reads
+for accepted high-energy events.
 
 The sampled DCS angle is the outgoing-electron angle for a stationary target,
 not a center-of-momentum angle. For elastic scattering, WarpX applies exact
