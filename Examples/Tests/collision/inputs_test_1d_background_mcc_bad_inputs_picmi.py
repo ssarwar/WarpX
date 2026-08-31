@@ -89,7 +89,7 @@ def run_invalid_case(case):
             differential_cross_section.write_text("10 1 1 1\n100 1 1 1 1\n")
         else:
             assert dcs_kind == "zero"
-            differential_cross_section.write_text("10 1 0 1\n100 1 0 1\n")
+            differential_cross_section.write_text("10 0 0 0\n100 0 0 0\n")
         process_options["differential_cross_section"] = str(differential_cross_section)
 
     grid = picmi.Cartesian1DGrid(
