@@ -7,11 +7,10 @@
 #include "BackgroundMCCCollision.H"
 
 #include "BackgroundMCCElasticKinematics.H"
-#include "BackgroundMCCProducts.H"
+#include "BackgroundMCCParticleCreation.H"
 #include "BackgroundMCCUtils.H"
 #include "Particles/Collision/BinaryCollision/BinaryCollisionUtils.H"
 #include "Particles/Collision/BinaryCollision/TwoProductUtil.H"
-#include "Particles/ParticleCreation/FilterCopyTransform.H"
 #include "Particles/ParticleCreation/SmartCopy.H"
 #include "Utils/Parser/ParserUtils.H"
 #include "Utils/ParticleUtils.H"
@@ -20,6 +19,7 @@
 #include "WarpX.H"
 
 #include <ablastr/profiler/ProfilerWrapper.H>
+#include <AMReX_GpuAtomic.H>
 #include <AMReX_ParmParse.H>
 #include <AMReX_REAL.H>
 #include <AMReX_Vector.H>
@@ -307,8 +307,6 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
         if (process_type == ScatteringProcessType::IONIZATION ||
             process_type == ScatteringProcessType::ATTACHMENT)
         {
-            m_has_ionization_processes = m_has_ionization_processes ||
-                process_type == ScatteringProcessType::IONIZATION;
             m_has_attachment_processes = m_has_attachment_processes ||
                 process_type == ScatteringProcessType::ATTACHMENT;
 
@@ -882,7 +880,7 @@ BackgroundMCCCollision::doCollisions (
                 auto wt = static_cast<amrex::Real>(amrex::second());
 
                 doBackgroundCollisionsWithinTile(
-                    pti, cur_time, nullptr, nullptr, nullptr, nullptr);
+                    pti, cur_time, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
 
                 if (cost && WarpX::load_balance_costs_update_algo ==
                             LoadBalanceCostsUpdateAlgo::Timers)
@@ -902,9 +900,11 @@ BackgroundMCCCollision::doCollisions (
     std::vector<WarpXParticleContainer*> product_species;
     std::vector<std::unique_ptr<SmartCopyFactory>> product_copy_factories;
     std::vector<SmartCopy> product_copies;
+    amrex::Vector<ScatteringProcessType> product_group_types;
     product_species.reserve(m_product_groups.size());
     product_copy_factories.reserve(m_product_groups.size());
     product_copies.reserve(m_product_groups.size());
+    product_group_types.reserve(m_product_groups.size());
 
     for (auto const& product_group : m_product_groups)
     {
@@ -913,7 +913,18 @@ BackgroundMCCCollision::doCollisions (
         product_copy_factories.push_back(
             std::make_unique<SmartCopyFactory>(species1, product));
         product_copies.push_back(product_copy_factories.back()->getSmartCopy());
+        product_group_types.push_back(product_group.type);
     }
+
+    BackgroundMCCParticleCreation const create_products(
+        product_group_types,
+        product_species,
+        CopyElec,
+        product_copies,
+        m_processes_exe.data(),
+        m_ionization_processes_exe.data(),
+        m_process_product_group.data(),
+        m_mass1);
 
     for (int lev = 0; lev <= finest_level; ++lev)
     {
@@ -934,104 +945,68 @@ BackgroundMCCCollision::doCollisions (
             amrex::Long const np_source = source_tile.numParticles();
             if (np_source > 0)
             {
-                amrex::Long const metadata_size = m_has_ionization_processes
-                    ? 2*np_source : np_source;
-                amrex::Gpu::DeviceVector<int> selected_process(metadata_size);
+                auto const product_group_count =
+                    static_cast<int>(m_product_groups.size());
+                amrex::Gpu::DeviceVector<int> selected_process(np_source);
+                amrex::Gpu::DeviceVector<int> product_offsets(np_source);
+                amrex::Gpu::DeviceVector<int> product_counts(
+                    product_group_count, 0);
                 amrex::Gpu::DeviceVector<amrex::ParticleReal> neutral_vx(np_source);
                 amrex::Gpu::DeviceVector<amrex::ParticleReal> neutral_vy(np_source);
                 amrex::Gpu::DeviceVector<amrex::ParticleReal> neutral_vz(np_source);
-
-                if (metadata_size > np_source)
-                {
-                    int* const selected = selected_process.dataPtr();
-                    amrex::ParallelFor(
-                        np_source,
-                        [=] AMREX_GPU_HOST_DEVICE (amrex::Long i) noexcept
-                        {
-                            selected[np_source + i] = -1;
-                        });
-                }
 
                 doBackgroundCollisionsWithinTile(
                     pti,
                     cur_time,
                     selected_process.dataPtr(),
+                    product_offsets.dataPtr(),
+                    product_counts.dataPtr(),
                     neutral_vx.dataPtr(),
                     neutral_vy.dataPtr(),
                     neutral_vz.dataPtr());
 
-                ABLASTR_PROFILE_VAR(
-                    "BackgroundMCCCollision::createProducts()", prof_create_products);
-                for (int group_index = 0;
-                     group_index < static_cast<int>(m_product_groups.size());
-                     ++group_index)
+#ifndef AMREX_USE_GPU
+                auto const* const process_groups =
+                    m_process_product_group.dataPtr();
+                for (amrex::Long i = 0; i < np_source; ++i)
                 {
-                    auto& product = *product_species[group_index];
-                    auto& product_tile = product.ParticlesAt(lev, pti);
-                    amrex::Long const old_product_count =
-                        product_tile.numParticles();
-
-                    const auto Filter = BackgroundMCCProductFilterFunc(
-                        group_index,
-                        selected_process.dataPtr(),
-                        m_process_product_group.dataPtr());
-
-                    amrex::Long num_added = 0;
-                    if (m_product_groups[group_index].type ==
-                        ScatteringProcessType::ATTACHMENT)
+                    int const process = selected_process[i];
+                    if (process >= 0)
                     {
-                        const auto Transform = AttachmentTransformFunc(
-                            neutral_vx.dataPtr(),
-                            neutral_vy.dataPtr(),
-                            neutral_vz.dataPtr());
-                        num_added = filterCopyTransformParticles<1>(
-                            product,
-                            product_tile,
-                            source_tile,
-                            old_product_count,
-                            Filter,
-                            product_copies[group_index],
-                            Transform);
-                        setNewParticleIDs(
-                            product_tile, old_product_count, num_added);
-                    }
-                    else
-                    {
-                        amrex::Long const old_electron_count =
-                            source_tile.numParticles();
-                        const auto Transform = ImpactIonizationTransformFunc(
-                            m_processes_exe.data(),
-                            m_ionization_processes_exe.data(),
-                            selected_process.dataPtr(),
-                            neutral_vx.dataPtr(),
-                            neutral_vy.dataPtr(),
-                            neutral_vz.dataPtr(),
-                            m_mass1,
-                            product.getMass());
-                        num_added = filterCopyTransformParticles<1>(
-                            species1,
-                            product,
-                            source_tile,
-                            product_tile,
-                            source_tile,
-                            old_electron_count,
-                            old_product_count,
-                            Filter,
-                            CopyElec,
-                            product_copies[group_index],
-                            Transform);
-                        setNewParticleIDs(
-                            source_tile, old_electron_count, num_added);
-                        setNewParticleIDs(
-                            product_tile, old_product_count, num_added);
-
-                        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-                            source_tile.numParticles() <= metadata_size,
-                            "Background MCC created more than one electron per "
-                            "original incident particle."
-                        );
+                        int const group = process_groups[process];
+                        product_offsets[i] = product_counts[group]++;
                     }
                 }
+#endif
+
+                amrex::Vector<int> product_counts_h(product_group_count);
+                amrex::Gpu::copy(
+                    amrex::Gpu::deviceToHost,
+                    product_counts.begin(),
+                    product_counts.end(),
+                    product_counts_h.begin());
+
+                amrex::Vector<WarpXParticleContainer::ParticleTileType*>
+                    product_tiles;
+                product_tiles.reserve(product_group_count);
+                for (auto* product : product_species)
+                {
+                    product_tiles.push_back(&product->ParticlesAt(lev, pti));
+                }
+
+                ABLASTR_PROFILE_VAR(
+                    "BackgroundMCCCollision::createProducts()", prof_create_products);
+                amrex::ignore_unused(create_products(
+                    species1,
+                    source_tile,
+                    product_species,
+                    product_tiles,
+                    selected_process.dataPtr(),
+                    product_offsets.dataPtr(),
+                    neutral_vx.dataPtr(),
+                    neutral_vy.dataPtr(),
+                    neutral_vz.dataPtr(),
+                    product_counts_h));
                 ABLASTR_PROFILE_VAR_STOP(prof_create_products);
             }
 
@@ -1057,11 +1032,14 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
     WarpXParIter& pti,
     amrex::Real t,
     int* selected_process,
+    int* product_offsets,
+    int* product_counts,
     amrex::ParticleReal* neutral_vx,
     amrex::ParticleReal* neutral_vy,
     amrex::ParticleReal* neutral_vz)
 {
     ABLASTR_PROFILE("BackgroundMCCCollision::selectAndScatter()");
+    amrex::ignore_unused(product_offsets, product_counts);
     using namespace amrex::literals;
     using std::sqrt;
 
@@ -1236,6 +1214,12 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
                 neutral_vx[ip] = ua_x;
                 neutral_vy[ip] = ua_y;
                 neutral_vz[ip] = ua_z;
+                AMREX_IF_ON_DEVICE((
+                    int const product_group =
+                        process_product_group[chosen_process];
+                    product_offsets[ip] = amrex::Gpu::Atomic::Add(
+                        &product_counts[product_group], 1);
+                ))
                 return;
             }
 

@@ -18,34 +18,6 @@
 
 #include <cmath>
 
-/** Select particles whose previously chosen process belongs to one product group. */
-class BackgroundMCCProductFilterFunc
-{
-public:
-    BackgroundMCCProductFilterFunc (
-        int const product_group,
-        int const* selected_process,
-        int const* process_product_group)
-        : m_product_group(product_group),
-          m_selected_process(selected_process),
-          m_process_product_group(process_product_group)
-    {}
-
-    template <typename PData>
-    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-    bool operator() (
-        PData const&, int const i, amrex::RandomEngine const&) const noexcept
-    {
-        int const process = m_selected_process[i];
-        return process >= 0 && m_process_product_group[process] == m_product_group;
-    }
-
-private:
-    int m_product_group;
-    int const* m_selected_process;
-    int const* m_process_product_group;
-};
-
 namespace BackgroundMCCProducts
 {
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
@@ -80,16 +52,14 @@ public:
         amrex::ParticleReal const* neutral_vx,
         amrex::ParticleReal const* neutral_vy,
         amrex::ParticleReal const* neutral_vz,
-        double const mass1,
-        double const ion_mass)
+        double const mass1)
         : m_processes(processes),
           m_ionization_processes(ionization_processes),
           m_selected_process(selected_process),
           m_neutral_vx(neutral_vx),
           m_neutral_vy(neutral_vy),
           m_neutral_vz(neutral_vz),
-          m_mass1(mass1),
-          m_ion_mass(ion_mass)
+          m_mass1(mass1)
     {}
 
     template <typename DstData, typename SrcData>
@@ -101,6 +71,7 @@ public:
         int const i_src,
         int const i_dst1,
         int const i_dst2,
+        double const ion_mass,
         amrex::RandomEngine const& engine) const noexcept
     {
         using namespace amrex;
@@ -158,7 +129,7 @@ public:
             m_neutral_vy[i_src],
             m_neutral_vz[i_src],
             m_mass1,
-            m_ion_mass,
+            ion_mass,
             binding_energy,
             secondary_fraction,
             m_processes[process_index].m_scattering_angle_model,
@@ -182,7 +153,6 @@ private:
     amrex::ParticleReal const* m_neutral_vy;
     amrex::ParticleReal const* m_neutral_vz;
     double m_mass1;
-    double m_ion_mass;
 };
 
 /** Create a negative ion at the sampled neutral velocity and remove the electron. */

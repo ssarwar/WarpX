@@ -57,6 +57,8 @@ public:
      * @param pti particle iterator
      * @param t current time
      * @param selected_process optional selected process index per particle
+     * @param product_offsets optional destination-group offset per product event
+     * @param product_counts optional event counter for each product group
      * @param neutral_vx optional sampled neutral x velocity per particle
      * @param neutral_vy optional sampled neutral y velocity per particle
      * @param neutral_vz optional sampled neutral z velocity per particle
@@ -65,6 +67,8 @@ public:
         WarpXParIter& pti,
         amrex::Real t,
         int* selected_process,
+        int* product_offsets,
+        int* product_counts,
         amrex::ParticleReal* neutral_vx,
         amrex::ParticleReal* neutral_vy,
         amrex::ParticleReal* neutral_vz);
@@ -92,7 +96,6 @@ private:
 
     bool init_flag = false;
     bool m_has_iaa_differential_processes = false;
-    bool m_has_ionization_processes = false;
     bool m_has_attachment_processes = false;
     bool m_use_relativistic_electron_kinematics = false;
     bool m_user_nu_max = false;
