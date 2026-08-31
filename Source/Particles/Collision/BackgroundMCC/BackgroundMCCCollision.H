@@ -23,13 +23,16 @@
 #include <string>
 #include <vector>
 
+class BackgroundMCCParticleCreation;
+class SmartCopyFactory;
+
 class BackgroundMCCCollision final
     : public CollisionBase
 {
 public:
     explicit BackgroundMCCCollision (std::string const& collision_name);
 
-    ~BackgroundMCCCollision () override = default;
+    ~BackgroundMCCCollision () override;
 
     BackgroundMCCCollision (BackgroundMCCCollision const&) = delete;
     BackgroundMCCCollision& operator= (BackgroundMCCCollision const&) = delete;
@@ -93,6 +96,10 @@ private:
     std::unique_ptr<BackgroundMCCProcessSelector> m_process_selector;
     amrex::Vector<ProductGroup> m_product_groups;
     amrex::Gpu::DeviceVector<int> m_process_product_group;
+    std::unique_ptr<SmartCopyFactory> m_electron_copy_factory;
+    std::vector<std::unique_ptr<SmartCopyFactory>> m_product_copy_factories;
+    std::unique_ptr<BackgroundMCCParticleCreation> m_particle_creation;
+    std::vector<WarpXParticleContainer*> m_product_species;
 
     bool init_flag = false;
     bool m_has_iaa_differential_processes = false;

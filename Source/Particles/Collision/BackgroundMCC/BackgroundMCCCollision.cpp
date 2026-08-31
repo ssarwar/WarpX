@@ -452,6 +452,8 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
 #endif
 }
 
+BackgroundMCCCollision::~BackgroundMCCCollision () = default;
+
 amrex::ParticleReal
 BackgroundMCCCollision::get_nu_max (
     amrex::Vector<ScatteringProcess> const& processes) const
@@ -723,10 +725,12 @@ BackgroundMCCCollision::doCollisions (
             auto const mass_tolerance = 100.0_prt*
                 std::numeric_limits<amrex::ParticleReal>::epsilon();
 
+            m_product_species.reserve(m_product_groups.size());
             for (auto const& product_group : m_product_groups)
             {
                 auto& product = mypc->GetParticleContainerFromName(
                     product_group.species_name);
+                m_product_species.push_back(&product);
                 WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
                     product_group.species_name != m_species_names[0],
                     "Background MCC product species must differ from the incident "
@@ -769,6 +773,34 @@ BackgroundMCCCollision::doCollisions (
                     );
                 }
             }
+
+            m_electron_copy_factory =
+                std::make_unique<SmartCopyFactory>(species1, species1);
+            m_product_copy_factories.reserve(m_product_groups.size());
+            std::vector<SmartCopy> product_copies;
+            amrex::Vector<ScatteringProcessType> product_group_types;
+            product_copies.reserve(m_product_groups.size());
+            product_group_types.reserve(m_product_groups.size());
+            auto const product_group_count =
+                static_cast<std::size_t>(m_product_groups.size());
+            for (std::size_t group = 0; group < product_group_count; ++group)
+            {
+                m_product_copy_factories.push_back(
+                    std::make_unique<SmartCopyFactory>(
+                        species1, *m_product_species[group]));
+                product_copies.push_back(
+                    m_product_copy_factories.back()->getSmartCopy());
+                product_group_types.push_back(m_product_groups[group].type);
+            }
+            m_particle_creation = std::make_unique<BackgroundMCCParticleCreation>(
+                product_group_types,
+                m_product_species,
+                m_electron_copy_factory->getSmartCopy(),
+                product_copies,
+                m_processes_exe.data(),
+                m_ionization_processes_exe.data(),
+                m_process_product_group.data(),
+                m_mass1);
 
             if (m_background_mass < 0.0_prt)
             {
@@ -892,37 +924,11 @@ BackgroundMCCCollision::doCollisions (
         return;
     }
 
-    const SmartCopyFactory copy_factory_elec(species1, species1);
-    const auto CopyElec = copy_factory_elec.getSmartCopy();
-
-    std::vector<WarpXParticleContainer*> product_species;
-    std::vector<std::unique_ptr<SmartCopyFactory>> product_copy_factories;
-    std::vector<SmartCopy> product_copies;
-    amrex::Vector<ScatteringProcessType> product_group_types;
-    product_species.reserve(m_product_groups.size());
-    product_copy_factories.reserve(m_product_groups.size());
-    product_copies.reserve(m_product_groups.size());
-    product_group_types.reserve(m_product_groups.size());
-
-    for (auto const& product_group : m_product_groups)
-    {
-        auto& product = mypc->GetParticleContainerFromName(product_group.species_name);
-        product_species.push_back(&product);
-        product_copy_factories.push_back(
-            std::make_unique<SmartCopyFactory>(species1, product));
-        product_copies.push_back(product_copy_factories.back()->getSmartCopy());
-        product_group_types.push_back(product_group.type);
-    }
-
-    BackgroundMCCParticleCreation const create_products(
-        product_group_types,
-        product_species,
-        CopyElec,
-        product_copies,
-        m_processes_exe.data(),
-        m_ionization_processes_exe.data(),
-        m_process_product_group.data(),
-        m_mass1);
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+        m_particle_creation != nullptr,
+        "Background MCC product creation must be initialized before use.");
+    auto const& product_species = m_product_species;
+    auto const& create_products = *m_particle_creation;
 
     for (int lev = 0; lev <= finest_level; ++lev)
     {
