@@ -75,7 +75,7 @@ def screened_rutherford_statistics(energy_ev, screening_radius):
     return moments, backward_probability
 
 
-def read_dcs_row(path, energy_ev):
+def read_dcs_table(path):
     rows = []
     for line in path.read_text().splitlines():
         try:
@@ -84,28 +84,47 @@ def read_dcs_row(path, energy_ev):
             continue
         if values.size >= 4:
             rows.append(values)
-    matches = [row for row in rows if math.isclose(row[0], energy_ev, rel_tol=1.0e-12)]
-    assert len(matches) == 1
-    return matches[0][1:]
+    return np.array(rows)
+
+
+GAUSS_NODES, GAUSS_WEIGHTS = np.polynomial.legendre.leggauss(12)
+
+
+def dcs_integrals(dcs):
+    theta = np.linspace(0.0, math.pi, dcs.size)
+    half_sines = np.sin(0.5 * theta)
+    integrals = np.zeros(9)
+    backward_integral = 0.0
+    backward_boundary = math.sqrt(0.5)
+
+    def integrate_segment(y_lo, y_hi, dcs_lo, slope):
+        midpoint = 0.5 * (y_lo + y_hi)
+        half_width = 0.5 * (y_hi - y_lo)
+        y = midpoint + half_width * GAUSS_NODES
+        density = y * (dcs_lo + slope * (y - y_lo))
+        cosine = 1.0 - 2.0 * y**2
+        values = np.vstack(
+            (density, *(density * cosine**order for order in range(1, 9)))
+        )
+        return half_width * (values @ GAUSS_WEIGHTS)
+
+    for index in range(dcs.size - 1):
+        y_lo = half_sines[index]
+        y_hi = half_sines[index + 1]
+        slope = (dcs[index + 1] - dcs[index]) / (y_hi - y_lo)
+        integrals += integrate_segment(y_lo, y_hi, dcs[index], slope)
+        if y_hi > backward_boundary:
+            clipped_lo = max(y_lo, backward_boundary)
+            clipped_dcs = dcs[index] + slope * (clipped_lo - y_lo)
+            backward_integral += integrate_segment(
+                clipped_lo, y_hi, clipped_dcs, slope
+            )[0]
+    return integrals[0], integrals[1:], backward_integral
 
 
 def dcs_statistics(dcs):
-    theta = np.linspace(0.0, math.pi, dcs.size)
-    density = dcs * np.sin(theta)
-    density[[0, -1]] = 0.0
-    normalization = np.trapezoid(density, theta)
-    cosine = np.cos(theta)
-    moments = np.array(
-        [
-            np.trapezoid(density * cosine**order, theta) / normalization
-            for order in range(1, 9)
-        ]
-    )
-    backward_probability = (
-        np.trapezoid(density[theta >= 0.5 * math.pi], theta[theta >= 0.5 * math.pi])
-        / normalization
-    )
-    return moments, backward_probability
+    normalization, moment_integrals, backward_integral = dcs_integrals(dcs)
+    return moment_integrals / normalization, backward_integral / normalization
 
 
 def analytic_dcs_statistics(anisotropy):
@@ -118,41 +137,53 @@ def analytic_dcs_statistics(anisotropy):
     return moments, 0.5 - 0.25 * anisotropy
 
 
-def inverse_dcs_cdf(dcs, probabilities):
-    theta = np.linspace(0.0, math.pi, dcs.size)
-    density = dcs * np.sin(theta)
-    density[[0, -1]] = 0.0
-    cumulative = np.concatenate(
-        ([0.0], np.cumsum(0.5 * (density[:-1] + density[1:]) * np.diff(theta)))
-    )
-    cumulative /= cumulative[-1]
-    return np.cos(np.interp(probabilities, cumulative, theta))
-
-
 def interpolated_dcs_statistics(dcs_lo, dcs_hi, energy_fraction):
-    probabilities = np.linspace(0.0, 1.0, 200001)
-    cosine = (1.0 - energy_fraction) * inverse_dcs_cdf(
-        dcs_lo, probabilities
-    ) + energy_fraction * inverse_dcs_cdf(dcs_hi, probabilities)
-    moments = np.array(
-        [np.trapezoid(cosine**order, probabilities) for order in range(1, 9)]
+    integral_lo, moments_lo, backward_lo = dcs_integrals(dcs_lo)
+    integral_hi, moments_hi, backward_hi = dcs_integrals(dcs_hi)
+    normalization = (
+        (1.0 - energy_fraction) * integral_lo + energy_fraction * integral_hi
     )
-    zero_probability = np.interp(0.0, -cosine, probabilities)
-    return moments, 1.0 - zero_probability
+    moments = (
+        (1.0 - energy_fraction) * moments_lo + energy_fraction * moments_hi
+    ) / normalization
+    backward_probability = (
+        (1.0 - energy_fraction) * backward_lo + energy_fraction * backward_hi
+    ) / normalization
+    return moments, backward_probability
+
+
+def dcs_file_statistics(path, energy_ev):
+    table = read_dcs_table(path)
+    energies = table[:, 0]
+    if energy_ev <= energies[0]:
+        return dcs_statistics(table[0, 1:])
+    if energy_ev >= energies[-1]:
+        return dcs_statistics(table[-1, 1:])
+    index = np.searchsorted(energies, energy_ev) - 1
+    energy_fraction = math.log(energy_ev / energies[index]) / math.log(
+        energies[index + 1] / energies[index]
+    )
+    return interpolated_dcs_statistics(
+        table[index, 1:], table[index + 1, 1:], energy_fraction
+    )
 
 
 if args.n2_dcs is None:
     dcs_path = Path("background_mcc_iaa_elastic_dcs.txt").resolve()
     o2_dcs_path = Path("background_mcc_iaa_elastic_o2_dcs.txt").resolve()
-    table_energies = np.array([10.0, 100.0, 1000.0, 10000.0, 1.0e9])
-    anisotropies = np.array([-0.6, 0.0, 0.0, 0.9, 0.3])
+    table_energies = np.array([10.0, 100.0, 1000.0, 8000.0, 10000.0, 1.0e9])
+    anisotropies = np.array([-0.6, 0.0, 0.0, 0.0, 0.9, 0.3])
     theta = np.linspace(0.0, math.pi, 361)
     table = np.column_stack(
         (table_energies, np.array([1.0 + a * np.cos(theta) for a in anisotropies]))
     )
+    # Put most of the 8 keV probability inside the first 0.5-degree cell. This
+    # catches both loss of the theta=0 endpoint and incorrect normalization
+    # while interpolating between rows with very different angular integrals.
+    table[3, 1:] = 1.0e-3
+    table[3, 1] = 1.0e6
     # Deliberately make the unresolved 1 GeV row inconsistent with the analytic
-    # continuation. The test must prove that recognized N2/O2 metadata selects
-    # screened Rutherford rather than interpolating this row.
+    # continuation. Recognized N2/O2 metadata must select screened Rutherford.
     table[-1, 1:] = np.exp(-0.5 * (theta / 0.004) ** 2) + 1.0e-8
     np.savetxt(
         dcs_path,
@@ -175,12 +206,17 @@ if args.n2_dcs is None:
         comments="",
     )
     dcs_rows = table[:, 1:]
-    sampled_energies = (10.0, 100.0, 550.0, 5050.0, 10100.0, 1.0e9)
+    sampled_energies = (10.0, 100.0, 550.0, 5050.0, 8000.0, 10100.0, 1.0e9)
     sampled_statistics = (
         analytic_dcs_statistics(-0.6),
         analytic_dcs_statistics(0.0),
         analytic_dcs_statistics(0.0),
-        interpolated_dcs_statistics(dcs_rows[2], dcs_rows[3], 0.45),
+        interpolated_dcs_statistics(
+            dcs_rows[2],
+            dcs_rows[3],
+            math.log(5050.0 / 1000.0) / math.log(8000.0 / 1000.0),
+        ),
+        dcs_statistics(dcs_rows[3]),
         screened_rutherford_statistics(1.01e4, 0.6052),
         screened_rutherford_statistics(1.0e9, 0.6052),
     )
@@ -261,7 +297,7 @@ else:
         ("n2", 28.0134 * AMU, 6.0, args.n2_dcs.resolve()),
         ("o2", 31.9988 * AMU, 1.0, args.o2_dcs.resolve()),
     ):
-        for energy in (0.1, 1000.0, 1.0e6, 1.0e9):
+        for energy in (0.1, 1000.0, 9990.0, 10010.0, 1.0e6, 1.0e9):
             cases.append(
                 (
                     f"elastic_{target}_{energy:g}",
@@ -388,8 +424,8 @@ for (
             energy_ev, screening_radius
         )
     else:
-        reference_moments, reference_backward = dcs_statistics(
-            read_dcs_row(dcs_file, energy_ev)
+        reference_moments, reference_backward = dcs_file_statistics(
+            dcs_file, energy_ev
         )
     expected_moments.append(reference_moments)
     expected_backward_probabilities.append(reference_backward)

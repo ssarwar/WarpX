@@ -94,6 +94,15 @@ namespace
 
             energies.push_back(particle_energy);
             differential_cross_sections.push_back(std::move(row));
+            if (screening_radius > 0.0 &&
+                particle_energy >=
+                    BackgroundMCCElasticScatteringModel::Executor::
+                        m_screened_rutherford_energy)
+            {
+                // The first row at or above the analytic cutoff completes the
+                // final interpolation interval. Later rows are never sampled.
+                break;
+            }
         }
 
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
@@ -106,7 +115,8 @@ namespace
 
     void initializeInverseCdf (
         std::vector<std::vector<double>> const& differential_cross_sections,
-        amrex::Gpu::HostVector<amrex::ParticleReal>& inverse_cdf_deflection)
+        amrex::Gpu::HostVector<amrex::ParticleReal>& inverse_cdf_deflection,
+        amrex::Gpu::HostVector<amrex::ParticleReal>& row_integrals)
     {
         constexpr int quantile_count =
             BackgroundMCCElasticScatteringModel::quantile_grid_size;
@@ -115,26 +125,32 @@ namespace
                                 static_cast<double>(angle_count - 1u);
         inverse_cdf_deflection.resize(
             differential_cross_sections.size() * quantile_count);
+        row_integrals.resize(differential_cross_sections.size());
 
+        std::vector<double> half_sines(angle_count);
+        for (std::size_t angle_index = 0; angle_index < angle_count; ++angle_index)
+        {
+            auto const theta = static_cast<double>(angle_index) * angle_step;
+            half_sines[angle_index] = std::sin(0.5 * theta);
+        }
         std::vector<double> cumulative(angle_count);
         for (std::size_t energy_index = 0;
              energy_index < differential_cross_sections.size(); ++energy_index)
         {
             auto const& dcs = differential_cross_sections[energy_index];
             cumulative[0] = 0.0;
-            auto previous_density = 0.0;
             for (std::size_t angle_index = 1; angle_index < angle_count; ++angle_index)
             {
-                auto const theta = static_cast<double>(angle_index) * angle_step;
-                // sin(theta) vanishes exactly at both poles. Enforce the
-                // endpoint value to avoid accepting a zero-integral table due
-                // to roundoff in sin(pi).
-                auto const density = angle_index + 1u == angle_count
-                    ? 0.0
-                    : dcs[angle_index] * std::sin(theta);
-                cumulative[angle_index] = cumulative[angle_index - 1] +
-                    0.5 * (previous_density + density) * angle_step;
-                previous_density = density;
+                auto const y_lo = half_sines[angle_index - 1u];
+                auto const y_hi = half_sines[angle_index];
+                auto const width = y_hi - y_lo;
+                auto const dcs_lo = dcs[angle_index - 1u];
+                auto const slope = (dcs[angle_index] - dcs_lo) / width;
+                auto const segment_integral = y_lo * dcs_lo * width +
+                    0.5 * (y_lo * slope + dcs_lo) * width * width +
+                    slope * width * width * width / 3.0;
+                cumulative[angle_index] =
+                    cumulative[angle_index - 1u] + segment_integral;
             }
 
             auto const total = cumulative.back();
@@ -142,6 +158,12 @@ namespace
                 std::isfinite(total) && total > 0.0,
                 "Every elastic differential-cross-section energy row must have a "
                 "finite, positive angular integral.");
+            auto const particle_total = static_cast<amrex::ParticleReal>(total);
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                std::isfinite(static_cast<double>(particle_total)) && particle_total > 0.0,
+                "Elastic differential-cross-section row integrals exceed particle "
+                "precision.");
+            row_integrals[energy_index] = particle_total;
 
             auto const row_offset = energy_index * quantile_count;
             inverse_cdf_deflection[row_offset] = 0.0;
@@ -158,13 +180,30 @@ namespace
                     ++angle_index;
                 }
 
-                auto const cdf_low = cumulative[angle_index - 1u];
-                auto const cdf_delta = cumulative[angle_index] - cdf_low;
-                auto const fraction =
-                    cdf_delta > 0.0 ? (target - cdf_low) / cdf_delta : 0.0;
-                auto const theta =
-                    (static_cast<double>(angle_index - 1u) + fraction) * angle_step;
-                auto const half_sine = std::sin(0.5 * theta);
+                auto const y_lo = half_sines[angle_index - 1u];
+                auto const y_hi = half_sines[angle_index];
+                auto const dcs_lo = dcs[angle_index - 1u];
+                auto const slope =
+                    (dcs[angle_index] - dcs_lo) / (y_hi - y_lo);
+                auto const partialIntegral = [=] (double const width)
+                {
+                    return y_lo * dcs_lo * width +
+                        0.5 * (y_lo * slope + dcs_lo) * width * width +
+                        slope * width * width * width / 3.0;
+                };
+                auto lower = 0.0;
+                auto upper = y_hi - y_lo;
+                auto const local_target = target - cumulative[angle_index - 1u];
+                for (int iteration = 0; iteration < 60; ++iteration)
+                {
+                    auto const midpoint = 0.5 * (lower + upper);
+                    if (partialIntegral(midpoint) < local_target) {
+                        lower = midpoint;
+                    } else {
+                        upper = midpoint;
+                    }
+                }
+                auto const half_sine = y_lo + 0.5 * (lower + upper);
                 inverse_cdf_deflection[row_offset + quantile] =
                     static_cast<amrex::ParticleReal>(2.0 * half_sine * half_sine);
             }
@@ -177,30 +216,44 @@ BackgroundMCCElasticScatteringModel::BackgroundMCCElasticScatteringModel (
     std::string const& differential_cross_section)
 {
     std::vector<std::vector<double>> differential_cross_sections;
+    amrex::Gpu::HostVector<amrex::ParticleReal> energies;
     double screening_radius = 0.0;
     readDifferentialCrossSection(
-        differential_cross_section, m_energies_h, differential_cross_sections,
+        differential_cross_section, energies, differential_cross_sections,
         screening_radius);
-    initializeInverseCdf(differential_cross_sections, m_inverse_cdf_deflection_h);
+    initializeInverseCdf(
+        differential_cross_sections, m_inverse_cdf_deflection_h, m_row_integrals_h);
 
-    m_executor_h.m_energies = m_energies_h.data();
+    m_log_energies_h.resize(energies.size());
+    for (std::size_t i = 0; i < energies.size(); ++i) {
+        m_log_energies_h[i] = std::log(energies[i]);
+    }
+
+    m_executor_h.m_log_energies = m_log_energies_h.data();
+    m_executor_h.m_row_integrals = m_row_integrals_h.data();
     m_executor_h.m_inverse_cdf_deflection = m_inverse_cdf_deflection_h.data();
-    m_executor_h.m_energy_grid_size = static_cast<int>(m_energies_h.size());
-    m_executor_h.m_energy_lo = m_energies_h.front();
-    m_executor_h.m_energy_hi = m_energies_h.back();
+    m_executor_h.m_energy_grid_size = static_cast<int>(energies.size());
+    m_executor_h.m_energy_lo = energies.front();
+    m_executor_h.m_energy_hi = energies.back();
     m_executor_h.m_screening_radius = screening_radius;
 
 #ifdef AMREX_USE_GPU
-    m_energies_d.resize(m_energies_h.size());
+    m_log_energies_d.resize(m_log_energies_h.size());
+    m_row_integrals_d.resize(m_row_integrals_h.size());
     m_inverse_cdf_deflection_d.resize(m_inverse_cdf_deflection_h.size());
-    amrex::Gpu::copyAsync(amrex::Gpu::hostToDevice, m_energies_h.begin(), m_energies_h.end(),
-                          m_energies_d.begin());
+    amrex::Gpu::copyAsync(
+        amrex::Gpu::hostToDevice, m_log_energies_h.begin(), m_log_energies_h.end(),
+        m_log_energies_d.begin());
+    amrex::Gpu::copyAsync(
+        amrex::Gpu::hostToDevice, m_row_integrals_h.begin(), m_row_integrals_h.end(),
+        m_row_integrals_d.begin());
     amrex::Gpu::copyAsync(
         amrex::Gpu::hostToDevice, m_inverse_cdf_deflection_h.begin(),
         m_inverse_cdf_deflection_h.end(), m_inverse_cdf_deflection_d.begin());
 
     m_executor_d = m_executor_h;
-    m_executor_d.m_energies = m_energies_d.data();
+    m_executor_d.m_log_energies = m_log_energies_d.data();
+    m_executor_d.m_row_integrals = m_row_integrals_d.data();
     m_executor_d.m_inverse_cdf_deflection = m_inverse_cdf_deflection_d.data();
     amrex::Gpu::streamSynchronize();
 #endif

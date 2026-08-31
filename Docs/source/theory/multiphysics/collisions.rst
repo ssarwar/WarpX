@@ -269,11 +269,22 @@ For a DCS :math:`D(E,\theta)`, WarpX constructs the polar-angle density
        \frac{D(E,\theta)\sin\theta}
             {\int_0^\pi D(E,\vartheta)\sin\vartheta\,d\vartheta}.
 
-Below 10 keV, the solid-angle Jacobian is integrated in :math:`\theta`, not in
-:math:`\cos\theta`. WarpX precomputes a tail-resolving inverse CDF for every
-table energy on the host and copies it to the device. The table stores
-:math:`1-\cos\theta` rather than :math:`\cos\theta` itself, retaining small
-forward deflections in single-precision particle builds.
+Below 10 keV, WarpX follows the IAA interpolation variables
+:math:`x=\log E` and :math:`y=\sin(\theta/2)`. It treats each DCS row as
+piecewise linear in :math:`y` and integrates the solid-angle density
+:math:`yD(E,y)` exactly on every angular interval. A tail-resolving inverse CDF
+is precomputed for every table energy on the host and copied to the device. The
+inverse table stores :math:`1-\cos\theta=2y^2` rather than
+:math:`\cos\theta`, retaining small forward deflections in single-precision
+particle builds.
+
+At runtime, the DCS linear in :math:`x` is sampled as an exact mixture of its
+two bracketing row distributions. If :math:`f` is the logarithmic energy
+fraction and :math:`I_0,I_1` are the precomputed row integrals, the row weights
+are :math:`(1-f)I_0` and :math:`fI_1`. One bisection, one logarithm and one
+uniform variate therefore select a row and its conditional quantile. Only two
+adjacent values from that row's inverse CDF are loaded; interpolation does not
+blend inverse angles from different energies.
 
 The 0.5-degree elmolcs grid cannot resolve the increasingly narrow forward
 lobe at relativistic energies. Consequently, increasing only the inverse-CDF
@@ -293,7 +304,9 @@ where :math:`k=\sqrt{\tau(\tau+2)}/\alpha` in inverse Bohr radii,
 :math:`a=0.6052\,a_0` for :math:`\mathrm{N}_2` and
 :math:`a=0.5677\,a_0` for :math:`\mathrm{O}_2`. This path is valid through the
 1 GeV IAA endpoint and avoids an energy bisection and inverse-CDF table reads
-for accepted high-energy events.
+for accepted high-energy events. WarpX retains only the tabulated rows through
+the first row at or above 10 keV, so unused relativistic rows consume neither
+initialization time nor device memory.
 
 The sampled DCS angle is the outgoing-electron angle for a stationary target,
 not a center-of-momentum angle. For elastic scattering, WarpX applies exact

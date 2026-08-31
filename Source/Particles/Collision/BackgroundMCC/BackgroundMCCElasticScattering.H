@@ -17,13 +17,13 @@
 
 /** Precomputed inverse angular CDF for an IAA/elmolcs elastic DCS table.
  *
- * Differential cross sections are integrated in polar-angle space with the
- * sin(theta) solid-angle Jacobian. The inverse CDF stores 1-cos(theta), which
- * preserves small forward angles in single precision. Expensive integration
- * and CDF inversion are performed once on the host. For recognized N2 and O2
- * elmolcs tables, the unresolved high-energy forward lobe is sampled from the
- * analytic screened-Rutherford continuation. Runtime sampling has no allocation
- * or iterative solve.
+ * Below 10 keV, differential cross sections are linear in sin(theta/2) and
+ * log(E), following the IAA interpolation scheme. The inverse CDF stores
+ * 1-cos(theta), which preserves small forward angles in single precision.
+ * Expensive integration and CDF inversion are performed once on the host. For
+ * recognized N2 and O2 elmolcs tables, the unresolved high-energy forward lobe
+ * is sampled from the analytic screened-Rutherford continuation. Runtime
+ * sampling has no allocation or iterative solve.
  */
 class BackgroundMCCElasticScatteringModel
 {
@@ -66,27 +66,51 @@ public:
                 return 1.0 - 2.0 * angle_draw;
             }
 
-            int energy_index = 0;
-            amrex::ParticleReal energy_fraction = 0.0_prt;
+            int row_index = 0;
+            double row_draw = angle_draw;
             if (collision_energy >= m_energy_hi)
             {
-                energy_index = m_energy_grid_size - 2;
-                energy_fraction = 1.0_prt;
+                row_index = m_energy_grid_size - 1;
             }
             else if (collision_energy > m_energy_lo)
             {
-                energy_index = amrex::bisect(
-                    m_energies, 0, m_energy_grid_size - 1, collision_energy);
-                energy_fraction =
-                    (collision_energy - m_energies[energy_index]) /
-                    (m_energies[energy_index + 1] - m_energies[energy_index]);
+                auto const log_energy = static_cast<amrex::ParticleReal>(
+                    std::log(static_cast<double>(collision_energy)));
+                auto const energy_index = amrex::bisect(
+                    m_log_energies, 0, m_energy_grid_size - 1, log_energy);
+                auto const energy_fraction = static_cast<double>(
+                    (log_energy - m_log_energies[energy_index]) /
+                    (m_log_energies[energy_index + 1] -
+                     m_log_energies[energy_index]));
+
+                // A DCS interpolated linearly in log(E) is an unnormalized
+                // mixture of the two adjacent angular rows. Select one row
+                // with its integrated weight, then reuse the same variate as
+                // a conditional draw. This is exact and loads only one row.
+                auto const low_weight = (1.0 - energy_fraction) *
+                    static_cast<double>(m_row_integrals[energy_index]);
+                auto const high_weight = energy_fraction *
+                    static_cast<double>(m_row_integrals[energy_index + 1]);
+                auto const weighted_draw = angle_draw * (low_weight + high_weight);
+                if (weighted_draw < low_weight)
+                {
+                    row_index = energy_index;
+                    row_draw = low_weight > 0.0 ? weighted_draw / low_weight : 0.0;
+                }
+                else
+                {
+                    row_index = energy_index + 1;
+                    row_draw = high_weight > 0.0
+                        ? (weighted_draw - low_weight) / high_weight
+                        : 0.0;
+                }
             }
 
             // The transformed grid q = 1-(1-x)^2 resolves rare large-angle
             // events without enlarging the table. Invert it here to locate the
             // two stored quantiles bracketing the uniform draw q.
             auto const transformed_draw = 1.0 -
-                std::sqrt(amrex::max(1.0 - angle_draw, 0.0));
+                std::sqrt(amrex::max(1.0 - row_draw, 0.0));
             auto quantile_coordinate = transformed_draw *
                 static_cast<double>(quantile_grid_size - 1);
             quantile_coordinate = amrex::max(
@@ -101,24 +125,16 @@ public:
                 quantile_fraction = 1.0;
             }
 
-            auto const index = energy_index * quantile_grid_size + quantile_index;
-            auto const deflection_lo = static_cast<double>(m_inverse_cdf_deflection[index]) +
+            auto const index = row_index * quantile_grid_size + quantile_index;
+            auto const deflection = static_cast<double>(m_inverse_cdf_deflection[index]) +
                 static_cast<double>(quantile_fraction) *
                     (static_cast<double>(m_inverse_cdf_deflection[index + 1]) -
                      static_cast<double>(m_inverse_cdf_deflection[index]));
-            auto const deflection_hi =
-                static_cast<double>(m_inverse_cdf_deflection[index + quantile_grid_size]) +
-                static_cast<double>(quantile_fraction) *
-                    (static_cast<double>(
-                         m_inverse_cdf_deflection[index + quantile_grid_size + 1]) -
-                     static_cast<double>(
-                         m_inverse_cdf_deflection[index + quantile_grid_size]));
-            auto const deflection = deflection_lo + static_cast<double>(energy_fraction) *
-                (deflection_hi - deflection_lo);
             return amrex::max(-1.0, amrex::min(1.0 - deflection, 1.0));
         }
 
-        amrex::ParticleReal const* m_energies = nullptr;
+        amrex::ParticleReal const* m_log_energies = nullptr;
+        amrex::ParticleReal const* m_row_integrals = nullptr;
         amrex::ParticleReal const* m_inverse_cdf_deflection = nullptr;
         int m_energy_grid_size = 0;
         amrex::ParticleReal m_energy_lo = 0.0;
@@ -139,11 +155,13 @@ public:
     }
 
 private:
-    amrex::Gpu::HostVector<amrex::ParticleReal> m_energies_h;
+    amrex::Gpu::HostVector<amrex::ParticleReal> m_log_energies_h;
+    amrex::Gpu::HostVector<amrex::ParticleReal> m_row_integrals_h;
     amrex::Gpu::HostVector<amrex::ParticleReal> m_inverse_cdf_deflection_h;
 
 #ifdef AMREX_USE_GPU
-    amrex::Gpu::DeviceVector<amrex::ParticleReal> m_energies_d;
+    amrex::Gpu::DeviceVector<amrex::ParticleReal> m_log_energies_d;
+    amrex::Gpu::DeviceVector<amrex::ParticleReal> m_row_integrals_d;
     amrex::Gpu::DeviceVector<amrex::ParticleReal> m_inverse_cdf_deflection_d;
     Executor m_executor_d;
 #endif
