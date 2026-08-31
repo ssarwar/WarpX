@@ -87,8 +87,9 @@ All configured processes, including impact ionization and attachment, compete
 in one draw. A particle therefore undergoes at most one accepted process in
 each Background MCC collision substep. In-place elastic and excitation outcomes
 are applied immediately. Product-changing outcomes are recorded and then
-created in passes grouped by process type and destination species, so channels
-that share a product species do not require one full particle scan per channel.
+created from one compact event queue. Channels are grouped by process type and
+destination species for allocation, but all groups are populated by one
+particle-creation kernel.
 
 By default, the null-collision majorant is constructed from the union of all
 cross-section table knots. WarpX reuses the total-cross-section row of the
@@ -407,6 +408,44 @@ The elmolcs data are distributed separately from WarpX and are not copied into
 the BSD-licensed source tree. Users must obtain the tables separately and comply
 with their license. The construction and intended range of the IAA database are
 documented in :cite:t:`b-Schmalzried2023`.
+
+Product creation and attachment removal
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Ionization and attachment preserve the original selected process index in a
+compact product-event record. The record also contains the source-particle
+index, sampled neutral velocity and destination-group offset. Consequently,
+the creation kernel still reads the selected channel's discrete energy loss,
+ionization model and angular model; grouping never averages channel physics.
+
+On a GPU, the selection kernel reserves one slot in the compact event queue and
+one offset in the destination group for each product-changing event. These are
+device-local atomic increments. At the recommended
+:math:`\nu_{\max}\Delta t_{\mathrm{coll}}\lesssim 0.1`, fewer than about ten
+percent of the source particles can pass even the null-collision preselection,
+and product-changing events are a subset of those candidates. The atomics are
+therefore sparse in the converged operating regime. On a CPU, selection first
+writes independent per-source records; one host pass both compacts those
+records and computes the group offsets, without unsafe updates inside an
+``amrex::ParallelFor``.
+
+The host receives only the small vector of per-group event counts. Each source
+or destination particle tile is then resized once. All destination groups and
+all secondary electrons are populated by one kernel over the number of compact
+events, not by a kernel over every source particle and not by one source scan
+per process or product group. Contiguous particle-ID ranges are reserved before
+that kernel and assigned within it, avoiding separate ID kernels. Immutable
+smart-copy and product-group metadata are constructed once and reused across
+collision substeps.
+
+An attachment marks its incident electron invalid. WarpX compacts only the
+source tile that contained an attachment and only when that tile actually had
+an attachment event. It does not rescan every tile merely because an attachment
+channel is configured. Each MPI rank and GPU performs this creation and removal
+on its local particle tiles; the algorithm introduces no inter-rank collective
+or cross-GPU synchronization. A device-to-host count transfer remains necessary
+before resizing a particle tile, because the new allocation size is a host-side
+container operation.
 
 Collision timestep
 ^^^^^^^^^^^^^^^^^^
