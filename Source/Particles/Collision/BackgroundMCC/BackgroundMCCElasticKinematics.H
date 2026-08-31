@@ -134,8 +134,8 @@ namespace BackgroundMCCElasticKinematics
      *
      * The configured loss is represented as internal energy of the recoiling target.
      * Solving the two-body energy equation analytically avoids a device-side root solve.
-     * Within the extremely narrow recoil-shifted threshold interval, an angle that has
-     * no two-body solution is projected to the nearest kinematically allowed angle.
+     * Above the recoil-shifted threshold, a sampled angle outside the allowed two-body
+     * laboratory range is projected to the nearest kinematically allowed angle.
      */
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void
     computeExcitation (
