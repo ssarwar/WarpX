@@ -246,6 +246,24 @@ if args.n2_dcs is None:
             excitation_energy,
         ),
         (
+            "excitation_recoil_forbidden",
+            100.5,
+            100.0 * M_E,
+            dcs_path,
+            analytic_dcs_statistics(0.0),
+            "excitation",
+            100.0,
+        ),
+        (
+            "excitation_recoil_allowed",
+            101.5,
+            100.0 * M_E,
+            dcs_path,
+            analytic_dcs_statistics(0.0),
+            "excitation",
+            100.0,
+        ),
+        (
             "excitation_low",
             10.0,
             28.0134 * AMU,
@@ -383,6 +401,12 @@ for (
         )
     np.savetxt(cross_section_path, cross_section_table)
     local_cross_section = np.interp(energy_ev, *cross_section_table.T)
+    if process_type == "excitation":
+        neutral_rest_energy = neutral_mass * C**2 / Q_E
+        physical_threshold = energy_loss * (1.0 + M_E / neutral_mass)
+        physical_threshold += energy_loss**2 / (2.0 * neutral_rest_energy)
+        if energy_ev < physical_threshold:
+            local_cross_section = 0.0
     case_rate_fraction = RATE_FRACTION * local_cross_section / CROSS_SECTION
 
     process = {

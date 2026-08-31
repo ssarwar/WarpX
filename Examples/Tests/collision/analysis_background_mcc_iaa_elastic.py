@@ -83,7 +83,7 @@ for index, raw_name in enumerate(case_names):
     )
     if expected_event_fraction == 0.0:
         assert cosines.size == 0
-        print(f"{name}: no events at the exact excitation threshold")
+        print(f"{name}: no events below the recoil-shifted threshold")
         continue
     assert np.isfinite(cosines).all()
     assert np.isfinite(energies).all()

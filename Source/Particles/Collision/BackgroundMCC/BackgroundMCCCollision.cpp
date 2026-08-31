@@ -1080,6 +1080,11 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
 
     auto const m = m_mass1;
     auto const M = m_background_mass;
+    auto const electron_threshold_mass_factor =
+        1.0 + static_cast<double>(m) / static_cast<double>(M);
+    auto const inverse_two_target_rest_energy =
+        PhysConst::q_e_v<double> /
+        (2.0 * static_cast<double>(M) * PhysConst::c2_v<double>);
     auto GetPosition = GetParticlePosition<PIdx>(pti);
 
     auto& attribs = pti.GetAttribs();
@@ -1225,6 +1230,21 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
             ))
 
             if (chosen_process < 0) { return; }
+            auto const& process = processes[chosen_process];
+
+            if (use_relativistic_electron_kinematics &&
+                process.m_energy_penalty > 0.0_prt)
+            {
+                // A cross section can rise immediately above its discrete
+                // loss, although a finite-mass target also needs recoil
+                // energy. Treat that sub-threshold selection as a null event.
+                auto const energy_loss =
+                    static_cast<double>(process.m_energy_penalty);
+                auto const physical_threshold = energy_loss *
+                    (electron_threshold_mass_factor +
+                     energy_loss * inverse_two_target_rest_energy);
+                if (static_cast<double>(E_coll) < physical_threshold) { return; }
+            }
 
             if (process_product_group[chosen_process] >= 0)
             {
@@ -1257,7 +1277,6 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
                 return;
             }
 
-            auto const& process = processes[chosen_process];
             amrex::ParticleReal u1x_out, u1y_out, u1z_out;
             amrex::ParticleReal u2x_out, u2y_out, u2z_out;
             if (process.m_scattering_angle_model == ScatteringAngleModel::IAA)

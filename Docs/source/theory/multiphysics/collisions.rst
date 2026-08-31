@@ -127,9 +127,11 @@ uses both projectile and neutral masses when constructing the automatic
 majorant. The collision rate uses the corresponding ordinary relative speed,
 not proper speed. This distinction is negligible in the intended
 non-relativistic ion regime, but keeps the rate physical and bounded by
-:math:`c`. The automatic non-electron majorant covers the tabulated energy
-range. Supply ``nu_max`` when non-electron particles can exceed that range and
-the endpoint-clamped total cross section is nonzero.
+:math:`c`. The automatic non-electron majorant covers both the tabulated range
+and the endpoint-clamped high-energy continuation. It bounds the latter by the
+last total cross section multiplied by :math:`c`; a user ``nu_max`` is not
+needed solely because a non-electron projectile can exceed the last table
+energy.
 
 The configured ``background_mass`` always denotes the neutral target mass and
 is kept separate from the mass of any ionization product species. If it is
@@ -258,6 +260,22 @@ events retain energy and momentum conservation through 1 GeV without a
 device-side convergence loop. The three products are then Lorentz transformed
 back to the simulation frame.
 
+For every electron process with a positive discrete loss :math:`Q`, finite
+target recoil raises the stationary-target laboratory threshold above
+:math:`Q` to
+
+    .. math::
+
+       T_{\mathrm{thr}} = Q\left(1+\frac{m_e}{M}\right)
+       + \frac{Q^2}{2Mc^2}.
+
+An integral cross-section table can rise immediately above :math:`Q`, leaving
+a narrow interval in which interpolation gives a nonzero value but the final
+state is kinematically forbidden. WarpX treats a selection in
+:math:`Q<T<T_{\mathrm{thr}}` as a null event. This guard applies to excitation,
+ionization and any other positive-loss electron channel, independently of its
+angular or energy-sharing model.
+
 IAA/elmolcs differential scattering
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -345,9 +363,9 @@ the target's final rest energy is increased by the configured discrete loss
 for the sampled angle. This conserves energy and momentum, including molecular
 recoil, before transforming the electron back to the simulation frame. The
 model therefore requires an electron projectile and a neutral target heavier
-than the electron. In the extremely narrow interval between the configured
-loss and the recoil-shifted physical threshold, WarpX projects the sampled
-angle to the nearest kinematically allowed value.
+than the electron. Above the recoil-shifted physical threshold, an angular draw
+outside the allowed two-body laboratory range is projected to its nearest
+kinematically allowed value.
 
 Many-channel selection and DCS reuse
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

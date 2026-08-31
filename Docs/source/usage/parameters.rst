@@ -3221,6 +3221,9 @@ Details about the collision models can be found in the :ref:`theory section <mul
     ``twoproduct_reaction`` (which may impose a fixed energy loss, defaulting to 0), and
     not used for ``elasticX`` and ``attachmentX`` processes. If supplied for a
     supported process, the value must be finite and non-negative.
+    For an electron incident on a finite-mass background target, WarpX treats
+    a selected event below the recoil-shifted laboratory threshold
+    :math:`Q(1+m_e/M)+Q^2/(2Mc^2)` as a null event.
     For Background MCC ionization with ``energy_sharing_model = RBEQ``, this
     threshold must match the selected target's outer-shell binding energy to
     within 0.05 eV: 15.58 eV for ``N2`` or 12.07 eV for ``O2``.
@@ -3267,7 +3270,10 @@ Details about the collision models can be found in the :ref:`theory section <mul
     361 values at 0.5-degree spacing and extend to 1 GeV. The DCS controls only
     angle sampling; the ordinary ``<scattering_process>_cross_section`` table
     controls the event rate. Outside the DCS energy range, WarpX uses the
-    nearest endpoint angular distribution.
+    nearest endpoint angular distribution. The exception is an elmolcs table
+    whose ``SPECIES:`` metadata identifies ``N2`` or ``O2``: at and above
+    10 keV, WarpX samples the analytic IAA screened-Rutherford continuation
+    through the 1 GeV model range.
 
 .. pp:param:: <collision_name>.<scattering_process>_energy_sharing_model
     :type: ``string``
