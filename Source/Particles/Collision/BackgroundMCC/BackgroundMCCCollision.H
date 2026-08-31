@@ -96,7 +96,6 @@ private:
 
     bool init_flag = false;
     bool m_has_iaa_differential_processes = false;
-    bool m_has_attachment_processes = false;
     bool m_use_relativistic_electron_kinematics = false;
     bool m_user_nu_max = false;
     bool m_warned_large_dt = false;

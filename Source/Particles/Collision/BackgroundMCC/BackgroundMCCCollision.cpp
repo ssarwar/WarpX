@@ -20,6 +20,7 @@
 
 #include <ablastr/profiler/ProfilerWrapper.H>
 #include <AMReX_GpuAtomic.H>
+#include <AMReX_ParticleUtil.H>
 #include <AMReX_ParmParse.H>
 #include <AMReX_REAL.H>
 #include <AMReX_Vector.H>
@@ -307,9 +308,6 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
         if (process_type == ScatteringProcessType::IONIZATION ||
             process_type == ScatteringProcessType::ATTACHMENT)
         {
-            m_has_attachment_processes = m_has_attachment_processes ||
-                process_type == ScatteringProcessType::ATTACHMENT;
-
             std::string product_species;
             pp_collision_name.get(process.name() + "_species", product_species);
 
@@ -996,7 +994,7 @@ BackgroundMCCCollision::doCollisions (
 
                 ABLASTR_PROFILE_VAR(
                     "BackgroundMCCCollision::createProducts()", prof_create_products);
-                amrex::ignore_unused(create_products(
+                amrex::Long const attachment_events = create_products(
                     species1,
                     source_tile,
                     product_species,
@@ -1006,8 +1004,17 @@ BackgroundMCCCollision::doCollisions (
                     neutral_vx.dataPtr(),
                     neutral_vy.dataPtr(),
                     neutral_vz.dataPtr(),
-                    product_counts_h));
+                    product_counts_h);
                 ABLASTR_PROFILE_VAR_STOP(prof_create_products);
+
+                if (attachment_events > 0)
+                {
+                    ABLASTR_PROFILE_VAR(
+                        "BackgroundMCCCollision::compactAttachedElectrons()",
+                        prof_compact_attached);
+                    amrex::removeInvalidParticles(source_tile);
+                    ABLASTR_PROFILE_VAR_STOP(prof_compact_attached);
+                }
             }
 
             if (cost && WarpX::load_balance_costs_update_algo ==
@@ -1020,11 +1027,6 @@ BackgroundMCCCollision::doCollisions (
         }
     }
 
-    if (m_has_attachment_processes)
-    {
-        ABLASTR_PROFILE("BackgroundMCCCollision::compactAttachedElectrons()");
-        species1.deleteInvalidParticles();
-    }
 }
 
 void
