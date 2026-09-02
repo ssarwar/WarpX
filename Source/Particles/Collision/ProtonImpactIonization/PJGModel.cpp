@@ -47,12 +47,12 @@ namespace ProtonImpactIonization
             double t_denominator;
             double j;
             double nu;
-            double delta;
             std::array<double, max_continua> thresholds;
             std::array<double, max_continua> fractions;
             std::array<double, max_continua> bethe_constants;
         };
 
+        // J is refitted to the Rudd recommended total over 5--4000 keV.
         constexpr Parameters n2_parameters{6,
                                            14,
                                            0.029,
@@ -67,13 +67,13 @@ namespace ProtonImpactIonization
                                            4.0,
                                            2.03e4,
                                            1.97e3,
-                                           3.39,
+                                           59.65,
                                            -1.93e-1,
-                                           84.0,
                                            {15.58, 16.73, 18.75, 22.0, 23.6, 40.0, 0.0},
                                            {0.456, 0.2, 0.104, 0.07, 0.07, 0.1, 0.0},
                                            {2.48, 2.66, 2.99, 3.50, 3.76, 6.37, 0.0}};
 
+        // O2 additionally requires K because J cannot change the asymptote.
         constexpr Parameters o2_parameters{7,
                                            16,
                                            0.030,
@@ -81,16 +81,15 @@ namespace ProtonImpactIonization
                                            8239.0,
                                            68.3,
                                            189.1,
-                                           6.55e-16,
+                                           4.581e-16,
                                            13.1,
                                            5.0e5,
                                            7.60e4,
                                            6.34,
                                            2.52e3,
                                            1.28e2,
-                                           40.3,
+                                           19.28,
                                            3.14e-1,
-                                           132.1,
                                            {12.1, 16.1, 16.9, 18.2, 20.3, 23.0, 37.0},
                                            {0.08, 0.19, 0.19, 0.17, 0.11, 0.16, 0.1},
                                            {1.93, 2.56, 2.69, 2.90, 3.23, 3.66, 5.89}};
@@ -176,12 +175,12 @@ namespace ProtonImpactIonization
             auto const soft_term = p.k * gamma_squared * bethe_factor * line_shape;
 
             // Bhabha's exact hard-collision remainder after the common PJG
-            // 1/(m beta^2 c^2/2) factor is extracted. PJG's delta is retained
-            // to regularize the empirical bound-electron continuation.
+            // 1/(m beta^2 c^2/2) factor is extracted. The threshold shift is
+            // the remaining PJG bound-electron continuation.
             auto const hard_term =
                 static_cast<double>(p.num_electrons) * piElectronChargeFourth() *
                 (1.0 / (2.0 * state.total_energy * state.total_energy) -
-                 state.beta_squared / ((state.maximum_transfer + threshold + p.delta) *
+                 state.beta_squared / ((state.maximum_transfer + threshold) *
                                        (secondary_energy + threshold)));
             return amplitude * (soft_term + hard_term);
         }
@@ -214,7 +213,7 @@ namespace ProtonImpactIonization
             auto const hard_integral =
                 static_cast<double>(p.num_electrons) * piElectronChargeFourth() *
                 (upper_energy / (2.0 * state.total_energy * state.total_energy) -
-                 state.beta_squared / (state.maximum_transfer + threshold + p.delta) *
+                 state.beta_squared / (state.maximum_transfer + threshold) *
                      std::log1p(upper_energy / threshold));
             return amplitude * (soft_integral + hard_integral);
         }

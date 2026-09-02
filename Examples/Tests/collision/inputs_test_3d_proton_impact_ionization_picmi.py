@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate N2 and O2 products from rigid 800 MeV proton beams."""
+"""Generate N2 and O2 products from rigid 50 keV proton beams."""
 
 import time
 
@@ -10,8 +10,8 @@ from pywarpx import libwarpx, picmi
 PARTICLES_PER_DIRECTION = 16
 PARTICLES_PER_BEAM = PARTICLES_PER_DIRECTION**3
 PROJECTILE_DENSITY = 1.0e8
-PROJECTILE_ENERGY = 800.0e6
-BACKGROUND_DENSITY = 1.0e21
+PROJECTILE_ENERGY = 50.0e3
+BACKGROUND_DENSITY = 2.0e20
 TIME_STEP = 1.0e-9
 FIXED_PRODUCT_WEIGHT = 200.0
 MAX_PRODUCTS_PER_CELL = 20000
@@ -79,7 +79,7 @@ cases = {
         "direction": [0.0, 0.0, 1.0],
         "neutral_mass": 28.0134 * M_U,
         "temperature": 300.0,
-        "density": "1.0e21*(1.0+0.0*x)",
+        "density": "2.0e20*(1.0+0.0*x)",
     },
     "O2": {
         "direction": [1.0, 0.0, 0.0],

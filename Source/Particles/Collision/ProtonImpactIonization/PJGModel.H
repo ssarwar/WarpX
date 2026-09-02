@@ -23,10 +23,11 @@ namespace ProtonImpactIonization
 
     /** Corrected Porter-Jackman-Green proton-impact ionization model.
      *
-     * The model uses the 1977 erratum parameters, exact relativistic two-body
-     * maximum energy transfer, and the Bhabha hard-collision remainder. A table
-     * of total cross sections and inverse SDCS quantiles is built on the host.
-     * Device calls therefore require only constant-time interpolation.
+     * The model uses the 1977 erratum, exact relativistic two-body maximum
+     * energy transfer, and the Bhabha hard-collision remainder. Its distortion
+     * and normalization are refitted to recommended proton data. A table of
+     * total cross sections and inverse SDCS quantiles is built on the host, so
+     * device calls require only constant-time interpolation.
      */
     class PJGModel
     {
