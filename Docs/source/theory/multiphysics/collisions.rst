@@ -664,9 +664,10 @@ relativistic two-body result. WarpX instead uses
    {1+2\gamma m_e/M+(m_e/M)^2}.
 
 This has the required non-relativistic limit
-:math:`T_{\max}\rightarrow 2m_eE/M`; the printed PJG expression is smaller by
-approximately a factor of two in that limit. For an 800 MeV proton, the exact
-value is 2.4807396 MeV, whereas the printed expression gives 0.670701 MeV.
+:math:`T_{\max}\rightarrow 4m_eME/(M+m_e)^2\simeq 4m_eE/M`; the printed PJG
+expression is smaller by approximately a factor of two in that limit. For an
+800 MeV proton, the exact value is 2.4807396 MeV, whereas the printed expression
+gives 0.670701 MeV.
 
 The last bracket in the SDCS is also corrected against Bhabha's relativistic
 heavy-particle result :cite:t:`b-Bhabha1938`. After extracting the common PJG
