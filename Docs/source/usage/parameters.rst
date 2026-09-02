@@ -2915,6 +2915,10 @@ Details about the collision models can be found in the :ref:`theory section <mul
     - ``background_mcc`` for collisions between particles and a neutral background.
       This is a relativistic Monte Carlo treatment for particles colliding
       with a neutral background gas. See :ref:`MCC section <multiphysics-collisions-mcc>`.
+    - ``proton_impact_ionization`` for rigid-beam proton or bare-ion impact
+      ionization of a prescribed molecular neutral background. See
+      :ref:`Proton and bare-ion impact ionization
+      <multiphysics-collisions-proton-impact-ionization>`.
     - ``pulsed_decay`` for decay of a parent species into two product species with a user-defined decay rate.
       See :ref:`Pulsed Decay section <multiphysics-collisions-pulseddecay>`.
     - ``background_stopping`` for slowing of ions due to collisions with electrons or ions.
@@ -2949,15 +2953,19 @@ Details about the collision models can be found in the :ref:`theory section <mul
     Wtih ``inverse_bremsstrahlung``, this is the photon species being absorbed and the electron species they are colliding with, in that order.
     If using ``background_mcc`` or ``background_stopping`` type this should be the name of the
     species for which collisions with a background will be included.
+    If using ``proton_impact_ionization``, this must be one positively charged
+    proton or bare-ion projectile species. The charge state must be a positive
+    integer and the projectile must be heavier than an electron.
     If using ``pulsed_decay`` type this should be the name of the parent species.
-    In these three cases, only one species name should be given.
+    In these four cases, only one species name should be given.
     If using ``linear_breit_wheeler`` these should be two photon species.
     If using ``linear_compton``, these should be two species: first, a photon species, and second, a lepton species, in this exact order.
 
 .. pp:param:: <collision_name>.product_species
     :type: ``strings``
 
-    Only for ``dsmc``, ``linear_breit_wheeler``, ``nuclearfusion``, and ``bremsstrahlung``.
+    Only for ``dsmc``, ``linear_breit_wheeler``, ``nuclearfusion``,
+    ``bremsstrahlung``, ``pulsed_decay``, and ``proton_impact_ionization``.
     The name(s) of the species in which to add the new macroparticles created by the reaction.
     If using ``dsmc`` with ionization reactions, the first species in this list must be an electron.
     If using ``dsmc`` with ``charge_exchange`` and ``twoproduct_reaction``, the order of the ``product_species`` should match the order of the species in :pp:param:`<collision_name>.species`.
@@ -2965,6 +2973,9 @@ Details about the collision models can be found in the :ref:`theory section <mul
     If using ``bremsstrahlung``, the product species must be of type photon.
     If using ``linear_compton``, these should be two species: first, a photon species, and second, a lepton species, in this exact order.
     If using ``pulsed_decay``, the sum of the product species charges and mass must equal those of the parent species.
+    If using ``proton_impact_ionization``, provide exactly two species: first an
+    electron and then a singly charged molecular ion whose mass is consistent
+    with the selected :math:`\mathrm{N}_2` or :math:`\mathrm{O}_2` target.
 
 .. pp:param:: <collision_name>.ndt_supercycle
     :type: ``int``
@@ -3086,22 +3097,29 @@ Details about the collision models can be found in the :ref:`theory section <mul
 .. pp:param:: <collision_name>.background_density
     :type: ``float``
 
-    Only for ``background_mcc`` and ``background_stopping``. The density of the background in :math:`m^{-3}`.
+    Only for ``background_mcc``, ``background_stopping``, and
+    ``proton_impact_ionization``. The density of the background in
+    :math:`m^{-3}`.
     Can also provide ``<collision_name>.background_density(x,y,z,t)`` using the parser
     initialization style for spatially and temporally varying density. With ``background_mcc``, if a function
     is used for the background density, the input parameter ``<collision_name>.max_background_density``
     must also be provided to calculate the automatic maximum collision probability, unless
     :pp:param:`<collision_name>.nu_max` is supplied.
 
-    The arguments ``x``, ``y`` and ``z`` are the Cartesian coordinates of the macroparticle, in every
-    geometry. In ``RZ``, ``RCYLINDER`` and ``RSPHERE`` geometry this means that the radius must be
+    The arguments ``x``, ``y`` and ``z`` are Cartesian coordinates in every
+    geometry. Background MCC and stopping evaluate them at the macroparticle;
+    proton-impact ionization evaluates them at the cell center. In ``RZ``,
+    ``RCYLINDER`` and ``RSPHERE`` geometry this means that the radius must be
     written as ``sqrt(x**2+y**2)`` (``RZ``, ``RCYLINDER``) or ``sqrt(x**2+y**2+z**2)`` (``RSPHERE``),
     and in 2D (``XZ``) geometry ``y`` is always 0.
 
 .. pp:param:: <collision_name>.background_temperature
     :type: ``float``
 
-    Only for ``background_mcc`` and ``background_stopping``. The temperature of the background in Kelvin.
+    Only for ``background_mcc``, ``background_stopping``, and
+    ``proton_impact_ionization``. The temperature of the background in Kelvin.
+    For ``proton_impact_ionization``, this sets the zero-drift Maxwellian
+    velocity of each molecular-ion product.
     Can also provide ``<collision_name>.background_temperature(x,y,z,t)`` using the parser
     initialization style for spatially and temporally varying temperature. The arguments follow the
     same convention as for :pp:param:`<collision_name>.background_density`.
@@ -3326,16 +3344,57 @@ Details about the collision models can be found in the :ref:`theory section <mul
     Only for ``dsmc`` with impact ionization. This specifies which one of the
     colliding particles is ionized.
 
+.. pp:param:: <collision_name>.ionization_target
+    :type: ``string``
+
+    Required for ``proton_impact_ionization``. The molecular neutral target
+    whose Porter--Jackman--Green ionization model is used. Supported values are
+    ``N2`` and ``O2`` (case-insensitive).
+
 .. pp:param:: <collision_name>.decay_rate(x,y,z,t)
     :type: `string`
 
     The parent species decay rate (only for ``pulsed_decay``).
 
 .. pp:param:: <collision_name>.fixed_product_weight
-    :type: `float`
+    :type: ``float``
 
-    Fixed particle weight of product species (only for ``pulsed_decay``).
+    Desired fixed particle weight of product species for ``pulsed_decay`` and
+    ``proton_impact_ionization``.
     Can be estimated as :math:`n_{\text{target}}dV/N_{ppc}`, where :math:`n_{\text{target}}` is the target density of the product species, :math:`dV` is the cell volume, and :math:`N_{ppc}` is the target number of particle per cell for each product species.
+    For ``proton_impact_ionization``, the accumulated fractional weight is
+    checkpointed per cell. When ``max_products_per_cell`` limits creation, the
+    complete physical pair weight is preserved by increasing the equal weight
+    of the pairs created in that cell.
+
+.. pp:param:: <collision_name>.max_products_per_cell
+    :type: ``int``
+    :default: ``64``
+    :optional:
+
+    Only for ``proton_impact_ionization``. Maximum electron--ion pairs created
+    per cell in one collision call. This bounds transient work and particle
+    growth; it does not cap physical ionization weight. Smaller values reduce
+    launch imbalance and memory growth but produce heavier product
+    macroparticles in high-yield cells.
+
+.. pp:param:: <collision_name>.projectile_energy_min
+    :type: ``float``
+    :default: ``1.0e3``
+    :optional:
+
+    Only for ``proton_impact_ionization``. Lower projectile kinetic-energy
+    bound in eV for the logarithmic Porter--Jackman--Green lookup table. The
+    cross section is zero below this value.
+
+.. pp:param:: <collision_name>.projectile_energy_max
+    :type: ``float``
+    :default: ``1.0e9``
+    :optional:
+
+    Only for ``proton_impact_ionization``. Upper projectile kinetic-energy
+    bound in eV for the logarithmic Porter--Jackman--Green lookup table. The
+    cross section is zero above this value.
 
 .. pp:param:: <collision_name>.productA_temperature_eV
     :type: `float array, size 3`

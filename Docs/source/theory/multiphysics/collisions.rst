@@ -588,6 +588,244 @@ not small. This remains important for quantitative air simulations.
 
 Once a particle is selected for a specific collision process, that process determines how the particle is scattered as outlined below.
 
+.. _multiphysics-collisions-proton-impact-ionization:
+
+Proton and bare-ion impact ionization
+-------------------------------------
+
+The ``proton_impact_ionization`` collision type creates an electron and a
+singly charged molecular ion when a kinetic proton or bare-ion beam traverses
+a prescribed :math:`\mathrm{N}_2` or :math:`\mathrm{O}_2` background. The
+initial production model is a source model: the projectile is copied only to
+initialize product positions and attributes, and its momentum and weight are
+left unchanged. The neutral background is not depleted. For example::
+
+    collisions.collision_names = n2_ionization
+    n2_ionization.type = proton_impact_ionization
+    n2_ionization.species = beam
+    n2_ionization.product_species = electrons n2_ions
+    n2_ionization.ionization_target = N2
+    n2_ionization.background_density = 2.5e25
+    n2_ionization.background_temperature = 300.0
+    n2_ionization.fixed_product_weight = 1.0e7
+    n2_ionization.max_products_per_cell = 64
+
+The corresponding PICMI class is
+``picmi.ProtonImpactIonizationCollisions``.
+
+Corrected Porter--Jackman--Green model
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The integral ionization cross section and the singly differential cross
+section (SDCS) in ejected-electron kinetic energy :math:`T` use the
+Porter--Jackman--Green (PJG) model :cite:t:`b-Porter1976`. With
+:math:`E` and :math:`M` the projectile kinetic energy and mass,
+:math:`E_e=m_e\beta^2c^2/2`, and continuum threshold :math:`I_j`, the
+implemented form is
+
+.. math::
+
+   \begin{aligned}
+   S(E,T) = \sum_j \frac{F_j(E)}{E_e}\Bigg\{&
+   K\Gamma^2 L_j
+   \left[
+   \frac{1}{(T-T_0)^2+\Gamma^2}
+   -\frac{B(E_e)}{(T-T_1)^2+\Gamma_1^2}
+   \right] \\
+   &+N_e\pi e_{\mathrm c}^4\left[
+   \frac{1}{2(E+Mc^2)^2}
+   -\frac{\beta^2}
+   {(T_{\max}+I_j+\delta)(T+I_j)}
+   \right]\Bigg\},
+   \\
+   L_j ={}& \ln\left(
+   \frac{4E_eC_j}{I_j(1-\beta^2)}+\mathrm e
+   \right)-\beta^2,
+   \\
+   F_j(E) ={}& f_j\frac{E_e^{\nu+1}}
+   {J^{\nu+1}+E_e^{\nu+1}}.
+   \end{aligned}
+
+Here :math:`e_{\mathrm c}` is the elementary charge in the Gaussian units of
+the original fit and :math:`\mathrm e` is Euler's number. The remaining
+energy-dependent functions and the :math:`\mathrm{N}_2` and
+:math:`\mathrm{O}_2` parameters are those in PJG Table III. WarpX converts the
+result to SI units. It analytically integrates every continuum over the full
+range :math:`0\leq T\leq T_{\max}` to construct the total cross section; no
+low-energy ejected-electron cutoff is imposed.
+
+The maximum transferable kinetic energy printed below PJG Eq. (16) is not the
+relativistic two-body result. WarpX instead uses
+
+.. math::
+
+   T_{\max} =
+   \frac{2m_ec^2\beta^2\gamma^2}
+   {1+2\gamma m_e/M+(m_e/M)^2}.
+
+This has the required non-relativistic limit
+:math:`T_{\max}\rightarrow 2m_eE/M`; the printed PJG expression is smaller by
+approximately a factor of two in that limit. For an 800 MeV proton, the exact
+value is 2.4807396 MeV, whereas the printed expression gives 0.670701 MeV.
+
+The last bracket in the SDCS is also corrected against Bhabha's relativistic
+heavy-particle result :cite:t:`b-Bhabha1938`. After extracting the common PJG
+factor :math:`1/E_e`, the spin term is
+:math:`1/[2(E+Mc^2)^2]` and the inverse-energy term contains :math:`\beta^2`.
+The published PJG expression has neither dependence correctly. WarpX retains
+PJG's empirical :math:`I_j+\delta` bound-electron continuation in the upper
+denominator; this is an explicit hybrid-model choice rather than part of the
+free-electron Bhabha result.
+
+The 1977 correction notice is contained in
+:cite:t:`b-Garvey1977`. The complete correction list was checked: in Eq. (14),
+:math:`\arctan\alpha_2` becomes :math:`\arctan(\alpha_2/2)` and the denominator
+:math:`\beta_1` becomes :math:`\beta_2`; Fig. 1(a) has :math:`w=58.2`; Table II
+adds :math:`b_5` to the :math:`\beta_2` equation and :math:`g_5` to the
+:math:`\gamma` equation, with :math:`b_5=0.654` for :math:`\mathrm{N}_2`,
+:math:`b_5=0.619` for :math:`\mathrm{O}_2`, and :math:`g_5=1.0` for both;
+the :math:`\mathrm{O}_2` value is :math:`a_2=4.107\times10^{-1}`; the mark in
+Eq. (16) is an ordinary plus sign, not a superscript; and the
+:math:`\mathrm{O}_2` Table III value is :math:`E_\Gamma=-129.1` eV. The
+Eq. (14), Table II, and :math:`E_\Gamma` corrections belong to the
+electron-impact fits and do not enter the proton Eq. (16) implementation. The
+Eq. (16) plus-sign correction does enter its parsing.
+
+As an additional source audit, a direct evaluation of Eq. (16) with the Table
+III proton parameters does not reproduce the low-energy curve in PJG Fig. 6.
+The implementation treats the explicit equation and parameter table, with the
+corrections above, as normative instead of fitting values read from the plot.
+Reference unit-charge proton totals used by the independent physics test are:
+
+.. list-table:: Corrected PJG total ionization cross sections (:math:`\mathrm{m}^2`)
+   :header-rows: 1
+   :widths: 25 25 25
+
+   * - Proton energy
+     - :math:`\mathrm{N}_2`
+     - :math:`\mathrm{O}_2`
+   * - 50 keV
+     - :math:`1.2048977\times10^{-19}`
+     - :math:`4.6814019\times10^{-20}`
+   * - 200 keV
+     - :math:`5.2962138\times10^{-20}`
+     - :math:`4.8664983\times10^{-20}`
+   * - 500 keV
+     - :math:`2.8050342\times10^{-20}`
+     - :math:`3.3626409\times10^{-20}`
+   * - 1 MeV
+     - :math:`1.6588984\times10^{-20}`
+     - :math:`2.2053017\times10^{-20}`
+   * - 10 MeV
+     - :math:`2.4482458\times10^{-21}`
+     - :math:`3.5518735\times10^{-21}`
+   * - 100 MeV
+     - :math:`3.5145421\times10^{-22}`
+     - :math:`4.7091225\times10^{-22}`
+   * - 800 MeV
+     - :math:`1.0512378\times10^{-22}`
+     - :math:`1.2730101\times10^{-22}`
+
+Energy and angle sampling
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Initialization tabulates the total cross section and conditional SDCS inverse
+CDF on 256 logarithmically spaced projectile energies and 513 transformed
+quantiles. The quantile coordinate uses
+
+.. math::
+
+   q(x)=\frac{x^4}{x^4+(1-x)^4},\qquad 0\leq x\leq1,
+
+so both endpoints, particularly the long relativistic Bhabha tail, are
+resolved. Ejected energy is interpolated in :math:`\log(1+T)`. A device event
+then uses one projectile-energy logarithm, one exponential, and fixed-size
+interpolation, with no search or root solve. The double-precision tables use
+about 2.1 MB per collision object, and single-precision particle builds use
+about half that amount.
+
+The ejected-electron angle uses a heavy-projectile extension of the practical
+IAA bound/free closure described by :cite:t:`b-Schmalzried2023`. The exact
+free-electron binary-encounter polar cosine is
+
+.. math::
+
+   \cos\theta_{\mathrm{free}} =
+   \sqrt{\frac{T(T_{\max}+2m_ec^2)}
+   {T_{\max}(T+2m_ec^2)}}.
+
+For effective continuum binding energy :math:`I`, WarpX samples
+
+.. math::
+
+   \cos\theta = \operatorname{clamp}_{[-1,1]}\left[
+   \cos\theta_{\mathrm{free}}\frac{T+I/2}{T+I}
+   +\frac{I}{T+I}\xi\right],
+   \qquad \xi\sim\mathcal U[-1,1].
+
+The effective :math:`I` is the SDCS-weighted mean of the positive continuum
+contributions at the sampled energy. This closure recovers the free
+binary-encounter direction as :math:`I/T\rightarrow0` and an isotropic bound
+component as :math:`T/I\rightarrow0`; it is not a molecular angular DCS. The
+azimuth is uniform about the projectile direction.
+
+Low-noise macroparticle source and GPU execution
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In cell :math:`c`, one collision call produces the physical pair weight
+
+.. math::
+
+   W_c = n_{n,c}\Delta t\sum_{p\in c}
+         w_p Z_p^2\sigma_{\mathrm{PJG}}(E_p)v_p,
+
+where :math:`Z_p` is the positive integer projectile charge state. A
+checkpointed cell residual carries fractional product weight between calls.
+WarpX creates
+:math:`\lfloor(W_c+R_c)/w_{\mathrm{fixed}}\rfloor` electron--ion pairs and
+samples their parent projectiles systematically with probability proportional
+to :math:`w_p\sigma(E_p)v_p`. Ejected-energy quantiles are stratified within
+each cell. This removes Bernoulli event-count noise and is especially useful
+when the expected yield per beam macroparticle is small.
+
+``max_products_per_cell`` bounds work and memory growth in one call. When the
+bound is reached, WarpX creates exactly that many pairs with equal increased
+weights, preserving the complete accumulated physical weight rather than
+discarding events. The electron and molecular ion in a pair have the same
+position and weight. The ion velocity is sampled from the zero-drift neutral
+Maxwellian at ``background_temperature``; it is deliberately not assigned the
+event recoil. Every sampled electron, including arbitrarily low-energy ones,
+is represented kinetically.
+
+The implementation uses dense particle bins, one independent thread per cell,
+a device exclusive scan, and one product-creation kernel. It uses no scatter
+updates, atomics, device-side allocation per event, or host callback per event.
+Per-cell scratch uses two device allocations per tile and collision call. A
+host-visible product count remains necessary before particle-tile resizing.
+The performance regression input
+``inputs_test_3d_proton_impact_ionization_performance_picmi.py`` accepts
+``--cells-per-direction``, ``--particles-per-cell-direction``, ``--steps`` and
+``--max-products-per-cell`` for accelerator profiling. CPU timings are only a
+regression check; GPU speedups must be measured on the intended CUDA, HIP, or
+SYCL system.
+
+Scope and limitations
+^^^^^^^^^^^^^^^^^^^^^
+
+Only single total ionization of :math:`\mathrm{N}_2` and
+:math:`\mathrm{O}_2` is implemented. The PJG table is a unit-charge proton
+model. Bare ions use the usual :math:`Z_p^2` scaling with the actual projectile
+mass and velocity; electron screening, charge exchange, and corrections for
+large :math:`Z_p` are outside this model. The default lookup interval is 1 keV
+to 1 GeV, and the cross section is zero outside the configured interval.
+
+Because projectile momentum and energy, neutral depletion, and ion recoil are
+all omitted, total energy and momentum of the represented particles are not
+closed: the beam and background act as external reservoirs. The background
+density and temperature expressions are evaluated at cell centers. Resolve
+their spatial variation and verify convergence with collision timestep, cell
+size, ``fixed_product_weight``, and ``max_products_per_cell``.
+
 .. _multiphysics-collisions-pulseddecay:
 
 Pulsed Decay
