@@ -212,6 +212,26 @@ add_warpx_test(
 )
 
 add_warpx_test(
+    test_3d_proton_impact_ionization_picmi  # name
+    3  # dims
+    1  # nprocs
+    inputs_test_3d_proton_impact_ionization_picmi.py  # inputs
+    "analysis_proton_impact_ionization.py"  # analysis
+    OFF  # checksum
+    OFF  # dependency
+)
+
+add_warpx_test(
+    test_3d_proton_impact_ionization_performance_picmi  # name
+    3  # dims
+    1  # nprocs
+    inputs_test_3d_proton_impact_ionization_performance_picmi.py  # inputs
+    "analysis_proton_impact_ionization_performance.py"  # analysis
+    OFF  # checksum
+    OFF  # dependency
+)
+
+add_warpx_test(
     test_rz_collision  # name
     RZ  # dims
     1  # nprocs
