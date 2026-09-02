@@ -3324,6 +3324,117 @@ class MCCCollisions(picmistandard.base._ClassWithInit):
                 collision.add_new_attr(process + "_" + key, val)
 
 
+class ProtonImpactIonizationCollisions(picmistandard.base._ClassWithInit):
+    """Configure rigid-beam proton or bare-ion impact ionization.
+
+    Parameters
+    ----------
+    name: string
+        Name of the collision instance.
+
+    species: species instance
+        Positively charged projectile species. Its momentum is not changed.
+
+    product_species: list of species instances
+        Electron species followed by the singly charged molecular-ion species.
+
+    ionization_target: string
+        Molecular neutral target, either ``"N2"`` or ``"O2"``.
+
+    background_density: float or string
+        Neutral density in m^-3, or an expression in ``(x, y, z, t)``.
+
+    background_temperature: float or string
+        Neutral temperature in K, or an expression in ``(x, y, z, t)``.
+
+    fixed_product_weight: float
+        Desired electron-ion pair macroparticle weight.
+
+    max_products_per_cell: integer, optional
+        Maximum pairs created in one cell and collision call. Excess expected
+        weight is preserved by increasing the weight of each created pair. The
+        default is 64.
+
+    projectile_energy_min, projectile_energy_max: float, optional
+        Bounds in eV of the logarithmic PJG lookup table. The defaults are
+        1 keV and 1 GeV.
+
+    ndt_supercycle: integer, optional
+        Run once every ``ndt_supercycle`` PIC steps.
+
+    ndt_subcycle: integer, optional
+        Run ``ndt_subcycle`` times per PIC step.
+    """
+
+    def __init__(
+        self,
+        name,
+        species,
+        product_species,
+        ionization_target,
+        background_density,
+        background_temperature,
+        fixed_product_weight,
+        max_products_per_cell=None,
+        projectile_energy_min=None,
+        projectile_energy_max=None,
+        ndt_supercycle=None,
+        ndt_subcycle=None,
+        **kw,
+    ):
+        self.name = name
+        self.species = species
+        self.product_species = product_species
+        self.ionization_target = ionization_target
+        self.background_density = background_density
+        self.background_temperature = background_temperature
+        self.fixed_product_weight = fixed_product_weight
+        self.max_products_per_cell = max_products_per_cell
+        self.projectile_energy_min = projectile_energy_min
+        self.projectile_energy_max = projectile_energy_max
+        self.ndt_supercycle = ndt_supercycle
+        self.ndt_subcycle = ndt_subcycle
+
+        if len(product_species) != 2:
+            raise ValueError(
+                "`product_species` must contain the electron and molecular ion."
+            )
+        if ionization_target not in ["N2", "O2", "n2", "o2"]:
+            raise ValueError("`ionization_target` must be 'N2' or 'O2'.")
+        if "ndt" in kw:
+            raise ValueError(
+                "`ndt` is no longer a valid option for collisions."
+                "Please use `ndt_supercycle` instead (run collision every N PIC steps)."
+            )
+
+        self.handle_init(kw)
+
+    def collision_initialize_inputs(self):
+        collision = pywarpx.Collisions.newcollision(self.name)
+        collision.type = "proton_impact_ionization"
+        collision.species = self.species.name
+        collision.product_species = [species.name for species in self.product_species]
+        collision.ionization_target = self.ionization_target
+        if isinstance(self.background_density, str):
+            collision.__setattr__(
+                "background_density(x,y,z,t)", self.background_density
+            )
+        else:
+            collision.background_density = self.background_density
+        if isinstance(self.background_temperature, str):
+            collision.__setattr__(
+                "background_temperature(x,y,z,t)", self.background_temperature
+            )
+        else:
+            collision.background_temperature = self.background_temperature
+        collision.fixed_product_weight = self.fixed_product_weight
+        collision.max_products_per_cell = self.max_products_per_cell
+        collision.projectile_energy_min = self.projectile_energy_min
+        collision.projectile_energy_max = self.projectile_energy_max
+        collision.ndt_supercycle = self.ndt_supercycle
+        collision.ndt_subcycle = self.ndt_subcycle
+
+
 class DSMCCollisions(picmistandard.base._ClassWithInit):
     """
     Custom class to handle setup of DSMC collisions in WarpX. If collision
