@@ -635,7 +635,7 @@ implemented form is
    &+N_e\pi e_{\mathrm c}^4\left[
    \frac{1}{2(E+Mc^2)^2}
    -\frac{\beta^2}
-   {(T_{\max}+I_j+\delta)(T+I_j)}
+   {(T_{\max}+I_j)(T+I_j)}
    \right]\Bigg\},
    \\
    L_j ={}& \ln\left(
@@ -647,12 +647,12 @@ implemented form is
    \end{aligned}
 
 Here :math:`e_{\mathrm c}` is the elementary charge in the Gaussian units of
-the original fit and :math:`\mathrm e` is Euler's number. The remaining
-energy-dependent functions and the :math:`\mathrm{N}_2` and
-:math:`\mathrm{O}_2` parameters are those in PJG Table III. WarpX converts the
-result to SI units. It analytically integrates every continuum over the full
-range :math:`0\leq T\leq T_{\max}` to construct the total cross section; no
-low-energy ejected-electron cutoff is imposed.
+the original fit and :math:`\mathrm e` is Euler's number. Except for the
+refitted parameters described below, the energy-dependent functions and the
+:math:`\mathrm{N}_2` and :math:`\mathrm{O}_2` parameters are those in PJG
+Table III. WarpX converts the result to SI units. It analytically integrates
+every continuum over the full range :math:`0\leq T\leq T_{\max}` to construct
+the total cross section; no low-energy ejected-electron cutoff is imposed.
 
 The maximum transferable kinetic energy printed below PJG Eq. (16) is not the
 relativistic two-body result. WarpX instead uses
@@ -673,10 +673,12 @@ The last bracket in the SDCS is also corrected against Bhabha's relativistic
 heavy-particle result :cite:t:`b-Bhabha1938`. After extracting the common PJG
 factor :math:`1/E_e`, the spin term is
 :math:`1/[2(E+Mc^2)^2]` and the inverse-energy term contains :math:`\beta^2`.
-The published PJG expression has neither dependence correctly. WarpX retains
-PJG's empirical :math:`I_j+\delta` bound-electron continuation in the upper
-denominator; this is an explicit hybrid-model choice rather than part of the
-free-electron Bhabha result.
+The published PJG expression has neither dependence correctly. The empirical
+:math:`\delta` offset in the upper denominator is not part of the free-electron
+Bhabha result, and removing it changes the total cross section by less than
+:math:`3.1\times10^{-5}` in relative value over 2 keV--1 MeV. It is therefore
+set to zero rather than retained as an unidentifiable parameter. The threshold
+shift :math:`I_j` remains the PJG bound-electron continuation.
 
 The 1977 correction notice is contained in
 :cite:t:`b-Garvey1977`. The complete correction list was checked: in Eq. (14),
@@ -694,8 +696,53 @@ Eq. (16) plus-sign correction does enter its parsing.
 
 As an additional source audit, a direct evaluation of Eq. (16) with the Table
 III proton parameters does not reproduce the low-energy curve in PJG Fig. 6.
-The implementation treats the explicit equation and parameter table, with the
-corrections above, as normative instead of fitting values read from the plot.
+The discrepancy is not repaired by restoring the erroneous printed Bhabha
+factors or maximum-transfer expression. The most likely source is therefore
+an undocumented difference between the calculation used for the figure and
+the final equation or parameter table, rather than the 1977 correction notice.
+
+Refit to recommended proton data
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The exact :math:`T_{\max}` and Bhabha factors above are fixed, not fitted. With
+:math:`\delta=0`, the target-wide distortion scale :math:`J` was first fitted
+by itself to the recommended total cross sections of Rudd et al.
+:cite:t:`b-Rudd1983,b-Rudd1985`. The fit minimizes the mean squared logarithmic
+residual at 301 uniformly log-spaced energies over 5--4000 keV, the range of
+the underlying Rudd et al. measurements. The reference curve is
+
+.. math::
+
+   \sigma_{\mathrm R}(E) = 4\pi a_0^2
+   \left[
+   \frac{U}{A\ln(1+U)+B}+\frac{1}{CU^D}
+   \right]^{-1},
+   \qquad
+   U=\frac{E}{(m_p/m_e)R_{\mathrm y}},
+   \quad R_{\mathrm y}=13.6057\ \mathrm{eV}.
+
+Rudd et al. give :math:`(A,B,C,D)=(3.82,2.78,1.80,0.70)` for
+:math:`\mathrm{N}_2` and :math:`(4.77,0,1.76,0.93)` for
+:math:`\mathrm{O}_2`. Their recommended curves result from a complete
+literature survey whose fit weights account for quoted and estimated
+uncertainties, independent normalization, number of points, and covered
+energy span.
+
+For :math:`\mathrm{N}_2`, changing only :math:`J` is sufficient and gives
+:math:`J=59.65` eV; :math:`K=7.58\times10^{-16}\ \mathrm{cm}^2` is retained.
+For :math:`\mathrm{O}_2`, a :math:`J`-only fit leaves a 47.5 percent maximum
+deviation because :math:`F_j\rightarrow f_j` at high energy. The minimal
+additional identifiable change is the soft-continuum normalization, giving
+:math:`J=19.28` eV and
+:math:`K=4.581\times10^{-16}\ \mathrm{cm}^2`. All :math:`\nu`, continuum
+fractions, thresholds, Bethe constants, and line-shape parameters remain
+unchanged. The resulting root-mean-square logarithmic residuals are 0.1245 for
+:math:`\mathrm{N}_2` and 0.0628 for :math:`\mathrm{O}_2`; the largest
+symmetric multiplicative errors are 23.0 and 25.8 percent, respectively.
+These residuals are comparable to the reliability assigned to the low- and
+peak-energy molecular data by Rudd et al.; no extra shape parameter is
+justified by those data.
+
 Reference unit-charge proton totals used by the independent physics test are:
 
 .. list-table:: Corrected PJG total ionization cross sections (:math:`\mathrm{m}^2`)
@@ -706,26 +753,26 @@ Reference unit-charge proton totals used by the independent physics test are:
      - :math:`\mathrm{N}_2`
      - :math:`\mathrm{O}_2`
    * - 50 keV
-     - :math:`1.2048977\times10^{-19}`
-     - :math:`4.6814019\times10^{-20}`
+     - :math:`4.9571136\times10^{-20}`
+     - :math:`5.3533138\times10^{-20}`
    * - 200 keV
-     - :math:`5.2962138\times10^{-20}`
-     - :math:`4.8664983\times10^{-20}`
+     - :math:`3.4782052\times10^{-20}`
+     - :math:`3.9221672\times10^{-20}`
    * - 500 keV
-     - :math:`2.8050342\times10^{-20}`
-     - :math:`3.3626409\times10^{-20}`
+     - :math:`2.2309605\times10^{-20}`
+     - :math:`2.4668388\times10^{-20}`
    * - 1 MeV
-     - :math:`1.6588984\times10^{-20}`
-     - :math:`2.2053017\times10^{-20}`
+     - :math:`1.4438120\times10^{-20}`
+     - :math:`1.5732801\times10^{-20}`
    * - 10 MeV
-     - :math:`2.4482458\times10^{-21}`
-     - :math:`3.5518735\times10^{-21}`
+     - :math:`2.3912617\times10^{-21}`
+     - :math:`2.4865961\times10^{-21}`
    * - 100 MeV
-     - :math:`3.5145421\times10^{-22}`
-     - :math:`4.7091225\times10^{-22}`
+     - :math:`3.5000091\times10^{-22}`
+     - :math:`3.2936513\times10^{-22}`
    * - 800 MeV
-     - :math:`1.0512378\times10^{-22}`
-     - :math:`1.2730101\times10^{-22}`
+     - :math:`1.0497733\times10^{-22}`
+     - :math:`8.9033261\times10^{-23}`
 
 Energy and angle sampling
 ^^^^^^^^^^^^^^^^^^^^^^^^^
