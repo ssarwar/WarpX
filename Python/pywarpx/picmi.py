@@ -3233,7 +3233,13 @@ class MCCCollisions(picmistandard.base._ClassWithInit):
 
     max_background_density: float
         The maximum background density. When the background_density is an expression, this must also
-        be specified.
+        be specified unless ``nu_max`` is supplied.
+
+    nu_max: float, optional
+        User-supplied null-collision majorant in s^-1. When supplied, automatic
+        construction from the cross-section tables is skipped. The value must
+        bound the sum of all process collision frequencies for every particle
+        state and background density encountered by this collision object.
 
     ndt_supercycle: integer, optional
         Run collision once every ndt_supercycle PIC time steps
@@ -3255,6 +3261,7 @@ class MCCCollisions(picmistandard.base._ClassWithInit):
         scattering_processes,
         background_mass=None,
         max_background_density=None,
+        nu_max=None,
         ndt_supercycle=None,
         ndt_subcycle=None,
         **kw,
@@ -3266,6 +3273,7 @@ class MCCCollisions(picmistandard.base._ClassWithInit):
         self.background_mass = background_mass
         self.scattering_processes = scattering_processes
         self.max_background_density = max_background_density
+        self.nu_max = nu_max
         self.ndt_supercycle = ndt_supercycle
         self.ndt_subcycle = ndt_subcycle
 
@@ -3295,6 +3303,7 @@ class MCCCollisions(picmistandard.base._ClassWithInit):
             collision.background_temperature = self.background_temperature
         collision.background_mass = self.background_mass
         collision.max_background_density = self.max_background_density
+        collision.nu_max = self.nu_max
         collision.ndt_supercycle = self.ndt_supercycle
         collision.ndt_subcycle = self.ndt_subcycle
 
