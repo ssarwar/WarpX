@@ -8,6 +8,11 @@ total-only refit and its absolute free-electron cutoff. The independent
 kinematics helpers and reference quadratures below are implemented and tested.
 The bound-electron spectral response is not yet accepted for production.
 
+The current direction is the smaller, PJG-preserving repair documented in
+[PJG_REPAIR.md](PJG_REPAIR.md). It retains the Lorentzian structure and tests
+coefficient constraints and a staged refit. The optical/GOS trial recorded
+below remains a rejected exploratory calculation, not the preferred design.
+
 The agreed source represents **inclusive electron production** using an
 effective electron/singly charged molecular-ion pair. It does not represent
 exclusive single ionization or resolve fragmentation and correlated multiple

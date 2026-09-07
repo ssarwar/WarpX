@@ -76,3 +76,18 @@ check, not another measurement of the total yield.
 
 See [RECONSTRUCTION.md](RECONSTRUCTION.md) for the derivations, source
 conventions, rejected model trial, and remaining validation requirements.
+
+The current PJG-preserving direction is described in [PJG_REPAIR.md](PJG_REPAIR.md).
+It retains the two-Lorentzian structure while separating its soft and hard
+limits. These are research candidates, not production replacements. Reproduce
+the recorded diagnostics, or repeat the staged fits, with:
+
+```sh
+python Tools/Algorithms/ProtonImpactIonization/fit_pjg_repair.py
+python Tools/Algorithms/ProtonImpactIonization/fit_pjg_repair.py --refit
+```
+
+The original experimental totals and mean electron energies are reported
+separately from the recommended curves used in the diagnostic fit. The
+nonrelativistic trial rejects incident energies outside 5--4000 keV; it must
+not be used as a relativistic bound-tail implementation.
