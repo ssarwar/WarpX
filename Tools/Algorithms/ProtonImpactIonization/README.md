@@ -64,5 +64,15 @@ adaptive transverse quadrature, and the dipole limit including both
 `ln(gamma^2)` and the `-beta^2` term. The kernel requires a target response; it
 is not by itself a molecular SDCS.
 
+`experimental.py` separately preserves the original Table I totals for N2 and
+O2 from Crooks and Rudd (1971), and the N2 totals and mean electron energies
+from Rudd (1979). These measurements are not silently normalized to the
+recommended curves. The 1979 N2 absolute scale was tied to the 1971 data, so
+the two data sets must not be treated as independent absolute calibrations.
+At 5 keV the 1979 N2 total is 23.8% above the 1985 recommended total; the
+original paper also warns of much larger uncertainties for some lowest-energy
+measurements. The mean electron energies provide an additional spectral
+check, not another measurement of the total yield.
+
 See [RECONSTRUCTION.md](RECONSTRUCTION.md) for the derivations, source
 conventions, rejected model trial, and remaining validation requirements.
