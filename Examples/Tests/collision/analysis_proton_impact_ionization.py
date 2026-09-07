@@ -448,8 +448,8 @@ for target in ["N2", "O2"]:
     transverse_mean = mean_direction - np.dot(mean_direction, direction) * direction
     assert np.linalg.norm(transverse_mean) < 1.5e-2
 
-    ion_mass = float(data[f"{target}_neutral_mass"]) - 9.109_383_7139e-31
-    thermal_speed = math.sqrt(K_B * float(data[f"{target}_temperature"]) / ion_mass)
+    neutral_mass = float(data[f"{target}_neutral_mass"])
+    thermal_speed = math.sqrt(K_B * float(data[f"{target}_temperature"]) / neutral_mass)
     ion_u = np.column_stack(
         [
             data[f"{target}_ions_ux"],

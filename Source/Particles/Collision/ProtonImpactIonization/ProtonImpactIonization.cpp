@@ -7,6 +7,7 @@
 #include "ProtonImpactIonization.H"
 
 #include "Particles/Collision/BackgroundMCC/BackgroundMCCKinematics.H"
+#include "Particles/Collision/ProtonImpactIonization/IonizationSampling.H"
 #include "Particles/Collision/ProtonImpactIonization/ProtonImpactIonizationKinematics.H"
 #include "Particles/MultiParticleContainer.H"
 #include "Particles/ParticleCreation/SmartCopy.H"
@@ -30,6 +31,7 @@
 #include <AMReX_Vector.H>
 
 #include <cmath>
+#include <cstdint>
 #include <limits>
 #include <memory>
 #include <string>
@@ -225,7 +227,9 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
     auto const temperature_function = m_background_temperature_func;
     auto const pjg = m_pjg_model->executor();
     auto const projectile_mass = projectile.getMass();
-    auto const ion_mass = ion.getMass();
+    // Products inherit the neutral velocity distribution, not an ion Maxwellian
+    // at the same temperature. Neglect the binding mass defect in this conversion.
+    auto const neutral_mass = ion.getMass() + PhysConst::m_e;
     auto const charge_squared = m_projectile_charge_squared;
     auto const fixed_product_weight = m_fixed_product_weight;
     auto const max_products_per_cell = m_max_products_per_cell;
@@ -468,13 +472,14 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
                     auto const kinetic_energy = projectile_mass * proper_speed_squared /
                                                 ((gamma + 1.0_prt) * PhysConst::q_e);
 
-                    // Stratify the SDCS exactly. Distinct irrational rotations
-                    // decorrelate angle and thermal sequences without
-                    // per-product RNG calls.
+                    // An independent shift makes every energy quantile uniform
+                    // conditional on its selected parent. Ordered quantiles
+                    // would correlate energy with ordered parent selection.
                     auto const sequence_index = static_cast<amrex::ParticleReal>(product) + 0.5_prt;
                     auto const energy_quantile =
-                        (static_cast<amrex::ParticleReal>(product) + energy_shift) /
-                        static_cast<amrex::ParticleReal>(product_count);
+                        ProtonImpactIonization::shiftedRadicalInverse(
+                            static_cast<std::uint32_t>(product),
+                            static_cast<amrex::ParticleReal>(energy_shift));
                     amrex::ParticleReal secondary_energy;
                     amrex::ParticleReal binding_energy;
                     pjg.sample(kinetic_energy, energy_quantile, secondary_energy, binding_energy);
@@ -514,7 +519,7 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
                         secondary_proper_speed * electron_direction.z);
 
                     auto const thermal_speed =
-                        std::sqrt(PhysConst::kb * temperature_pointer[cell] / ion_mass);
+                        std::sqrt(PhysConst::kb * temperature_pointer[cell] / neutral_mass);
                     amrex::ParticleReal normal_x;
                     amrex::ParticleReal normal_y;
                     amrex::ParticleReal normal_z;

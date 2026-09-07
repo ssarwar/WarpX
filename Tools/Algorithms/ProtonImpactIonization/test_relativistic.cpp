@@ -69,7 +69,8 @@ namespace
                     auto const t = -2.L * me * transfer;
                     auto const trace = (a * a + b * b + 2.L * t * (m * m + me * me)) /
                                        (8.L * me * me * total * total);
-                    require(std::isfinite(factor) && factor > Real(0), "Non-positive Bhabha factor");
+                    require(std::isfinite(factor) && factor > Real(0),
+                            "Non-positive Bhabha factor");
                     // A float-rounded Tmax shifts the reference endpoint very slightly.
                     auto const endpoint_error = std::abs(maximum / reference - 1.L);
                     require(std::abs(factor - trace) < factor_tolerance + endpoint_error,

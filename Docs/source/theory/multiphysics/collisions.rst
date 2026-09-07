@@ -856,8 +856,13 @@ checkpointed cell residual carries fractional product weight between calls.
 WarpX creates
 :math:`\lfloor(W_c+R_c)/w_{\mathrm{fixed}}\rfloor` electron--ion pairs and
 samples their parent projectiles systematically with probability proportional
-to :math:`w_p\sigma(E_p)v_p`. Ejected-energy quantiles are stratified within
-each cell. This removes Bernoulli event-count noise and is especially useful
+to :math:`w_p\sigma(E_p)v_p`. Ejected-energy quantiles use a base-2 radical-inverse
+sequence with an independent uniform shift per cell. This gives uniform
+conditional quantiles for every selected parent and low discrepancy within
+consecutive parent blocks. Pairing ordered parent selection with ordered
+energy quantiles would instead bias mixed-energy beams. An aligned power-of-two
+block is exactly stratified; an arbitrary block remains low discrepancy. This
+removes Bernoulli event-count noise and is especially useful
 when the expected yield per beam macroparticle is small.
 
 ``max_products_per_cell`` bounds work and memory growth in one call. When the
@@ -866,8 +871,9 @@ weights, preserving the complete accumulated physical weight rather than
 discarding events. The electron and molecular ion in a pair have the same
 position and weight. The ion velocity is sampled from the zero-drift neutral
 Maxwellian at ``background_temperature``; it is deliberately not assigned the
-event recoil. Every sampled electron, including arbitrarily low-energy ones,
-is represented kinetically.
+event recoil. The neutral mass is inferred as the product-ion mass plus one
+electron mass, neglecting the binding mass defect. Every sampled electron,
+including arbitrarily low-energy ones, is represented kinetically.
 
 The implementation uses dense particle bins, one independent thread per cell,
 a device exclusive scan, and one product-creation kernel. It uses no scatter
@@ -884,9 +890,10 @@ SYCL system.
 Scope and limitations
 ^^^^^^^^^^^^^^^^^^^^^
 
-Only single total ionization of :math:`\mathrm{N}_2` and
-:math:`\mathrm{O}_2` is implemented. The PJG table is a unit-charge proton
-model. Bare ions use the usual :math:`Z_p^2` scaling with the actual projectile
+Separate inclusive electron-production yields for :math:`\mathrm{N}_2` and
+:math:`\mathrm{O}_2` are represented by the effective pair source described
+above, not by exclusive single-ionization channels. The PJG table is a
+unit-charge proton model. Bare ions use the usual :math:`Z_p^2` scaling with the actual projectile
 mass and velocity; electron screening, charge exchange, and corrections for
 large :math:`Z_p` are outside this model. The default lookup interval is 1 keV
 to 1 GeV, and the cross section is zero outside the configured interval.
