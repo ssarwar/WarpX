@@ -92,11 +92,27 @@ class RepairParameters:
     amplitude: float
     gamma_s: float
     broad_excess: float
+    # These scale existing PJG coefficients, not additional shape functions.
+    # A zero numerator removes both gamma_1 and its unused denominator gamma_2.
+    gamma_numerator_scale: float = 1
+    bethe_scale: float = 1
 
     def __post_init__(self):
-        values = (self.j, self.power, self.amplitude, self.gamma_s, self.broad_excess)
+        values = (
+            self.j,
+            self.power,
+            self.amplitude,
+            self.gamma_s,
+            self.broad_excess,
+            self.bethe_scale,
+        )
         if not all(np.isfinite(value) and value > 0 for value in values):
             raise ValueError("All repair parameters must be finite and positive")
+        if (
+            not np.isfinite(self.gamma_numerator_scale)
+            or self.gamma_numerator_scale < 0
+        ):
+            raise ValueError("The width numerator scale must be finite and nonnegative")
 
 
 def initial_parameters(target):
@@ -145,8 +161,11 @@ def lorentzian_pair(secondary, width, center, broad_excess):
 
 def _shape(target, equivalent_energy, secondary, parameters):
     p = TARGETS[target]
-    width = parameters.gamma_s + p.gamma_numerator / (
-        equivalent_energy + p.gamma_denominator
+    width = (
+        parameters.gamma_s
+        + parameters.gamma_numerator_scale
+        * p.gamma_numerator
+        / (equivalent_energy + p.gamma_denominator)
     )
     center = p.center_s - p.center_numerator / (
         equivalent_energy + p.center_denominator
@@ -190,7 +209,11 @@ def relativistic_core_parts(target, kinetic_energy, secondary, parameters):
     equivalent = ELECTRON_REST_ENERGY * beta_squared / 2
     width, broad, difference = _shape(target, equivalent, t, parameters)
     logarithm = sum(
-        f * (np.log(4 * equivalent * c * gamma**2 / i + np.e) - beta_squared)
+        f
+        * (
+            np.log(4 * equivalent * c * parameters.bethe_scale * gamma**2 / i + np.e)
+            - beta_squared
+        )
         for f, c, i in zip(p.fractions, p.bethe_constants, p.thresholds, strict=True)
     )
     x = t / maximum
@@ -227,7 +250,9 @@ def nonrelativistic_sdcs(target, kinetic_energy, secondary, parameters):
         v = np.sqrt(equivalent / threshold)
         center = 4 * equivalent - 2 * v * threshold - RYDBERG / 4
         cutoff = expit(alpha * (center - t) / (v * threshold))
-        logarithm = np.log(4 * equivalent * constant / threshold + np.e)
+        logarithm = np.log(
+            4 * equivalent * constant * parameters.bethe_scale / threshold + np.e
+        )
         soft = parameters.amplitude * p.k * width**2 * logarithm * difference
         hard = p.electrons * BETHE_CONSTANT * broad
         # Necessary energy bound only; this is not an exact three-body closure.

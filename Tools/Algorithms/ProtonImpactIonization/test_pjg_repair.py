@@ -7,9 +7,11 @@
 """Independent algebra, quadrature, and limit tests; not fit acceptance tests."""
 
 import unittest
+from dataclasses import replace
 from decimal import Decimal, localcontext
 
 import numpy as np
+from fit_pjg_optical import fit_optical_shape, n2_photoelectron_coefficient
 from pjg_repair import (
     DIAGNOSTIC_FITS,
     TARGETS,
@@ -158,6 +160,44 @@ class PJGRepairChecks(unittest.TestCase):
             relativistic_core_parts("N2", 5000, 2 * free_maximum_transfer(5000), p)
         with self.assertRaises(ValueError):
             RepairParameters(0, 1, 1, 1, 1)
+
+    def test_optical_diagnostic_window(self):
+        t = np.linspace(0, 100, 101)
+        values = n2_photoelectron_coefficient(t)
+        self.assertTrue(np.all(np.isfinite(values)))
+        self.assertTrue(np.all(values > 0))
+        for t in (-1, 101, np.nan):
+            with self.assertRaises(ValueError):
+                n2_photoelectron_coefficient(t)
+
+    def test_optical_shape_fit_is_reproducible(self):
+        # Check the stated finite-window approximation, not physical acceptance
+        # of the optical input or a continuation to unmeasured energies.
+        p = fit_optical_shape()
+        t = np.geomspace(2, 100, 40)
+        ratio = optical_coefficient("N2", t, p, relativistic=False)
+        ratio /= n2_photoelectron_coefficient(t)
+        self.assertLess(np.max(np.abs(ratio - 1)), 0.15)
+        q = replace(p, gamma_numerator_scale=0)
+        ratio = optical_coefficient("N2", t, q) / n2_photoelectron_coefficient(t)
+        self.assertLess(np.max(np.abs(ratio - 1)), 0.15)
+
+    def test_bethe_scale_is_not_an_optical_amplitude(self):
+        p = DIAGNOSTIC_FITS["N2"]
+        q = replace(p, bethe_scale=3)
+        t = np.array([0, 2, 20, 100])
+        np.testing.assert_array_equal(
+            optical_coefficient("N2", t, p), optical_coefficient("N2", t, q)
+        )
+        soft_p, hard_p = relativistic_core_parts("N2", 1e6, t, p)
+        soft_q, hard_q = relativistic_core_parts("N2", 1e6, t, q)
+        np.testing.assert_array_equal(hard_p, hard_q)
+        self.assertTrue(np.all(soft_q > soft_p))
+        for scale in (-1, np.nan):
+            with self.assertRaises(ValueError):
+                replace(p, gamma_numerator_scale=scale)
+        q = replace(p, gamma_numerator_scale=0)
+        self.assertTrue(np.all(nonrelativistic_sdcs("N2", 5000, t, q) > 0))
 
 
 if __name__ == "__main__":

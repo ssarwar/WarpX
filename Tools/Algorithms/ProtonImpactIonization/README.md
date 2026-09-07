@@ -91,3 +91,15 @@ The original experimental totals and mean electron energies are reported
 separately from the recommended curves used in the diagnostic fit. The
 nonrelativistic trial rejects incident energies outside 5--4000 keV; it must
 not be used as a relativistic bound-tail implementation.
+
+An N2-only follow-up fixes the existing amplitude and widths from Rudd's
+optical parameterization before refitting proton-energy dependence. It also
+compares eliminating the empirical width numerator with retaining it:
+
+```sh
+python Tools/Algorithms/ProtonImpactIonization/fit_pjg_optical.py
+python Tools/Algorithms/ProtonImpactIonization/fit_pjg_optical.py --retain-width-correction
+```
+
+This finite-window optical comparison is a diagnostic, not a complete
+inclusive optical response or an accepted production cross section.

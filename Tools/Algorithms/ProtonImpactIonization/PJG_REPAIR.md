@@ -92,6 +92,10 @@ to one while retaining distinct centers leaves a $T^{-3}$ term whose sign
 can be negative. With the common center, the difference falls as $T^{-4}$,
 whereas $\ell_b$ falls as $T^{-2}$. Evaluate the difference in factored form;
 direct subtraction loses relative accuracy in the tail.
+This is a simple sufficient positivity construction, not a claim that every
+physical optical spectrum must have a $T^{-4}$ asymptote. Other constrained
+centers can produce positive differences too; the printed unconstrained
+centers do not provide that guarantee.
 
 To see how this repairs PJG's amplitude, put $A_j=K\Gamma^2L_j$ and first
 consider the nonrelativistic hard limit. The leading coefficient of
@@ -202,18 +206,82 @@ That large discrepancy prevents claiming an optically validated asymptote.
 The limiting relativistic PJG width uses E_e=m/2, not E_e=infinity; both
 versions are exposed explicitly in the reference function.
 
-The next work is to constrain this empirical coefficient without replacing
-the entire PJG structure, and to combine the exact hard kernel with a
-positive molecular-tail treatment. Do not append the free Bhabha polynomial
-outside its domain or hide a failed comparison by clipping the SDCS.
-The endpoint-region angular closure remains separate unfinished work.
+### Constraining the existing N2 shape with optical information
 
-Twenty Python checks cover the original tables, reference quadratures, the
+`fit_pjg_optical.py` tests whether the same PJG shape can reproduce the
+optical coefficient without a new target-response function. It transcribes
+Rudd's Table II, Eqs. (32)--(33), for the N2 L_A, L_B, and K groups, with
+thresholds 15.59, 28.8, and 410 eV. The tabulated quantity is $W\,df/dW$,
+so the photoelectron coefficient is the sum of that quantity divided by
+$W^2$, evaluated at $W=T+I_j$. Orbital populations are already included.
+
+Fit K/Gamma_s/Lambda to 40 logarithmic secondary energies from 2 to 100 eV,
+using logarithmic residuals. This chosen audit window avoids appending an
+unverified high-energy continuation to the optical fit. It is not a claim
+of experimental accuracy throughout that interval. The optical inputs are
+photoelectron parameterizations, not a complete inclusive response including
+all subsequent decay electrons.
+
+The fitted values are K / printed K = 1.01808, Gamma_s = 11.5447 eV, and
+Lambda = 138.389 eV. Thus the amplitude and narrow width remain close to
+printed PJG. The predicted/reference optical coefficient spans 0.867--1.143
+over the fitting grid, in place of the large discrepancy of the proton-only
+fit. Freeze these three values before refitting proton-energy dependence.
+
+Then vary only J, p, and a common multiplier of the printed C_j, using the
+same proton objective as above. A common C_j multiplier changes the
+non-logarithmic Bethe contribution, not the coefficient of the asymptotic
+logarithm or its associated -beta^2 term. Compare retaining the printed
+width numerator with eliminating it:
+
+| Optically constrained N2 diagnostic | Retain gamma_1 | Set gamma_1 = 0 |
+| --- | ---: | ---: |
+| J (eV) | 27.9340 | 19.8814 |
+| p | 0.648530 | 0.828636 |
+| Common C_j multiplier | 0.669456 | 3.37170 |
+| Total / recommended total, min--max | 0.903--1.025 | 0.880--1.076 |
+| SDCS ratio, full sampled range | 0.627--1.799 | 0.762--1.299 |
+| SDCS ratio, 10th--90th percentile | 0.791--1.355 | 0.824--1.179 |
+| Mean-energy ratio at 5 keV, to original 1979 value | 1.416 | 1.216 |
+| Fraction above NR free endpoint at 5 keV | 0.239 | 0.186 |
+
+Removing gamma_1 also eliminates its unused denominator gamma_2. This is
+a justified simplification to investigate further: with the optical shape
+held fixed, it improves the proton spectral comparison substantially. Six
+existing PJG quantities are adjusted across these two fits (three from the
+optical reference, three from proton curves); no new independent shape
+parameter is introduced. The original C_j are not fitted separately.
+
+It is still not an accepted production fit. With gamma_1=0, predicted/original
+1971 totals span 0.969--1.085, but the original 5-keV 1979 total is
+underestimated by 28.9% and its mean energy is overestimated by 21.6%.
+The comparisons inherit the reference normalization and channel limitations
+already discussed. Rudd's Table II does not provide an O2 optical fit, so
+this particular optical-constrained experiment is N2 only. The relativistic
+coefficient uses the saturated center function rather than T_s. A separate
+evaluation with gamma_1=0 gives optical ratios 0.869--1.141 on the same
+2--100 eV grid. Neither comparison establishes the complete inclusive optical
+response or behavior outside that finite audit window. At T=0 the
+predicted/reference coefficient is 1.445 in the nonrelativistic limit and
+1.451 in the relativistic limit. The spectrum is finite there, but its
+threshold normalization is not established by fitting points above 2 eV.
+This also needs a channel-resolved optical check; the grouped Table II
+parameterization must not silently become an exact threshold constraint.
+
+The next work is the joint optical/spectral validation for both targets and
+combining the exact hard kernel with a positive molecular-tail treatment.
+Do not append the free Bhabha polynomial outside its domain or hide a failed
+comparison by clipping the SDCS. The endpoint-region angular closure remains
+separate unfinished work.
+
+Twenty-three Python checks cover the original tables, reference quadratures, the
 stable Lorentzian identity, finite optical-strength integral, positive
 spectra, numerical integration, distortion limit, and formal Bhabha/Bethe
 limits. Direct-subtraction checks use a 60-digit independent reference to
 avoid validating a stable expression against an inaccurate double-precision
-subtraction. These tests validate algebra and implementation, not the fit's
+subtraction. Optical checks reproduce the stated finite-window approximation
+and verify that changing the Bethe constant does not rescale its coefficient.
+These tests validate algebra and implementation, not the fit's
 physical acceptance. All added work is host-side reference work; the constant-
 time inverse-CDF GPU interface is unchanged, and no new CUDA/HIP/SYCL
 performance claim is made.
