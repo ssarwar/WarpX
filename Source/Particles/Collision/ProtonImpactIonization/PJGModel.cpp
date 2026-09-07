@@ -121,11 +121,10 @@ namespace ProtonImpactIonization
         projectileState (double const projectile_energy, double const projectile_rest_energy)
         {
             auto const gamma = 1.0 + projectile_energy / projectile_rest_energy;
-            auto const beta_squared = 1.0 - 1.0 / (gamma * gamma);
-            auto const mass_ratio = electron_rest_energy / projectile_rest_energy;
+            auto const beta_squared =
+                relativisticBetaSquared(projectile_energy, projectile_rest_energy);
             auto const maximum_transfer =
-                2.0 * electron_rest_energy * beta_squared * gamma * gamma /
-                (1.0 + 2.0 * gamma * mass_ratio + mass_ratio * mass_ratio);
+                relativisticMaximumTransfer(projectile_energy, projectile_rest_energy);
             return {gamma, beta_squared, 0.5 * electron_rest_energy * beta_squared,
                     maximum_transfer, projectile_energy + projectile_rest_energy};
         }

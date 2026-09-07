@@ -613,8 +613,24 @@ left unchanged. The neutral background is not depleted. For example::
 The corresponding PICMI class is
 ``picmi.ProtonImpactIonizationCollisions``.
 
+The cross section represents the inclusive electron-production yield, not an
+exclusive single-ionization event cross section. Each represented electron
+is accompanied by an effective singly charged molecular ion to preserve
+charge balance. This source does not resolve the actual residual charge
+states, dissociation branches, or correlated multiple-electron emission.
+
 Corrected Porter--Jackman--Green model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. warning::
+
+   The implementation below is a provisional, total-cross-section refit.
+   Correcting the Bhabha remainder does not make its Lorentzian contribution
+   recover the complete free-electron hard tail, and its low-secondary-energy
+   dipole coefficient has not been normalized to optical ionization data.
+   The model is being reconstructed to address these limitations. Agreement
+   with the total cross section and numerical sampling tests alone does not
+   validate the differential spectrum.
 
 The integral ionization cross section and the singly differential cross
 section (SDCS) in ejected-electron kinetic energy :math:`T` use the
@@ -668,6 +684,14 @@ This has the required non-relativistic limit
 expression is smaller by approximately a factor of two in that limit. For an
 800 MeV proton, the exact value is 2.4807396 MeV, whereas the printed expression
 gives 0.670701 MeV.
+
+The host and device evaluate :math:`\beta^2\gamma^2=u(u+2)`, with
+:math:`u=E/(Mc^2)`, to avoid cancellation for slow heavy projectiles in single
+precision. This changes the numerical evaluation, not the kinematics.
+The expression is exact for a free stationary electron. A bound molecular
+electron can be emitted above this binary-collision endpoint because the
+residual ion can recoil. The current implementation nevertheless uses it as
+an absolute cutoff; this is an additional molecular-model approximation.
 
 The last bracket in the SDCS is also corrected against Bhabha's relativistic
 heavy-particle result :cite:t:`b-Bhabha1938`. After extracting the common PJG

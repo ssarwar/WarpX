@@ -7,6 +7,8 @@
 #ifndef WARPX_PARTICLES_COLLISION_PROTONIMPACTIONIZATION_PJGMODEL_H_
 #define WARPX_PARTICLES_COLLISION_PROTONIMPACTIONIZATION_PJGMODEL_H_
 
+#include "RelativisticIonization.H"
+
 #include <AMReX_GpuContainers.H>
 #include <AMReX_REAL.H>
 
@@ -21,11 +23,14 @@ namespace ProtonImpactIonization
         O2
     };
 
-    /** Corrected Porter-Jackman-Green proton-impact ionization model.
+    /** Provisional total-cross-section refit of proton-impact PJG ionization.
      *
      * The model uses the 1977 erratum, exact relativistic two-body maximum
      * energy transfer, and the Bhabha hard-collision remainder. Its distortion
-     * and normalization are refitted to recommended proton data. A table of
+     * and normalization are refitted to recommended proton data. This does not
+     * correct the full hard tail or establish the optical dipole coefficient.
+     * The yield uses an effective electron/ion pair source, not exclusive
+     * single-ionization channels. A table of
      * total cross sections and inverse SDCS quantiles is built on the host, so
      * device calls require only constant-time interpolation.
      */
@@ -140,14 +145,7 @@ namespace ProtonImpactIonization
     PJGModel::Executor::maximumEnergyTransfer (
         amrex::ParticleReal const projectile_energy) const noexcept
     {
-        using namespace amrex::literals;
-
-        constexpr auto electron_rest_energy = 510998.95069_prt;
-        auto const gamma = 1.0_prt + projectile_energy / m_projectile_rest_energy;
-        auto const beta_squared = 1.0_prt - 1.0_prt / (gamma * gamma);
-        auto const mass_ratio = electron_rest_energy / m_projectile_rest_energy;
-        return 2.0_prt * electron_rest_energy * beta_squared * gamma * gamma /
-               (1.0_prt + 2.0_prt * gamma * mass_ratio + mass_ratio * mass_ratio);
+        return relativisticMaximumTransfer(projectile_energy, m_projectile_rest_energy);
     }
 
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void
