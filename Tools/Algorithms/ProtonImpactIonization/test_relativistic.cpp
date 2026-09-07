@@ -141,6 +141,15 @@ namespace
             ProtonImpactIonization::relativisticMaximumTransfer(Real(5000), proton);
         require(maximum > Real(4800) && maximum < Real(5000), "Incorrect N2 molecular endpoint");
         require(free_maximum > Real(10) && free_maximum < Real(11), "Incorrect binary endpoint");
+
+        // Removing the residual ion and binding recovers the free-target limit.
+        for (auto const energy : {Real(1000), Real(8.e8), Real(1.e12)}) {
+            auto const molecular = ProtonImpactIonization::molecularMaximumSecondaryEnergy(
+                energy, proton, Real(510998.95069), Real(0));
+            auto const free = ProtonImpactIonization::relativisticMaximumTransfer(energy, proton);
+            require(std::abs(static_cast<long double>(molecular) / free - 1.L) < tolerance,
+                    "Molecular endpoint does not recover the free-target limit");
+        }
     }
 } // namespace
 
