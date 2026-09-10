@@ -140,9 +140,20 @@ for target in ("N2", "O2"):
         )
         center = free_cosine * (energy + binding / 2) / (energy + binding)
         width = binding / (energy + binding)
-        # Exact mean of the clipped uniform closure, not an angular-data fit.
-        expected_cosine = center - np.maximum(center + width - 1, 0) ** 2 / (4 * width)
+        # Exact moments/CDF of the conditioned uniform closure, not a DDCS fit.
+        lower = np.maximum(-1, center - width)
+        upper = np.minimum(1, center + width)
+        expected_cosine = (lower + upper) / 2
         assert abs(cosine.mean() - expected_cosine.mean()) < 1.5e-2
+        expected_second = (lower**2 + lower * upper + upper**2) / 3
+        assert abs(np.mean(cosine**2) - expected_second.mean()) < 1.5e-2
+        conditional_quantile = (cosine - lower) / (upper - lower)
+        assert np.all(
+            (conditional_quantile > -2e-5) & (conditional_quantile < 1 + 2e-5)
+        )
+        angular_ks = np.max(np.abs(np.sort(conditional_quantile) - empirical))
+        assert angular_ks < 4e-3
+        assert np.count_nonzero(cosine == 1) == 0
         assert cosine[energy >= np.quantile(energy, 0.9)].mean() > (
             cosine[energy <= np.quantile(energy, 0.5)].mean()
         )

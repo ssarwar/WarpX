@@ -972,9 +972,9 @@ In cell :math:`c`, the prescribed source weight per collision call is
    W_c=n_{n,c}\Delta t\sum_{p\in c} w_pZ_p^2\sigma(E_p)v_p.
 
 A checkpointed remainder :math:`R_c` carries fractional product weight.
-If :math:`N_c=\lfloor(W_c+R_c)/w_{\rm fixed}\rfloor` does not exceed
-``max_products_per_cell``, emit :math:`N_c` equal-weight pairs and retain
-the remainder. Otherwise emit the capped number of pairs, each with weight
+If :math:`(W_c+R_c)/w_{\rm fixed}<N_{\rm cap}`, emit
+:math:`N_c=\lfloor(W_c+R_c)/w_{\rm fixed}\rfloor` equal-weight pairs and retain
+the remainder. Otherwise emit ``max_products_per_cell`` pairs, each with weight
 :math:`(W_c+R_c)/N_{\rm cap}`, and clear the remainder. The cap bounds
 work and memory, not physical yield. Systematic parent selection uses
 scores :math:`w_p\sigma(E_p)v_p`; the independent energy shift makes each
@@ -992,25 +992,81 @@ needed to resize particle tiles. Per-cell product loops favor bounded
 distribution, table locality and the selected cap. CUDA/HIP/SYCL use the
 same device executor; CPU timing is not evidence of accelerator throughput.
 
-The electron and effective ion have equal position and weight. Ion velocity
-components have variance :math:`k_BT_n/M_n`, using the product-ion mass
-plus one electron mass as :math:`M_n`, neglecting the binding mass defect.
-The angular closure is not recalibrated in this change. It retains the
-practical IAA-style expression
+Constant neutral inputs are stored directly, without conversion to a
+six-decimal text representation or per-cell parser execution. Product counts
+are scanned in 64 bits and checked against the particle tile's integer index
+limit before resizing. Projectile/product species must be distinct, so growing
+a destination cannot invalidate the rigid beam's pointers. Empty product
+passes are skipped. The selected parent's incident energy, transverse basis
+and free endpoint are reused until the parent changes; thermal speed is
+computed once per cell. Sine/cosine pairs use the AMReX backend-specific joint
+operation. These changes do not alter the calibrated energy spectrum.
+
+Polar, azimuthal and thermal sampling use independently shifted fixed-point
+Kronecker sequences. For coordinate :math:`d`,
 
 .. math::
 
-   \mu=\operatorname{clip}_{[-1,1]}\left[
-   \mu_f\frac{T+I_{\rm eff}/2}{T+I_{\rm eff}}
-   +\frac{I_{\rm eff}}{T+I_{\rm eff}}\xi\right],\quad
-   \xi\sim\mathcal U[-1,1],\quad
+   r_{j,d}=(s_d+j k_d)\bmod 2^{32},\qquad
+   u_{j,d}=(r_{j,d}+1/2)2^{-32}.
+
+Each :math:`s_d` is a uniform 32-bit cell shift; each :math:`k_d` is an odd
+integer approximation to :math:`2^{32}` times the fractional part of one of
+:math:`\sqrt2,\sqrt3,\sqrt5,\sqrt7,\sqrt{11},\sqrt6`, respectively.
+Unsigned arithmetic evaluates the phase exactly, including wraparound.
+The final uniform conversion uses particle precision, with a float
+upper-endpoint rounding guard. Unlike computing the fractional
+part of a large floating-point product, this retains angular and thermal
+coverage for large product indices. Box--Muller sampling uses these positive
+uniforms directly; no arbitrary particle-epsilon cutoff truncates its tail.
+Systematic parent targets are formed from the product index, rather than
+repeatedly incremented with a rounding error that grows with product count.
+
+The electron and effective ion have equal position and weight. Ion velocity
+components have variance :math:`k_BT_n/M_n`, using the product-ion mass
+plus one electron mass as :math:`M_n`, neglecting the binding mass defect.
+The angular closure retains the practical IAA-style center and width, but
+conditions its uniform interval on the physical cosine domain:
+
+.. math::
+
+   a=\mu_f\frac{T+I_{\rm eff}/2}{T+I_{\rm eff}},\qquad
+   b=\frac{I_{\rm eff}}{T+I_{\rm eff}},\qquad
+   L=\max(-1,a-b),\quad U=\min(1,a+b),\quad
+   \mu\sim\mathcal U[L,U],
+
+.. math::
+
    \mu_f=\sqrt{\frac{T_f(T_m+2m)}{T_m(T_f+2m)}},\quad T_f=\min(T,T_m).
+
+The former implementation clipped :math:`a+b\xi`,
+:math:`\xi\sim\mathcal U[-1,1]`, after sampling. Its forward point mass was
+:math:`\max(a+b-1,0)/(2b)`. In particular, at or above the free endpoint,
+:math:`a=1-b/2`, so **one quarter of the draws became exactly forward** for
+any nonzero binding width. Conditioning instead gives the normalized density
+:math:`1/(U-L)` on the allowed interval, without that artificial delta peak.
+There is no new fitting parameter, and intervals already inside :math:`[-1,1]`
+are unchanged. The conditional moments are
+
+.. math::
+
+   \langle\mu\rangle=\frac{L+U}{2},\qquad
+   \langle\mu^2\rangle=\frac{L^2+LU+U^2}{3}.
+
+For :math:`T\to0` with positive binding, :math:`[L,U]\to[-1,1]`, giving
+isotropy. For vanishing binding with :math:`0<T\leq T_m`, the interval
+collapses to the exact free-binary cone. Independently of the endpoint
+formula, that cone obeys :math:`p_p c\,p_e c\,\mu_f=(E+M+m)T`, the outgoing
+projectile mass-shell relation. Tests check these limits, conditional CDFs
+and moments, absence of the finite-width forward atom, unit directions and
+rotation of the incident axis in float and double.
 
 The reference axis becomes forward above the free endpoint; the free
 formula is not evaluated outside its domain. Azimuth is uniform.
 This geometry is not a validated molecular DDCS, does not sample the
-support factor's isotropic fraction, and clipping may create angular point
-masses. The SDCS calibration establishes no angular-accuracy claim.
+support factor's isotropic fraction, and is not a channel-resolved molecular
+recoil construction. The SDCS calibration establishes no angular-accuracy
+claim. The interval conditioning is a minimal regularization, not a new fit.
 Because the beam is not slowed or deflected, neutrals are not depleted,
 and ions receive thermal velocities rather than recoil, the represented
 particle system is not energy- or momentum-closed: beam and background are

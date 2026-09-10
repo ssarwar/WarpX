@@ -7,59 +7,56 @@
 #ifndef WARPX_PARTICLES_COLLISION_PROTONIMPACTIONIZATION_KINEMATICS_H_
 #define WARPX_PARTICLES_COLLISION_PROTONIMPACTIONIZATION_KINEMATICS_H_
 
-#include <AMReX_REAL.H>
+#include <AMReX_Algorithm.H>
+#include <AMReX_GpuQualifiers.H>
 
 #include <cmath>
 
 namespace ProtonImpactIonization
 {
     /** Free-electron binary-encounter polar cosine for a heavy projectile. */
-    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::ParticleReal
-    freeElectronCosine (amrex::ParticleReal const secondary_energy,
-                        amrex::ParticleReal const maximum_transfer) noexcept
+    template <typename Real>
+    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE Real
+    freeElectronCosine (Real const secondary_energy, Real const maximum_transfer) noexcept
     {
-        using namespace amrex::literals;
         using std::sqrt;
 
-        if (secondary_energy <= 0.0_prt || maximum_transfer <= 0.0_prt) {
-            return 0.0_prt;
+        if (secondary_energy <= Real(0) || maximum_transfer <= Real(0)) {
+            return Real(0);
         }
-        constexpr auto electron_rest_energy = 510998.95069_prt;
+        constexpr auto electron_rest_energy = Real(510998.95069);
         // The energy model has a molecular tail. Its free reference direction
         // is forward above Tmax; do not evaluate free kinematics out of domain.
         auto const free_energy = amrex::min(secondary_energy, maximum_transfer);
-        return sqrt(
-            amrex::max(free_energy * (maximum_transfer + 2.0_prt * electron_rest_energy) /
-                           (maximum_transfer * (free_energy + 2.0_prt * electron_rest_energy)),
-                       0.0_prt));
+        return sqrt(amrex::min(
+            Real(1), free_energy * (maximum_transfer + Real(2) * electron_rest_energy) /
+                         (maximum_transfer * (free_energy + Real(2) * electron_rest_energy))));
     }
 
     /** Practical IAA bound/free angular closure for heavy-projectile ionization.
      *
      * The free-electron factor is replaced by the exact heavy-projectile
      * binary-encounter cosine. The original IAA binding interpolation and its
-     * isotropic bound component are retained.
+     * isotropic bound component are retained. Condition the resulting uniform
+     * interval on [-1,1], rather than clipping draws to a delta peak at mu=1.
      */
-    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::ParticleReal
-    polarCosine (amrex::ParticleReal const secondary_energy,
-                 amrex::ParticleReal const binding_energy,
-                 amrex::ParticleReal const maximum_transfer,
-                 amrex::ParticleReal const bound_uniform) noexcept
+    template <typename Real>
+    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE Real
+    polarCosine (Real const secondary_energy, Real const binding_energy,
+                 Real const maximum_transfer, Real const bound_uniform) noexcept
     {
-        using namespace amrex::literals;
-
         auto const denominator = secondary_energy + binding_energy;
-        auto const bound_cosine = 2.0_prt * bound_uniform - 1.0_prt;
-        if (denominator <= 0.0_prt) {
-            return bound_cosine;
+        if (denominator <= Real(0)) {
+            return Real(2) * bound_uniform - Real(1);
         }
 
         auto const free_cosine = freeElectronCosine(secondary_energy, maximum_transfer);
-        return amrex::max(
-            -1.0_prt,
-            amrex::min(free_cosine * (secondary_energy + 0.5_prt * binding_energy) / denominator +
-                           binding_energy / denominator * bound_cosine,
-                       1.0_prt));
+        auto const center =
+            free_cosine * (secondary_energy + Real(.5) * binding_energy) / denominator;
+        auto const width = binding_energy / denominator;
+        auto const lower = amrex::max(Real(-1), center - width);
+        auto const upper = amrex::min(Real(1), center + width);
+        return (Real(1) - bound_uniform) * lower + bound_uniform * upper;
     }
 } // namespace ProtonImpactIonization
 

@@ -110,6 +110,18 @@ The sampling test uses analytic spectra with different parent energies to
 check conditional quantile uniformity, moments, stratification and
 parent-order invariance. An ordered energy sequence paired with ordered
 parents is not a valid mixed-energy sampler.
+It also checks fixed-point angular/thermal phases at large sequence indices,
+including float precision and wraparound near 2^32. Floating multiplication
+followed by a fractional part loses these phases at large indices.
+
+The angular test runs the production closure on the device for float/double,
+5 keV–10 GeV protons, zero/soft/hard/above-free-endpoint secondaries and
+several bindings. It checks the conditional CDF, first/second angular moments,
+unit directions, rotation of the incident axis and the independent free
+projectile mass-shell equation. Conditioning the uniform IAA-inspired interval
+on physical cosines removes the former clipping-induced point mass at the
+forward direction (25% at and above free Tmax for nonzero binding). This
+change does not alter the calibrated SDCS or its parameters.
 
 The model test initializes AMReX, builds the actual production tables and
 runs the executor through `amrex::ParallelFor`. It compares host SDCS and
@@ -136,8 +148,14 @@ ctest --test-dir build -R proton_impact_ionization --output-on-failure
 
 They check represented yield, paired weights/positions, unchanged beams,
 electron-energy distributions, above-free tails, thermal-ion velocities
-and bounded product counts. Checkpoint/restart of the existing remainder
-is not newly covered by these cases.
+and bounded product counts. Added cases check 1e-8 K neutrals (constant and
+parser inputs), rejection of projectile/product species aliasing, and the
+emitted-weight-plus-remainder budget over seven steps. The latter compares
+coarse/fine product weights, a density pulse that switches off, and bare-alpha
+Z^2 scaling at fixed speed, allowing for the finite-projectile-mass correction.
+The angular analysis checks conditional CDFs and second moments as well as
+the mean direction. Checkpoint/restart of the existing remainder is not newly
+covered by these cases.
 
 ## Performance and numerical results
 
@@ -153,20 +171,32 @@ seven timed passes over 2^20 events with interleaved incident energies,
 and reports the median/range plus a checksum. It includes total lookup,
 energy/binding sampling, input-energy generation and output stores.
 The quantile-only benchmark is a separate host diagnostic; its ordered
-baseline is not a valid source algorithm.
+baseline is not a valid source algorithm. It also compares floating and
+fixed-point angular/thermal phases at large indices and prints their second
+moments. The floating float sequence can collapse to zero; the fixed-point
+sequence retains the uniform second moment of 1/3 at comparable host cost.
 
 The September 2026 Apple M3 Pro CPU run used Clang 19, release optimization,
 one OpenMP thread, AMReX particle-double precision, NumPy 2.5.1 and SciPy 1.18.0.
-The measured model-kernel medians were 23.77/30.37 ns per event for N2
-(float/double) and 24.18/30.88 ns for O2. These are not GPU timings or a
+The measured model-kernel medians were 22.85/29.09 ns per event for N2
+(float/double) and 22.68/28.10 ns for O2. These are not GPU timings or a
 controlled speedup comparison with the superseded implementation.
 
 For the 512-cell PIC smoke cases (32768 beam particles, five steps and
-20480 capped pairs), measured startup was 0.372 s for N2 and 0.394 s for
-O2. The five timesteps took 0.00975 s and 0.00977 s, respectively, or about
-16.8 million parent-particle collision calls per second. These cases disable
+20480 capped pairs), five repeated runs gave median startup times of 0.364 s
+for N2 and 0.378 s for O2. The five timesteps took 0.00920 s and 0.00902 s,
+respectively, or 17.8/18.2 million parent-particle collision calls per second.
+The timestep ranges were 0.00880–0.00961 s and 0.00878–0.00937 s. These cases disable
 particle pushing, gathering and deposition to isolate the source workflow;
 they are not full electromagnetic-simulation throughput measurements.
+
+The source audit hoists the neutral thermal speed out of the product loop,
+reuses the selected parent's frame and free endpoint, bypasses parsers for
+constant backgrounds, and skips product work in empty-source tiles. Counts
+are scanned in 64 bits before checking particle-tile indexing limits.
+Fixed-point angular/thermal phases remove a float accuracy failure at roughly
+the same host cost (about 0.75–0.78 ns per phase in the microbenchmark).
+These measurements do not isolate a causal speedup for each optimization.
 
 Across 49 incident energies and both table precisions, maximum relative
 errors were below 0.030% (total), 0.013% (mean), 0.077% (second moment)
@@ -184,7 +214,8 @@ For local MPICH builds whose libfabric sockets provider stalls at shutdown,
 `FI_PROVIDER=tcp` was required in this environment. This is a test-host
 setting, not a WarpX input or a model change.
 
-All three standalone tests also passed with AppleClang 21 and
+All four standalone tests also passed with native single-precision particles,
+and with AppleClang 21 and
 `-fsanitize=address,undefined -fno-omit-frame-pointer`. The model and test
 sources were instrumented; the linked release AMReX library was not.
 The conda Clang 19 AddressSanitizer runtime stalled in shadow-memory
