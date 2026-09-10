@@ -49,14 +49,15 @@ public:
          * @param fixed_binding_energy fixed loss for the equal-sharing model,
          * in eV
          * @param shell_draw uniform random number for subshell selection
-         * @param energy_draw uniform random number for inverse-CDF sampling
+         * @param energy_draw double-precision uniform for the rare inverse-CDF
+         * tail
          * @param binding_energy sampled binding-energy loss in eV
          * @param secondary_energy sampled secondary-electron energy in eV
          */
         AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void
         sampleEnergy (amrex::ParticleReal const incident_energy,
                       amrex::ParticleReal const fixed_binding_energy,
-                      amrex::ParticleReal const shell_draw, amrex::ParticleReal const energy_draw,
+                      amrex::ParticleReal const shell_draw, double const energy_draw,
                       amrex::ParticleReal& binding_energy,
                       amrex::ParticleReal& secondary_energy) const noexcept
         {
@@ -175,19 +176,22 @@ public:
                 // finite near-threshold continuation used until the complete
                 // differential distribution becomes non-negative.
                 secondary_energy =
-                    0.5_prt * available_energy * amrex::max(
-                        0.0_prt, amrex::min(energy_draw, 1.0_prt));
+                    0.5_prt * available_energy *
+                    static_cast<amrex::ParticleReal>(amrex::max(0.0, amrex::min(energy_draw, 1.0)));
                 return;
             }
 
             // Invert q = x^4/(x^4 + (1-x)^4). The transformed coordinate
             // prevents the physical W_max endpoint from contaminating the
             // high-energy distribution while retaining fixed device work.
-            auto const probability = amrex::max(
-                0.0_prt, amrex::min(energy_draw, 1.0_prt));
+            auto const draw = amrex::max(0.0, amrex::min(energy_draw, 1.0));
+            auto const probability = static_cast<amrex::ParticleReal>(draw);
+            // Form the survival probability before narrowing: a float q can
+            // round to one even though (1-q) resolves a physically important
+            // tail.
+            auto const complement = static_cast<amrex::ParticleReal>(1.0 - draw);
             auto const probability_root = std::sqrt(std::sqrt(probability));
-            auto const complement_root =
-                std::sqrt(std::sqrt(amrex::max(1.0_prt - probability, 0.0_prt)));
+            auto const complement_root = std::sqrt(std::sqrt(complement));
             auto const root_sum = probability_root + complement_root;
             auto const transformed_draw =
                 root_sum > 0.0_prt ? probability_root / root_sum : 0.0_prt;

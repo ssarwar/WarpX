@@ -105,7 +105,10 @@ public:
                 const amrex::ParticleReal temp =
                     (E_coll - m_energies_data[idx_1])
                     / (m_energies_data[idx_2] - m_energies_data[idx_1]);
-                return m_sigmas_data[idx_1] + (m_sigmas_data[idx_2] - m_sigmas_data[idx_1]) * temp;
+                // A convex sum preserves small positive endpoints on a falling
+                // table; lo + f*(hi-lo) can cancel even at the last knot.
+                return (amrex::ParticleReal(1) - temp) * m_sigmas_data[idx_1] +
+                       temp * m_sigmas_data[idx_2];
             }
         }
 

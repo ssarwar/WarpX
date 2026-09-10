@@ -10,6 +10,7 @@
 #include "Utils/WarpXConst.H"
 
 #include <AMReX_Algorithm.H>
+#include <AMReX_Math.H>
 #include <AMReX_REAL.H>
 
 #include <cmath>
@@ -102,8 +103,9 @@ namespace BackgroundMCCKinematics
         double const cosine, double const azimuth) noexcept
     {
         auto const sine = std::sqrt(amrex::max(1.0 - cosine * cosine, 0.0));
+        auto const [azimuth_sine, azimuth_cosine] = amrex::Math::sincos(azimuth);
         auto const transverse =
-            add(scale(transverse_1, std::cos(azimuth)), scale(transverse_2, std::sin(azimuth)));
+            add(scale(transverse_1, azimuth_cosine), scale(transverse_2, azimuth_sine));
         return add(scale(incident_direction, cosine), scale(transverse, sine));
     }
 

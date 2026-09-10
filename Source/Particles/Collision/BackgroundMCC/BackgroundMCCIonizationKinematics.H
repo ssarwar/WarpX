@@ -41,9 +41,9 @@ namespace BackgroundMCCIonizationKinematics
 
     /** Return the three-product energy residual and its exact derivative.
      *
-     * Momenta are represented as pc in eV. This avoids subtracting ion rest
-     * energies and makes the fixed-count Newton solve well conditioned from
-     * threshold through relativistic incident energies.
+     * Momenta are represented as pc in eV. Rationalizing the ion kinetic
+     * energy avoids subtracting nearly equal ion rest energies, including
+     * close to threshold.
      */
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE double
     energyResidual (double const electron_energy, double const available_energy,
@@ -91,17 +91,21 @@ namespace BackgroundMCCIonizationKinematics
         return electron_energy + ion_energy - available_energy;
     }
 
-    /** Compute electron-ion impact-ionization kinematics in the neutral rest frame.
+    /** Compute electron-ion impact-ionization kinematics in the neutral rest
+     * frame.
      *
-     * For the IAA model, the primary polar angle follows Schmalzried Eq. (2.60),
-     * and the secondary uses the bound/free interpolation of Eq. (11.132).
-     * The two electron azimuths differ by pi, which gives the natural
+     * For the IAA model, the primary polar angle follows Schmalzried Eq.
+     * (2.60), and the secondary uses the bound/free interpolation of Eq.
+     * (11.132). The two electron azimuths differ by pi, which gives the natural
      * coplanar binary-encounter geometry while the ion absorbs the residual
-     * momentum. Three fixed Newton updates conserve kinetic plus binding energy
-     * without a device-side convergence loop.
+     * momentum. Three Newton updates handle the usual regime; a checked,
+     * bounded fallback handles large recoil. An inadmissible draw is a null
+     * collision, without modifying the source or returning unphysical products.
      *
-     * @param incident_ux,incident_uy,incident_uz incident lab-frame proper velocity
-     * @param neutral_vx,neutral_vy,neutral_vz sampled neutral lab-frame velocity
+     * @param incident_ux,incident_uy,incident_uz incident lab-frame proper
+     * velocity
+     * @param neutral_vx,neutral_vy,neutral_vz sampled neutral lab-frame
+     * velocity
      * @param electron_mass electron rest mass in kg
      * @param ion_mass product-ion rest mass in kg
      * @param binding_energy binding-energy loss in eV
@@ -110,10 +114,13 @@ namespace BackgroundMCCIonizationKinematics
      * @param angle_model selected scattering-angle model
      * @param engine random-number engine
      * @param primary_ux,primary_uy,primary_uz outgoing primary proper velocity
-     * @param secondary_ux,secondary_uy,secondary_uz outgoing secondary proper velocity
+     * @param secondary_ux,secondary_uy,secondary_uz outgoing secondary proper
+     * velocity
      * @param ion_ux,ion_uy,ion_uz outgoing ion proper velocity
+     * @return true if the three-product kinetic plus binding energy is
+     * conserved
      */
-    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void
+    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE bool
     compute (amrex::ParticleReal const incident_ux, amrex::ParticleReal const incident_uy,
              amrex::ParticleReal const incident_uz, amrex::ParticleReal const neutral_vx,
              amrex::ParticleReal const neutral_vy, amrex::ParticleReal const neutral_vz,
@@ -162,6 +169,9 @@ namespace BackgroundMCCIonizationKinematics
 
         auto const incident_energy = kineticEnergyFromProperVelocity(incident_rest, electron_mass);
         auto const binding = static_cast<double>(binding_energy);
+        if (incident_energy <= binding) {
+            return false;
+        }
         auto const available_energy = amrex::max(incident_energy - binding, 0.0);
         auto const sharing =
             amrex::max(0.0, amrex::min(static_cast<double>(secondary_fraction), 0.5));
@@ -240,6 +250,47 @@ namespace BackgroundMCCIonizationKinematics
                 0.0, amrex::min(electron_energy - residual / derivative, available_energy));
         }
 
+        double derivative;
+        auto residual =
+            energyResidual(electron_energy, available_energy, incident_energy, electron_rest_energy,
+                           ion_rest_energy, sharing, incident_direction, primary_direction,
+                           secondary_direction, derivative);
+        auto const tolerance = 16.0 * std::numeric_limits<double>::epsilon() * incident_energy;
+        if (std::abs(residual) > tolerance) {
+            // A fixed iteration count alone is not an accuracy guarantee at
+            // relativistic energies or very close to the recoil threshold.
+            double unused_derivative;
+            auto const lower_residual =
+                energyResidual(0.0, available_energy, incident_energy, electron_rest_energy,
+                               ion_rest_energy, sharing, incident_direction, primary_direction,
+                               secondary_direction, unused_derivative);
+            auto const bracketed = lower_residual <= 0.0;
+            double lower = 0.0;
+            double upper = available_energy;
+            for (int iteration = 0; iteration < 48 && std::abs(residual) > tolerance; ++iteration) {
+                if (bracketed) {
+                    if (residual > 0.0) {
+                        upper = electron_energy;
+                    } else {
+                        lower = electron_energy;
+                    }
+                }
+                auto const candidate = electron_energy - residual / derivative;
+                electron_energy = bracketed && !(candidate > lower && candidate < upper)
+                                      ? 0.5 * (lower + upper)
+                                      : amrex::max(0.0, amrex::min(candidate, available_energy));
+                residual = energyResidual(electron_energy, available_energy, incident_energy,
+                                          electron_rest_energy, ion_rest_energy, sharing,
+                                          incident_direction, primary_direction,
+                                          secondary_direction, derivative);
+            }
+        }
+        // Close to threshold, the selected angles/sharing can have no physical
+        // root even when the channel's overall threshold has been crossed.
+        if (!(std::abs(residual) <= tolerance)) {
+            return false;
+        }
+
         auto const final_secondary_energy = sharing * electron_energy;
         auto const final_primary_energy = electron_energy - final_secondary_energy;
         auto const primary_rest = scale(
@@ -267,6 +318,7 @@ namespace BackgroundMCCIonizationKinematics
         ion_ux = static_cast<amrex::ParticleReal>(ion_lab.x);
         ion_uy = static_cast<amrex::ParticleReal>(ion_lab.y);
         ion_uz = static_cast<amrex::ParticleReal>(ion_lab.z);
+        return true;
     }
 } // namespace BackgroundMCCIonizationKinematics
 

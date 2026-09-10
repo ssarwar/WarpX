@@ -17,7 +17,9 @@
 #include <AMReX_GpuContainers.H>
 #include <AMReX_ParallelDescriptor.H>
 #include <AMReX_Particle.H>
+#include <AMReX_ParticleUtil.H>
 #include <AMReX_REAL.H>
+#include <AMReX_Reduce.H>
 #include <AMReX_Vector.H>
 
 #include <algorithm>
@@ -256,19 +258,20 @@ public:
                     int const electron_index =
                         old_source_index + group_metadata.m_electron_offset + group_offset;
                     copy_electron(source, source, source_index, electron_index, engine);
-                    ionization_transform(source,
-                        product,
-                        source,
-                        source_index,
-                        electron_index,
-                        product_index,
-                        process,
-                        event.m_collision_energy,
-                        event.m_neutral_vx,
-                        event.m_neutral_vy,
-                        event.m_neutral_vz,
-                        product_masses[group],
-                        engine);
+                    auto const accepted = ionization_transform(
+                        source, product, source, source_index, electron_index, product_index,
+                        process, event.m_collision_energy, event.m_neutral_vx, event.m_neutral_vy,
+                        event.m_neutral_vz, product_masses[group], engine);
+                    if (!accepted) {
+                        // An inadmissible recoil draw is a null collision.
+                        // The source is unchanged. Compact the reserved slots
+                        // after this kernel, before another collision operator.
+                        source.m_idcpu[electron_index] = amrex::ParticleIdCpus::Invalid;
+                        product.m_idcpu[product_index] = amrex::ParticleIdCpus::Invalid;
+                        source.m_rdata[PIdx::w][electron_index] = 0.0;
+                        product.m_rdata[PIdx::w][product_index] = 0.0;
+                        return;
+                    }
                     source.m_idcpu[electron_index] = amrex::SetParticleIDandCPU(
                         first_electron_id + group_metadata.m_electron_offset +
                             group_offset,
@@ -301,6 +304,25 @@ public:
         // Particle-tile data and group offsets are local temporaries. Complete
         // every dependent kernel before their device storage leaves scope.
         amrex::Gpu::synchronize();
+        bool const rejected =
+            total_ionization_events > 0 &&
+            amrex::Reduce::AnyOf(total_ionization_events, source_data.m_idcpu + old_source_count,
+                                 [] AMREX_GPU_HOST_DEVICE(auto const id) noexcept {
+                                     return id == amrex::ParticleIdCpus::Invalid;
+                                 });
+        if (rejected) {
+            // Attachment already asks the caller to compact the source tile.
+            if (attachment_events == 0) {
+                amrex::removeInvalidParticles(source_tile);
+            }
+            for (std::size_t group = 0; group < group_count; ++group) {
+                if (product_counts[group] > 0 &&
+                    static_cast<ScatteringProcessType>(m_product_group_types_h[group]) ==
+                        ScatteringProcessType::IONIZATION) {
+                    amrex::removeInvalidParticles(*product_tiles[group]);
+                }
+            }
+        }
         return attachment_events;
     }
 

@@ -93,8 +93,7 @@ BackgroundMCCProcessSelector::BackgroundMCCProcessSelector (
                     static_cast<long double>(cross_sections[interval]);
                 auto const cross_section_hi =
                     static_cast<long double>(cross_sections[interval + 1u]);
-                cross_section = cross_section_lo +
-                    fraction * (cross_section_hi - cross_section_lo);
+                cross_section = (1.0L - fraction) * cross_section_lo + fraction * cross_section_hi;
             }
 
             cumulative[energy_index] += cross_section;

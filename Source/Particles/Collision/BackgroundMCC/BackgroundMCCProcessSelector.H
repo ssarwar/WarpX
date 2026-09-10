@@ -32,6 +32,13 @@ public:
 
     struct Executor
     {
+        struct Interpolation
+        {
+            int m_energy_index = 0;
+            amrex::ParticleReal m_energy_fraction = 0.0;
+            amrex::ParticleReal m_total = 0.0;
+        };
+
         /** Select the process whose cumulative cross section contains a draw.
          *
          * @param collision_energy electron collision energy in eV
@@ -45,11 +52,20 @@ public:
             int& selected_process,
             amrex::ParticleReal& total_cross_section) const noexcept
         {
-            using namespace amrex::literals;
+            auto const state = interpolate(collision_energy);
+            total_cross_section = state.m_total;
+            selected_process = select(state, cross_section_draw);
+        }
 
-            selected_process = -1;
-            total_cross_section = 0.0_prt;
-            if (!enabled()) { return; }
+        /** Locate the energy interval once, before the physical-event
+         * rejection. */
+        [[nodiscard]] AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE Interpolation
+        interpolate (amrex::ParticleReal const collision_energy) const noexcept
+        {
+            using namespace amrex::literals;
+            if (!enabled()) {
+                return {};
+            }
 
             int energy_index = 0;
             amrex::ParticleReal energy_fraction = 0.0_prt;
@@ -67,24 +83,34 @@ public:
                     (m_energies[energy_index + 1] - m_energies[energy_index]);
             }
 
-            total_cross_section = cumulativeCrossSection(
-                m_process_count - 1, energy_index, energy_fraction);
-            if (!(cross_section_draw < total_cross_section)) { return; }
+            auto const total =
+                cumulativeCrossSection(m_process_count - 1, energy_index, energy_fraction);
+            return {energy_index, energy_fraction, total};
+        }
+
+        /** Select a channel using an already located energy interval. */
+        [[nodiscard]] AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE int
+        select (Interpolation const& state,
+                amrex::ParticleReal const cross_section_draw) const noexcept
+        {
+            if (!(cross_section_draw < state.m_total)) {
+                return -1;
+            }
 
             int process_lo = 0;
             int process_hi = m_process_count - 1;
             while (process_lo < process_hi)
             {
                 auto const process_mid = process_lo + (process_hi - process_lo) / 2;
-                auto const cumulative = cumulativeCrossSection(
-                    process_mid, energy_index, energy_fraction);
+                auto const cumulative = cumulativeCrossSection(process_mid, state.m_energy_index,
+                                                               state.m_energy_fraction);
                 if (cross_section_draw < cumulative) {
                     process_hi = process_mid;
                 } else {
                     process_lo = process_mid + 1;
                 }
             }
-            selected_process = process_lo;
+            return process_lo;
         }
 
         [[nodiscard]] AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE bool
@@ -108,8 +134,9 @@ public:
         {
             auto const index = process_index * m_energy_count + energy_index;
             auto const value_lo = m_cumulative_cross_sections[index];
-            return value_lo + energy_fraction *
-                (m_cumulative_cross_sections[index + 1] - value_lo);
+            // Preserve positivity and both endpoints, even for large ratios.
+            return (amrex::ParticleReal(1) - energy_fraction) * value_lo +
+                   energy_fraction * m_cumulative_cross_sections[index + 1];
         }
     };
 

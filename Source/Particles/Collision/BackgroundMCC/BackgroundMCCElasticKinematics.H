@@ -220,11 +220,11 @@ namespace BackgroundMCCElasticKinematics
             electron_rest_energy * electron_rest_energy;
         if (angular_scale > 0.0 && kallen_quarter < angular_scale)
         {
-            auto const minimum_abs_cosine = std::sqrt(amrex::max(
-                1.0 - kallen_quarter / angular_scale, 0.0));
-            if (std::abs(cosine) < minimum_abs_cosine) {
-                cosine = cosine < 0.0 ? -minimum_abs_cosine : minimum_abs_cosine;
-            }
+            auto const minimum_cosine =
+                std::sqrt(amrex::max(1.0 - kallen_quarter / angular_scale, 0.0));
+            // Squaring the energy equation also admits a backward cone with
+            // negative outgoing momentum. Only the forward cone is physical.
+            cosine = amrex::max(cosine, minimum_cosine);
         }
 
         auto const total_energy = incident_total_energy + neutral_rest_energy;
@@ -237,12 +237,27 @@ namespace BackgroundMCCElasticKinematics
             neutral_rest_energy * (incident_total_energy - loss) - 0.5 * loss * loss;
         auto const radicand = amrex::max(
             kallen_quarter - angular_scale * (1.0 - cosine * cosine), 0.0);
-        auto const outgoing_total_energy = coefficient > 0.0
-            ? (total_energy * linear_term + incident_pc * cosine * std::sqrt(radicand)) /
-                coefficient
-            : electron_rest_energy;
+        // Solve for pc instead of subtracting m_e*c^2 from the outgoing total
+        // energy. Rationalize the backward root to avoid cancellation there
+        // too.
+        auto const projected_pc = incident_pc * cosine;
+        auto const root = std::sqrt(radicand);
+        auto const linear_minus_rest =
+            (neutral_rest_energy - electron_rest_energy) * (incident_kinetic_energy - loss) -
+            electron_rest_energy * loss - 0.5 * loss * loss;
+        auto const backward_denominator = total_energy * root - projected_pc * linear_term;
+        auto const outgoing_pc =
+            cosine >= 0.0
+                ? (projected_pc * linear_term + total_energy * root) / coefficient
+                : (backward_denominator > 0.0
+                       ? linear_minus_rest * (linear_term + total_energy * electron_rest_energy) /
+                             backward_denominator
+                       : 0.0);
+        auto const outgoing_pc_sq = outgoing_pc * outgoing_pc;
         auto const outgoing_kinetic_energy =
-            amrex::max(outgoing_total_energy - electron_rest_energy, 0.0);
+            outgoing_pc_sq /
+            (std::sqrt(electron_rest_energy * electron_rest_energy + outgoing_pc_sq) +
+             electron_rest_energy);
 
         auto const azimuth = two_pi * static_cast<double>(amrex::Random(engine));
         auto const outgoing_direction = directionFromPolarAngle(
