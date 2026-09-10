@@ -231,6 +231,28 @@ add_warpx_test(
     OFF  # dependency
 )
 
+foreach(case IN ITEMS low_energy mixed)
+    add_warpx_test(
+        test_3d_proton_impact_ionization_${case}_picmi
+        3
+        1
+        inputs_test_3d_proton_impact_ionization_${case}_picmi.py
+        "analysis_proton_impact_ionization.py"
+        OFF
+        OFF
+    )
+endforeach()
+
+add_warpx_test(
+    test_3d_proton_impact_ionization_o2_performance_picmi
+    3
+    1
+    inputs_test_3d_proton_impact_ionization_o2_performance_picmi.py
+    "analysis_proton_impact_ionization_performance.py"
+    OFF
+    OFF
+)
+
 add_warpx_test(
     test_rz_collision  # name
     RZ  # dims
