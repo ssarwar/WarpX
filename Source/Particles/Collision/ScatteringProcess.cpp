@@ -11,6 +11,7 @@
 #include "Utils/TextMsg.H"
 
 #include <algorithm>
+#include <cmath>
 
 ScatteringProcess::ScatteringProcess (
                         const std::string& scattering_process,
@@ -43,6 +44,23 @@ ScatteringProcess::init (const std::string& scattering_process, const amrex::Par
                          const ScatteringAngleModel scattering_angle_model)
 {
     using namespace amrex::literals;
+
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+        m_energies.size() == m_sigmas_h.size(),
+        "Cross-section energy and value arrays must have the same length."
+    );
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+        m_energies.size() >= 2u,
+        "Cross-section tables must contain at least two points."
+    );
+    sanityCheckEnergyGrid(m_energies);
+    for (auto const sigma : m_sigmas_h) {
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            std::isfinite(static_cast<double>(sigma)) && sigma >= 0.0_prt,
+            "Cross-section values must be finite and non-negative."
+        );
+    }
+
     m_exe_h.m_energies_data = m_energies.data();
     m_exe_h.m_sigmas_data = m_sigmas_h.data();
 
@@ -68,9 +86,6 @@ ScatteringProcess::init (const std::string& scattering_process, const amrex::Par
         m_exe_h.m_type == ScatteringProcessType::IONIZATION ||
         m_exe_h.m_type == ScatteringProcessType::TWOPRODUCT_REACTION ||
         m_exe_h.m_type == ScatteringProcessType::CHARGE_EXCHANGE);
-
-    // sanity check cross-section energy grid
-    sanityCheckEnergyGrid(m_energies);
 
     // check that the cross-section is 0 at the energy cost if the energy
     // cost is > 0 - this is to prevent the possibility of negative left
@@ -140,10 +155,17 @@ ScatteringProcess::sanityCheckEnergyGrid (
                                    const amrex::Vector<amrex::ParticleReal>& energies
                                    )
 {
-    // The energy grid does not need to be evenly spaced, but it must be sorted in
-    // strictly increasing order for the bisection search and linear interpolation
-    // used in `Executor::getCrossSection` to work correctly.
+    // The energy grid does not need to be evenly spaced, but it must be finite,
+    // non-negative and sorted in strictly increasing order for interpolation.
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+        std::isfinite(static_cast<double>(energies[0])) && energies[0] >= 0.0,
+        "Cross-section energies must be finite and non-negative."
+    );
     for (unsigned i = 1; i < energies.size(); i++) {
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            std::isfinite(static_cast<double>(energies[i])) && energies[i] >= 0.0,
+            "Cross-section energies must be finite and non-negative."
+        );
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
                                          (energies[i] > energies[i-1]),
                                          "Cross-section energy grid must be sorted in "
