@@ -66,7 +66,8 @@ Index filterCopyTransformParticles (DstPC& pc, DstTile& dst, SrcTile& src,
     auto total = amrex::Scan::ExclusiveSum(np, mask, offsets.data());
     const Index num_added = N * total;
     auto old_np = dst.size();
-    auto new_np = std::max(dst_index + num_added, dst.numParticles());
+    auto const new_np = std::max(
+                dst_index + num_added, static_cast<Index>(dst.numParticles()));
     dst.resize(new_np);
 
     auto *const p_offsets = offsets.dataPtr();
@@ -216,11 +217,13 @@ Index filterCopyTransformParticles (DstPC& pc1, DstPC& pc2, DstTile& dst1, DstTi
     auto total = amrex::Scan::ExclusiveSum(np, mask, offsets.data());
     const Index num_added = N * total;
     auto old_np1 = dst1.size();
-    auto new_np1 = std::max(dst1_index + num_added, dst1.numParticles());
+    auto const new_np1 = std::max(
+                dst1_index + num_added, static_cast<Index>(dst1.numParticles()));
     dst1.resize(new_np1);
 
     auto old_np2 = dst2.size();
-    auto new_np2 = std::max(dst2_index + num_added, dst2.numParticles());
+    auto const new_np2 = std::max(
+                dst2_index + num_added, static_cast<Index>(dst2.numParticles()));
     dst2.resize(new_np2);
 
     auto *p_offsets = offsets.dataPtr();

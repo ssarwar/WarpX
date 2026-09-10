@@ -3322,7 +3322,16 @@ class MCCCollisions(picmistandard.base._ClassWithInit):
         The temperature of the background. An string expression as a function of (x, y, z, t) can be used.
 
     scattering_processes: dictionary
-        The scattering process to use and any needed information
+        The scattering processes and their parameters. Each entry requires a
+        ``cross_section`` path. Background-MCC ionization and attachment entries
+        also require a product ``species``. Attachment entries require
+        ``cross_section_units`` equal to ``"m2"`` or ``"m5"``; ``"m5"``
+        additionally requires ``third_body_density`` in m^-3. Ionization entries
+        can select ``energy_sharing_model="RBEQ"`` with an ``rbeq_target`` of
+        ``"N2"`` or ``"O2"``, independently of their ``scattering_angle_model``.
+        The ``"IAA"`` angle model implements IAA ionization kinematics or, for
+        elastic electron scattering, samples the required
+        ``differential_cross_section`` table.
 
     background_mass: float, optional
         The mass of the background particle. If not supplied, the default depends
@@ -3330,7 +3339,13 @@ class MCCCollisions(picmistandard.base._ClassWithInit):
 
     max_background_density: float
         The maximum background density. When the background_density is an expression, this must also
-        be specified.
+        be specified unless ``nu_max`` is supplied.
+
+    nu_max: float, optional
+        User-supplied null-collision majorant in s^-1. When supplied, automatic
+        construction from the cross-section tables is skipped. The value must
+        bound the sum of all process collision frequencies for every particle
+        state and background density encountered by this collision object.
 
     ndt_supercycle: integer, optional
         Run collision once every ndt_supercycle PIC time steps
@@ -3352,6 +3367,7 @@ class MCCCollisions(picmistandard.base._ClassWithInit):
         scattering_processes,
         background_mass=None,
         max_background_density=None,
+        nu_max=None,
         ndt_supercycle=None,
         ndt_subcycle=None,
         **kw,
@@ -3363,6 +3379,7 @@ class MCCCollisions(picmistandard.base._ClassWithInit):
         self.background_mass = background_mass
         self.scattering_processes = scattering_processes
         self.max_background_density = max_background_density
+        self.nu_max = nu_max
         self.ndt_supercycle = ndt_supercycle
         self.ndt_subcycle = ndt_subcycle
 
@@ -3392,6 +3409,7 @@ class MCCCollisions(picmistandard.base._ClassWithInit):
             collision.background_temperature = self.background_temperature
         collision.background_mass = self.background_mass
         collision.max_background_density = self.max_background_density
+        collision.nu_max = self.nu_max
         collision.ndt_supercycle = self.ndt_supercycle
         collision.ndt_subcycle = self.ndt_subcycle
 
@@ -3401,6 +3419,124 @@ class MCCCollisions(picmistandard.base._ClassWithInit):
                 if key == "species":
                     val = val.name
                 collision.add_new_attr(process + "_" + key, val)
+
+
+class ProtonImpactIonizationCollisions(picmistandard.base._ClassWithInit):
+    """Configure rigid-beam proton or bare-ion impact ionization.
+
+    The calibrated PJG-type N2/O2 SDCS represents inclusive electron yield
+    with effective electron/ion pairs, not exclusive single ionization.
+    All secondary energies are kinetic; ions inherit neutral thermal velocities.
+
+    Parameters
+    ----------
+    name: string
+        Name of the collision instance.
+
+    species: species instance
+        Positively charged projectile species. Its momentum is not changed.
+
+    product_species: list of species instances
+        Electron species followed by the singly charged molecular-ion species.
+
+    ionization_target: string
+        Molecular neutral target, either ``"N2"`` or ``"O2"``.
+
+    background_density: float or string
+        Neutral density in m^-3, or an expression in ``(x, y, z, t)``.
+
+    background_temperature: float or string
+        Neutral temperature in K, or an expression in ``(x, y, z, t)``.
+
+    fixed_product_weight: float
+        Desired electron-ion pair macroparticle weight.
+
+    max_products_per_cell: integer, optional
+        Maximum pairs created in one cell and collision call. Excess expected
+        weight is preserved by increasing the weight of each created pair. The
+        default is 64.
+
+    projectile_energy_min, projectile_energy_max: float, optional
+        Bounds in eV of the logarithmic PJG lookup table. The defaults are
+        5 keV and 10 GeV for protons, scaled by projectile/proton mass for
+        bare ions. A custom interval may narrow but not enlarge this range.
+        The total-data calibration is 5--4000 keV for protons; relativistic
+        energies and bare-ion scaling are constrained extrapolations.
+
+    ndt_supercycle: integer, optional
+        Run once every ``ndt_supercycle`` PIC steps.
+
+    ndt_subcycle: integer, optional
+        Run ``ndt_subcycle`` times per PIC step.
+    """
+
+    def __init__(
+        self,
+        name,
+        species,
+        product_species,
+        ionization_target,
+        background_density,
+        background_temperature,
+        fixed_product_weight,
+        max_products_per_cell=None,
+        projectile_energy_min=None,
+        projectile_energy_max=None,
+        ndt_supercycle=None,
+        ndt_subcycle=None,
+        **kw,
+    ):
+        self.name = name
+        self.species = species
+        self.product_species = product_species
+        self.ionization_target = ionization_target
+        self.background_density = background_density
+        self.background_temperature = background_temperature
+        self.fixed_product_weight = fixed_product_weight
+        self.max_products_per_cell = max_products_per_cell
+        self.projectile_energy_min = projectile_energy_min
+        self.projectile_energy_max = projectile_energy_max
+        self.ndt_supercycle = ndt_supercycle
+        self.ndt_subcycle = ndt_subcycle
+
+        if len(product_species) != 2:
+            raise ValueError(
+                "`product_species` must contain the electron and molecular ion."
+            )
+        if ionization_target not in ["N2", "O2", "n2", "o2"]:
+            raise ValueError("`ionization_target` must be 'N2' or 'O2'.")
+        if "ndt" in kw:
+            raise ValueError(
+                "`ndt` is no longer a valid option for collisions."
+                "Please use `ndt_supercycle` instead (run collision every N PIC steps)."
+            )
+
+        self.handle_init(kw)
+
+    def collision_initialize_inputs(self):
+        collision = pywarpx.Collisions.newcollision(self.name)
+        collision.type = "proton_impact_ionization"
+        collision.species = self.species.name
+        collision.product_species = [species.name for species in self.product_species]
+        collision.ionization_target = self.ionization_target
+        if isinstance(self.background_density, str):
+            collision.__setattr__(
+                "background_density(x,y,z,t)", self.background_density
+            )
+        else:
+            collision.background_density = self.background_density
+        if isinstance(self.background_temperature, str):
+            collision.__setattr__(
+                "background_temperature(x,y,z,t)", self.background_temperature
+            )
+        else:
+            collision.background_temperature = self.background_temperature
+        collision.fixed_product_weight = self.fixed_product_weight
+        collision.max_products_per_cell = self.max_products_per_cell
+        collision.projectile_energy_min = self.projectile_energy_min
+        collision.projectile_energy_max = self.projectile_energy_max
+        collision.ndt_supercycle = self.ndt_supercycle
+        collision.ndt_subcycle = self.ndt_subcycle
 
 
 class DSMCCollisions(picmistandard.base._ClassWithInit):

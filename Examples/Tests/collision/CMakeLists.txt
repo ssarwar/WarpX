@@ -2,6 +2,116 @@
 #
 
 add_warpx_test(
+    test_1d_background_mcc_attachment_picmi  # name
+    1  # dims
+    1  # nprocs
+    inputs_test_1d_background_mcc_attachment_picmi.py  # inputs
+    "analysis_background_mcc_attachment.py"  # analysis
+    OFF  # checksum
+    OFF  # dependency
+)
+
+add_warpx_test(
+    test_1d_background_mcc_bad_inputs_picmi  # name
+    1  # dims
+    1  # nprocs
+    inputs_test_1d_background_mcc_bad_inputs_picmi.py  # inputs
+    OFF  # analysis
+    OFF  # checksum
+    OFF  # dependency
+)
+
+add_warpx_test(
+    test_1d_background_mcc_iaa_elastic_picmi  # name
+    1  # dims
+    1  # nprocs
+    inputs_test_1d_background_mcc_iaa_elastic_picmi.py  # inputs
+    "analysis_background_mcc_iaa_elastic.py"  # analysis
+    OFF  # checksum
+    OFF  # dependency
+)
+
+add_warpx_test(
+    test_1d_background_mcc_loose_majorant_picmi
+    1
+    1
+    inputs_test_1d_background_mcc_loose_majorant_picmi.py
+    "analysis_background_mcc_selector.py"
+    OFF
+    OFF
+)
+
+add_warpx_test(
+    test_1d_background_mcc_many_attachment_picmi  # name
+    1  # dims
+    1  # nprocs
+    inputs_test_1d_background_mcc_many_attachment_picmi.py  # inputs
+    "analysis_background_mcc_many_attachment.py"  # analysis
+    OFF  # checksum
+    OFF  # dependency
+)
+
+add_warpx_test(
+    test_1d_background_mcc_many_excitation_picmi  # name
+    1  # dims
+    1  # nprocs
+    inputs_test_1d_background_mcc_many_excitation_picmi.py  # inputs
+    "analysis_background_mcc_many_excitation.py"  # analysis
+    OFF  # checksum
+    OFF  # dependency
+)
+
+add_warpx_test(
+    test_1d_background_mcc_nonrelativistic_majorant_picmi  # name
+    1  # dims
+    1  # nprocs
+    inputs_test_1d_background_mcc_nonrelativistic_majorant_picmi.py  # inputs
+    "analysis_background_mcc_nonrelativistic_majorant.py"  # analysis
+    OFF  # checksum
+    OFF  # dependency
+)
+
+add_warpx_test(
+    test_1d_background_mcc_relativistic  # name
+    1  # dims
+    1  # nprocs
+    inputs_test_1d_background_mcc_relativistic  # inputs
+    "analysis_background_mcc_relativistic.py"  # analysis
+    OFF  # checksum
+    OFF  # dependency
+)
+
+add_warpx_test(
+    test_1d_background_mcc_rbeq_picmi  # name
+    1  # dims
+    1  # nprocs
+    inputs_test_1d_background_mcc_rbeq_picmi.py  # inputs
+    "analysis_background_mcc_rbeq.py"  # analysis
+    OFF  # checksum
+    OFF  # dependency
+)
+
+add_warpx_test(
+    test_1d_background_mcc_selector_picmi  # name
+    1  # dims
+    1  # nprocs
+    inputs_test_1d_background_mcc_selector_picmi.py  # inputs
+    "analysis_background_mcc_selector.py"  # analysis
+    OFF  # checksum
+    OFF  # dependency
+)
+
+add_warpx_test(
+    test_1d_background_mcc_thermal_attachment_picmi  # name
+    1  # dims
+    1  # nprocs
+    inputs_test_1d_background_mcc_thermal_attachment_picmi.py  # inputs
+    "analysis_background_mcc_thermal_attachment.py"  # analysis
+    OFF  # checksum
+    OFF  # dependency
+)
+
+add_warpx_test(
     test_1d_collision_z  # name
     1  # dims
     2  # nprocs
@@ -109,6 +219,60 @@ add_warpx_test(
     "analysis_collision_3d.py diags/diag1000100"  # analysis
     "analysis_default_regression.py --path diags/diag1000100"  # checksum
     OFF  # dependency
+)
+
+add_warpx_test(
+    test_3d_proton_impact_ionization_picmi  # name
+    3  # dims
+    1  # nprocs
+    inputs_test_3d_proton_impact_ionization_picmi.py  # inputs
+    "analysis_proton_impact_ionization.py"  # analysis
+    OFF  # checksum
+    OFF  # dependency
+)
+
+add_warpx_test(
+    test_3d_proton_impact_ionization_performance_picmi  # name
+    3  # dims
+    1  # nprocs
+    inputs_test_3d_proton_impact_ionization_performance_picmi.py  # inputs
+    "analysis_proton_impact_ionization_performance.py"  # analysis
+    OFF  # checksum
+    OFF  # dependency
+)
+
+foreach(case IN ITEMS cold low_energy mixed)
+    add_warpx_test(
+        test_3d_proton_impact_ionization_${case}_picmi
+        3
+        1
+        inputs_test_3d_proton_impact_ionization_${case}_picmi.py
+        "analysis_proton_impact_ionization.py"
+        OFF
+        OFF
+    )
+endforeach()
+
+foreach(case IN ITEMS bad_inputs budget)
+    add_warpx_test(
+        test_3d_proton_impact_ionization_${case}_picmi
+        3
+        1
+        inputs_test_3d_proton_impact_ionization_${case}_picmi.py
+        OFF
+        OFF
+        OFF
+    )
+endforeach()
+
+add_warpx_test(
+    test_3d_proton_impact_ionization_o2_performance_picmi
+    3
+    1
+    inputs_test_3d_proton_impact_ionization_o2_performance_picmi.py
+    "analysis_proton_impact_ionization_performance.py"
+    OFF
+    OFF
 )
 
 add_warpx_test(

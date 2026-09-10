@@ -7,9 +7,7 @@
 #include "CollisionHandler.H"
 
 #include "Particles/Collision/BackgroundMCC/BackgroundMCCCollision.H"
-#include "Particles/Collision/PulsedDecay/PulsedDecay.H"
 #include "Particles/Collision/BackgroundStopping/BackgroundStopping.H"
-#include "Particles/Collision/HybridResistiveDrag/HybridResistiveDrag.H"
 #include "Particles/Collision/BinaryCollision/BinaryCollision.H"
 #include "Particles/Collision/BinaryCollision/Bremsstrahlung/BremsstrahlungFunc.H"
 #include "Particles/Collision/BinaryCollision/Bremsstrahlung/PhotonCreationFunc.H"
@@ -20,13 +18,16 @@
 #include "Particles/Collision/BinaryCollision/LinearBreitWheeler/LinearBreitWheelerCollisionFunc.H"
 #include "Particles/Collision/BinaryCollision/LinearCompton/LinearComptonCollisionFunc.H"
 #include "Particles/Collision/BinaryCollision/ParticleCreationFunc.H"
-#include "Particles/Collision/InverseBremsstrahlung/InverseBremsstrahlung.H"
-#include "Utils/TextMsg.H"
-
-#include "Particles/ParticleCreation/SmartCopy.H"
 #ifdef WARPX_QED
 #include "Particles/Collision/BinaryCollision/VirtualPhotonCreation.H"
 #endif
+#include "Particles/Collision/HybridResistiveDrag/HybridResistiveDrag.H"
+#include "Particles/Collision/InverseBremsstrahlung/InverseBremsstrahlung.H"
+#include "Particles/Collision/ProtonImpactIonization/ProtonImpactIonization.H"
+#include "Particles/Collision/PulsedDecay/PulsedDecay.H"
+#include "Particles/ParticleCreation/SmartCopy.H"
+#include "Utils/TextMsg.H"
+
 #include <AMReX_ParmParse.H>
 
 #include <vector>
@@ -66,6 +67,10 @@ CollisionHandler::CollisionHandler(MultiParticleContainer const * const mypc)
         }
         else if (type == "pulsed_decay") {
             allcollisions[i] = std::make_unique<PulsedDecay>(collision_names[i], mypc);
+        }
+        else if (type == "proton_impact_ionization") {
+            allcollisions[i] =
+                std::make_unique<ProtonImpactIonizationCollision>(collision_names[i], mypc);
         }
         else if (type == "background_stopping") {
             allcollisions[i] = std::make_unique<BackgroundStopping>(collision_names[i]);
