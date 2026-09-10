@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Check N2/O2 source budgets, sub-particle remainders, caps and bare-ion scaling."""
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -15,6 +16,12 @@ sys.path.insert(
     ),
 )
 from calibrated_pjg import total_cross_section
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--checkpoint", action="store_true")
+parser.add_argument("--restart")
+parser.add_argument("--reference")
+args = parser.parse_args()
 
 DT = 1.0e-9
 ENERGY = 50.0e3
@@ -92,6 +99,7 @@ sim = picmi.Simulation(
     max_steps=STEPS,
     warpx_collisions=collisions,
     warpx_random_seed=42,
+    warpx_amr_restart=args.restart,
     verbose=0,
 )
 for case in cases.values():
@@ -102,6 +110,8 @@ for case in cases.values():
                 n_macroparticle_per_cell=[2 if key == "beam" else 0] * 3, grid=grid
             ),
         )
+if args.checkpoint:
+    sim.add_diagnostic(picmi.Checkpoint(name="chk", period=2, write_dir="diags"))
 sim.initialize_inputs()
 sim.initialize_warpx()
 
@@ -115,8 +125,25 @@ def weights(name):
     return np.concatenate(arrays) if arrays else np.empty(0)
 
 
-previous = {name: (0.0, 0.0, 0) for name in cases}
-for step in range(1, STEPS + 1):
+def state(name):
+    ew = weights(f"electrons_{name}")
+    remainder = float(
+        host(sim.fields.get(f"{name}_product_weight_remainder", level=0)[...]).sum()
+    )
+    return float(ew.sum()), remainder, len(ew)
+
+
+start_step = sim.extension.warpx.getistep(lev=0)
+previous = {name: state(name) for name in cases}
+if args.restart:
+    assert start_step == 2
+    # The checkpoint contains positive fractional weights before the first
+    # coarse pair. Verify restoration before any new source call can hide it.
+    for target in ("N2", "O2"):
+        emitted, remainder, count = previous[f"{target}_coarse"]
+        assert emitted == count == 0
+        assert np.isclose(remainder, 0.74, rtol=2e-3)
+for step in range(start_step + 1, STEPS + 1):
     sim.step(1)
     for name, case in cases.items():
         ew = weights(f"electrons_{name}")
@@ -151,6 +178,13 @@ for target in ("N2", "O2"):
     coarse = sum(previous[f"{target}_coarse"][:2])
     fine = sum(previous[f"{target}_fine"][:2])
     assert np.isclose(coarse, fine, rtol=2e-14)
+final_state = np.array([previous[name] for name in cases])
+if args.reference:
+    with np.load(args.reference) as reference:
+        # Source budgets/counts, not future random angles, must agree with the
+        # uninterrupted run. This remains meaningful on every compute backend.
+        np.testing.assert_allclose(final_state, reference["state"], rtol=2e-14, atol=0)
+np.savez("proton_impact_ionization_budget_results.npz", state=final_state)
 print(
     "PASS: both-gas source budgets, fractional carry, zero-density pause, weight/cap independence and Z^2 scaling"
 )

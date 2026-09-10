@@ -143,10 +143,14 @@ Full PIC tests include both gases at 5 and 50 keV, mixed 50/500-keV parents,
 fractional-weight carryover, and capped many-cell production at 800 MeV:
 
 ```sh
+cmake --build build --target pyWarpX_python_sources
 ctest --test-dir build -R proton_impact_ionization --output-on-failure
 ```
 
-They check represented yield, paired weights/positions, unchanged beams,
+The first command refreshes the build-tree Python package; building only a
+selected C++ or Python-extension target can leave an older PICMI wrapper there.
+
+The tests check represented yield, paired weights/positions, unchanged beams,
 electron-energy distributions, above-free tails, thermal-ion velocities
 and bounded product counts. Added cases check 1e-8 K neutrals (constant and
 parser inputs), rejection of projectile/product species aliasing, and the
@@ -154,8 +158,12 @@ emitted-weight-plus-remainder budget over seven steps. The latter compares
 coarse/fine product weights, a density pulse that switches off, and bare-alpha
 Z^2 scaling at fixed speed, allowing for the finite-projectile-mass correction.
 The angular analysis checks conditional CDFs and second moments as well as
-the mean direction. Checkpoint/restart of the existing remainder is not newly
-covered by these cases.
+the mean direction. The checkpoint/restart pair reuses the eight budget cases
+and restarts after step two, before either coarse-weight source has emitted a
+pair. It checks that both gases restore their positive fractional remainders
+before advancing, then compares final emitted weights, remainders and counts
+with the uninterrupted run. It does not require subsequent random angles to
+match across restarts or compute backends.
 
 ## Performance and numerical results
 

@@ -266,6 +266,26 @@ foreach(case IN ITEMS bad_inputs budget)
 endforeach()
 
 add_warpx_test(
+    test_3d_proton_impact_ionization_checkpoint_picmi
+    3
+    1
+    "inputs_test_3d_proton_impact_ionization_budget_picmi.py --checkpoint"
+    OFF
+    OFF
+    OFF
+)
+
+add_warpx_test(
+    test_3d_proton_impact_ionization_restart_picmi
+    3
+    1
+    "inputs_test_3d_proton_impact_ionization_budget_picmi.py --restart ../test_3d_proton_impact_ionization_checkpoint_picmi/diags/chk000002 --reference ../test_3d_proton_impact_ionization_checkpoint_picmi/proton_impact_ionization_budget_results.npz"
+    OFF
+    OFF
+    test_3d_proton_impact_ionization_checkpoint_picmi
+)
+
+add_warpx_test(
     test_3d_proton_impact_ionization_o2_performance_picmi
     3
     1
