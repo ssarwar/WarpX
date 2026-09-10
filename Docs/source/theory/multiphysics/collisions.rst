@@ -121,6 +121,35 @@ The candidate probability is recalculated from the current collision timestep
 as :math:`P_{\max}=1-\exp(-\nu_{\max}\Delta t_{\mathrm{coll}})`, so
 collision subcycling and variable timesteps use the appropriate probability.
 
+For a sampled collision state, let
+:math:`\nu=n_n g_{\mathrm{coll}}\sigma_{\mathrm{tot}}(E)`. Conditional on a
+candidate, the acceptance probability is
+
+.. math::
+
+   A(E)=\frac{1-\exp(-\nu\Delta t_{\mathrm{coll}})}{P_{\max}}.
+
+Thus the unconditional one-event probability is
+:math:`P_{\max}A=1-\exp(-\nu\Delta t_{\mathrm{coll}})`, independent of how
+loose the majorant is. After acceptance, process :math:`j` has probability
+:math:`\sigma_j/\sigma_{\mathrm{tot}}`. One uniform draw performs both decisions:
+reject if :math:`u\geq A`, otherwise select the cross-section prefix containing
+:math:`(u/A)\sigma_{\mathrm{tot}}`. ``expm1`` evaluates the small-optical-depth
+limit without cancellation; the exponent uses particle precision on the device.
+
+The former acceptance :math:`\nu/\nu_{\max}` instead gave
+:math:`(1-\exp(-\nu_{\max}\Delta t))\nu/\nu_{\max}`. Its ratio to the
+linearized physical probability :math:`\nu\Delta t` was
+:math:`(1-\exp(-\tau_{\max}))/\tau_{\max}`, which can be arbitrarily small
+for a loose majorant, even when the physical collision rate is well resolved.
+The corrected rule removes that additional finite-step bias. It does **not**
+represent multiple collisions within one call, changes of particle energy
+after an earlier collision in that call, or continuous resampling of a thermal
+target within the step. Subcycling/timestep convergence remains necessary
+when the physical collision frequency times the step is not small. The
+warning based on :math:`\nu_{\max}\Delta t` is a conservative sufficient
+criterion, not evidence that the actual physical rate is that large.
+
 For non-electron projectiles, the existing center-of-momentum collision-energy
 convention from ``ParticleUtils::getCollisionEnergy()`` is retained. Its inverse
 uses both projectile and neutral masses when constructing the automatic
@@ -139,6 +168,9 @@ omitted for an ionizing electron-neutral collision, the neutral mass is inferred
 from the positive-ion product mass plus one electron mass. Attachment-only MCC
 objects must specify ``background_mass`` because a dissociative negative-ion
 product does not uniquely determine the original neutral mass.
+Different positive-ion product masses require an explicit neutral mass;
+specifying it bypasses mass inference, not product-charge validation. This
+does not make an effective dissociative channel a resolved fragmentation model.
 
 Ionization and attachment process names may have unique suffixes, for example
 ``ionization_N2`` and ``attachment_O2_dissociative``. Each such process names
@@ -218,7 +250,14 @@ probability map
 
        q(x) = \frac{x^4}{x^4+(1-x)^4}, \qquad 0 \leq x \leq 1,
 
-which resolves both high-energy probability tails without linearly
+The random energy probability has 53 bits, even with float particles.
+Its complement :math:`1-q` is formed before conversion to particle
+precision; otherwise rounding :math:`q` to one can collapse an important
+part of the relativistic hard tail onto the endpoint. The fourth roots and
+table interpolation still use particle precision. Equal sharing requires
+no energy or shell random draw.
+
+This map resolves both high-energy probability tails without linearly
 interpolating from an interior quantile to the physical endpoint. The tables
 cover incident energies through at least 1 GeV. Each accepted event then
 requires one logarithm and fixed-size interpolation, with no device allocation
@@ -253,12 +292,19 @@ square-window model.
 
 The electron azimuths differ by :math:`\pi`; the product ion receives the
 remaining momentum. WarpX solves for the total electron energy after ion recoil
-with three fixed Newton updates. The analytic derivative includes both outgoing
-electron momenta, while a stable :math:`pc` representation avoids subtracting
-the ion rest energy. Thus even deliberately adverse backward and isotropic
-events retain energy and momentum conservation through 1 GeV without a
-device-side convergence loop. The three products are then Lorentz transformed
-back to the simulation frame.
+with three initial Newton updates. The analytic derivative includes both
+outgoing electron momenta, while a stable :math:`pc` representation avoids
+subtracting the ion rest energy. The energy residual is checked explicitly;
+if needed, a bounded safeguarded Newton/bisection fallback takes at most
+48 further iterations. A draw that cannot produce an energy-conserving state
+is a null collision: the incident electron is unchanged and both reserved
+product slots are removed before another collision operator runs. This matters
+near a shell threshold, where prescribed angles/sharing can be inadmissible,
+and at extreme incident energies where three Newton iterations are insufficient.
+Kernel tests extend through 100 GeV, including deliberately adverse backward
+and isotropic events. The accepted products are Lorentz transformed back to
+the simulation frame. This numerical coverage is not a validation of RBEQ
+or its angular closure against data at those energies.
 
 For every electron process with a positive discrete loss :math:`Q`, finite
 target recoil raises the stationary-target laboratory threshold above
@@ -366,6 +412,13 @@ model therefore requires an electron projectile and a neutral target heavier
 than the electron. Above the recoil-shifted physical threshold, an angular draw
 outside the allowed two-body laboratory range is projected to its nearest
 kinematically allowed value.
+Near threshold that allowed region is a **forward** cone. The squared energy
+equation also admits a backward cone with negative outgoing momentum; it must
+not be used. WarpX solves for the outgoing momentum directly and evaluates
+kinetic energy as :math:`(p'c)^2/(\sqrt{(m_ec^2)^2+(p'c)^2}+m_ec^2)`.
+The backward-angle momentum root is rationalized separately. These forms
+avoid subtracting the electron rest energy when the outgoing kinetic energy
+approaches zero.
 
 Many-channel selection and DCS reuse
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -406,8 +459,8 @@ selection then consists of:
    :math:`k` and interpolation fraction;
 #. one interpolation of the last prefix row
    :math:`C_{P-1}(E)=\sigma_{\mathrm{tot}}(E)`;
-#. one uniform draw converted from collision-probability units to
-   cross-section units; and
+#. one uniform draw for the physical-event acceptance above, converted to
+   cross-section units only if accepted; and
 #. one binary search over :math:`j` for the first interpolated prefix with
    :math:`C_j(E)` above that draw.
 

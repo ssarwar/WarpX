@@ -101,7 +101,7 @@ assert np.intersect1d(all_created_ids, results["initial_product_ids"]).size == 0
 
 # The user majorant is 1% above the actual rate. Neutral thermal motion changes
 # the 1 keV relative speed by far less than the statistical uncertainty here.
-expected_total_fraction = -math.expm1(-OPTICAL_DEPTH) / MAJORANT_SAFETY
+expected_total_fraction = -math.expm1(-OPTICAL_DEPTH / MAJORANT_SAFETY)
 observed_total_fraction = total_events / PARTICLE_COUNT
 standard_error = math.sqrt(
     expected_total_fraction * (1.0 - expected_total_fraction) / PARTICLE_COUNT

@@ -747,9 +747,7 @@ BackgroundMCCCollision::doCollisions (
                     if (inferred_background_mass < 0.0_prt)
                     {
                         inferred_background_mass = candidate_mass;
-                    }
-                    else
-                    {
+                    } else if (m_background_mass < 0.0_prt) {
                         auto const mass_scale = std::max(
                             std::abs(inferred_background_mass),
                             std::abs(candidate_mass));
@@ -907,8 +905,7 @@ BackgroundMCCCollision::doCollisions (
                 }
                 auto wt = static_cast<amrex::Real>(amrex::second());
 
-                doBackgroundCollisionsWithinTile(
-                    pti, cur_time, nullptr, nullptr, nullptr);
+                doBackgroundCollisionsWithinTile(pti, cur_time, dt, nullptr, nullptr, nullptr);
 
                 if (cost && WarpX::load_balance_costs_update_algo ==
                             LoadBalanceCostsUpdateAlgo::Timers)
@@ -958,12 +955,9 @@ BackgroundMCCCollision::doCollisions (
                 amrex::Gpu::DeviceVector<int> product_counts(
                     product_group_count + 1, 0);
 
-                doBackgroundCollisionsWithinTile(
-                    pti,
-                    cur_time,
-                    product_events.dataPtr(),
-                    product_counts.dataPtr(),
-                    product_counts.dataPtr() + product_group_count);
+                doBackgroundCollisionsWithinTile(pti, cur_time, dt, product_events.dataPtr(),
+                                                 product_counts.dataPtr(),
+                                                 product_counts.dataPtr() + product_group_count);
 
 #ifndef AMREX_USE_GPU
                 auto const* const process_groups =
@@ -1044,12 +1038,11 @@ BackgroundMCCCollision::doCollisions (
 }
 
 void
-BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
-    WarpXParIter& pti,
-    amrex::Real t,
-    BackgroundMCCProductEvent* product_events,
-    int* product_counts,
-    int* product_event_count)
+BackgroundMCCCollision::doBackgroundCollisionsWithinTile (WarpXParIter& pti, amrex::Real t,
+                                                          amrex::Real dt,
+                                                          BackgroundMCCProductEvent* product_events,
+                                                          int* product_counts,
+                                                          int* product_event_count)
 {
     ABLASTR_PROFILE("BackgroundMCCCollision::selectAndScatter()");
     amrex::ignore_unused(product_counts, product_event_count);
@@ -1091,6 +1084,7 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
     amrex::ParticleReal* const AMREX_RESTRICT ux = attribs[PIdx::ux].dataPtr();
     amrex::ParticleReal* const AMREX_RESTRICT uy = attribs[PIdx::uy].dataPtr();
     amrex::ParticleReal* const AMREX_RESTRICT uz = attribs[PIdx::uz].dataPtr();
+    auto const* AMREX_RESTRICT idcpu = pti.GetParticleTile().getParticleTileData().m_idcpu;
 
     auto const tolerance = 64.0_prt*
         std::numeric_limits<amrex::ParticleReal>::epsilon();
@@ -1106,6 +1100,9 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
                     product_events[ip].m_process = -1;
                 }
             ))
+            if (idcpu[ip] == amrex::ParticleIdCpus::Invalid) {
+                return;
+            }
             if (amrex::Random(engine) > total_collision_prob) { return; }
 
             amrex::ParticleReal n_a = background_density;
@@ -1178,39 +1175,22 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
             }
             if (v_coll <= 0.0_prt || nu_max <= 0.0_prt) { return; }
 
-            const amrex::ParticleReal process_draw = amrex::Random(engine);
-            amrex::ParticleReal cumulative_probability = 0.0_prt;
-            int chosen_process = -1;
-
+            amrex::ParticleReal total_cross_section = 0.0_prt;
+            auto const interpolation = process_selector.interpolate(E_coll);
             if (process_selector.enabled())
             {
-                auto const probability_per_cross_section = n_a * v_coll / nu_max;
-                auto const cross_section_draw =
-                    process_draw / probability_per_cross_section;
-                amrex::ParticleReal total_cross_section;
-                process_selector.select(
-                    E_coll, cross_section_draw, chosen_process, total_cross_section);
-                cumulative_probability =
-                    probability_per_cross_section * total_cross_section;
+                total_cross_section = interpolation.m_total;
             }
             else
             {
                 for (int i = 0; i < process_count; ++i)
                 {
-                    auto const& process = processes[i];
-                    const auto sigma = process.getCrossSection(E_coll);
-                    cumulative_probability += n_a*sigma*v_coll/nu_max;
-                    if (chosen_process < 0 &&
-                        process_draw < cumulative_probability)
-                    {
-                        chosen_process = i;
-                        if (!user_nu_max) { break; }
-                    }
+                    total_cross_section += processes[i].getCrossSection(E_coll);
                 }
             }
 
-            bool const valid_majorant =
-                cumulative_probability <= 1.0_prt + tolerance;
+            auto const collision_frequency = (n_a * total_cross_section) * v_coll;
+            bool const valid_majorant = collision_frequency <= nu_max * (1.0_prt + tolerance);
             AMREX_IF_ON_DEVICE((
                 AMREX_DEVICE_ASSERT(valid_majorant);
             ))
@@ -1229,6 +1209,29 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
                 }
             ))
 
+            auto const acceptance = BackgroundMCCUtils::conditionalEventProbability(
+                static_cast<amrex::ParticleReal>(collision_frequency * dt), total_collision_prob);
+            auto const process_draw = amrex::Random(engine);
+            if (!(process_draw < acceptance)) {
+                return;
+            }
+            // Conditional on acceptance, this same uniform draw selects a
+            // channel. The cached interval avoids a second energy bisection.
+            auto const cross_section_draw =
+                static_cast<amrex::ParticleReal>((process_draw / acceptance) * total_cross_section);
+            int chosen_process = -1;
+            if (process_selector.enabled()) {
+                chosen_process = process_selector.select(interpolation, cross_section_draw);
+            } else {
+                amrex::ParticleReal cumulative = 0.0_prt;
+                for (int i = 0; i < process_count; ++i) {
+                    cumulative += processes[i].getCrossSection(E_coll);
+                    if (cross_section_draw < cumulative) {
+                        chosen_process = i;
+                        break;
+                    }
+                }
+            }
             if (chosen_process < 0) { return; }
             auto const& process = processes[chosen_process];
 

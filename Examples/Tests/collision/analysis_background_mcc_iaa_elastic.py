@@ -74,7 +74,7 @@ for index, raw_name in enumerate(case_names):
     azimuth_y = data[f"{name}_azimuth_y"]
     energies = data[f"{name}_energies"]
 
-    expected_event_fraction = rate_fraction * (-math.expm1(-12.0))
+    expected_event_fraction = -math.expm1(-12.0 * rate_fraction)
     event_standard_error = math.sqrt(
         expected_event_fraction * (1.0 - expected_event_fraction) / particle_count
     )

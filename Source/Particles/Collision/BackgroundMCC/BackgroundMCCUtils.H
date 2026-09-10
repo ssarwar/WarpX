@@ -15,6 +15,22 @@
 
 namespace BackgroundMCCUtils
 {
+    /** Physical one-event probability conditional on a majorant attempt.
+     *
+     * Attempt thinning must use p(nu)/p(nu_max), not nu/nu_max. The latter
+     * suppresses physical rates when nu_max*dt is not small, even when nu*dt
+     * is well resolved. expm1 retains the small-optical-depth limit.
+     */
+    template <typename Real>
+    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE Real
+    conditionalEventProbability (Real const local_optical_depth,
+                                 Real const attempt_probability) noexcept
+    {
+        return attempt_probability > Real(0)
+                   ? -std::expm1(-local_optical_depth) / attempt_probability
+                   : Real(0);
+    }
+
     /**
      * \brief Return cross-section energy and collision-rate speed for an
      * electron colliding with a non-relativistic neutral background particle.

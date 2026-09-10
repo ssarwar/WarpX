@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
 """Exercise one-draw Background MCC selection and the PICMI nu_max input."""
 
+import argparse
 import math
 from pathlib import Path
 
 import numpy as np
 
 from pywarpx import Collisions, libwarpx, picmi
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--majorant-factor", type=float, default=1.0)
+args = parser.parse_args()
 
 PARTICLE_COUNT = 131072
 INITIAL_ION_COUNT = 1
@@ -24,6 +29,7 @@ ELECTRON_SPEED = C * math.sqrt(1.0 - 1.0 / GAMMA**2)
 ELECTRON_PROPER_SPEED = GAMMA * ELECTRON_SPEED
 NU_MAX = BACKGROUND_DENSITY * 4.0 * CROSS_SECTION * ELECTRON_SPEED
 DT = COLLISION_OPTICAL_DEPTH / NU_MAX
+NU_MAX *= args.majorant_factor
 
 source_dir = Path(__file__).resolve().parent
 

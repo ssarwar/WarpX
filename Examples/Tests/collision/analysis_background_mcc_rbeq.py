@@ -298,7 +298,7 @@ for name, target, incident_energy, angle_model in CASES:
         expected_secondary_cosine_variance,
     ) = expected_statistics(target, incident_energy, cdf_probes, angle_model)
 
-    expected_event_fraction = -math.expm1(-5.0) / MAJORANT_MARGIN
+    expected_event_fraction = -math.expm1(-5.0 / MAJORANT_MARGIN)
     event_standard_error = math.sqrt(
         expected_event_fraction * (1.0 - expected_event_fraction) / particle_count
     )

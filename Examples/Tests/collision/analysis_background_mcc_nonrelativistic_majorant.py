@@ -26,8 +26,10 @@ assert float(data["peak_maximum_collided_speed"]) < (
 # ScatteringProcess holds the last tabulated cross section constant. The
 # automatic majorant must therefore include its speed-of-light supremum even
 # for a non-electron projectile. At u=100c, the accepted event probability is
-# the majorant-event probability times the ordinary-speed ratio v/c.
-tail_probability = expected_probability * float(data["tail_collision_speed_over_c"])
+# set by the physical optical depth, not the majorant-event probability.
+tail_probability = -math.expm1(
+    -optical_depth * float(data["tail_collision_speed_over_c"])
+)
 tail_expected_count = particle_count * tail_probability
 tail_standard_deviation = math.sqrt(
     particle_count * tail_probability * (1.0 - tail_probability)

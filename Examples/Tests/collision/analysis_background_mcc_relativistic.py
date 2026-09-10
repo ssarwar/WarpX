@@ -72,8 +72,9 @@ def expected_collision_fraction() -> float:
     kinetic_energy = (gamma - 1.0) * ELECTRON_MASS * C**2 / E_CHARGE
     sigma = np.interp(kinetic_energy, ENERGY_GRID, CROSS_SECTION_GRID)
 
-    candidate_probability = -math.expm1(-nu_max * TIME_STEP)
-    return candidate_probability * BACKGROUND_DENSITY * sigma * electron_speed / nu_max
+    physical_rate = BACKGROUND_DENSITY * sigma * electron_speed
+    assert physical_rate <= nu_max
+    return -math.expm1(-physical_rate * TIME_STEP)
 
 
 def expected_backward_uz() -> float:

@@ -81,8 +81,7 @@ else:
         * ELECTRON_SPEED
     )
     NU_MAX = MAJORANT_MARGIN * physical_rate
-    candidate_probability = MAJORANT_MARGIN * TARGET_ACCEPTANCE
-    DT = -math.log1p(-candidate_probability) / NU_MAX
+    DT = -math.log1p(-TARGET_ACCEPTANCE) / physical_rate
 
 cross_section_path = Path("background_mcc_many_attachment.txt").resolve()
 energies = np.geomspace(1.0e-6, 2.5e6, 1025)

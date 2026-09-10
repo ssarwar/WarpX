@@ -10,6 +10,12 @@ from pathlib import Path
 from pywarpx import amrex, picmi
 
 CASES = {
+    "mixed_ion_masses_implicit": (
+        "Ionization product masses imply different neutral masses.",
+        "ionization",
+        {},
+    ),
+    "mixed_ion_masses_explicit": (None, "ionization", {}),
     "missing_cross_section_units": (
         "Every attachment process must specify",
         "attachment",
@@ -72,7 +78,9 @@ def run_invalid_case(case):
 
     source_dir = Path(__file__).resolve().parent
     cross_section = source_dir / "background_mcc_attachment_m2.txt"
-    if process_type == "elastic":
+    if process_type == "ionization":
+        cross_section = source_dir / "background_mcc_rbeq_n2.txt"
+    elif process_type == "elastic":
         cross_section = source_dir / "background_mcc_relativistic_elastic.txt"
     if case == "malformed_cross_section":
         cross_section = Path("background_mcc_malformed_cross_section.txt").resolve()
@@ -115,6 +123,8 @@ def run_invalid_case(case):
     product_charge = -0.995 * picmi.constants.q_e
     if case != "wrong_product_charge":
         product_charge = -picmi.constants.q_e
+    if process_type == "ionization":
+        product_charge = picmi.constants.q_e
     negative_ions = picmi.Species(
         name="negative_ions",
         charge=product_charge,
@@ -127,13 +137,26 @@ def run_invalid_case(case):
     process = {"cross_section": str(cross_section), **process_options}
     if process_type == "attachment":
         process["species"] = negative_ions
+    processes = {process_type: process}
+    if process_type == "ionization":
+        fragment_ions = picmi.Species(
+            name="fragment_ions",
+            charge=picmi.constants.q_e,
+            mass=14.0 * picmi.constants.m_p - picmi.constants.m_e,
+            warpx_do_not_deposit=True,
+            warpx_do_not_gather=True,
+        )
+        process.update(species=negative_ions, energy=15.58)
+        processes["ionization_fragment"] = {**process, "species": fragment_ions}
     collision = picmi.MCCCollisions(
         name="mcc",
         species=electrons,
         background_density=1.0e20,
         background_temperature=0.0,
-        background_mass=32.0 * picmi.constants.m_p,
-        scattering_processes={process_type: process},
+        background_mass=None
+        if case == "mixed_ion_masses_implicit"
+        else 32.0 * picmi.constants.m_p,
+        scattering_processes=processes,
         nu_max=1.0e6,
     )
     sim = picmi.Simulation(
@@ -151,6 +174,11 @@ def run_invalid_case(case):
         negative_ions,
         layout=picmi.GriddedLayout(n_macroparticle_per_cell=[1], grid=grid),
     )
+    if process_type == "ionization":
+        sim.add_species(
+            fragment_ions,
+            layout=picmi.GriddedLayout(n_macroparticle_per_cell=[0], grid=grid),
+        )
     sim.initialize_inputs()
     sim.initialize_warpx()
     sim.step(1)
@@ -159,6 +187,10 @@ def run_invalid_case(case):
 def check_invalid_cases():
     for case, (expected_message, _, _) in CASES.items():
         environment = os.environ.copy()
+        # A fresh MPI singleton cannot reuse the parent's launcher descriptors.
+        for key in list(environment):
+            if key.startswith(("PMI_", "PMIX_", "OMPI_")):
+                environment.pop(key)
         environment["PYTHONFAULTHANDLER"] = "0"
         result = subprocess.run(
             [sys.executable, str(Path(__file__).resolve()), "--case", case],
@@ -169,6 +201,10 @@ def check_invalid_cases():
             timeout=60,
             env=environment,
         )
+        if expected_message is None:
+            assert result.returncode == 0, result.stdout
+            print(f"{case}: explicit neutral mass accepted")
+            continue
         assert result.returncode != 0, f"Invalid case {case!r} unexpectedly succeeded"
         assert expected_message in result.stdout, (
             f"Invalid case {case!r} did not report {expected_message!r}.\n"

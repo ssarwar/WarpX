@@ -55,21 +55,19 @@ public:
 
     /** Select and apply at most one Background MCC process per particle.
      *
-     * Product-changing events are recorded for a later grouped particle-creation
-     * pass. Pure scattering events are applied in place.
+     * Product-changing events are recorded for a later grouped
+     * particle-creation pass. Pure scattering events are applied in place.
      *
      * @param pti particle iterator
      * @param t current time
+     * @param dt collision time step
      * @param product_events optional compact product-event buffer
      * @param product_counts optional event counter for each product group
      * @param product_event_count optional total product-event counter
      */
-    void doBackgroundCollisionsWithinTile (
-        WarpXParIter& pti,
-        amrex::Real t,
-        BackgroundMCCProductEvent* product_events,
-        int* product_counts,
-        int* product_event_count);
+    void doBackgroundCollisionsWithinTile (WarpXParIter& pti, amrex::Real t, amrex::Real dt,
+                                           BackgroundMCCProductEvent* product_events,
+                                           int* product_counts, int* product_event_count);
 
 private:
     struct ProductGroup

@@ -23,11 +23,21 @@ assert electron_count + attachment_events == PARTICLE_COUNT
 # Each MCC object accepts the following fraction of its current electrons per
 # substep. The second object then acts on the survivors from the first object.
 mean_rate_ratio = math.sqrt(8.0 / math.pi) / MAJORANT_THERMAL_STD
-substep_fraction = (
-    -math.expm1(-MAJORANT_OPTICAL_DEPTH / COLLISION_SUBCYCLES)
-    * math.sqrt(8.0 / math.pi)
-    / MAJORANT_THERMAL_STD
+# Integrate the finite-step event probability over the Maxwell speed density.
+# The neutral is resampled independently at each substep.
+nodes, quadrature_weights = np.polynomial.legendre.leggauss(128)
+speed = 6.0 * (nodes + 1.0)
+maxwell_weights = (
+    6.0
+    * quadrature_weights
+    * math.sqrt(2 / math.pi)
+    * speed**2
+    * np.exp(-(speed**2) / 2)
 )
+event_probability = -np.expm1(
+    -MAJORANT_OPTICAL_DEPTH * speed / (COLLISION_SUBCYCLES * MAJORANT_THERMAL_STD)
+)
+substep_fraction = float(np.dot(maxwell_weights, event_probability))
 survival_per_object = (1.0 - substep_fraction) ** COLLISION_SUBCYCLES
 expected_process_fractions = np.array(
     [1.0 - survival_per_object, survival_per_object * (1.0 - survival_per_object)]
@@ -49,10 +59,15 @@ for count, expected_process_fraction in zip(process_events, expected_process_fra
 continuous_fraction = -math.expm1(-2.0 * MAJORANT_OPTICAL_DEPTH * mean_rate_ratio)
 assert abs(expected_fraction - continuous_fraction) < 0.005
 
-# Collision selection weights the Maxwellian by speed. Isotropy gives
-# <v_i^2>_collision = (1/3)<v^3>/<v> = (4/3)*v_th^2.
+# Event weighting approaches speed weighting as the step tends to zero;
+# evaluate the finite-step second moment with the same independent quadrature.
 thermal_std = float(results["neutral_velocity_std"])
-expected_component_std = math.sqrt(4.0 / 3.0) * thermal_std
+expected_component_std = (
+    math.sqrt(
+        np.dot(maxwell_weights, speed**2 * event_probability) / (3 * substep_fraction)
+    )
+    * thermal_std
+)
 for species, event_count in zip(["negative_a", "negative_b"], process_events):
     for direction in ["ux", "uy", "uz"]:
         values = results[f"{species}_{direction}"]

@@ -32,6 +32,16 @@ add_warpx_test(
 )
 
 add_warpx_test(
+    test_1d_background_mcc_loose_majorant_picmi
+    1
+    1
+    inputs_test_1d_background_mcc_loose_majorant_picmi.py
+    "analysis_background_mcc_selector.py"
+    OFF
+    OFF
+)
+
+add_warpx_test(
     test_1d_background_mcc_many_attachment_picmi  # name
     1  # dims
     1  # nprocs
