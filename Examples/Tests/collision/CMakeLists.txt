@@ -241,13 +241,25 @@ add_warpx_test(
     OFF  # dependency
 )
 
-foreach(case IN ITEMS low_energy mixed)
+foreach(case IN ITEMS cold low_energy mixed)
     add_warpx_test(
         test_3d_proton_impact_ionization_${case}_picmi
         3
         1
         inputs_test_3d_proton_impact_ionization_${case}_picmi.py
         "analysis_proton_impact_ionization.py"
+        OFF
+        OFF
+    )
+endforeach()
+
+foreach(case IN ITEMS bad_inputs budget)
+    add_warpx_test(
+        test_3d_proton_impact_ionization_${case}_picmi
+        3
+        1
+        inputs_test_3d_proton_impact_ionization_${case}_picmi.py
+        OFF
         OFF
         OFF
     )

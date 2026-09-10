@@ -38,11 +38,10 @@
 
 namespace
 {
-    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::ParticleReal
-    fractionalPart (amrex::ParticleReal const value) noexcept
+    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE std::uint32_t
+    randomPhase (amrex::RandomEngine const& engine) noexcept
     {
-        using std::floor;
-        return value - floor(value);
+        return (amrex::Random_int(1u << 16, engine) << 16) | amrex::Random_int(1u << 16, engine);
     }
 
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void
@@ -50,15 +49,15 @@ namespace
                 amrex::ParticleReal& first_normal, amrex::ParticleReal& second_normal) noexcept
     {
         using namespace amrex::literals;
-        using std::cos, std::log, std::sin, std::sqrt;
+        using std::log, std::sqrt;
 
-        auto const bounded_first =
-            amrex::max(first_uniform, std::numeric_limits<amrex::ParticleReal>::epsilon());
-        auto const radius = sqrt(-2.0_prt * log(bounded_first));
+        // shiftedKronecker supplies open-interval uniforms, including in float.
+        auto const radius = sqrt(-2.0_prt * log(first_uniform));
         auto const angle =
             2.0_prt * static_cast<amrex::ParticleReal>(MathConst::pi) * second_uniform;
-        first_normal = radius * cos(angle);
-        second_normal = radius * sin(angle);
+        auto const [sine, cosine] = amrex::Math::sincos(angle);
+        first_normal = radius * cosine;
+        second_normal = radius * sine;
     }
 } // namespace
 
@@ -77,6 +76,10 @@ ProtonImpactIonizationCollision::ProtonImpactIonizationCollision (
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
         m_product_species.size() == 2,
         "Proton-impact ionization requires product_species = electron ion.");
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+        m_species_names[0] != m_product_species[0] && m_species_names[0] != m_product_species[1],
+        "Proton-impact product species must differ from the projectile "
+        "species.");
 
     auto& projectile = mypc->GetParticleContainerFromName(m_species_names[0]);
     auto& electron = mypc->GetParticleContainerFromName(m_product_species[0]);
@@ -132,14 +135,15 @@ ProtonImpactIonizationCollision::ProtonImpactIonizationCollision (
                                              background_density >= 0.0_prt,
                                          "Proton-impact background_density must be finite and "
                                          "non-negative.");
-        m_background_density_parser =
-            utils::parser::makeParser(std::to_string(background_density), {"x", "y", "z", "t"});
+        m_background_density = background_density;
+        m_constant_density = true;
     } else {
         std::string background_density_string;
         utils::parser::Store_parserString(pp_collision_name, "background_density(x,y,z,t)",
                                           background_density_string);
         m_background_density_parser =
             utils::parser::makeParser(background_density_string, {"x", "y", "z", "t"});
+        m_background_density_func = m_background_density_parser.compile<4>();
     }
 
     amrex::ParticleReal background_temperature;
@@ -150,17 +154,16 @@ ProtonImpactIonizationCollision::ProtonImpactIonizationCollision (
                 background_temperature >= 0.0_prt,
             "Proton-impact background_temperature must be finite and "
             "non-negative.");
-        m_background_temperature_parser =
-            utils::parser::makeParser(std::to_string(background_temperature), {"x", "y", "z", "t"});
+        m_background_temperature = background_temperature;
+        m_constant_temperature = true;
     } else {
         std::string background_temperature_string;
         utils::parser::Store_parserString(pp_collision_name, "background_temperature(x,y,z,t)",
                                           background_temperature_string);
         m_background_temperature_parser =
             utils::parser::makeParser(background_temperature_string, {"x", "y", "z", "t"});
+        m_background_temperature_func = m_background_temperature_parser.compile<4>();
     }
-    m_background_density_func = m_background_density_parser.compile<4>();
-    m_background_temperature_func = m_background_temperature_parser.compile<4>();
 
     auto const projectile_rest_energy = projectile.getMass() * PhysConst::c2 / PhysConst::q_e;
     auto const projectile_mass_scale = projectile.getMass() / PhysConst::m_p;
@@ -226,6 +229,10 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
 
     auto const density_function = m_background_density_func;
     auto const temperature_function = m_background_temperature_func;
+    auto const constant_density = m_constant_density;
+    auto const constant_temperature = m_constant_temperature;
+    auto const background_density = m_background_density;
+    auto const background_temperature = m_background_temperature;
     auto const pjg = m_pjg_model->executor();
     auto const projectile_mass = projectile.getMass();
     // Products inherit the neutral velocity distribution, not an ion Maxwellian
@@ -264,7 +271,8 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
 
             // Keep per-cell scratch in two allocations. This path runs once per
             // tile and collision call, so allocation count matters on GPUs.
-            amrex::Gpu::DeviceVector<index_type> cell_indices(2 * num_cells, 0);
+            // Sum counts in 64 bits before checking the tile's int index limit.
+            amrex::Gpu::DeviceVector<amrex::Long> cell_indices(2 * num_cells, 0);
             amrex::Gpu::DeviceVector<amrex::ParticleReal> cell_reals(3 * num_cells, 0.0_prt);
             auto* AMREX_RESTRICT count_pointer = cell_indices.dataPtr();
             auto* AMREX_RESTRICT offset_pointer = count_pointer + num_cells;
@@ -312,14 +320,18 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
                     position.z = xyz_min.z + (iz + half) * cell_size[2];
 #endif
 
-                auto const density = density_function(position.x, position.y, position.z, cur_time);
+                auto const density = constant_density ? background_density
+                                                      : density_function(position.x, position.y,
+                                                                         position.z, cur_time);
                 auto const temperature =
-                    temperature_function(position.x, position.y, position.z, cur_time);
+                    constant_temperature
+                        ? background_temperature
+                        : temperature_function(position.x, position.y, position.z, cur_time);
                 AMREX_IF_ON_DEVICE((AMREX_DEVICE_ASSERT(density >= 0.0_prt && std::isfinite(density));
                                     AMREX_DEVICE_ASSERT(temperature >= 0.0_prt &&
                                                         std::isfinite(temperature));))
                 AMREX_IF_ON_HOST((if (!(density >= 0.0_prt && temperature >= 0.0_prt) ||
-                                         !std::isfinite(density) || !std::isfinite(temperature)) {
+                                      !std::isfinite(density) || !std::isfinite(temperature)) {
                     amrex::Abort("Proton-impact ionization requires "
                                  "finite, non-negative neutral "
                                  "density and temperature.");
@@ -372,11 +384,19 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
 
             auto const total_new =
                 amrex::Scan::ExclusiveSum(num_cells, count_pointer, offset_pointer);
+            if (total_new == 0) {
+                continue;
+            }
 
             auto& electron_tile = electron.ParticlesAt(lev, mfi);
             auto& ion_tile = ion.ParticlesAt(lev, mfi);
             auto const old_electron_count = electron_tile.numParticles();
             auto const old_ion_count = ion_tile.numParticles();
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                old_electron_count + total_new <= std::numeric_limits<int>::max() &&
+                    old_ion_count + total_new <= std::numeric_limits<int>::max(),
+                "Proton-impact product tiles must contain fewer than INT_MAX "
+                "particles.");
             electron_tile.resize(old_electron_count + total_new);
             ion_tile.resize(old_ion_count + total_new);
             SoaDataType const electron_data = electron_tile.getParticleTileData();
@@ -417,10 +437,19 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
                 auto const last_particle = cell_offsets[cell + 1];
                 auto const score_spacing =
                     total_score / static_cast<amrex::ParticleReal>(product_count);
-                auto score_target = amrex::Random(engine) * score_spacing;
+                auto const score_shift = amrex::Random(engine);
                 auto cumulative_score = 0.0_prt;
                 index_type permutation_index = first_particle;
                 index_type selected_particle = -1;
+                index_type previous_particle = -1;
+                amrex::ParticleReal kinetic_energy = 0.0_prt;
+                amrex::ParticleReal selected_speed = 0.0_prt;
+                amrex::ParticleReal maximum_transfer = 0.0_prt;
+                BackgroundMCCKinematics::Vector3 incident_direction{0.0, 0.0, 1.0};
+                BackgroundMCCKinematics::Vector3 transverse_1;
+                BackgroundMCCKinematics::Vector3 transverse_2;
+                auto const thermal_speed =
+                    std::sqrt(PhysConst::kb * temperature_pointer[cell] / neutral_mass);
 
                 // A 53-bit cell shift retains the rare hard-electron tail
                 // even in single-precision builds. Only two integer draws
@@ -428,14 +457,18 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
                 auto const energy_shift =
                     static_cast<double>(amrex::Random_int(1u << 26, engine)) * 0x1p-26 +
                     static_cast<double>(amrex::Random_int(1u << 27, engine)) * 0x1p-53;
-                auto const angle_shift = amrex::Random(engine);
-                auto const azimuth_shift = amrex::Random(engine);
-                auto const normal_shift_1 = amrex::Random(engine);
-                auto const normal_shift_2 = amrex::Random(engine);
-                auto const normal_shift_3 = amrex::Random(engine);
-                auto const normal_shift_4 = amrex::Random(engine);
+                auto const angle_shift = randomPhase(engine);
+                auto const azimuth_shift = randomPhase(engine);
+                auto const normal_shift_1 = randomPhase(engine);
+                auto const normal_shift_2 = randomPhase(engine);
+                auto const normal_shift_3 = randomPhase(engine);
+                auto const normal_shift_4 = randomPhase(engine);
 
                 for (index_type product = 0; product < product_count; ++product) {
+                    // Avoid the cumulative rounding drift of repeatedly adding
+                    // score_spacing, especially with many float products.
+                    auto const score_target =
+                        (static_cast<double>(product) + score_shift) * score_spacing;
                     while (permutation_index < last_particle && cumulative_score <= score_target) {
                         auto const candidate = particle_indices[permutation_index++];
                         if (projectile_idcpu[candidate] == amrex::ParticleIdCpus::Invalid) {
@@ -447,13 +480,16 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
                             projectile_uz[candidate] * projectile_uz[candidate];
                         auto const gamma =
                             std::sqrt(1.0_prt + proper_speed_squared * PhysConst::inv_c2);
-                        auto const kinetic_energy = projectile_mass * proper_speed_squared /
-                                                    ((gamma + 1.0_prt) * PhysConst::q_e);
-                        auto const speed = std::sqrt(proper_speed_squared) / gamma;
-                        auto const particle_score =
-                            projectile_weight[candidate] * pjg.crossSection(kinetic_energy) * speed;
+                        auto const candidate_energy = projectile_mass * proper_speed_squared /
+                                                      ((gamma + 1.0_prt) * PhysConst::q_e);
+                        auto const proper_speed = std::sqrt(proper_speed_squared);
+                        auto const speed = proper_speed / gamma;
+                        auto const particle_score = projectile_weight[candidate] *
+                                                    pjg.crossSection(candidate_energy) * speed;
                         if (particle_score > 0.0_prt) {
                             selected_particle = candidate;
+                            kinetic_energy = candidate_energy;
+                            selected_speed = proper_speed;
                             cumulative_score += particle_score;
                         }
                     }
@@ -471,19 +507,9 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
                     ion_copy(*ion_data_pointer, projectile_data, selected_particle,
                              static_cast<int>(ion_index), engine);
 
-                    auto const proper_speed_squared =
-                        projectile_ux[selected_particle] * projectile_ux[selected_particle] +
-                        projectile_uy[selected_particle] * projectile_uy[selected_particle] +
-                        projectile_uz[selected_particle] * projectile_uz[selected_particle];
-                    auto const gamma =
-                        std::sqrt(1.0_prt + proper_speed_squared * PhysConst::inv_c2);
-                    auto const kinetic_energy = projectile_mass * proper_speed_squared /
-                                                ((gamma + 1.0_prt) * PhysConst::q_e);
-
                     // An independent shift makes every energy quantile uniform
                     // conditional on its selected parent. Ordered quantiles
                     // would correlate energy with ordered parent selection.
-                    auto const sequence_index = static_cast<amrex::ParticleReal>(product) + 0.5_prt;
                     auto const energy_quantile =
                         ProtonImpactIonization::shiftedRadicalInverse(
                             static_cast<std::uint32_t>(product),
@@ -492,26 +518,27 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
                     amrex::ParticleReal binding_energy;
                     pjg.sample(kinetic_energy, energy_quantile, secondary_energy, binding_energy);
 
-                    BackgroundMCCKinematics::Vector3 incident_direction{0.0, 0.0, 1.0};
-                    auto const proper_speed = std::sqrt(proper_speed_squared);
-                    if (proper_speed > 0.0_prt) {
+                    // All products selected from one parent share this frame
+                    // and endpoint. Rebuild them only when the parent changes.
+                    if (selected_particle != previous_particle) {
                         incident_direction = {
-                            static_cast<double>(projectile_ux[selected_particle] / proper_speed),
-                            static_cast<double>(projectile_uy[selected_particle] / proper_speed),
-                            static_cast<double>(projectile_uz[selected_particle] / proper_speed)};
+                            static_cast<double>(projectile_ux[selected_particle] / selected_speed),
+                            static_cast<double>(projectile_uy[selected_particle] / selected_speed),
+                            static_cast<double>(projectile_uz[selected_particle] / selected_speed)};
+                        BackgroundMCCKinematics::transverseDirections(incident_direction,
+                                                                      transverse_1, transverse_2);
+                        maximum_transfer = pjg.maximumEnergyTransfer(kinetic_energy);
+                        previous_particle = selected_particle;
                     }
-                    BackgroundMCCKinematics::Vector3 transverse_1;
-                    BackgroundMCCKinematics::Vector3 transverse_2;
-                    BackgroundMCCKinematics::transverseDirections(incident_direction, transverse_1,
-                                                                  transverse_2);
-
-                    auto const maximum_transfer = pjg.maximumEnergyTransfer(kinetic_energy);
+                    using ProtonImpactIonization::shiftedKronecker;
+                    // Odd fixed-point approximations to the fractional parts
+                    // of sqrt(2), sqrt(3), sqrt(5), sqrt(7), sqrt(11), sqrt(6).
                     auto const cosine = ProtonImpactIonization::polarCosine(
                         secondary_energy, binding_energy, maximum_transfer,
-                        fractionalPart(angle_shift + 0.4142135623730950488_prt * sequence_index));
+                        shiftedKronecker<amrex::ParticleReal>(product, angle_shift, 0x6a09e667u));
                     auto const azimuth =
                         2.0_prt * static_cast<amrex::ParticleReal>(MathConst::pi) *
-                        fractionalPart(azimuth_shift + 0.7320508075688772935_prt * sequence_index);
+                        shiftedKronecker<amrex::ParticleReal>(product, azimuth_shift, 0xbb67ae85u);
                     auto const electron_direction =
                         BackgroundMCCKinematics::directionFromPolarAngle(
                             incident_direction, transverse_1, transverse_2,
@@ -526,23 +553,17 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
                     electron_uz[electron_index] = static_cast<amrex::ParticleReal>(
                         secondary_proper_speed * electron_direction.z);
 
-                    auto const thermal_speed =
-                        std::sqrt(PhysConst::kb * temperature_pointer[cell] / neutral_mass);
                     amrex::ParticleReal normal_x;
                     amrex::ParticleReal normal_y;
                     amrex::ParticleReal normal_z;
                     amrex::ParticleReal unused_normal;
                     normalPair(
-                        amrex::max(fractionalPart(normal_shift_1 +
-                                                  0.2360679774997896964_prt * sequence_index),
-                                   std::numeric_limits<amrex::ParticleReal>::epsilon()),
-                        fractionalPart(normal_shift_2 + 0.6457513110645905905_prt * sequence_index),
+                        shiftedKronecker<amrex::ParticleReal>(product, normal_shift_1, 0x3c6ef373u),
+                        shiftedKronecker<amrex::ParticleReal>(product, normal_shift_2, 0xa54ff53bu),
                         normal_x, normal_y);
                     normalPair(
-                        amrex::max(fractionalPart(normal_shift_3 +
-                                                  0.3166247903553998491_prt * sequence_index),
-                                   std::numeric_limits<amrex::ParticleReal>::epsilon()),
-                        fractionalPart(normal_shift_4 + 0.4494897427831780982_prt * sequence_index),
+                        shiftedKronecker<amrex::ParticleReal>(product, normal_shift_3, 0x510e527fu),
+                        shiftedKronecker<amrex::ParticleReal>(product, normal_shift_4, 0x7311c281u),
                         normal_z, unused_normal);
                     ion_ux[ion_index] = thermal_speed * normal_x;
                     ion_uy[ion_index] = thermal_speed * normal_y;
@@ -551,7 +572,6 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
                     auto const weight = product_weight_pointer[cell];
                     electron_weight[electron_index] = weight;
                     ion_weight[ion_index] = weight;
-                    score_target += score_spacing;
                 }
             });
 

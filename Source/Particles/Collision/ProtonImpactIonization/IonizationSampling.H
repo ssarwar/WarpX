@@ -11,9 +11,28 @@
 #include <AMReX_GpuQualifiers.H>
 
 #include <cstdint>
+#include <limits>
 
 namespace ProtonImpactIonization
 {
+    /** Shifted fixed-point Kronecker sequence on the open unit interval.
+     *
+     * Unsigned wraparound evaluates (shift + index*increment) modulo 2^32
+     * exactly. An odd increment visits every phase before repeating, without
+     * losing fractional bits at large indices in single-precision kernels.
+     * Midpoint conversion avoids log(0) in the thermal sampler. Rounding the
+     * largest float phases down by one ulp keeps the upper endpoint open.
+     */
+    template <typename Real>
+    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE Real
+    shiftedKronecker (std::uint32_t const index, std::uint32_t const shift,
+                      std::uint32_t const increment) noexcept
+    {
+        auto const phase = shift + index * increment;
+        auto const value = (static_cast<Real>(phase) + Real(.5)) * Real(0x1p-32);
+        return value < Real(1) ? value : Real(1) - Real(.5) * std::numeric_limits<Real>::epsilon();
+    }
+
     /** Base-2 radical inverse with an independent cell-wide uniform shift.
      *
      * Each index has a uniform marginal when shift is uniform on [0,1).

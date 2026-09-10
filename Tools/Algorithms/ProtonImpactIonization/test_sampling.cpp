@@ -24,6 +24,38 @@ namespace
 
     template <typename Real>
     void
+    checkKronecker ()
+    {
+        constexpr std::uint32_t count = 65536;
+        for (auto const increment :
+             {0x6a09e667u, 0xbb67ae85u, 0x3c6ef373u, 0xa54ff53bu, 0x510e527fu, 0x7311c281u}) {
+            for (auto const start : {0u, 1u << 20, 1u << 28, 0xffff0000u}) {
+                double mean = 0, second = 0;
+                std::array<int, 64> bins{};
+                for (std::uint32_t j = 0; j < count; ++j) {
+                    auto const q = ProtonImpactIonization::shiftedKronecker<Real>(
+                        start + j, 0x87654321u, increment);
+                    require(q > Real(0) && q < Real(1), "Closed Kronecker endpoint");
+                    mean += double(q) / count;
+                    second += double(q) * q / count;
+                    ++bins[static_cast<int>(q * Real(bins.size()))];
+                }
+                require(std::abs(mean - .5) < 1.e-4, "Biased large-index angular/thermal sequence");
+                require(std::abs(second - 1. / 3.) < 1.e-4, "Biased sequence second moment");
+                for (int const population : bins) {
+                    require(std::abs(population - 1024) <= 12,
+                            "Large-index sequence lost coverage");
+                }
+            }
+        }
+        for (auto const shift : {0u, 1u, 0xfffffffeu, 0xffffffffu}) {
+            auto const q = ProtonImpactIonization::shiftedKronecker<Real>(0u, shift, 1u);
+            require(q > Real(0) && q < Real(1), "Extreme phase is not in open unit interval");
+        }
+    }
+
+    template <typename Real>
+    void
     checkMixture ()
     {
         constexpr std::uint32_t count = 4096;
@@ -77,5 +109,7 @@ main ()
 {
     checkMixture<float>();
     checkMixture<double>();
+    checkKronecker<float>();
+    checkKronecker<double>();
     std::cout << "PASS: independently shifted energy sampling, float and double\n";
 }

@@ -48,6 +48,10 @@ private:
     amrex::Parser m_background_temperature_parser;
     amrex::ParserExecutor<4> m_background_density_func;
     amrex::ParserExecutor<4> m_background_temperature_func;
+    amrex::ParticleReal m_background_density = 0.0;
+    amrex::ParticleReal m_background_temperature = 0.0;
+    bool m_constant_density = false;
+    bool m_constant_temperature = false;
 
     std::string m_remainder_field_name;
     amrex::ParticleReal m_fixed_product_weight = 0.0;

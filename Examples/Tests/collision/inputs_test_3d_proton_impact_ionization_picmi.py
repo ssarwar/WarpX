@@ -6,13 +6,18 @@ import time
 
 import numpy as np
 
-from pywarpx import libwarpx, picmi
+from pywarpx import amrex, libwarpx, picmi
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--energy-keV", type=float, default=50.0)
 parser.add_argument("--mixed", action="store_true")
 parser.add_argument("--steps", type=int, default=1)
+parser.add_argument("--cold", action="store_true")
+parser.add_argument("--alias-product", action="store_true")
 args = parser.parse_args()
+if args.alias_product:
+    amrex.throw_exception = 1
+    amrex.signal_handling = 0
 
 PARTICLES_PER_DIRECTION = 16
 PARTICLES_PER_BEAM = PARTICLES_PER_DIRECTION**3
@@ -102,6 +107,8 @@ cases = {
 
 collisions = []
 for name, case in cases.items():
+    if args.cold:
+        case["temperature"] = 1.0e-8 if name == "N2" else "1.0e-8+0.0*t"
     case["beam"] = make_beam(name, case["direction"])
     case["electrons"] = make_electrons(name)
     case["ions"] = make_ions(name, case["neutral_mass"])
@@ -109,7 +116,10 @@ for name, case in cases.items():
         picmi.ProtonImpactIonizationCollisions(
             name=f"pjg_{name}",
             species=case["beam"],
-            product_species=[case["electrons"], case["ions"]],
+            product_species=[
+                case["electrons"],
+                case["beam"] if args.alias_product else case["ions"],
+            ],
             ionization_target=name,
             background_density=case["density"],
             background_temperature=case["temperature"],
@@ -218,7 +228,9 @@ for name, case in cases.items():
         for component_name, values in particle_data(container).items():
             results[f"{name}_{species_name}_{component_name}"] = values
     results[f"{name}_neutral_mass"] = case["neutral_mass"]
-    results[f"{name}_temperature"] = float(300.0 if name == "N2" else 600.0)
+    results[f"{name}_temperature"] = (
+        1.0e-8 if args.cold else (300.0 if name == "N2" else 600.0)
+    )
     results[f"{name}_direction"] = np.asarray(case["direction"])
 
 if libwarpx.amr.ParallelDescriptor.MyProc() == 0:
