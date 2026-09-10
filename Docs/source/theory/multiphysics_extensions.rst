@@ -9,5 +9,6 @@ WarpX includes various extensions to the traditional PIC loop which enable it to
     :maxdepth: 1
 
     multiphysics/collisions
+    multiphysics/proton_impact_ionization
     multiphysics/ionization
     multiphysics/qed
