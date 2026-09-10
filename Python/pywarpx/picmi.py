@@ -3392,6 +3392,10 @@ class MCCCollisions(picmistandard.base._ClassWithInit):
 class ProtonImpactIonizationCollisions(picmistandard.base._ClassWithInit):
     """Configure rigid-beam proton or bare-ion impact ionization.
 
+    The calibrated PJG-type N2/O2 SDCS represents inclusive electron yield
+    with effective electron/ion pairs, not exclusive single ionization.
+    All secondary energies are kinetic; ions inherit neutral thermal velocities.
+
     Parameters
     ----------
     name: string
@@ -3422,7 +3426,10 @@ class ProtonImpactIonizationCollisions(picmistandard.base._ClassWithInit):
 
     projectile_energy_min, projectile_energy_max: float, optional
         Bounds in eV of the logarithmic PJG lookup table. The defaults are
-        1 keV and 1 GeV.
+        5 keV and 10 GeV for protons, scaled by projectile/proton mass for
+        bare ions. A custom interval may narrow but not enlarge this range.
+        The total-data calibration is 5--4000 keV for protons; relativistic
+        energies and bare-ion scaling are constrained extrapolations.
 
     ndt_supercycle: integer, optional
         Run once every ``ndt_supercycle`` PIC steps.

@@ -162,13 +162,14 @@ ProtonImpactIonizationCollision::ProtonImpactIonizationCollision (
     m_background_density_func = m_background_density_parser.compile<4>();
     m_background_temperature_func = m_background_temperature_parser.compile<4>();
 
-    amrex::ParticleReal projectile_energy_min = 1.0e3_prt;
-    amrex::ParticleReal projectile_energy_max = 1.0e9_prt;
+    auto const projectile_rest_energy = projectile.getMass() * PhysConst::c2 / PhysConst::q_e;
+    auto const projectile_mass_scale = projectile.getMass() / PhysConst::m_p;
+    amrex::ParticleReal projectile_energy_min = 5.0e3_prt * projectile_mass_scale;
+    amrex::ParticleReal projectile_energy_max = 1.0e10_prt * projectile_mass_scale;
     utils::parser::queryWithParser(pp_collision_name, "projectile_energy_min",
                                    projectile_energy_min);
     utils::parser::queryWithParser(pp_collision_name, "projectile_energy_max",
                                    projectile_energy_max);
-    auto const projectile_rest_energy = projectile.getMass() * PhysConst::c2 / PhysConst::q_e;
     m_pjg_model = std::make_unique<ProtonImpactIonization::PJGModel>(
         m_target, projectile_rest_energy, projectile_energy_min, projectile_energy_max);
 
@@ -314,11 +315,13 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
                 auto const density = density_function(position.x, position.y, position.z, cur_time);
                 auto const temperature =
                     temperature_function(position.x, position.y, position.z, cur_time);
-                AMREX_IF_ON_DEVICE((AMREX_DEVICE_ASSERT(density >= 0.0_prt);
-                                    AMREX_DEVICE_ASSERT(temperature >= 0.0_prt);))
-                AMREX_IF_ON_HOST((if (density < 0.0_prt || temperature < 0.0_prt) {
+                AMREX_IF_ON_DEVICE((AMREX_DEVICE_ASSERT(density >= 0.0_prt && std::isfinite(density));
+                                    AMREX_DEVICE_ASSERT(temperature >= 0.0_prt &&
+                                                        std::isfinite(temperature));))
+                AMREX_IF_ON_HOST((if (!(density >= 0.0_prt && temperature >= 0.0_prt) ||
+                                         !std::isfinite(density) || !std::isfinite(temperature)) {
                     amrex::Abort("Proton-impact ionization requires "
-                                 "non-negative neutral "
+                                 "finite, non-negative neutral "
                                  "density and temperature.");
                 }))
                 temperature_pointer[cell] = temperature;
@@ -419,7 +422,12 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
                 index_type permutation_index = first_particle;
                 index_type selected_particle = -1;
 
-                auto const energy_shift = amrex::Random(engine);
+                // A 53-bit cell shift retains the rare hard-electron tail
+                // even in single-precision builds. Only two integer draws
+                // per cell are needed, not per emitted electron.
+                auto const energy_shift =
+                    static_cast<double>(amrex::Random_int(1u << 26, engine)) * 0x1p-26 +
+                    static_cast<double>(amrex::Random_int(1u << 27, engine)) * 0x1p-53;
                 auto const angle_shift = amrex::Random(engine);
                 auto const azimuth_shift = amrex::Random(engine);
                 auto const normal_shift_1 = amrex::Random(engine);
@@ -479,7 +487,7 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
                     auto const energy_quantile =
                         ProtonImpactIonization::shiftedRadicalInverse(
                             static_cast<std::uint32_t>(product),
-                            static_cast<amrex::ParticleReal>(energy_shift));
+                            energy_shift);
                     amrex::ParticleReal secondary_energy;
                     amrex::ParticleReal binding_energy;
                     pjg.sample(kinetic_energy, energy_quantile, secondary_energy, binding_energy);

@@ -1,20 +1,27 @@
 #!/usr/bin/env python3
-"""Generate N2 and O2 products from rigid 50 keV proton beams."""
+"""Generate N2 and O2 products from rigid monoenergetic or mixed beams."""
 
+import argparse
 import time
 
 import numpy as np
 
 from pywarpx import libwarpx, picmi
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--energy-keV", type=float, default=50.0)
+parser.add_argument("--mixed", action="store_true")
+parser.add_argument("--steps", type=int, default=1)
+args = parser.parse_args()
+
 PARTICLES_PER_DIRECTION = 16
 PARTICLES_PER_BEAM = PARTICLES_PER_DIRECTION**3
 PROJECTILE_DENSITY = 1.0e8
-PROJECTILE_ENERGY = 50.0e3
+PROJECTILE_ENERGY = args.energy_keV * 1e3
 BACKGROUND_DENSITY = 2.0e20
 TIME_STEP = 1.0e-9
-FIXED_PRODUCT_WEIGHT = 200.0
-MAX_PRODUCTS_PER_CELL = 20000
+FIXED_PRODUCT_WEIGHT = 15.0 if args.energy_keV < 10 else 200.0
+MAX_PRODUCTS_PER_CELL = 30000
 
 C = picmi.constants.c
 M_E = picmi.constants.m_e
@@ -23,7 +30,11 @@ Q_E = picmi.constants.q_e
 M_U = 1.660_539_066_60e-27
 PROJECTILE_REST_ENERGY = M_P * C**2 / Q_E
 PROJECTILE_GAMMA = 1.0 + PROJECTILE_ENERGY / PROJECTILE_REST_ENERGY
-PROJECTILE_PROPER_SPEED = C * np.sqrt(PROJECTILE_GAMMA**2 - 1.0)
+PROJECTILE_PROPER_SPEED = C * np.sqrt(
+    PROJECTILE_ENERGY
+    / PROJECTILE_REST_ENERGY
+    * (PROJECTILE_ENERGY / PROJECTILE_REST_ENERGY + 2)
+)
 
 grid = picmi.Cartesian3DGrid(
     number_of_cells=[1, 1, 1],
@@ -110,7 +121,7 @@ for name, case in cases.items():
 sim = picmi.Simulation(
     solver=solver,
     time_step_size=TIME_STEP,
-    max_steps=1,
+    max_steps=args.steps,
     warpx_collisions=collisions,
     warpx_random_seed=42,
     warpx_serialize_initial_conditions=True,
@@ -167,17 +178,38 @@ results = {
     "projectile_density": PROJECTILE_DENSITY,
     "background_density": BACKGROUND_DENSITY,
     "time_step": TIME_STEP,
+    "steps": args.steps,
+    "max_products_per_cell": MAX_PRODUCTS_PER_CELL,
     "fixed_product_weight": FIXED_PRODUCT_WEIGHT,
     "particles_per_beam": PARTICLES_PER_BEAM,
     "initialization_elapsed": initialization_elapsed,
 }
 for name in cases:
     beam = sim.particles.get(f"beam_{name}")
+    if args.mixed:
+        # Keep distinct parent energies in the same cell, in opposite orders
+        # for the two gases. This detects parent/energy-quantile correlation.
+        for tile in beam.iterator(level=0):
+            subset = (
+                slice(None, len(tile["w"]) // 2)
+                if name == "N2"
+                else slice(len(tile["w"]) // 2, None)
+            )
+            other_energy = 500e3
+            other_speed = C * np.sqrt(
+                other_energy
+                / PROJECTILE_REST_ENERGY
+                * (other_energy / PROJECTILE_REST_ENERGY + 2)
+            )
+            for component_name, direction in zip(
+                ("ux", "uy", "uz"), cases[name]["direction"], strict=True
+            ):
+                tile[component_name][subset] = direction * other_speed
     for component_name, values in particle_data(beam).items():
         results[f"{name}_beam_initial_{component_name}"] = values.copy()
 
 step_start = time.perf_counter()
-sim.step(1)
+sim.step(args.steps)
 results["step_elapsed"] = time.perf_counter() - step_start
 
 for name, case in cases.items():

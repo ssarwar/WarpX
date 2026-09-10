@@ -10,7 +10,6 @@
 #include "Utils/WarpXConst.H"
 
 #include <AMReX_Gpu.H>
-#include <AMReX_Math.H>
 #include <AMReX_REAL.H>
 #include <AMReX_Vector.H>
 
@@ -19,80 +18,82 @@
 #include <cmath>
 #include <limits>
 #include <string>
+#include <vector>
 
 namespace ProtonImpactIonization
 {
     namespace
     {
         constexpr int max_continua = 7;
-        constexpr double square_centimeter_to_square_meter = 1.0e-4;
+        constexpr int intervals_per_segment = 1024;
         constexpr double electron_rest_energy = 510998.95069;
-        constexpr double euler_number = 2.71828182845904523536;
+        constexpr double proton_rest_energy = 938272088.16;
+        constexpr double atomic_rest_energy = 931494103.72;
+        constexpr double rydberg = 13.605693122994;
+        constexpr double bohr_radius = 5.29177210544e-11;
+        constexpr double bethe_constant =
+            4.0 * MathConst::pi * bohr_radius * bohr_radius * rydberg * rydberg;
+
+        bool
+        inCalibrationRange (double const energy, double const mass)
+        {
+            if (!std::isfinite(energy) || !std::isfinite(mass) ||
+                mass < proton_rest_energy / 2.0) {
+                return false;
+            }
+            auto const equivalent_proton_energy = energy / mass * proton_rest_energy;
+            return equivalent_proton_energy >= 5.0e3 * (1.0 - 1.e-6) &&
+                   equivalent_proton_energy <= 1.0e10 * (1.0 + 1.e-6);
+        }
 
         struct Parameters
         {
-            int num_continua;
-            int num_electrons;
-            double b0;
-            double b1;
-            double e0;
-            double t1;
-            double gamma1_fixed;
-            double k;
-            double gamma_s;
-            double gamma_numerator;
-            double gamma_denominator;
-            double t_s;
-            double t_numerator;
-            double t_denominator;
-            double j;
-            double nu;
-            std::array<double, max_continua> thresholds;
-            std::array<double, max_continua> fractions;
-            std::array<double, max_continua> bethe_constants;
+            int m_num_continua;
+            int m_num_electrons;
+            double m_neutral_mass_number;
+            double m_k;
+            double m_width;
+            double m_broad_excess;
+            double m_t_s;
+            double m_t_numerator;
+            double m_t_denominator;
+            double m_j;
+            double m_power;
+            double m_edge;
+            std::array<double, max_continua> m_thresholds;
+            std::array<double, max_continua> m_fractions;
         };
 
-        // J is refitted to the Rudd recommended total over 5--4000 keV.
+        // Frozen joint calibration. K is converted from cm^2 to m^2; the
+        // peak numerator has units eV^2. No empirical hard normalization.
         constexpr Parameters n2_parameters{6,
                                            14,
-                                           0.029,
-                                           1.035,
-                                           8239.0,
-                                           53.3,
-                                           115.0,
-                                           7.58e-16,
-                                           11.1,
-                                           1.27e4,
-                                           1.81e3,
+                                           28.0134,
+                                           6.679516247830822e-20,
+                                           12.503227296612915,
+                                           88.54007881169514,
                                            4.0,
-                                           2.03e4,
-                                           1.97e3,
-                                           59.65,
-                                           -1.93e-1,
+                                           3635.677428147113,
+                                           1970.0,
+                                           13.8235317299573,
+                                           0.807,
+                                           0.70 * 1.1911400606628986,
                                            {15.58, 16.73, 18.75, 22.0, 23.6, 40.0, 0.0},
-                                           {0.456, 0.2, 0.104, 0.07, 0.07, 0.1, 0.0},
-                                           {2.48, 2.66, 2.99, 3.50, 3.76, 6.37, 0.0}};
-
-        // O2 additionally requires K because J cannot change the asymptote.
+                                           {0.456, 0.2, 0.104, 0.07, 0.07, 0.1, 0.0}};
         constexpr Parameters o2_parameters{7,
                                            16,
-                                           0.030,
-                                           1.035,
-                                           8239.0,
-                                           68.3,
-                                           189.1,
-                                           4.581e-16,
-                                           13.1,
-                                           5.0e5,
-                                           7.60e4,
+                                           31.9988,
+                                           5.119050696037388e-20,
+                                           16.757498368297895,
+                                           159.2697988004284,
                                            6.34,
-                                           2.52e3,
-                                           1.28e2,
-                                           19.28,
-                                           3.14e-1,
+                                           943.7164329964345,
+                                           128.0,
+                                           8.76635921598519,
+                                           1.314,
+                                           0.59,
                                            {12.1, 16.1, 16.9, 18.2, 20.3, 23.0, 37.0},
-                                           {0.08, 0.19, 0.19, 0.17, 0.11, 0.16, 0.1},
-                                           {1.93, 2.56, 2.69, 2.90, 3.23, 3.66, 5.89}};
+                                           {0.08, 0.19, 0.19, 0.17, 0.11, 0.16, 0.1}};
 
         Parameters const&
         parameters (PJGTarget const target)
@@ -101,161 +102,269 @@ namespace ProtonImpactIonization
         }
 
         double
-        piElectronChargeFourth ()
+        logistic (double const value)
         {
-            auto const classical_radius_cm = PhysConst::r_e_v<double> * 100.0;
-            return static_cast<double>(MathConst::pi) *
-                   std::pow(classical_radius_cm * electron_rest_energy, 2);
+            auto const exponential = std::exp(-std::abs(value));
+            return value >= 0.0 ? 1.0 / (1.0 + exponential) : exponential / (1.0 + exponential);
         }
 
-        struct ProjectileState
+        /** Cache projectile-dependent factors once per host integration. */
+        struct Spectrum
         {
-            double gamma;
-            double beta_squared;
-            double equivalent_electron_energy;
-            double maximum_transfer;
-            double total_energy;
+            Parameters const& m_p;
+            double m_energy;
+            double m_mass;
+            double m_neutral;
+            double m_equivalent;
+            double m_maximum;
+            double m_endpoint;
+            double m_peak;
+            double m_width_squared;
+            double m_broad_squared;
+            double m_distortion;
+            double m_soft_scale;
+            double m_terminal_factor;
+            double m_terminal_log_slope;
+            std::array<double, max_continua> m_edge_center{};
+            std::array<double, max_continua> m_edge_inverse_width{};
+            std::array<double, max_continua> m_channel_endpoint{};
+            double m_largest_width = 0.0;
+
+            Spectrum (PJGTarget const target, double const e, double const m)
+                : m_p(parameters(target)), m_energy(e), m_mass(m),
+                  m_neutral(m_p.m_neutral_mass_number * atomic_rest_energy)
+            {
+                auto const gamma = 1.0 + m_energy / m_mass;
+                auto const beta_squared = relativisticBetaSquared(m_energy, m_mass);
+                m_equivalent = 0.5 * electron_rest_energy * beta_squared;
+                m_maximum = relativisticMaximumTransfer(m_energy, m_mass);
+                m_endpoint = molecularMaximumSecondaryEnergy(m_energy, m_mass, m_neutral,
+                                                             m_p.m_thresholds[0]);
+                m_peak = m_p.m_t_s - m_p.m_t_numerator / (m_equivalent + m_p.m_t_denominator);
+                m_width_squared = m_p.m_width * m_p.m_width;
+                m_broad_squared = m_p.m_broad_excess * m_p.m_broad_excess;
+                m_distortion = logistic(
+                    m_p.m_power * std::log(m_energy * electron_rest_energy / (m_mass * m_p.m_j)));
+                double mean_binding = 0.0;
+                auto const ratio = electron_rest_energy / m_mass;
+                auto const denominator = 1.0 + 2.0 * gamma * ratio + ratio * ratio;
+                auto const broadening = gamma * (gamma + ratio) * std::pow(1.0 + ratio, 3) /
+                                        (denominator * denominator);
+                for (int j = 0; j < m_p.m_num_continua; ++j) {
+                    mean_binding += m_p.m_fractions[j] * m_p.m_thresholds[j];
+                    auto const width = broadening * std::sqrt(m_equivalent * m_p.m_thresholds[j]);
+                    m_largest_width = std::max(m_largest_width, width);
+                    m_edge_center[j] = m_maximum - 2.0 * width - rydberg / 4.0;
+                    m_edge_inverse_width[j] = m_p.m_edge / width;
+                    m_channel_endpoint[j] = molecularMaximumSecondaryEnergy(
+                        m_energy, m_mass, m_neutral, m_p.m_thresholds[j]);
+                }
+                auto const logarithm =
+                    std::log(4.0 * m_equivalent * gamma * gamma / mean_binding + std::exp(1.0)) -
+                    beta_squared;
+                m_soft_scale = m_distortion * m_p.m_k * m_width_squared * logarithm;
+
+                m_terminal_factor = bhabhaSpinHalfFactor(m_energy, m_mass, m_maximum);
+                auto const total = m_energy + m_mass;
+                auto const momentum = std::sqrt(m_energy * (m_energy + 2.0 * m_mass));
+                auto const invariant =
+                    m_mass * m_mass + electron_rest_energy * (electron_rest_energy + 2.0 * total);
+                // Factor 1-(Tmax/m_p)^2, keeping the terminal derivative
+                // nonpositive without cancellation at relativistic energies.
+                auto const minus =
+                    m_mass * m_mass + electron_rest_energy * electron_rest_energy +
+                    2.0 * electron_rest_energy * m_mass * m_mass / (total + momentum);
+                m_terminal_log_slope = -beta_squared / m_maximum * (minus / invariant) *
+                                       (1.0 + 2.0 * electron_rest_energy * momentum / invariant) /
+                                       m_terminal_factor;
+            }
+
+            double
+            phaseFraction (double const t, int const j) const
+            {
+                if (t >= m_channel_endpoint[j]) {
+                    return 0.0;
+                }
+                auto const binding = m_p.m_thresholds[j];
+                auto const threshold =
+                    binding * (1.0 + m_mass / m_neutral) + binding * binding / (2.0 * m_neutral);
+                auto const constant =
+                    (m_neutral - electron_rest_energy) * (m_energy - threshold) -
+                    electron_rest_energy * binding * (m_mass + binding / 2.0) / m_neutral;
+                auto const numerator = (m_energy + m_mass + m_neutral) * t - constant;
+                auto const denominator = std::sqrt(m_energy * (m_energy + 2.0 * m_mass) * t *
+                                                   (t + 2.0 * electron_rest_energy));
+                return denominator > 0.0
+                           ? std::clamp((denominator - numerator) / (2.0 * denominator), 0.0, 1.0)
+                           : (numerator <= 0.0 ? 1.0 : 0.0);
+            }
+
+            /** Return the SDCS and its binding-weighted value, in SI units. */
+            std::array<double, 2>
+            evaluate (double const t) const
+            {
+                if (!(t >= 0.0 && t < m_endpoint)) {
+                    return {0.0, 0.0};
+                }
+                double gate = 0.0;
+                double binding_gate = 0.0;
+                for (int j = 0; j < m_p.m_num_continua; ++j) {
+                    auto const weight = m_p.m_fractions[j] * phaseFraction(t, j) *
+                                        logistic((m_edge_center[j] - t) * m_edge_inverse_width[j]);
+                    gate += weight;
+                    binding_gate += weight * m_p.m_thresholds[j];
+                }
+                auto const narrow = (t - m_peak) * (t - m_peak) + m_width_squared;
+                auto const broad = 1.0 / (narrow + m_broad_squared);
+                auto const difference = m_broad_squared * broad / narrow;
+                auto const hard_distortion =
+                    1.0 - (1.0 - m_distortion) / (1.0 + t * t / m_broad_squared);
+                auto const factor =
+                    t <= m_maximum
+                        ? bhabhaSpinHalfFactor(m_energy, m_mass, t)
+                        : m_terminal_factor * std::exp(m_terminal_log_slope * (t - m_maximum));
+                auto const value =
+                    (m_soft_scale * difference +
+                     hard_distortion * m_p.m_num_electrons * bethe_constant * broad * factor) /
+                    m_equivalent;
+                return {gate * value, binding_gate * value};
+            }
         };
 
-        ProjectileState
-        projectileState (double const projectile_energy, double const projectile_rest_energy)
+        /** Positive quadrature with both CDF and survival integrals.
+         *
+         * The four segments resolve the peak, either side of free Tmax,
+         * and the molecular tail. Independent reverse accumulation avoids
+         * subtracting a nearly unit CDF to resolve rare hard electrons.
+         */
+        struct IntegratedSpectrum
         {
-            auto const gamma = 1.0 + projectile_energy / projectile_rest_energy;
-            auto const beta_squared =
-                relativisticBetaSquared(projectile_energy, projectile_rest_energy);
-            auto const maximum_transfer =
-                relativisticMaximumTransfer(projectile_energy, projectile_rest_energy);
-            return {gamma, beta_squared, 0.5 * electron_rest_energy * beta_squared,
-                    maximum_transfer, projectile_energy + projectile_rest_energy};
-        }
+            Spectrum const& m_spectrum;
+            std::vector<double> m_x;
+            std::vector<double> m_density;
+            std::vector<double> m_area;
+            std::vector<double> m_cumulative;
+            std::vector<double> m_survival;
+            PJGModel::Moments m_moments{};
 
-        struct EnergyFunctions
-        {
-            double gamma_width;
-            double peak_energy;
-            double relativistic_reduction;
-            double distortion;
+            explicit IntegratedSpectrum (Spectrum const& state) : m_spectrum(state)
+            {
+                auto const left =
+                    std::max(state.m_maximum / 2.0, state.m_maximum - 32.0 * state.m_largest_width);
+                auto const right =
+                    std::min(state.m_endpoint, state.m_maximum + 32.0 * state.m_largest_width);
+                std::array<double, 5> const edges{0.0, left, state.m_maximum, right,
+                                                  state.m_endpoint};
+                m_x.reserve(4 * intervals_per_segment + 1);
+                m_x.push_back(0.0);
+                for (int segment = 0; segment < 4; ++segment) {
+                    auto const lower = edges[segment];
+                    auto const upper = edges[segment + 1];
+                    if (upper <= lower) {
+                        continue;
+                    }
+                    for (int i = 1; i <= intervals_per_segment; ++i) {
+                        auto const fraction = static_cast<double>(i) / intervals_per_segment;
+                        auto const coordinate =
+                            segment == 0 || segment == 3
+                                ? std::log1p(lower) +
+                                      fraction * (std::log1p(upper) - std::log1p(lower))
+                                : std::log1p(lower + fraction * (upper - lower));
+                        m_x.push_back(coordinate);
+                    }
+                }
+                m_density.reserve(m_x.size());
+                for (auto const coordinate : m_x) {
+                    m_density.push_back(state.evaluate(std::expm1(coordinate))[0] *
+                                        std::exp(coordinate));
+                }
+                m_area.resize(m_x.size() - 1);
+                m_cumulative.resize(m_x.size(), 0.0);
+                m_survival.resize(m_x.size(), 0.0);
+                constexpr std::array<double, 4> nodes{-0.8611363115940526, -0.3399810435848563,
+                                                      0.3399810435848563, 0.8611363115940526};
+                constexpr std::array<double, 4> weights{0.3478548451374538, 0.6521451548625461,
+                                                        0.6521451548625461, 0.3478548451374538};
+                for (std::size_t i = 0; i < m_area.size(); ++i) {
+                    auto const half = (m_x[i + 1] - m_x[i]) / 2.0;
+                    for (int node = 0; node < 4; ++node) {
+                        auto const coordinate = m_x[i] + half * (nodes[node] + 1.0);
+                        auto const t = std::expm1(coordinate);
+                        auto const values = state.evaluate(t);
+                        auto const jacobian = half * weights[node] * std::exp(coordinate);
+                        auto const contribution = jacobian * values[0];
+                        m_area[i] += contribution;
+                        m_moments.m_kinetic += contribution * t;
+                        m_moments.m_kinetic_second += contribution * t * t;
+                        m_moments.m_binding += jacobian * values[1];
+                        if (t > state.m_maximum) {
+                            m_moments.m_above_free += contribution;
+                        }
+                    }
+                    m_cumulative[i + 1] = m_cumulative[i] + m_area[i];
+                }
+                for (std::size_t i = m_area.size(); i-- > 0;) {
+                    m_survival[i] = m_survival[i + 1] + m_area[i];
+                }
+                m_moments.m_total = m_cumulative.back();
+            }
+
+            double
+            quantile (double const coordinate) const
+            {
+                if (coordinate <= 0.0) {
+                    return 0.0;
+                }
+                if (coordinate >= 1.0) {
+                    return m_spectrum.m_endpoint;
+                }
+                auto const forward = coordinate <= 0.5;
+                auto const a = std::pow(coordinate, 4);
+                auto const b = std::pow(1.0 - coordinate, 4);
+                auto const probability = (forward ? a : b) / (a + b);
+                auto const target = probability * m_moments.m_total;
+                auto const count = static_cast<std::ptrdiff_t>(m_area.size());
+                auto const index =
+                    forward
+                        ? std::upper_bound(m_cumulative.begin(), m_cumulative.end(), target) -
+                              m_cumulative.begin() - 1
+                        : count -
+                              (std::upper_bound(m_survival.rbegin(), m_survival.rend(), target) -
+                               m_survival.rbegin());
+                auto const i =
+                    static_cast<std::size_t>(std::clamp(index, std::ptrdiff_t{0}, count - 1));
+                if (m_area[i] <= 0.0) {
+                    return std::expm1(m_x[i]);
+                }
+                auto const fraction =
+                    std::clamp(forward ? (target - m_cumulative[i]) / m_area[i]
+                                       : 1.0 - (target - m_survival[i + 1]) / m_area[i],
+                               0.0, 1.0);
+                auto const width = m_x[i + 1] - m_x[i];
+                auto slope_a = m_density[i] * width / m_area[i];
+                auto slope_b = m_density[i + 1] * width / m_area[i];
+                auto const norm = std::hypot(slope_a, slope_b);
+                if (norm > 3.0) {
+                    // Monotone Hermite CDF: never create a negative m_density
+                    // while interpolating an exponentially small tail cell.
+                    slope_a *= 3.0 / norm;
+                    slope_b *= 3.0 / norm;
+                }
+                double lower = 0.0;
+                double upper = 1.0;
+                for (int iteration = 0; iteration < 36; ++iteration) {
+                    auto const s = (lower + upper) / 2.0;
+                    auto const value = s * (slope_a + s * ((3.0 - 2.0 * slope_a - slope_b) +
+                                                           s * (slope_a + slope_b - 2.0)));
+                    if (value < fraction) {
+                        lower = s;
+                    } else {
+                        upper = s;
+                    }
+                }
+                return std::expm1(m_x[i] + (lower + upper) / 2.0 * width);
+            }
         };
-
-        EnergyFunctions
-        energyFunctions (Parameters const& p, ProjectileState const& state)
-        {
-            auto const equivalent_energy = state.equivalent_electron_energy;
-            auto const gamma_width =
-                p.gamma_numerator / (equivalent_energy + p.gamma_denominator) + p.gamma_s;
-            auto const peak_energy = p.t_s - p.t_numerator / (equivalent_energy + p.t_denominator);
-            auto const log_energy = std::log(equivalent_energy / p.e0);
-            auto const relativistic_reduction = p.b0 * (log_energy * log_energy + p.b1);
-            auto const power = p.nu + 1.0;
-            auto const energy_power = std::pow(equivalent_energy, power);
-            auto const distortion = energy_power / (std::pow(p.j, power) + energy_power);
-            return {gamma_width, peak_energy, relativistic_reduction, distortion};
-        }
-
-        double
-        continuumDifferentialCrossSectionCm (Parameters const& p, int const continuum,
-                                             ProjectileState const& state,
-                                             EnergyFunctions const& functions,
-                                             double const secondary_energy)
-        {
-            auto const threshold = p.thresholds[continuum];
-            auto const amplitude =
-                p.fractions[continuum] * functions.distortion / state.equivalent_electron_energy;
-            auto const gamma_squared = functions.gamma_width * functions.gamma_width;
-            auto const line_shape =
-                1.0 / (std::pow(secondary_energy - functions.peak_energy, 2) + gamma_squared) -
-                functions.relativistic_reduction /
-                    (std::pow(secondary_energy - p.t1, 2) + p.gamma1_fixed * p.gamma1_fixed);
-            auto const bethe_factor =
-                std::log(4.0 * state.equivalent_electron_energy * p.bethe_constants[continuum] /
-                             (threshold * (1.0 - state.beta_squared)) +
-                         euler_number) -
-                state.beta_squared;
-            auto const soft_term = p.k * gamma_squared * bethe_factor * line_shape;
-
-            // Bhabha's exact hard-collision remainder after the common PJG
-            // 1/(m beta^2 c^2/2) factor is extracted. The threshold shift is
-            // the remaining PJG bound-electron continuation.
-            auto const hard_term =
-                static_cast<double>(p.num_electrons) * piElectronChargeFourth() *
-                (1.0 / (2.0 * state.total_energy * state.total_energy) -
-                 state.beta_squared / ((state.maximum_transfer + threshold) *
-                                       (secondary_energy + threshold)));
-            return amplitude * (soft_term + hard_term);
-        }
-
-        double
-        integratedContinuumCrossSectionCm (Parameters const& p, int const continuum,
-                                           ProjectileState const& state,
-                                           EnergyFunctions const& functions,
-                                           double const upper_energy)
-        {
-            auto const threshold = p.thresholds[continuum];
-            auto const amplitude =
-                p.fractions[continuum] * functions.distortion / state.equivalent_electron_energy;
-            auto const gamma_width = functions.gamma_width;
-            auto const gamma_squared = gamma_width * gamma_width;
-            auto const line_integral =
-                (std::atan((upper_energy - functions.peak_energy) / gamma_width) -
-                 std::atan(-functions.peak_energy / gamma_width)) /
-                    gamma_width -
-                functions.relativistic_reduction *
-                    (std::atan((upper_energy - p.t1) / p.gamma1_fixed) -
-                     std::atan(-p.t1 / p.gamma1_fixed)) /
-                    p.gamma1_fixed;
-            auto const bethe_factor =
-                std::log(4.0 * state.equivalent_electron_energy * p.bethe_constants[continuum] /
-                             (threshold * (1.0 - state.beta_squared)) +
-                         euler_number) -
-                state.beta_squared;
-            auto const soft_integral = p.k * gamma_squared * bethe_factor * line_integral;
-            auto const hard_integral =
-                static_cast<double>(p.num_electrons) * piElectronChargeFourth() *
-                (upper_energy / (2.0 * state.total_energy * state.total_energy) -
-                 state.beta_squared / (state.maximum_transfer + threshold) *
-                     std::log1p(upper_energy / threshold));
-            return amplitude * (soft_integral + hard_integral);
-        }
-
-        double
-        cumulativeCrossSectionCm (PJGTarget const target, double const projectile_energy,
-                                  double const secondary_energy,
-                                  double const projectile_rest_energy)
-        {
-            if (projectile_energy <= 0.0 || secondary_energy <= 0.0) {
-                return 0.0;
-            }
-            auto const& p = parameters(target);
-            auto const state = projectileState(projectile_energy, projectile_rest_energy);
-            auto const functions = energyFunctions(p, state);
-            auto const upper_energy = std::min(secondary_energy, state.maximum_transfer);
-            double result = 0.0;
-            for (int continuum = 0; continuum < p.num_continua; ++continuum) {
-                result +=
-                    integratedContinuumCrossSectionCm(p, continuum, state, functions, upper_energy);
-            }
-            return result;
-        }
-
-        double
-        effectiveBindingEnergy (PJGTarget const target, double const projectile_energy,
-                                double const secondary_energy, double const projectile_rest_energy)
-        {
-            auto const& p = parameters(target);
-            auto const state = projectileState(projectile_energy, projectile_rest_energy);
-            auto const functions = energyFunctions(p, state);
-            double weighted_binding = 0.0;
-            double positive_sdcs = 0.0;
-            for (int continuum = 0; continuum < p.num_continua; ++continuum) {
-                auto const contribution =
-                    std::max(continuumDifferentialCrossSectionCm(p, continuum, state, functions,
-                                                                 secondary_energy),
-                             0.0);
-                positive_sdcs += contribution;
-                weighted_binding += contribution * p.thresholds[continuum];
-            }
-            return positive_sdcs > 0.0 ? weighted_binding / positive_sdcs : p.thresholds[0];
-        }
     } // namespace
 
     PJGModel::PJGModel (PJGTarget const target, amrex::ParticleReal const projectile_rest_energy,
@@ -265,106 +374,73 @@ namespace ProtonImpactIonization
           m_projectile_energy_max(projectile_energy_max),
           m_projectile_rest_energy(projectile_rest_energy)
     {
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(std::isfinite(projectile_rest_energy) &&
+                                             projectile_rest_energy >= proton_rest_energy / 2,
+                                         "PJG requires a finite heavy-projectile rest energy.");
+        auto const mass_scale = static_cast<double>(projectile_rest_energy) / proton_rest_energy;
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-            std::isfinite(static_cast<double>(projectile_rest_energy)) &&
-                projectile_rest_energy > 0.0,
-            "PJG projectile rest energy must be finite and positive.");
-        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-            std::isfinite(static_cast<double>(projectile_energy_min)) &&
-                projectile_energy_min > 0.0,
-            "PJG minimum projectile energy must be finite and positive.");
-        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-            std::isfinite(static_cast<double>(projectile_energy_max)) &&
+            std::isfinite(projectile_energy_min) && std::isfinite(projectile_energy_max) &&
+                projectile_energy_min >= 5.0e3 * mass_scale * (1.0 - 1.e-6) &&
+                projectile_energy_max <= 1.0e10 * mass_scale * (1.0 + 1.e-6) &&
                 projectile_energy_max > projectile_energy_min,
-            "PJG maximum projectile energy must exceed the minimum energy.");
+            "PJG table bounds require 5 keV <= (m_p/M) E <= 10 GeV and E_max > E_min.");
+        auto const& p = parameters(target);
+        m_neutral_rest_energy =
+            static_cast<amrex::ParticleReal>(p.m_neutral_mass_number * atomic_rest_energy);
+        m_minimum_binding_energy = static_cast<amrex::ParticleReal>(p.m_thresholds[0]);
 
-        auto const log_energy_min = std::log(static_cast<double>(projectile_energy_min));
-        auto const log_energy_max = std::log(static_cast<double>(projectile_energy_max));
-        auto const log_energy_step =
-            (log_energy_max - log_energy_min) / static_cast<double>(table_energy_points - 1);
-        m_log_projectile_energy_min = static_cast<amrex::ParticleReal>(log_energy_min);
-        m_inv_log_projectile_energy_step = static_cast<amrex::ParticleReal>(1.0 / log_energy_step);
-
-        amrex::Vector<amrex::ParticleReal> host_cross_section(table_energy_points);
-        amrex::Vector<amrex::ParticleReal> host_log_secondary_energy(table_energy_points *
-                                                                     table_quantile_points);
-        amrex::Vector<amrex::ParticleReal> host_binding_energy(table_energy_points *
-                                                               table_quantile_points);
-
-        for (int energy_index = 0; energy_index < table_energy_points; ++energy_index) {
-            auto const projectile_energy =
-                std::exp(log_energy_min + static_cast<double>(energy_index) * log_energy_step);
-            auto const maximum_transfer = maximumEnergyTransfer(
-                projectile_energy, static_cast<double>(projectile_rest_energy));
-            auto const total_cross_section = integratedCrossSection(
-                target, projectile_energy, static_cast<double>(projectile_rest_energy));
-            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(std::isfinite(total_cross_section) &&
-                                                 total_cross_section > 0.0,
-                                             "The corrected PJG model produced a "
-                                             "non-positive total cross section.");
-            host_cross_section[energy_index] =
-                static_cast<amrex::ParticleReal>(total_cross_section);
-
-            double lower_energy = 0.0;
-            for (int quantile_index = 0; quantile_index < table_quantile_points; ++quantile_index) {
-                auto const offset = energy_index * table_quantile_points + quantile_index;
-                auto const transformed_quantile = static_cast<double>(quantile_index) /
-                                                  static_cast<double>(table_quantile_points - 1);
-                auto const transformed_fourth_power = std::pow(transformed_quantile, 4);
-                auto const complement_fourth_power = std::pow(1.0 - transformed_quantile, 4);
-                auto const quantile =
-                    transformed_fourth_power / (transformed_fourth_power + complement_fourth_power);
-                double secondary_energy;
-                if (quantile_index == 0) {
-                    secondary_energy = 0.0;
-                } else if (quantile_index == table_quantile_points - 1) {
-                    secondary_energy = maximum_transfer;
-                } else {
-                    auto const target_cross_section = quantile * total_cross_section;
-                    double upper_energy = maximum_transfer;
-                    // A fixed iteration count makes table generation reproducible.
-                    for (int iteration = 0; iteration < 48; ++iteration) {
-                        auto const midpoint = 0.5 * (lower_energy + upper_energy);
-                        auto const cumulative =
-                            square_centimeter_to_square_meter *
-                            cumulativeCrossSectionCm(target, projectile_energy, midpoint,
-                                                     static_cast<double>(projectile_rest_energy));
-                        if (cumulative < target_cross_section) {
-                            lower_energy = midpoint;
-                        } else {
-                            upper_energy = midpoint;
-                        }
-                    }
-                    secondary_energy = 0.5 * (lower_energy + upper_energy);
-                    lower_energy = secondary_energy;
-                }
-
-                host_log_secondary_energy[offset] =
-                    static_cast<amrex::ParticleReal>(std::log1p(secondary_energy));
-                host_binding_energy[offset] = static_cast<amrex::ParticleReal>(
-                    effectiveBindingEnergy(target, projectile_energy, secondary_energy,
-                                           static_cast<double>(projectile_rest_energy)));
+        auto const log_min = std::log(static_cast<double>(projectile_energy_min));
+        auto const step = std::log(static_cast<double>(projectile_energy_max) /
+                                   static_cast<double>(projectile_energy_min)) /
+                          (table_energy_points - 1);
+        m_log_projectile_energy_min = static_cast<amrex::ParticleReal>(log_min);
+        m_inv_log_projectile_energy_step = static_cast<amrex::ParticleReal>(1.0 / step);
+        amrex::Vector<amrex::ParticleReal> cross_section(table_energy_points);
+        amrex::Vector<amrex::ParticleReal> log_secondary(table_energy_points *
+                                                         table_quantile_points);
+        amrex::Vector<amrex::ParticleReal> binding(table_energy_points * table_quantile_points);
+        for (int i = 0; i < table_energy_points; ++i) {
+            auto const energy = std::exp(log_min + i * step);
+            Spectrum const spectrum(target, energy, projectile_rest_energy);
+            IntegratedSpectrum const integrated(spectrum);
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                std::isfinite(integrated.m_moments.m_total) && integrated.m_moments.m_total > 0.0,
+                "The calibrated PJG integral must be finite and positive.");
+            cross_section[i] = static_cast<amrex::ParticleReal>(integrated.m_moments.m_total);
+            for (int j = 0; j < table_quantile_points; ++j) {
+                auto const t =
+                    integrated.quantile(static_cast<double>(j) / (table_quantile_points - 1));
+                auto const offset = i * table_quantile_points + j;
+                log_secondary[offset] = static_cast<amrex::ParticleReal>(std::log1p(t));
+                auto const values = spectrum.evaluate(t);
+                binding[offset] = static_cast<amrex::ParticleReal>(
+                    values[0] > 0.0 ? values[1] / values[0] : p.m_thresholds[0]);
             }
         }
-
-        m_cross_section.resize(host_cross_section.size());
-        m_log_secondary_energy.resize(host_log_secondary_energy.size());
-        m_binding_energy.resize(host_binding_energy.size());
-        amrex::Gpu::copy(amrex::Gpu::hostToDevice, host_cross_section.begin(),
-                         host_cross_section.end(), m_cross_section.begin());
-        amrex::Gpu::copy(amrex::Gpu::hostToDevice, host_log_secondary_energy.begin(),
-                         host_log_secondary_energy.end(), m_log_secondary_energy.begin());
-        amrex::Gpu::copy(amrex::Gpu::hostToDevice, host_binding_energy.begin(),
-                         host_binding_energy.end(), m_binding_energy.begin());
+        m_cross_section.resize(cross_section.size());
+        m_log_secondary_energy.resize(log_secondary.size());
+        m_binding_energy.resize(binding.size());
+        amrex::Gpu::copy(amrex::Gpu::hostToDevice, cross_section.begin(), cross_section.end(),
+                         m_cross_section.begin());
+        amrex::Gpu::copy(amrex::Gpu::hostToDevice, log_secondary.begin(), log_secondary.end(),
+                         m_log_secondary_energy.begin());
+        amrex::Gpu::copy(amrex::Gpu::hostToDevice, binding.begin(), binding.end(),
+                         m_binding_energy.begin());
     }
 
     PJGModel::Executor
     PJGModel::executor () const noexcept
     {
-        return {m_cross_section.dataPtr(),        m_log_secondary_energy.dataPtr(),
-                m_binding_energy.dataPtr(),       m_log_projectile_energy_min,
-                m_inv_log_projectile_energy_step, m_projectile_energy_min,
-                m_projectile_energy_max,          m_projectile_rest_energy};
+        return {m_cross_section.dataPtr(),
+                m_log_secondary_energy.dataPtr(),
+                m_binding_energy.dataPtr(),
+                m_log_projectile_energy_min,
+                m_inv_log_projectile_energy_step,
+                m_projectile_energy_min,
+                m_projectile_energy_max,
+                m_projectile_rest_energy,
+                m_neutral_rest_energy,
+                m_minimum_binding_energy};
     }
 
     PJGTarget
@@ -391,44 +467,41 @@ namespace ProtonImpactIonization
                                         double const secondary_energy,
                                         double const projectile_rest_energy)
     {
-        if (projectile_energy <= 0.0 || secondary_energy < 0.0) {
+        if (!inCalibrationRange(projectile_energy, projectile_rest_energy)) {
             return 0.0;
         }
-        auto const& p = parameters(target);
-        auto const state = projectileState(projectile_energy, projectile_rest_energy);
-        if (secondary_energy > state.maximum_transfer) {
-            return 0.0;
+        return Spectrum(target, projectile_energy, projectile_rest_energy)
+            .evaluate(secondary_energy)[0];
+    }
+
+    PJGModel::Moments
+    PJGModel::integratedMoments (PJGTarget const target, double const projectile_energy,
+                                 double const projectile_rest_energy)
+    {
+        if (!inCalibrationRange(projectile_energy, projectile_rest_energy)) {
+            return {};
         }
-        auto const functions = energyFunctions(p, state);
-        double result = 0.0;
-        for (int continuum = 0; continuum < p.num_continua; ++continuum) {
-            result += continuumDifferentialCrossSectionCm(p, continuum, state, functions,
-                                                          secondary_energy);
+        Spectrum const spectrum(target, projectile_energy, projectile_rest_energy);
+        if (spectrum.m_endpoint <= spectrum.m_maximum) {
+            return {};
         }
-        return square_centimeter_to_square_meter * std::max(result, 0.0);
+        return IntegratedSpectrum(spectrum).m_moments;
     }
 
     double
     PJGModel::integratedCrossSection (PJGTarget const target, double const projectile_energy,
                                       double const projectile_rest_energy)
     {
-        if (projectile_energy <= 0.0) {
-            return 0.0;
-        }
-        auto const maximum_transfer =
-            maximumEnergyTransfer(projectile_energy, projectile_rest_energy);
-        return square_centimeter_to_square_meter *
-               cumulativeCrossSectionCm(target, projectile_energy, maximum_transfer,
-                                        projectile_rest_energy);
+        return integratedMoments(target, projectile_energy, projectile_rest_energy).m_total;
     }
 
     double
     PJGModel::maximumEnergyTransfer (double const projectile_energy,
                                      double const projectile_rest_energy)
     {
-        if (projectile_energy <= 0.0 || projectile_rest_energy <= 0.0) {
-            return 0.0;
-        }
-        return projectileState(projectile_energy, projectile_rest_energy).maximum_transfer;
+        return projectile_energy > 0.0 && projectile_rest_energy > 0.0 &&
+                       std::isfinite(projectile_energy) && std::isfinite(projectile_rest_energy)
+                   ? relativisticMaximumTransfer(projectile_energy, projectile_rest_energy)
+                   : 0.0;
     }
 } // namespace ProtonImpactIonization

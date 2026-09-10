@@ -25,9 +25,12 @@ namespace ProtonImpactIonization
             return 0.0_prt;
         }
         constexpr auto electron_rest_energy = 510998.95069_prt;
+        // The energy model has a molecular tail. Its free reference direction
+        // is forward above Tmax; do not evaluate free kinematics out of domain.
+        auto const free_energy = amrex::min(secondary_energy, maximum_transfer);
         return sqrt(
-            amrex::max(secondary_energy * (maximum_transfer + 2.0_prt * electron_rest_energy) /
-                           (maximum_transfer * (secondary_energy + 2.0_prt * electron_rest_energy)),
+            amrex::max(free_energy * (maximum_transfer + 2.0_prt * electron_rest_energy) /
+                           (maximum_transfer * (free_energy + 2.0_prt * electron_rest_energy)),
                        0.0_prt));
     }
 

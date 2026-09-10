@@ -13,6 +13,7 @@ parser.add_argument("--cells-per-direction", type=int, default=8)
 parser.add_argument("--particles-per-cell-direction", type=int, default=4)
 parser.add_argument("--steps", type=int, default=5)
 parser.add_argument("--max-products-per-cell", type=int, default=8)
+parser.add_argument("--target", choices=("N2", "O2"), default="N2")
 args = parser.parse_args()
 
 assert args.cells_per_direction > 0
@@ -66,7 +67,8 @@ electrons = picmi.Species(
 ions = picmi.Species(
     name="ions",
     charge="q_e",
-    mass=28.0134 * 1.660_539_066_60e-27 - picmi.constants.m_e,
+    mass={"N2": 28.0134, "O2": 31.9988}[args.target] * 1.660_539_066_60e-27
+    - picmi.constants.m_e,
     warpx_do_not_push=True,
     warpx_do_not_deposit=True,
     warpx_do_not_gather=True,
@@ -75,8 +77,8 @@ collision = picmi.ProtonImpactIonizationCollisions(
     name="pjg",
     species=beam,
     product_species=[electrons, ions],
-    ionization_target="N2",
-    background_density=1.0e21,
+    ionization_target=args.target,
+    background_density=2.0e21,
     background_temperature=300.0,
     fixed_product_weight=3.0e5,
     max_products_per_cell=args.max_products_per_cell,

@@ -1,471 +1,164 @@
 #!/usr/bin/env python3
-"""Independent checks of corrected PJG ionization and product kinematics."""
+"""Compare actual PIC products with the independent final Python SDCS.
+
+Python uses vectorized physics and Simpson integration, not the C++ host
+quadrature or device inverse table. Experimental-fit tests live separately.
+"""
 
 import math
+import sys
+from pathlib import Path
 
 import numpy as np
 
-ELECTRON_REST_ENERGY = 510_998.95069  # eV
-CLASSICAL_ELECTRON_RADIUS = 2.817_940_3205e-15  # m
-PI_E4 = math.pi * (CLASSICAL_ELECTRON_RADIUS * ELECTRON_REST_ENERGY) ** 2
-BOHR_RADIUS = 5.291_772_105_44e-11  # m
-RYDBERG_ENERGY = 13.605_693_122_994  # eV
+sys.path.insert(
+    0,
+    str(
+        Path(__file__).resolve().parents[3] / "Tools/Algorithms/ProtonImpactIonization"
+    ),
+)
+from calibrated_pjg import PARAMETERS, total_cross_section
+from pjg_model import SpectrumGrid, molecular_endpoint
+from pjg_moments import LossGrid
+from pjg_properties import mapped_cdf
+from reference import free_maximum_transfer
+from target_parameters import TARGETS
+
 C = 299_792_458.0
 K_B = 1.380_649e-23
 Q_E = 1.602_176_634e-19
 
-PARAMETERS = {
-    "N2": {
-        "electrons": 14,
-        "b0": 0.029,
-        "b1": 1.035,
-        "e0": 8239.0,
-        "t1": 53.3,
-        "gamma1_fixed": 115.0,
-        "k": 7.58e-20,
-        "gamma_s": 11.1,
-        "gamma_numerator": 1.27e4,
-        "gamma_denominator": 1.81e3,
-        "t_s": 4.0,
-        "t_numerator": 2.03e4,
-        "t_denominator": 1.97e3,
-        "j": 59.65,
-        "nu": -1.93e-1,
-        "thresholds": np.array([15.58, 16.73, 18.75, 22.0, 23.6, 40.0]),
-        "fractions": np.array([0.456, 0.2, 0.104, 0.07, 0.07, 0.1]),
-        "bethe": np.array([2.48, 2.66, 2.99, 3.50, 3.76, 6.37]),
-    },
-    "O2": {
-        "electrons": 16,
-        "b0": 0.030,
-        "b1": 1.035,
-        "e0": 8239.0,
-        "t1": 68.3,
-        "gamma1_fixed": 189.1,
-        "k": 4.581e-20,
-        "gamma_s": 13.1,
-        "gamma_numerator": 5.0e5,
-        "gamma_denominator": 7.60e4,
-        "t_s": 6.34,
-        "t_numerator": 2.52e3,
-        "t_denominator": 1.28e2,
-        "j": 19.28,
-        "nu": 3.14e-1,
-        "thresholds": np.array([12.1, 16.1, 16.9, 18.2, 20.3, 23.0, 37.0]),
-        "fractions": np.array([0.08, 0.19, 0.19, 0.17, 0.11, 0.16, 0.1]),
-        "bethe": np.array([1.93, 2.56, 2.69, 2.90, 3.23, 3.66, 5.89]),
-    },
-}
-
-# Values obtained from a separate analytic implementation of the corrected
-# equations. Units are m^2 and cover the low-energy peak through 800 MeV.
-REFERENCE_TOTALS = {
-    "N2": np.array(
-        [
-            4.9571136e-20,
-            3.4782052e-20,
-            2.2309605e-20,
-            1.4438120e-20,
-            2.3912617e-21,
-            3.5000091e-22,
-            1.0497733e-22,
-        ]
-    ),
-    "O2": np.array(
-        [
-            5.3533138e-20,
-            3.9221672e-20,
-            2.4668388e-20,
-            1.5732801e-20,
-            2.4865961e-21,
-            3.2936513e-22,
-            8.9033261e-23,
-        ]
-    ),
-}
-REFERENCE_ENERGIES = np.array([50e3, 200e3, 500e3, 1e6, 10e6, 100e6, 800e6])
-
-# Rudd et al., Rev. Mod. Phys. 57, 965 (1985), Tables III and IV. The
-# recommended curve already combines the available experiments with the
-# authors' uncertainty and dataset-independence weights.
-RUDD_PARAMETERS = {
-    "N2": (3.82, 2.78, 1.80, 0.70),
-    "O2": (4.77, 0.00, 1.76, 0.93),
-}
-
-
-def projectile_state(energy, rest_energy):
-    gamma = 1.0 + energy / rest_energy
-    beta_squared = 1.0 - gamma**-2
-    mass_ratio = ELECTRON_REST_ENERGY / rest_energy
-    maximum_transfer = (
-        2.0
-        * ELECTRON_REST_ENERGY
-        * beta_squared
-        * gamma**2
-        / (1.0 + 2.0 * gamma * mass_ratio + mass_ratio**2)
-    )
-    return (
-        gamma,
-        beta_squared,
-        0.5 * ELECTRON_REST_ENERGY * beta_squared,
-        maximum_transfer,
-    )
-
-
-def printed_pjg_maximum_transfer(energy, rest_energy):
-    return (
-        energy
-        * (energy + 2.0 * rest_energy)
-        / (
-            energy
-            + ELECTRON_REST_ENERGY
-            + rest_energy / ELECTRON_REST_ENERGY * (energy + rest_energy)
-        )
-    )
-
-
-def rudd_cross_section(target, energy, projectile_rest_energy):
-    a, b, c, d = RUDD_PARAMETERS[target]
-    reduced_energy = energy / (
-        projectile_rest_energy / ELECTRON_REST_ENERGY * RYDBERG_ENERGY
-    )
-    denominator = reduced_energy / (a * np.log1p(reduced_energy) + b) + 1.0 / (
-        c * reduced_energy**d
-    )
-    return 4.0 * math.pi * BOHR_RADIUS**2 / denominator
-
-
-def continuum_sdcs(target, energy, secondary_energy, rest_energy):
-    p = PARAMETERS[target]
-    _, beta_squared, equivalent_energy, maximum_transfer = projectile_state(
-        energy, rest_energy
-    )
-    total_energy = energy + rest_energy
-    gamma_width = (
-        p["gamma_numerator"] / (equivalent_energy + p["gamma_denominator"])
-        + p["gamma_s"]
-    )
-    peak_energy = p["t_s"] - p["t_numerator"] / (equivalent_energy + p["t_denominator"])
-    log_energy = math.log(equivalent_energy / p["e0"])
-    reduction = p["b0"] * (log_energy**2 + p["b1"])
-    power = p["nu"] + 1.0
-    distortion = equivalent_energy**power / (p["j"] ** power + equivalent_energy**power)
-
-    secondary_energy = np.asarray(secondary_energy)
-    line_shape = 1.0 / (
-        (secondary_energy - peak_energy) ** 2 + gamma_width**2
-    ) - reduction / ((secondary_energy - p["t1"]) ** 2 + p["gamma1_fixed"] ** 2)
-    contributions = []
-    for threshold, fraction, bethe_constant in zip(
-        p["thresholds"], p["fractions"], p["bethe"], strict=True
-    ):
-        bethe_factor = (
-            math.log(
-                4.0
-                * equivalent_energy
-                * bethe_constant
-                / (threshold * (1.0 - beta_squared))
-                + math.e
-            )
-            - beta_squared
-        )
-        soft = p["k"] * gamma_width**2 * bethe_factor * line_shape
-        hard = (
-            p["electrons"]
-            * PI_E4
-            * (
-                1.0 / (2.0 * total_energy**2)
-                - beta_squared
-                / ((maximum_transfer + threshold) * (secondary_energy + threshold))
-            )
-        )
-        contributions.append(fraction * distortion / equivalent_energy * (soft + hard))
-    return np.asarray(contributions)
-
-
-def total_cross_section(target, energy, rest_energy):
-    p = PARAMETERS[target]
-    _, beta_squared, equivalent_energy, maximum_transfer = projectile_state(
-        energy, rest_energy
-    )
-    total_energy = energy + rest_energy
-    gamma_width = (
-        p["gamma_numerator"] / (equivalent_energy + p["gamma_denominator"])
-        + p["gamma_s"]
-    )
-    peak_energy = p["t_s"] - p["t_numerator"] / (equivalent_energy + p["t_denominator"])
-    log_energy = math.log(equivalent_energy / p["e0"])
-    reduction = p["b0"] * (log_energy**2 + p["b1"])
-    power = p["nu"] + 1.0
-    distortion = equivalent_energy**power / (p["j"] ** power + equivalent_energy**power)
-
-    total = 0.0
-    for threshold, fraction, bethe_constant in zip(
-        p["thresholds"], p["fractions"], p["bethe"], strict=True
-    ):
-        line_integral = (
-            math.atan((maximum_transfer - peak_energy) / gamma_width)
-            - math.atan(-peak_energy / gamma_width)
-        ) / gamma_width - reduction * (
-            math.atan((maximum_transfer - p["t1"]) / p["gamma1_fixed"])
-            - math.atan(-p["t1"] / p["gamma1_fixed"])
-        ) / p["gamma1_fixed"]
-        bethe_factor = (
-            math.log(
-                4.0
-                * equivalent_energy
-                * bethe_constant
-                / (threshold * (1.0 - beta_squared))
-                + math.e
-            )
-            - beta_squared
-        )
-        soft = p["k"] * gamma_width**2 * bethe_factor * line_integral
-        hard = (
-            p["electrons"]
-            * PI_E4
-            * (
-                maximum_transfer / (2.0 * total_energy**2)
-                - beta_squared
-                / (maximum_transfer + threshold)
-                * math.log1p(maximum_transfer / threshold)
-            )
-        )
-        total += fraction * distortion / equivalent_energy * (soft + hard)
-    return total
-
 
 def kinetic_energy(ux, uy, uz, mass):
     proper_speed_squared = ux**2 + uy**2 + uz**2
-    gamma = np.sqrt(1.0 + proper_speed_squared / C**2)
-    return mass * proper_speed_squared / ((gamma + 1.0) * Q_E)
-
-
-def reference_cdf(target, energy, rest_energy):
-    maximum_transfer = projectile_state(energy, rest_energy)[3]
-    log_energy = np.linspace(0.0, np.log1p(maximum_transfer), 500_001)
-    secondary_energy = np.expm1(log_energy)
-    sdcs = np.sum(continuum_sdcs(target, energy, secondary_energy, rest_energy), axis=0)
-    assert np.min(sdcs) >= 0.0
-    density_in_log_energy = sdcs * (secondary_energy + 1.0)
-    cumulative = np.zeros_like(secondary_energy)
-    cumulative[1:] = np.cumsum(
-        0.5
-        * (density_in_log_energy[:-1] + density_in_log_energy[1:])
-        * np.diff(log_energy)
-    )
-    numerical_total = cumulative[-1]
-    analytic_total = total_cross_section(target, energy, rest_energy)
-    assert np.isclose(numerical_total, analytic_total, rtol=2.0e-7)
-    return secondary_energy, cumulative / numerical_total
+    gamma = np.sqrt(1 + proper_speed_squared / C**2)
+    return mass * proper_speed_squared / ((gamma + 1) * Q_E)
 
 
 data = np.load("proton_impact_ionization_results.npz")
-projectile_energy = float(data["projectile_energy"])
-projectile_rest_energy = float(data["projectile_rest_energy"])
-
-# The exact two-body result must recover the nonrelativistic limit, and the
-# printed PJG expression must exhibit the diagnosed 800 MeV underestimate.
-check_energy = 800.0e6
-_, _, _, check_maximum_transfer = projectile_state(check_energy, projectile_rest_energy)
-assert np.isclose(check_maximum_transfer, 2_480_739.6170, rtol=2.0e-10)
-printed_transfer = printed_pjg_maximum_transfer(check_energy, projectile_rest_energy)
-assert check_maximum_transfer / printed_transfer > 3.69
-nonrelativistic_transfer = projectile_state(1.0e3, projectile_rest_energy)[3]
-nonrelativistic_mass_ratio = ELECTRON_REST_ENERGY / projectile_rest_energy
-assert np.isclose(
-    nonrelativistic_transfer,
-    4.0 * nonrelativistic_mass_ratio / (1.0 + nonrelativistic_mass_ratio) ** 2 * 1.0e3,
-    rtol=3.0e-6,
-)
-
-for target in ["N2", "O2"]:
-    calculated = np.array(
-        [
-            total_cross_section(target, energy, projectile_rest_energy)
-            for energy in REFERENCE_ENERGIES
-        ]
-    )
-    assert np.allclose(calculated, REFERENCE_TOTALS[target], rtol=6.0e-7)
-
-    # Regress the refit independently over the 5--4000 keV span measured by
-    # Rudd et al. Uniform log-energy sampling gives equal weight per decade.
-    fit_energy = np.geomspace(5.0e3, 4.0e6, 301)
-    fit_total = np.array(
-        [
-            total_cross_section(target, energy, projectile_rest_energy)
-            for energy in fit_energy
-        ]
-    )
-    recommended_total = rudd_cross_section(target, fit_energy, projectile_rest_energy)
-    fit_log_error = np.log(fit_total / recommended_total)
-    rms_log_error = np.sqrt(np.mean(fit_log_error**2))
-    maximum_factor_error = np.expm1(np.max(np.abs(fit_log_error)))
-    if target == "N2":
-        assert rms_log_error < 0.126
-        assert maximum_factor_error < 0.232
-    else:
-        assert rms_log_error < 0.064
-        assert maximum_factor_error < 0.260
-
-    # Independently bound the error introduced by the 256-point runtime table,
-    # and verify that its entire default range defines a positive probability.
-    table_energy = np.geomspace(1.0e3, 1.0e9, 256)
-    table_total = np.array(
-        [
-            total_cross_section(target, energy, projectile_rest_energy)
-            for energy in table_energy
-        ]
-    )
-    midpoint_energy = np.sqrt(table_energy[:-1] * table_energy[1:])
-    midpoint_exact = np.array(
-        [
-            total_cross_section(target, energy, projectile_rest_energy)
-            for energy in midpoint_energy
-        ]
-    )
-    midpoint_interpolated = 0.5 * (table_total[:-1] + table_total[1:])
-    maximum_table_error = np.max(np.abs(midpoint_interpolated / midpoint_exact - 1.0))
-    assert maximum_table_error < 1.0e-3
-
-    for scan_energy in np.geomspace(1.0e3, 1.0e9, 25):
-        scan_maximum = projectile_state(scan_energy, projectile_rest_energy)[3]
-        scan_secondary = np.expm1(np.linspace(0.0, np.log1p(scan_maximum), 2049))
-        scan_sdcs = np.sum(
-            continuum_sdcs(target, scan_energy, scan_secondary, projectile_rest_energy),
-            axis=0,
-        )
-        assert np.min(scan_sdcs) >= 0.0
-
-    for component in ["x", "y", "z", "ux", "uy", "uz", "w", "id"]:
-        assert np.array_equal(
+projectile_mass = float(data["projectile_rest_energy"]) * Q_E / C**2
+steps = int(data["steps"])
+for target in ("N2", "O2"):
+    for component in ("x", "y", "z", "ux", "uy", "uz", "w", "id"):
+        np.testing.assert_array_equal(
             data[f"{target}_beam_initial_{component}"],
             data[f"{target}_beam_{component}"],
         )
-
     electron_weight = data[f"{target}_electrons_w"]
     ion_weight = data[f"{target}_ions_w"]
-    assert electron_weight.size == ion_weight.size
-    assert 10000 < electron_weight.size <= 20000
-    assert np.array_equal(electron_weight, ion_weight)
+    assert 10000 < len(electron_weight) <= int(data["max_products_per_cell"]) * steps
+    np.testing.assert_array_equal(electron_weight, ion_weight)
     assert np.all(electron_weight == float(data["fixed_product_weight"]))
-    for position in ["x", "y", "z"]:
-        assert np.array_equal(
-            data[f"{target}_electrons_{position}"],
-            data[f"{target}_ions_{position}"],
+    for position in ("x", "y", "z"):
+        np.testing.assert_array_equal(
+            data[f"{target}_electrons_{position}"], data[f"{target}_ions_{position}"]
         )
-    for species in ["electrons", "ions"]:
-        particle_ids = data[f"{target}_{species}_id"]
-        assert np.unique(particle_ids).size == particle_ids.size
+    for species in ("electrons", "ions"):
+        ids = data[f"{target}_{species}_id"]
+        assert np.unique(ids).size == ids.size
 
-    gamma, beta_squared, _, maximum_transfer = projectile_state(
-        projectile_energy, projectile_rest_energy
+    # Quantize only roundoff in prescribed input energies, not a spectrum.
+    beam_energy = np.round(
+        kinetic_energy(
+            *(data[f"{target}_beam_{c}"] for c in ("ux", "uy", "uz")), projectile_mass
+        ),
+        4,
     )
-    projectile_speed = C * math.sqrt(beta_squared)
-    event_cross_section = total_cross_section(
-        target, projectile_energy, projectile_rest_energy
-    )
+    energies, inverse = np.unique(beam_energy, return_inverse=True)
+    sigma = total_cross_section(target, energies)
+    rest = float(data["projectile_rest_energy"])
+    speed = C * np.sqrt(energies * (energies + 2 * rest)) / (energies + rest)
+    beam_weights = np.bincount(inverse, weights=data[f"{target}_beam_w"])
+    score = beam_weights * sigma * 1e-4 * speed
     expected_weight = (
-        float(data["projectile_density"])
+        score.sum()
         * float(data["background_density"])
-        * event_cross_section
-        * projectile_speed
         * float(data["time_step"])
+        * steps
     )
-    observed_weight = np.sum(electron_weight)
-    assert np.isclose(observed_weight, expected_weight, rtol=2.0e-3)
+    assert np.isclose(electron_weight.sum(), expected_weight, rtol=2e-3)
 
-    electron_energy = kinetic_energy(
-        data[f"{target}_electrons_ux"],
-        data[f"{target}_electrons_uy"],
-        data[f"{target}_electrons_uz"],
+    energy = kinetic_energy(
+        *(data[f"{target}_electrons_{c}"] for c in ("ux", "uy", "uz")),
         9.109_383_7139e-31,
     )
-    assert np.all(electron_energy >= 0.0)
-    assert np.max(electron_energy) <= maximum_transfer * (1.0 + 2.0e-12)
-
-    reference_energy, reference_probability = reference_cdf(
-        target, projectile_energy, projectile_rest_energy
+    assert np.all(energy >= 0)
+    endpoint = max(
+        molecular_endpoint(target, energies, min(TARGETS[target].thresholds))
     )
-    sorted_energy = np.sort(electron_energy)
-    sampled_probability = np.interp(
-        sorted_energy, reference_energy, reference_probability
+    assert energy.max() <= endpoint * (1 + 2e-12)
+    grid = LossGrid(target, energies, 8193)
+    density = grid.grid(PARAMETERS[target])
+    cdfs = [
+        mapped_cdf(grid.secondary[i], density[i] * grid.jacobian[i], grid.dx)[:2]
+        for i in range(len(energies))
+    ]
+    mixture = score / score.sum()
+    sorted_energy = np.sort(energy)
+    probability = sum(
+        f * np.interp(sorted_energy, x, cdf)
+        for f, (x, cdf) in zip(mixture, cdfs, strict=True)
     )
-    empirical_probability = (
-        np.arange(sorted_energy.size, dtype=float) + 0.5
-    ) / sorted_energy.size
-    assert np.max(np.abs(sampled_probability - empirical_probability)) < 4.0e-3
-
+    empirical = (np.arange(len(energy)) + 0.5) / len(energy)
+    ks = np.max(np.abs(probability - empirical))
+    assert ks < 4e-3
+    x = np.unique(np.concatenate([values[0] for values in cdfs]))
+    cdf = sum(f * np.interp(x, t, p) for f, (t, p) in zip(mixture, cdfs, strict=True))
     quantiles = np.array([0.01, 0.1, 0.5, 0.9, 0.99, 0.999])
-    expected_quantiles = np.interp(quantiles, reference_probability, reference_energy)
-    observed_quantiles = np.quantile(electron_energy, quantiles)
-    print(
-        f"{target} energy quantiles expected={expected_quantiles} "
-        f"observed={observed_quantiles}"
+    expected_quantiles = np.interp(quantiles, cdf, x)
+    observed_quantiles = np.quantile(energy, quantiles)
+    np.testing.assert_allclose(
+        observed_quantiles[:-1], expected_quantiles[:-1], rtol=2e-2, atol=0.03
     )
-    assert np.allclose(
-        observed_quantiles[:-1], expected_quantiles[:-1], rtol=2.0e-2, atol=0.03
-    )
-    assert np.isclose(observed_quantiles[-1], expected_quantiles[-1], rtol=8.0e-2)
+    assert np.isclose(observed_quantiles[-1], expected_quantiles[-1], rtol=8e-2)
+    moments = grid(PARAMETERS[target])
+    expected_mean = np.dot(mixture, moments.kinetic / moments.total)
+    assert np.isclose(np.mean(energy), expected_mean, rtol=1e-2)
+    if len(energies) == 1:
+        tail = np.mean(energy > free_maximum_transfer(energies[0]))
+        expected_tail = float(moments.tail_total[0] / moments.total[0])
+        assert abs(tail - expected_tail) < 2e-3
 
-    direction = data[f"{target}_direction"]
+    # Check the retained closure's geometry, not agreement with measured DDCS.
     electron_u = np.column_stack(
-        [
-            data[f"{target}_electrons_ux"],
-            data[f"{target}_electrons_uy"],
-            data[f"{target}_electrons_uz"],
-        ]
+        [data[f"{target}_electrons_{c}"] for c in ("ux", "uy", "uz")]
     )
-    electron_u_magnitude = np.linalg.norm(electron_u, axis=1)
-    cosine = electron_u @ direction / electron_u_magnitude
-    assert np.all(np.abs(cosine) <= 1.0 + 2.0e-14)
-
-    contributions = np.maximum(
-        continuum_sdcs(
-            target, projectile_energy, electron_energy, projectile_rest_energy
-        ),
-        0.0,
+    direction = data[f"{target}_direction"]
+    unit = electron_u / np.linalg.norm(electron_u, axis=1)[:, None]
+    cosine = unit @ direction
+    assert np.all(abs(cosine) <= 1 + 2e-14)
+    if len(energies) == 1:
+        binding = SpectrumGrid(target, energies[0], energy).effective_binding(
+            PARAMETERS[target]
+        )
+        maximum = free_maximum_transfer(energies[0])
+        free_energy = np.minimum(energy, maximum)
+        free_cosine = np.sqrt(
+            free_energy
+            * (maximum + 2 * 510998.95069)
+            / (maximum * (free_energy + 2 * 510998.95069))
+        )
+        center = free_cosine * (energy + binding / 2) / (energy + binding)
+        width = binding / (energy + binding)
+        # Exact mean of the clipped uniform closure, not an angular-data fit.
+        expected_cosine = center - np.maximum(center + width - 1, 0) ** 2 / (4 * width)
+        assert abs(cosine.mean() - expected_cosine.mean()) < 1.5e-2
+        assert cosine[energy >= np.quantile(energy, 0.9)].mean() > (
+            cosine[energy <= np.quantile(energy, 0.5)].mean()
+        )
+    transverse = unit.mean(axis=0) - np.dot(unit.mean(axis=0), direction) * direction
+    assert np.linalg.norm(transverse) < 1.5e-2
+    thermal_speed = math.sqrt(
+        K_B
+        * float(data[f"{target}_temperature"])
+        / float(data[f"{target}_neutral_mass"])
     )
-    binding_energy = (PARAMETERS[target]["thresholds"] @ contributions) / np.sum(
-        contributions, axis=0
-    )
-    free_cosine = np.sqrt(
-        electron_energy
-        * (maximum_transfer + 2.0 * ELECTRON_REST_ENERGY)
-        / (maximum_transfer * (electron_energy + 2.0 * ELECTRON_REST_ENERGY))
-    )
-    expected_cosine = (
-        free_cosine
-        * (electron_energy + 0.5 * binding_energy)
-        / (electron_energy + binding_energy)
-    )
-    assert abs(np.mean(cosine) - np.mean(expected_cosine)) < 1.5e-2
-    assert np.mean(cosine[electron_energy >= np.quantile(electron_energy, 0.9)]) > (
-        np.mean(cosine[electron_energy <= np.quantile(electron_energy, 0.5)])
-    )
-    mean_direction = np.mean(electron_u / electron_u_magnitude[:, None], axis=0)
-    transverse_mean = mean_direction - np.dot(mean_direction, direction) * direction
-    assert np.linalg.norm(transverse_mean) < 1.5e-2
-
-    neutral_mass = float(data[f"{target}_neutral_mass"])
-    thermal_speed = math.sqrt(K_B * float(data[f"{target}_temperature"]) / neutral_mass)
-    ion_u = np.column_stack(
-        [
-            data[f"{target}_ions_ux"],
-            data[f"{target}_ions_uy"],
-            data[f"{target}_ions_uz"],
-        ]
-    )
-    assert np.all(np.abs(np.mean(ion_u, axis=0)) < 0.03 * thermal_speed)
-    assert np.allclose(np.std(ion_u, axis=0), thermal_speed, rtol=0.035)
-
+    ion_u = np.column_stack([data[f"{target}_ions_{c}"] for c in ("ux", "uy", "uz")])
+    assert np.all(abs(ion_u.mean(axis=0)) < 0.03 * thermal_speed)
+    np.testing.assert_allclose(ion_u.std(axis=0), thermal_speed, rtol=0.035)
     print(
-        f"{target}: pairs={electron_weight.size}, sigma={event_cross_section:.9e} m^2, "
-        f"Tmax={maximum_transfer:.6f} eV, KS="
-        f"{np.max(np.abs(sampled_probability - empirical_probability)):.3e}, "
-        f"table-error={maximum_table_error:.3e}, fit-rms={rms_log_error:.3e}"
+        f"{target}: pairs={len(energy)}, energies={energies}, KS={ks:.3e}, mean={energy.mean():.6f}/{expected_mean:.6f} eV"
     )
 
-assert float(data["initialization_elapsed"]) < 30.0
-assert float(data["step_elapsed"]) < 30.0
+assert float(data["initialization_elapsed"]) < 30
+assert float(data["step_elapsed"]) < 30

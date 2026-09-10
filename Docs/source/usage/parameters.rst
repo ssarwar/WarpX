@@ -3405,21 +3405,27 @@ Details about the collision models can be found in the :ref:`theory section <mul
 
 .. pp:param:: <collision_name>.projectile_energy_min
     :type: ``float``
-    :default: ``1.0e3``
+    :default: ``5.0e3 * projectile_mass / proton_mass``
     :optional:
 
     Only for ``proton_impact_ionization``. Lower projectile kinetic-energy
-    bound in eV for the logarithmic Porter--Jackman--Green lookup table. The
-    cross section is zero below this value.
+    bound in eV for the calibrated PJG-type lookup table. The cross section
+    is zero below this value, apart from floating-point boundary slack. The
+    equivalent proton energy must be at least 5 keV. An explicit former
+    1 keV bound is rejected rather than extrapolated below calibration.
 
 .. pp:param:: <collision_name>.projectile_energy_max
     :type: ``float``
-    :default: ``1.0e9``
+    :default: ``1.0e10 * projectile_mass / proton_mass``
     :optional:
 
     Only for ``proton_impact_ionization``. Upper projectile kinetic-energy
-    bound in eV for the logarithmic Porter--Jackman--Green lookup table. The
-    cross section is zero above this value.
+    bound in eV for the calibrated PJG-type lookup table. The cross section
+    is zero above this value, apart from floating-point boundary slack. The
+    equivalent proton energy cannot exceed the numerically audited 10 GeV
+    limit. Relativistic values are extrapolations, not measured molecular
+    calibration. This must exceed ``projectile_energy_min``; see
+    :ref:`multiphysics-collisions-proton-impact-ionization`.
 
 .. pp:param:: <collision_name>.productA_temperature_eV
     :type: `float array, size 3`
