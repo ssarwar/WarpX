@@ -13,6 +13,17 @@ the September 2026 calibration; they are not a new set of measured molecular
 constants. The independent Python reference and reproduction tools are in
 ``Tools/Algorithms/ProtonImpactIonization``.
 
+The versioned research archive in
+``Tools/Algorithms/ProtonImpactIonization/Research`` retains the final fit
+records, frozen numerical optical and stopping inputs, comparison figures,
+superseded fits, derivation notes and saved CPU validation data. Its
+``README.md`` provides the chronological decision record; ``DATA_SOURCES.md``
+and ``REPRODUCING.md`` identify source restrictions and offline reproduction
+commands. A SHA-256 manifest covers each payload and compressed source member.
+Historical notes are labeled by stage: their references to a ``current``
+candidate must not be interpreted as a second production model. This archive
+does not alter the equations or coefficients below.
+
 .. important::
 
    The observable is **inclusive electron-production yield**. Each represented

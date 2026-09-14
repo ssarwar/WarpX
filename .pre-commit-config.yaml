@@ -20,6 +20,15 @@ ci:
 
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
+- repo: local
+  hooks:
+  - id: pjg-research-archive
+    name: Verify frozen PJG research archive
+    entry: python Tools/Algorithms/ProtonImpactIonization/verify_research_archive.py
+    language: python
+    pass_filenames: false
+    files: '^Tools/Algorithms/ProtonImpactIonization/(Research/|verify_research_archive.py$)'
+
 - repo: https://github.com/pre-commit/pre-commit-hooks
   rev: v6.0.0
   hooks:

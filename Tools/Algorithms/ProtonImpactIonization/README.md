@@ -8,6 +8,12 @@ data provenance, residuals, stopping powers and limitations are in the
 The original printed model is retained only as an offline comparison; there
 is no runtime selector for a superseded calibration.
 
+The [research archive](Research/README.md) preserves the final fit records,
+numerical inputs, figures, superseded trials, derivation notes and saved
+validation outputs. Its chronology distinguishes rejected candidates from
+the frozen production model; payloads and compressed source snapshots have
+SHA-256 manifests and [offline reproduction instructions](Research/REPRODUCING.md).
+
 The source emits effective electron/singly charged molecular-ion pairs.
 It does not resolve exclusive single ionization, fragmentation or capture.
 The beam is rigid and ions are neutral-thermal. The proton incident range is
@@ -44,9 +50,21 @@ Numerical tolerances are not experimental uncertainty estimates.
 
 ## Reproduce the calibration and figures
 
-The numerical proton constraints are included in the Python sources.
-The two external optical inputs must be obtained separately; PDFs are not
-redistributed with WarpX. Install matplotlib and pypdf for this workflow.
+The numerical proton constraints are included in the Python sources. Frozen
+optical inputs are now included in the research archive, so the original
+comparison can be reproduced without downloads. Install matplotlib, then use:
+
+```sh
+python Tools/Algorithms/ProtonImpactIonization/fit_pjg.py \
+  --nifs Tools/Algorithms/ProtonImpactIonization/Research/inputs/nifs-optical.json \
+  --o2-leiden Tools/Algorithms/ProtonImpactIonization/Research/inputs/leiden-o2.txt \
+  --output build/pjg-data/frozen-results.json \
+  --figures build/pjg-data/figures --frozen
+```
+
+To independently refresh the source extraction instead, obtain the external
+inputs below and install pypdf. PDFs are not redistributed with WarpX. Keep
+newly downloaded inputs separate from the frozen archive:
 
 ```sh
 mkdir -p build/pjg-data
