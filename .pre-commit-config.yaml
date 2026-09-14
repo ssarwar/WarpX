@@ -25,14 +25,20 @@ repos:
   hooks:
   - id: trailing-whitespace
     args: [--markdown-linebreak-ext=md]
+    # Preserve the byte-identical, attributed numerical source snapshots.
+    exclude: '^Tools/Algorithms/ProtonImpactIonization/Research/inputs/'
   - id: end-of-file-fixer
-    exclude: '.json$'
+    exclude: '.json$|^Tools/Algorithms/ProtonImpactIonization/Research/inputs/'
   - id: mixed-line-ending
+    exclude: '^Tools/Algorithms/ProtonImpactIonization/Research/inputs/'
   - id: check-json
   - id: check-toml
   - id: check-yaml
   - id: check-added-large-files
     args: ['--maxkb=40']
+    # Frozen scientific data, figures and compressed diagnostics are intentional.
+    # verify_research_archive.py checks their complete file/member manifest.
+    exclude: '^Tools/Algorithms/ProtonImpactIonization/Research/'
   - id: requirements-txt-fixer
 #  - id: fix-encoding-pragma
 #    exclude: ^noxfile.py$
@@ -55,7 +61,7 @@ repos:
   rev: v1.5.6
   hooks:
   - id: remove-tabs
-    exclude: 'Make.WarpX|Make.package|Makefile|GNUmake'
+    exclude: 'Make.WarpX|Make.package|Makefile|GNUmake|^Tools/Algorithms/ProtonImpactIonization/Research/inputs/'
 
 # CMake formatting
 #- repo: https://github.com/cheshirekow/cmake-format-precommit
