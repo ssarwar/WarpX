@@ -26,29 +26,98 @@ collision consideration. Only these pre-selected particles are then individually
 considered for a collision based on their energy and the cross-sections of all
 the different collisional processes included.
 
-The MCC implementation assumes that the background neutral particles are **thermal**,
-and are moving at non-relativistic velocities in the lab frame. For each
-simulation particle considered for a collision, a velocity vector for a neutral
-particle is randomly chosen given the user specified neutral temperature. The
-particle velocity is then boosted to the stationary frame of the neutral through
-a Galilean transformation. The energy of the collision is calculated using the
-particle utility function, ``ParticleUtils::getCollisionEnergy()``, as
+The MCC implementation assumes that the background neutral particles are
+**thermal** and move at non-relativistic velocities in the laboratory frame.
+For each simulation particle considered for a collision, a neutral ordinary
+velocity :math:`\boldsymbol{V}_n` is sampled from the user-specified classical
+Maxwellian distribution. WarpX particle momentum components are normalized
+momenta, or proper velocities,
+:math:`\boldsymbol{u}=\gamma\boldsymbol{v}`.
+
+For electron projectiles, Background MCC uses the fast approximate relative
+proper velocity
 
     .. math::
 
-       \begin{aligned}
-        E_{coll} &= \sqrt{(\gamma mc^2 + Mc^2)^2 - (mu)^2} - (mc^2 + Mc^2) \\
-                 &= \frac{2Mmu^2}{M + m + \sqrt{M^2+m^2+2\gamma mM}}\frac{1}{\gamma + 1}
-       \end{aligned}
+       \widetilde{\boldsymbol{u}}
+       = \boldsymbol{u}_e-\boldsymbol{V}_n,
+       \qquad
+       \widetilde{\gamma}
+       = \sqrt{1+\frac{\widetilde{u}^2}{c^2}}.
 
-where :math:`u` is the speed of the particle as tracked in WarpX (i.e.
-:math:`u = \gamma v` with :math:`v` the particle speed), while :math:`m` and
-:math:`M` are the rest masses of the simulation and background species,
-respectively. The Lorentz factor is defined in the usual way,
-:math:`\gamma \equiv \sqrt{1 + u^2/c^2}`. Note that if :math:`\gamma\to1` the above
-expression reduces to the classical equation
-:math:`E_{coll} = \frac{1}{2}\frac{Mm}{M+m} u^2`. The collision cross-sections
-for all scattering processes are evaluated at the energy as calculated above.
+This subtraction is exact to leading order when the electron is
+non-relativistic, because :math:`\boldsymbol{u}_e\simeq\boldsymbol{v}_e`, and
+is exact for a stationary neutral at any electron energy. When the electron is
+relativistic, the neglected correction due to neutral motion has relative size
+of order :math:`V_n/c`, which is negligible for a classical gas. This
+approximation is specific to relativistic electrons colliding with
+non-relativistic neutrals; it is not a general relativistic relative-velocity
+formula.
+
+The cross-section lookup energy and physical collision-rate speed are
+
+    .. math::
+
+       E_{\mathrm{lookup}}
+       = \frac{m_e\widetilde{u}^2}
+              {e(\widetilde{\gamma}+1)},
+       \qquad
+       g_{\mathrm{coll}}
+       = \frac{\lvert\widetilde{\boldsymbol{u}}\rvert}
+              {\widetilde{\gamma}},
+
+where :math:`E_{\mathrm{lookup}}` is in electronvolts. In the
+stationary-neutral limit, :math:`g_{\mathrm{coll}}` is the ordinary electron
+speed, not the stored proper speed :math:`\lvert\boldsymbol{u}_e\rvert`.
+
+The lookup energy approximates the electron kinetic energy in the neutral rest
+frame. For an electron incident on an atomic or molecular neutral, its
+difference from the total center-of-momentum kinetic energy is of relative
+order :math:`m_e/M` until extreme relativistic energies. WarpX therefore does
+not distinguish these two energies for cross-section lookup in this model.
+Using ``ParticleUtils::getCollisionEnergy()`` would evaluate the exact two-body
+center-of-momentum energy and add another square root without a useful increase
+in accuracy. A full three-vector Lorentz transformation is likewise not needed.
+
+Thus, the frequency for process :math:`i` is
+:math:`\nu_i=n_n\sigma_i(E_{\mathrm{lookup}})g_{\mathrm{coll}}`.
+
+All configured processes, including impact ionization, compete in one draw. A
+particle therefore undergoes at most one accepted process in each Background
+MCC collision substep. In-place elastic and excitation outcomes are applied
+immediately; an accepted ionization is recorded and passed to the existing
+particle-creation transform without a second collision draw.
+
+By default, the null-collision majorant is constructed from the union of all
+cross-section table knots. Between consecutive knots the summed cross section
+is linear, so WarpX bounds each interval with the larger endpoint cross section
+and the speed at the upper endpoint. A k-way merge visits each tabulated knot
+once, giving initialization cost proportional to the total number of table
+points times the logarithm of the number of processes. It does not scale with
+the total energy span divided by the finest table spacing. For electrons, the
+constant high-energy table extrapolation is also bounded using
+:math:`g_{\mathrm{coll}}<c`.
+
+A user can bypass automatic construction with a collision-level majorant in
+:math:`\mathrm{s}^{-1}`::
+
+    mcc.nu_max = 1.0e12
+
+or with ``picmi.MCCCollisions(..., nu_max=1.0e12)``. The supplied value must
+bound the sum of all configured process frequencies for every particle state
+and background density encountered by that MCC object; an underestimated value
+biases the collision probabilities. Each MCC object retains its own majorant.
+The candidate probability is recalculated from the current collision timestep
+as :math:`P_{\max}=1-\exp(-\nu_{\max}\Delta t_{\mathrm{coll}})`, so
+collision subcycling and variable timesteps use the appropriate probability.
+
+For non-electron projectiles, the existing center-of-momentum collision-energy
+convention from ``ParticleUtils::getCollisionEnergy()`` is retained.
+
+The configured ``background_mass`` always denotes the neutral target mass and
+is kept separate from the mass of any ionization product species. If it is
+omitted for an ionizing electron-neutral collision, the neutral mass is inferred
+from the positive-ion product mass plus one electron mass.
 
 Once a particle is selected for a specific collision process, that process determines how the particle is scattered as outlined below.
 
