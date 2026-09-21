@@ -217,5 +217,86 @@ acceptance of an eight-GPU coupled WarpX simulation. Early ownership runs
 `58710514`/`58710515` used stale diagnostic objects and failed; they are not
 reported as successful multi-GPU physics tests.
 
-Record subsequent fixed defects, rejected hypotheses, unresolved limitations,
-test revisions, compiler/dependency versions, job IDs and measured results here.
+### Verified repairs and distributed continuation
+
+The CUDA capture issues were resolved in build `58712396`; `58712776` rebuilt
+the diagnostic repairs and both standalone particle precisions. No tolerance
+was relaxed to accept these changes.
+
+- `58712917` and `58712918` both completed successfully: ten C++ analytical
+  tests, 64 Python physics/archive tests and the independent Gaussian-field
+  reference checks. The native double/float PJG comparisons include neighboring
+  representable energies at table-row boundaries and 4,097 probability
+  quantiles per energy. The three new Poynting tests independently interpolate
+  manufactured fields in 1D, RZ and 3D.
+- These manufactured tests exposed a stock cell-centered axial-index error:
+  the axial predecessor is `i-1` in 1D and `j-1` in RZ, not `k-1`. They also
+  exposed a Yee-specific radial interpolation being applied to collocated RZ
+  fields. Both repairs pass the independent interpolation checks.
+- `58712916` repeats the stock PSATD nonzero-flux comparison with valid box
+  sizes. It reproduces the initial extra integration interval and cumulative
+  restart errors, without the earlier fixture's guard-cell violation.
+- `58713754` completed six all-channel MCC Yee runs on four A100s, restarting
+  each on two. `58713755` completed the corresponding PSATD study on eight
+  A100s across two nodes, restarting on four. Each continuation compares saved
+  particle coordinates, momenta, weights, native fields, ion densities, source
+  remainders and sampling counters **before stepping**. Deterministic source
+  budgets agree within the prescribed numerical bounds. Subsequent stochastic
+  MCC populations/energy pass the paired five-standard-error ensemble bounds.
+  This is distributed coupled-physics coverage, beyond the earlier topology
+  communication test.
+- In `58713746` and `58713753`, Yee source output and four/eight-GPU attachment
+  footprints passed. The PSATD source simulation and restart also ran, but its
+  output analysis incorrectly selected the unfiltered Yee comparison from the
+  immediate directory name (`full`). The analysis now takes an explicit solver
+  argument. The complete ownership matrix is being repeated.
+
+The Release input guards reject invalid parser-valued gas density/temperature
+and collision majorants through host-visible GPU error flags. Product paths
+reuse their existing counter transfer, avoiding an extra device synchronization
+per tile. One negative-input fixture initially failed because WarpX wrapped its
+correct error message with a `#` continuation prefix; comparison now normalizes
+only that presentation, and preserves each full error log.
+
+The diagnostic continuation fixture retains the pre-checkpoint output prefix
+and checks it byte-for-value against the uninterrupted run. It then compares
+the new suffix, including checkpoint-time output, across MPI decompositions.
+Every line-probe row is checked, rather than assuming one output row per step.
+Final integrated diagnostic and full regression acceptance remain pending.
+
+### Full-node and two-node results
+
+- `58715002` and `58715003` completed the six-seed coupled restart studies for
+  `semi_implicit_em` (four to two GPUs) and `semi_implicit_mm` (eight to four).
+  Together with Yee and PSATD above, all four solver configurations pass the
+  immediate restored-state checks and subsequent ensemble comparisons with
+  elastic, excitation, ionization and two-/three-body attachment enabled.
+- `58715464` completed source and attachment ownership tests for all four
+  solvers on eight A100s across two nodes, restarting on four. Source output
+  analysis now receives its solver explicitly; plotfile and Yee openPMD checks
+  pass. This resolves the analysis-only PSATD failures in the earlier runs.
+- `58714986` passed 228 of 257 selected regression stages. The failures include
+  three PSATD analyses using the old solver selection, missing public reference
+  datasets, QED-dependent inputs in a QED-disabled build, and eight restart
+  comparisons that assume unchanged particle storage order. The stock build
+  reproduces the eight ordering failures (`58716805`). A mixed-energy PJG
+  percentile failure is under sampling-convergence investigation; its assertion
+  tolerance remains unchanged.
+- `58715832` completed the 84-run, six-seed all-channel coupled noise/cost study.
+  At 64 by 256 cells, fluid beam/fluid ions take 5.860 +/- 0.096 ms per ordinary
+  timestep (99% confidence interval). Quiet particle beam/fluid ions take
+  7.409, 11.237 and 26.400 ms at 16, 64 and 256 beam particles per cell.
+  Electron populations and energy have overlapping 99% intervals across these
+  representations. These are one-GPU measurements; distributed scaling is a
+  separate study. The fluid ions alone are not faster than frozen ions at this
+  small event count (fluid beam/frozen ions: 5.648 +/- 0.056 ms).
+
+The ion-density update now combines addition, scratch clearing and validity
+checking in one reduction, replacing three separate full-density reductions.
+`58714994` repeats the 16-case one-/four-GPU profile after this change. The
+four-GPU fluid/fluid combined case takes 0.188 s for 20 steps versus 0.218 s in
+the earlier profile. This single profile pair diagnoses overhead; it is not a
+repeat-sample speedup claim. The distributed footprint and restart checks above
+verify conservation after the optimization. AMReX's `tilebox()` removes nodal
+tile overlap before `growntilebox()` expands only the outer tiles, so the fused
+update does not write a shared nodal value twice within a CPU FAB.

@@ -9,11 +9,16 @@
 #include "Utils/TextMsg.H"
 #include "WarpX.H"
 
+#include <ablastr/profiler/ProfilerWrapper.H>
 #include <ablastr/utils/Communication.H>
 
 #include <AMReX_GpuLaunch.H>
 #include <AMReX_MFIter.H>
 #include <AMReX_MultiFab.H>
+#include <AMReX_ParallelDescriptor.H>
+#include <AMReX_Reduce.H>
+
+#include <limits>
 
 void
 WarpXFluidContainer::InitPrescribedDensity (ablastr::fields::MultiFabRegister& fields, int lev)
@@ -51,6 +56,7 @@ WarpXFluidContainer::InitPrescribedDensity (ablastr::fields::MultiFabRegister& f
 void
 WarpXFluidContainer::CommitDensityIncrement (ablastr::fields::MultiFabRegister& fields, int lev)
 {
+    ABLASTR_PROFILE("WarpXFluidContainer::CommitDensityIncrement");
     auto& warpx = WarpX::GetInstance();
     auto& increment = *fields.get(DensityIncrementName(), lev);
     auto& density = *fields.get(name_mf_N, lev);
@@ -76,12 +82,30 @@ WarpXFluidContainer::CommitDensityIncrement (ablastr::fields::MultiFabRegister& 
     // Retain the charge-shape support beyond physical walls as well. Boundary
     // reflection and filtering act on the transient total charge, just as for
     // frozen kinetic ions, rather than truncating each persistent increment.
-    amrex::MultiFab::Add(density, increment, 0, 0, 1, density.nGrowVect());
-    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-        density.min(0, density.nGrow()) >= 0.0 &&
-            !density.contains_nan(0, 1, density.nGrow()) &&
-            !density.contains_inf(0, 1, density.nGrow()),
-        "An immobile-fluid update produced a negative or non-finite number density.");
+    // Fuse the update, scratch reset and validity check. Three separate global
+    // reductions here otherwise synchronize every ion species on each subcycle.
+    amrex::ReduceOps<amrex::ReduceOpMax> reduce;
+    amrex::ReduceData<int> data(reduce);
+    using Tuple = decltype(data)::Type;
+    for (amrex::MFIter mfi(density, amrex::TilingIfNotGPU()); mfi.isValid();
+         ++mfi) {
+        auto const values = density.array(mfi);
+        auto const delta = increment.array(mfi);
+        reduce.eval(
+            mfi.growntilebox(density.nGrowVect()), data,
+            [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept -> Tuple {
+                auto const updated = values(i, j, k) + delta(i, j, k);
+                values(i, j, k) = updated;
+                delta(i, j, k) = 0.0;
+                return {
+                    int(!(updated >= 0.0 &&
+                          updated <= std::numeric_limits<amrex::Real>::max()))};
+            });
+    }
+    int invalid = amrex::get<0>(data.value());
+    amrex::ParallelDescriptor::ReduceIntMax(invalid);
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(invalid == 0,
+                                     "An immobile-fluid update produced a "
+                                     "negative or non-finite number density.");
     density.FillBoundary(warpx.Geom(lev).periodicity());
-    increment.setVal(0.0);
 }
