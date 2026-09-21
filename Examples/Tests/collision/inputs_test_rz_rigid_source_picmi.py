@@ -29,6 +29,7 @@ parser.add_argument(
 parser.add_argument("--restart")
 parser.add_argument("--openpmd", action="store_true")
 parser.add_argument("--subcycles", type=int, default=1)
+parser.add_argument("--alpha", action="store_true")
 args = parser.parse_args()
 if os.environ.get("WARPX_TEST_RESTART_MUTATION"):
     amrex.throw_exception = 1
@@ -40,7 +41,11 @@ qe, mp, me, c = (
     picmi.constants.c,
 )
 energy, sigma_r, sigma_t, peak_current = 8e8, 0.002, 25e-12, 0.6
-gamma = 1 + energy * qe / (mp * c * c)
+charge_state = 2 if args.alpha else 1
+beam_mass = (4 if args.alpha else 1) * mp
+beam_energy = energy * beam_mass / mp
+peak_current *= charge_state
+gamma = 1 + beam_energy * qe / (beam_mass * c * c)
 speed = c * np.sqrt(1 - gamma**-2)
 sigma_z = speed * sigma_t
 cutoff, ngas, dt, steps = 2.0, 1e21, 1e-12, 6
@@ -66,8 +71,9 @@ frozen = dict(
 beam = picmi.FluidSpecies(
     name="beam",
     model="rigid_beam",
-    particle_type="proton",
-    kinetic_energy=energy,
+    mass=beam_mass,
+    charge=charge_state * qe,
+    kinetic_energy=beam_energy,
     sigma_r=sigma_r,
     sigma_t=sigma_t,
     peak_current=peak_current,
@@ -253,7 +259,13 @@ if args.restart:
         for name, value in state().items():
             np.testing.assert_allclose(value, saved[name], rtol=2e-14, atol=0)
 
-number = peak_current * np.sqrt(2 * np.pi) * sigma_t * erf(cutoff / np.sqrt(2)) / qe
+number = (
+    peak_current
+    * np.sqrt(2 * np.pi)
+    * sigma_t
+    * erf(cutoff / np.sqrt(2))
+    / (charge_state * qe)
+)
 previous = {name: population(values[0].name) for name, values in cases.items()}
 for step in range(start + 1, steps + 1):
     sim.step(1)
@@ -268,6 +280,7 @@ for step in range(start + 1, steps + 1):
             * speed
             * step
             * dt
+            * charge_state**2
         )
         # The independent SDCS quadrature differs from the existing table by
         # <1e-3 (tested over its full energy range in test_pjg_model.cpp).
@@ -334,6 +347,8 @@ for step in range(start + 1, steps + 1):
             counts[name + "_weight()"], population_value, rtol=3e-12
         )
         charge = -qe if name.startswith("e_") else qe
+        if name == "beam":
+            charge *= charge_state
         np.testing.assert_allclose(
             charges[name + "(C)"], charge * population_value, rtol=3e-12
         )
@@ -342,9 +357,11 @@ for step in range(start + 1, steps + 1):
         if name != "beam":
             assert energies[name + "(J)"] == 0
             assert momenta[name + "_z(kg*m/s)"] == 0
-    np.testing.assert_allclose(energies["beam(J)"], number * energy * qe, rtol=3e-12)
     np.testing.assert_allclose(
-        momenta["beam_z(kg*m/s)"], number * gamma * mp * speed, rtol=3e-12
+        energies["beam(J)"], number * beam_energy * qe, rtol=3e-12
+    )
+    np.testing.assert_allclose(
+        momenta["beam_z(kg*m/s)"], number * gamma * beam_mass * speed, rtol=3e-12
     )
     np.testing.assert_allclose(
         energies["total_mean(J)"],

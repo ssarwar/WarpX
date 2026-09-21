@@ -199,6 +199,7 @@ ProtonImpactIonizationCollision::ProtonImpactIonizationCollision (
         utils::parser::queryWithParser(pp_collision_name, "source_sampling_points", m_source_sampling_points);
         utils::parser::queryWithParser(pp_collision_name, "gas_quadrature_points", m_gas_quadrature_points);
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(m_source_sampling_points > 0 &&
+            m_source_sampling_points < std::numeric_limits<int>::max() &&
             m_gas_quadrature_points > 0 && m_gas_quadrature_points <= 16,
             "Source sampling points must be positive; gas quadrature points must lie in [1,16].");
         int seed = 0;
@@ -229,6 +230,7 @@ ProtonImpactIonizationCollision::ProtonImpactIonizationCollision (
             << m_background_temperature << '\n';
         if (!m_constant_density) { configuration << m_background_density_parser.expr() << '\n'; }
         if (!m_constant_temperature) { configuration << m_background_temperature_parser.expr() << '\n'; }
+        if (m_fluid_projectile) { configuration << "quiet_sampler 2\n"; }
         m_configuration = configuration.str();
     }
 }

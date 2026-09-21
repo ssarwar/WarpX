@@ -24,6 +24,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 
@@ -93,6 +94,8 @@ ProtonImpactIonizationCollision::ProduceFromFluid (
     int const resolution = m_source_sampling_points;
     int const quadrature = m_gas_quadrature_points;
     int const bins = quadrature*quadrature*quadrature;
+    auto const axial_stride = static_cast<std::size_t>(resolution)+1;
+    auto const gas_stride = static_cast<std::size_t>(bins)+1;
     auto const constant_gas = m_constant_density;
     auto const gas = m_background_density;
     auto const density_function = m_background_density_func;
@@ -111,12 +114,12 @@ ProtonImpactIonizationCollision::ProduceFromFluid (
     // Its last entry is the independently integrated physical yield; intermediate
     // entries provide a quiet piecewise-uniform spatial sampler, refined by the
     // source_sampling_points input without changing the physical cell yield.
-    m_source_axial.resize(nz*(resolution+1));
+    m_source_axial.resize(static_cast<std::size_t>(nz)*axial_stride);
     auto* axial = m_source_axial.data();
     amrex::ParallelFor(nz, [=] AMREX_GPU_DEVICE(int j) noexcept {
         double const lo = zmin+j*dz;
         for (int sub = 0; sub <= resolution; ++sub) {
-            axial[j*(resolution+1)+sub] =
+            axial[j*axial_stride+sub] =
                 profile.integratedLongitudinal(lo, lo+dz*sub/resolution, start_time, dt);
         }
     });
@@ -129,10 +132,12 @@ ProtonImpactIonizationCollision::ProduceFromFluid (
     for (amrex::MFIter mfi = electron.MakeMFIter(0, info); mfi.isValid(); ++mfi) {
         auto const box = mfi.tilebox(amrex::IntVect::TheZeroVector());
         auto const lower = box.smallEnd();
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(box.numPts() <= std::numeric_limits<int>::max(),
+            "Rigid-source tiles must contain fewer than INT_MAX cells.");
         int const nx = box.length(0), cells = static_cast<int>(box.numPts());
-        m_source_indices.resize(2*cells);
+        m_source_indices.resize(2*static_cast<std::size_t>(cells));
         m_source_weights.resize(cells);
-        if (!constant_gas) { m_source_cdf.resize(cells*(bins+1)); }
+        if (!constant_gas) { m_source_cdf.resize(cells*gas_stride); }
         auto* counts = m_source_indices.data();
         auto* offsets = counts+cells;
         auto* weights = m_source_weights.data();
@@ -146,12 +151,12 @@ ProtonImpactIonizationCollision::ProduceFromFluid (
             double source = 0.0;
             if (constant_gas) {
                 source = gas*profile.radialIntegral(rlo, rlo+dr)*
-                    axial[(j-iz0)*(resolution+1)+resolution];
+                    axial[(j-iz0)*axial_stride+resolution];
             } else {
                 // Positive composite quadrature with the exact beam measure in
                 // each subcell/time interval. Refinement resolves a varying gas
                 // without negative source weights or rejection sampling.
-                cdf[cell*(bins+1)] = 0.0;
+                cdf[cell*gas_stride] = 0.0;
                 for (int bin = 0; bin < bins; ++bin) {
                     int const a = bin%quadrature;
                     int const b = (bin/quadrature)%quadrature;
@@ -163,7 +168,7 @@ ProtonImpactIonizationCollision::ProduceFromFluid (
                     AMREX_ALWAYS_ASSERT(background >= 0.0 && std::isfinite(background));
                     source += background*profile.radialIntegral(rb, rb+dr/quadrature)*
                         profile.integratedLongitudinal(zb, zb+dz/quadrature, tb, dt/quadrature);
-                    cdf[cell*(bins+1)+bin+1] = source;
+                    cdf[cell*gas_stride+bin+1] = source;
                 }
             }
             double const available = rest(i,j,0)+rate*source;
@@ -208,26 +213,31 @@ ProtonImpactIonizationCollision::ProduceFromFluid (
             }
             auto const phase = scramble(seed+static_cast<std::uint64_t>(j-iz0)*nr+i-ir0);
             double const energy_shift = double(phase >> 11)*0x1p-53;
-            double const space_shift = double(scramble(phase) >> 11)*0x1p-53;
+            auto const space_shift = static_cast<std::uint32_t>(scramble(phase));
             auto const angle_shift = static_cast<std::uint32_t>(scramble(phase+1));
             auto const azimuth_shift = static_cast<std::uint32_t>(scramble(phase+2));
             auto const radial_shift = static_cast<std::uint32_t>(scramble(phase+3));
             auto const position_shift = static_cast<std::uint32_t>(scramble(phase+4));
+            // Rotate each batch's axial strata through a quiet sequence. A
+            // fixed shift repeats the same axial points whenever the cap is
+            // reached, leaving persistent density noise across pulse steps.
+            double const axial_shift = ProtonImpactIonization::shiftedKronecker<double>(
+                static_cast<std::uint32_t>(sequence), space_shift, 0x1f83d9abu);
             double emitted = 0.0, energy = 0.0, binding = 0.0, discarded = 0.0;
             for (amrex::Long product = 0; product < count; ++product) {
                 auto const sample_index = static_cast<std::uint32_t>(sequence+product);
                 using ProtonImpactIonization::shiftedKronecker;
                 double const u_r = shiftedKronecker<double>(sample_index, radial_shift, 0x3c6ef373u);
-                double const u_z = (double(product)+space_shift)/count;
+                double const u_z = (double(product)+axial_shift)/count;
                 double r0 = rlo, r1 = std::min(rlo+dr, profile.m_cutoff_r*profile.m_sigma_r);
                 double z = 0.0;
                 if (constant_gas) {
-                    auto const* row = axial+(j-iz0)*(resolution+1);
+                    auto const* row = axial+(j-iz0)*axial_stride;
                     double const target = std::min(u_z*row[resolution], std::nextafter(row[resolution], 0.0));
                     int const bin = interval(row, resolution, target);
                     z = zlo+dz/resolution*(bin+(target-row[bin])/(row[bin+1]-row[bin]));
                 } else {
-                    auto const* row = cdf+cell*(bins+1);
+                    auto const* row = cdf+cell*gas_stride;
                     double const target = std::min(u_z*row[bins], std::nextafter(row[bins], 0.0));
                     int const bin = interval(row, bins, target);
                     int const a = bin%quadrature, b = (bin/quadrature)%quadrature;

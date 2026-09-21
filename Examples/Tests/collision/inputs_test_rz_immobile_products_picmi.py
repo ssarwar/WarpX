@@ -5,16 +5,22 @@ import argparse
 from pathlib import Path
 
 import numpy as np
+from mpi4py import MPI
 
-from pywarpx import picmi, warpx
+from pywarpx import amr, picmi, warpx
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
     "--kind", choices=["proton", "ionization", "attachment"], required=True
 )
 parser.add_argument("--shape", type=int, default=3)
-parser.add_argument("--solver", choices=["Yee", "PSATD"], default="Yee")
+parser.add_argument(
+    "--solver",
+    choices=["Yee", "PSATD", "semi_implicit_em", "semi_implicit_mm"],
+    default="Yee",
+)
 parser.add_argument("--walls", action="store_true")
+parser.add_argument("--restart")
 args = parser.parse_args()
 
 grid = picmi.CylindricalGrid(
@@ -36,7 +42,7 @@ grid = picmi.CylindricalGrid(
     n_azimuthal_modes=1,
 )
 solver = picmi.ElectromagneticSolver(
-    grid=grid, method=args.solver, stencil_order=[8, 8]
+    grid=grid, method="PSATD" if args.solver == "PSATD" else "Yee", stencil_order=[8, 8]
 )
 frozen = dict(
     warpx_do_not_push=True, warpx_do_not_gather=True, warpx_do_not_deposit=True
@@ -121,6 +127,17 @@ sim = picmi.Simulation(
     particle_shape=args.shape,
     warpx_collisions=collisions,
     warpx_random_seed=47,
+    warpx_current_deposition_algo="direct"
+    if args.solver.startswith("semi_implicit")
+    else None,
+    warpx_evolve_scheme=picmi.SemiImplicitEMEvolveScheme(
+        nonlinear_solver=picmi.NewtonNonlinearSolver(
+            relative_tolerance=1e-10,
+            use_mass_matrices_jacobian=args.solver == "semi_implicit_mm",
+        )
+    )
+    if args.solver.startswith("semi_implicit")
+    else None,
     verbose=0,
 )
 for sp in species:
@@ -131,7 +148,11 @@ for sp in species:
             n_macroparticle_per_cell=[1, 1, 1] if args.kind == "proton" else [4, 1, 4],
         ),
     )
+if args.kind == "attachment":
+    sim.add_diagnostic(picmi.Checkpoint(name="chk", period=2))
 sim.initialize_inputs()
+if args.restart:
+    amr.restart = args.restart
 warpx.get_bucket("fluids").species_names = ["ion_fluid"]
 fluid = warpx.get_bucket("ion_fluid")
 fluid.model = "immobile"
@@ -151,9 +172,43 @@ def rho(name):
     return host(mf[0:3j, -2j:3j]).copy()
 
 
-initial = rho("electrons")
+def state():
+    local = []
+    for tile in sim.particles.get("electrons").iterator(level=0):
+        local.append(
+            np.column_stack(
+                [host(tile[key]) for key in ["r", "theta", "z", "w", "ux", "uy", "uz"]]
+            )
+        )
+    local = np.concatenate(local) if local else np.empty((0, 7))
+    particles = np.concatenate(MPI.COMM_WORLD.allgather(local))
+    particles = particles[np.lexsort(particles.T[::-1])]
+    density = host(
+        sim.fields.get("fluid_density_ion_fluid", level=0)[0:3j, -2j:3j]
+    ).copy()
+    return dict(particles=particles, density=density)
+
+
+start = sim.extension.warpx.getistep(lev=0)
+if args.restart:
+    assert args.kind == "attachment" and start == 2
+    directory = Path(args.restart).parents[1]
+    restored = state()
+    with np.load(directory / "attachment_2.npz") as saved:
+        for name, array in restored.items():
+            np.testing.assert_allclose(array, saved[name], rtol=2e-13, atol=0)
+    with np.load(directory / "attachment_initial.npz") as saved:
+        initial, squared_weights = saved["rho"], float(saved["squared_weights"])
+else:
+    initial = rho("electrons")
+    if args.kind == "attachment":
+        squared_weights = np.sum(state()["particles"][:, 3] ** 2)
+        if MPI.COMM_WORLD.rank == 0:
+            np.savez_compressed(
+                "attachment_initial.npz", rho=initial, squared_weights=squared_weights
+            )
 previous = np.zeros_like(initial)
-for step in range(3):
+for step in range(start, 3):
     sim.step(1)
     if args.kind == "proton":
         expected = rho("reference_i")
@@ -167,6 +222,19 @@ for step in range(3):
     np.testing.assert_allclose(actual, expected, rtol=2e-12, atol=2e-14 * scale)
     assert np.max(np.abs(actual - previous)) > 0, "No new collision increment was added"
     previous = actual.copy()
+    if args.kind == "attachment":
+        saved_state = state()
+        if not args.restart and MPI.COMM_WORLD.rank == 0:
+            np.savez_compressed(f"attachment_{step + 1}.npz", **saved_state)
+if args.restart:
+    with np.load(directory / "attachment_3.npz") as reference:
+        # The existing MCC RNG does not promise a replay after redistribution.
+        # For weighted Bernoulli survivors Var(N) <= sum(w^2)/4; six standard
+        # deviations of two independent continuations gives this conservative bound.
+        difference = abs(
+            saved_state["particles"][:, 3].sum() - reference["particles"][:, 3].sum()
+        )
+        assert difference <= 6 * np.sqrt(squared_weights / 2)
 print(
     "PASS: immobile ion footprints match frozen kinetic events, including grid interfaces"
 )
