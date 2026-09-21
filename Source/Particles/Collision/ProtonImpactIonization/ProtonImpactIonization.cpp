@@ -22,6 +22,7 @@
 
 #include <AMReX_Array4.H>
 #include <AMReX_GpuAssert.H>
+#include <AMReX_GpuAtomic.H>
 #include <AMReX_GpuContainers.H>
 #include <AMReX_Math.H>
 #include <AMReX_ParmParse.H>
@@ -32,6 +33,7 @@
 #include <AMReX_Vector.H>
 
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <iomanip>
 #include <limits>
@@ -390,10 +392,13 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
             // Keep per-cell scratch in two allocations. This path runs once per
             // tile and collision call, so allocation count matters on GPUs.
             // Sum counts in 64 bits before checking the tile's int index limit.
-            amrex::Gpu::DeviceVector<amrex::Long> cell_indices(2 * num_cells, 0);
+            amrex::Gpu::DeviceVector<amrex::Long> cell_indices(
+                2 * static_cast<std::size_t>(num_cells) + 1, 0);
             amrex::Gpu::DeviceVector<amrex::ParticleReal> cell_reals(3 * num_cells, 0.0_prt);
             auto* AMREX_RESTRICT count_pointer = cell_indices.dataPtr();
             auto* AMREX_RESTRICT offset_pointer = count_pointer + num_cells;
+            auto* AMREX_RESTRICT runtime_error = offset_pointer + num_cells;
+            amrex::ignore_unused(runtime_error);
             auto* AMREX_RESTRICT product_weight_pointer = cell_reals.dataPtr();
             auto* AMREX_RESTRICT collision_score_pointer = product_weight_pointer + num_cells;
             auto* AMREX_RESTRICT temperature_pointer = collision_score_pointer + num_cells;
@@ -409,7 +414,11 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
             auto const length = box.length();
 #endif
 
-            amrex::ParallelFor(num_cells, [=] AMREX_GPU_DEVICE(int const cell) noexcept {
+            amrex::ParallelFor(num_cells, [=] AMREX_GPU_DEVICE(
+                                              int const cell) noexcept {
+                // Keep the capture list identical in CUDA host/device
+                // compilation.
+                amrex::ignore_unused(runtime_error);
                 if (cell_offsets[cell] == cell_offsets[cell + 1]) {
                     return;
                 }
@@ -448,15 +457,16 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
                     constant_temperature
                         ? background_temperature
                         : temperature_function(position.x, position.y, position.z, cur_time);
-                AMREX_IF_ON_DEVICE((AMREX_DEVICE_ASSERT(density >= 0.0_prt && std::isfinite(density));
-                                    AMREX_DEVICE_ASSERT(temperature >= 0.0_prt &&
-                                                        std::isfinite(temperature));))
-                AMREX_IF_ON_HOST((if (!(density >= 0.0_prt && temperature >= 0.0_prt) ||
-                                      !std::isfinite(density) || !std::isfinite(temperature)) {
-                    amrex::Abort("Proton-impact ionization requires "
-                                 "finite, non-negative neutral "
-                                 "density and temperature.");
-                }))
+                if (!(density >= 0.0_prt && temperature >= 0.0_prt) ||
+                    !std::isfinite(density) || !std::isfinite(temperature)) {
+                    AMREX_IF_ON_DEVICE((amrex::Gpu::Atomic::Max(
+                                            runtime_error, amrex::Long{1});))
+                    AMREX_IF_ON_HOST(
+                        (amrex::Abort("Proton-impact ionization requires "
+                                      "finite, non-negative neutral "
+                                      "density and temperature.");))
+                    return;
+                }
                 temperature_pointer[cell] = temperature;
 
                 amrex::ParticleReal score = 0.0_prt;
@@ -505,6 +515,19 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
 
             auto const total_new =
                 amrex::Scan::ExclusiveSum(num_cells, count_pointer, offset_pointer);
+#ifdef AMREX_USE_GPU
+            if (!constant_density || !constant_temperature) {
+                // Constants were validated at construction. Parser values need
+                // a host check: device assertions vanish in Release builds.
+                amrex::Long error = 0;
+                amrex::Gpu::copy(amrex::Gpu::deviceToHost, runtime_error,
+                                 runtime_error + 1, &error);
+                WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                    error == 0, "Proton-impact ionization requires finite, "
+                                "non-negative neutral "
+                                "density and temperature.");
+            }
+#endif
             if (total_new == 0) {
                 continue;
             }

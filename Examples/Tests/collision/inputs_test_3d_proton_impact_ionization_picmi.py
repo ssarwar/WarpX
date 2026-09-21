@@ -14,8 +14,10 @@ parser.add_argument("--mixed", action="store_true")
 parser.add_argument("--steps", type=int, default=1)
 parser.add_argument("--cold", action="store_true")
 parser.add_argument("--alias-product", action="store_true")
+parser.add_argument("--bad-density", action="store_true")
+parser.add_argument("--bad-temperature", action="store_true")
 args = parser.parse_args()
-if args.alias_product:
+if args.alias_product or args.bad_density or args.bad_temperature:
     amrex.throw_exception = 1
     amrex.signal_handling = 0
 
@@ -107,6 +109,10 @@ cases = {
 
 collisions = []
 for name, case in cases.items():
+    if args.bad_density:
+        case["density"] = "-(1+t)"
+    if args.bad_temperature:
+        case["temperature"] = "-(1+t)"
     if args.cold:
         case["temperature"] = 1.0e-8 if name == "N2" else "1.0e-8+0.0*t"
     case["beam"] = make_beam(name, case["direction"])
@@ -164,7 +170,7 @@ def component(container, name):
 def ids(container):
     return np.concatenate(
         [
-            to_numpy(libwarpx.amr.unpack_ids(tile["idcpu"]))
+            to_numpy(libwarpx.amr.unpack_ids(to_numpy(tile["idcpu"])))
             for tile in container.iterator(level=0)
         ]
     )

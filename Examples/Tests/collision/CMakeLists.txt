@@ -347,6 +347,16 @@ add_warpx_test(
 )
 
 add_warpx_test(
+    test_rz_rigid_source_bad_inputs_picmi
+    RZ
+    1
+    "inputs_test_3d_proton_impact_ionization_bad_inputs_picmi.py --rz"
+    OFF
+    OFF
+    OFF
+)
+
+add_warpx_test(
     test_3d_proton_impact_ionization_checkpoint_picmi
     3
     1

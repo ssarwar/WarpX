@@ -20,6 +20,8 @@
 #include <ablastr/profiler/ProfilerWrapper.H>
 
 #include <AMReX_GpuAssert.H>
+#include <AMReX_GpuAtomic.H>
+#include <AMReX_GpuMemory.H>
 #include <AMReX_Scan.H>
 
 #include <algorithm>
@@ -27,6 +29,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <memory>
 
 #ifdef WARPX_DIM_RZ
 namespace
@@ -119,6 +122,14 @@ ProtonImpactIonizationCollision::ProduceFromFluid (amrex::Real cur_time, amrex::
     auto const rate = m_source_rate;
     auto const seed = m_sampling_seed;
     bool const fluid_ion = destination.isFluid();
+    // Constant inputs were checked at construction. Dynamic parser values
+    // must also be checked when device assertions are disabled in Release.
+    std::unique_ptr<amrex::Gpu::DeviceScalar<int>> runtime_error;
+    if (!constant_gas || !constant_temperature) {
+        runtime_error = std::make_unique<amrex::Gpu::DeviceScalar<int>>(0);
+    }
+    auto* error_pointer = runtime_error ? runtime_error->dataPtr() : nullptr;
+    amrex::ignore_unused(error_pointer);
 
     // The separable air source needs only one axial table per global z cell.
     // Its last entry is the independently integrated physical yield; intermediate
@@ -161,6 +172,7 @@ ProtonImpactIonizationCollision::ProduceFromFluid (amrex::Real cur_time, amrex::
         auto const totals = budget.array(mfi);
         auto const sequences = counter.array(mfi);
         amrex::ParallelFor(cells, [=] AMREX_GPU_DEVICE(int cell) noexcept {
+            amrex::ignore_unused(error_pointer);
             int const i = lower[0] + cell % nx, j = lower[1] + cell / nx;
             double const rlo = rmin + (i - ir0) * dr, zlo = zmin + (j - iz0) * dz;
             double source = 0.0;
@@ -181,7 +193,15 @@ ProtonImpactIonizationCollision::ProduceFromFluid (amrex::Real cur_time, amrex::
                     double const background =
                         density_function(rb + 0.5 * dr / quadrature, 0.0,
                                          zb + 0.5 * dz / quadrature, tb + 0.5 * dt / quadrature);
-                    AMREX_ALWAYS_ASSERT(background >= 0.0 && std::isfinite(background));
+                    if (!(background >= 0.0 && std::isfinite(background))) {
+                        AMREX_IF_ON_DEVICE(
+                            (amrex::Gpu::Atomic::Max(error_pointer, 1);))
+                        AMREX_IF_ON_HOST(
+                            (amrex::Abort("Rigid-source neutral density must "
+                                          "be finite and non-negative.");))
+                        counts[cell] = 0;
+                        return;
+                    }
                     source += background * profile.radialIntegral(rb, rb + dr / quadrature) *
                               profile.integratedLongitudinal(zb, zb + dz / quadrature, tb,
                                                              dt / quadrature);
@@ -208,6 +228,12 @@ ProtonImpactIonizationCollision::ProduceFromFluid (amrex::Real cur_time, amrex::
             rest(i, j, 0) = static_cast<amrex::Real>(available - count * double(weight));
         });
         auto const total = amrex::Scan::ExclusiveSum(cells, counts, offsets);
+        if (!constant_gas) {
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                runtime_error->dataValue() == 0,
+                "Rigid-source neutral density must be finite and "
+                "non-negative.");
+        }
         if (total == 0) {
             continue;
         }
@@ -224,7 +250,9 @@ ProtonImpactIonizationCollision::ProduceFromFluid (amrex::Real cur_time, amrex::
         auto e = electrons.getParticleTileData();
         auto ion_data = ions ? ions->getParticleTileData() : decltype(e){};
         amrex::ParallelForRNG(cells, [=] AMREX_GPU_DEVICE(
-                                         int cell, amrex::RandomEngine const& engine) noexcept {
+                                         int cell, amrex::RandomEngine const&
+                                                       engine) noexcept {
+            amrex::ignore_unused(error_pointer);
             auto electron_data = e;
             auto ions_data = ion_data;
             auto const count = counts[cell];
@@ -321,7 +349,14 @@ ProtonImpactIonizationCollision::ProduceFromFluid (amrex::Real cur_time, amrex::
                     speed * cosine * (profile.m_velocity > 0 ? 1 : -1));
                 double const kelvin =
                     constant_temperature ? temperature : temperature_function(r, 0, z, cur_time);
-                AMREX_ALWAYS_ASSERT(kelvin >= 0.0 && std::isfinite(kelvin));
+                if (!(kelvin >= 0.0 && std::isfinite(kelvin))) {
+                    AMREX_IF_ON_DEVICE(
+                        (amrex::Gpu::Atomic::Max(error_pointer, 2);))
+                    AMREX_IF_ON_HOST(
+                        (amrex::Abort("Rigid-source neutral temperature must "
+                                      "be finite and non-negative.");))
+                    return;
+                }
                 double ion_energy = 0.0;
                 for (int dir = 0; dir < 3; ++dir) {
                     double const a = shiftedKronecker<double>(
@@ -363,6 +398,12 @@ ProtonImpactIonizationCollision::ProduceFromFluid (amrex::Real cur_time, amrex::
             totals(i, j, 0, 2) += static_cast<amrex::Real>(binding);
             totals(i, j, 0, 3) += static_cast<amrex::Real>(discarded);
         });
+        if (!constant_temperature) {
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                runtime_error->dataValue() == 0,
+                "Rigid-source neutral temperature must be finite and "
+                "non-negative.");
+        }
         ParticleCreation::DefaultInitializeRuntimeAttributes(
             electrons, electron, static_cast<int>(first_e), static_cast<int>(first_e + total));
         if (ions) {
