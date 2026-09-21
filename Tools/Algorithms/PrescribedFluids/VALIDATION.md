@@ -1,12 +1,14 @@
 # CPU validation and remaining GPU acceptance
 
 The prescribed-fluid implementation and CPU comparisons are recorded here as of
-2026-09-21. **GPU acceptance remains open.** No A100 speedup or successful
-CUDA/HIP/SYCL build is claimed by this report.
+2026-09-21. **GPU acceptance remains open.** The complete CUDA build succeeds;
+runtime acceptance and measured A100 speedups are still pending.
 
 The implementation is on `codex/rigid-beam-immobile-ions`, based on `c4f620a70`.
 The final CPU timing ensembles used `385e433a2`; the subsequent lifecycle checks
 and safeguards are in `1f3e60511`. The convergence drivers are in `0c108be5a`.
+The 48-run solver comparison was repeated after the PSATD initial-field
+centering correction in `536d0aa5a`; the other timing ensembles are unchanged.
 Per-case JSON files retain the source revision, WarpX library version, benchmark
 hash, configuration, MPI count, timings and populations. Raw JSON, NPZ and logs
 remain under `build/fluid-comparisons/`. A compact record of the measurements is
@@ -26,7 +28,8 @@ exceptions in inactive branches with this compiler.
 | Same selection, OpenMP build | 112 checks pass with the normal one-thread CTest configuration |
 | Shared-FAB ion scatter, OpenMP | Three additional tests pass with two MPI ranks and four threads per rank; particle tiles are 4 by 4 cells |
 | Independent PJG and profile executables | Five checks pass, including a million-particle projection quadrature |
-| Independent Gaussian self-field reference | Spherical closed-form limit and doubled quadrature order pass |
+| Independent Gaussian self-field reference | Static and Lorentz-transformed spherical closed forms, and doubled quadrature order, pass |
+| PSATD centering and exact attachment review | 26 affected checks pass in each CPU build, including four-thread ion scatter in the OpenMP selection |
 
 The prescribed-fluid checks cover shapes 1–4, both beam directions, axial
 boundary flux, repeated filtering, N2/O2, bare-ion scaling, rejected events,
@@ -80,6 +83,14 @@ quadrature by 0.0151461% for N2 and 0.0151054% for O2. This satisfies the existi
 0.1% table-interpolation bound throughout the independent source sweeps.
 No production lookup table is used by that reference calculation.
 
+Additional exact checks compare the Gaussian source with a closed space-time
+antiderivative and the cylindrical annular integral, for both velocity signs,
+overlapping pulses and finite/infinite cutoffs. The Gaussian field reference
+is checked against the Lorentz transform of the spherical closed form at
+beta = 0.1, -0.8 and 0.99. A frozen monoenergetic attachment fixture checks
+`N(t) = N(0) exp(-n_gas sigma v t)`, with six-standard-deviation bounds from
+the independent weighted Bernoulli variance. No physics tolerance was widened.
+
 With identical events, fluid and frozen kinetic ions agree to roundoff. Across
 the six-seed studies with the advancing quiet sampler, the largest density
 difference divided by peak density is `2.28e-15` for primary production and
@@ -131,7 +142,7 @@ A further 48 runs compare moving electrons with all collision channels across
 the four solver configurations at 0.5 ps and 0.25 ps. At 0.25 ps, Yee and both
 semi-implicit variants give the same electron population within roundoff;
 their mean electron energies differ by `5.9e-7` relatively. PSATD's population
-differs by 0.0057%, within the six-seed confidence intervals. Rare energetic
+differs by 0.00655%, within the six-seed confidence intervals. Rare energetic
 secondaries leave much larger uncertainty in total electron energy; those
 intervals overlap across all four solvers. No cross-backend bitwise agreement
 is assumed.
@@ -206,18 +217,29 @@ Continuity now holds at every charge node for both directions, including three
 filter passes. Nodal boundary populations use WarpX's full dual-cell volumes;
 domain clipping does not renormalize the prescribed profile.
 
+An independent moving-source Maxwell identity exposed an inherited RZ PSATD
+initialization error shared by the particle and fluid references. PSATD's
+cell-centered electric field was calculated with a Yee face gradient. Averaging
+the nodal-potential gradients to the actual field locations reduces the relative
+residual in `B_theta = v_z E_r/c^2` from 0.11731 to `1.66e-16` on the reference
+mesh. The Yee and semi-implicit tests also check cylindrical Gauss law, including
+the axis. Affected particle-reference, diagnostic, restart and existing RZ
+Langmuir regressions pass after the correction.
+
 The ownership/lifecycle review checked scatter loops, shared-node ownership,
 fresh versus persistent density synchronization, implicit source reuse,
 diagnostics and checkpoint reconstruction. It added physical-guard nonnegativity
 checks, actual MPI redistribution tests, four-thread shared-FAB tests and the
 explicit implicit-load-balancing restriction described above.
 
-Perlmutter's last CUDA 13.2 build stopped at an NVCC extended-lambda capture
-error in background MCC. The backend-consistent closure fix in `b4a1bd03e`
-has passed CPU checks but still needs CUDA compilation and runtime validation.
-Perlmutter exposes HIP 5.5.1 and Intel oneAPI modules; HIP and SYCL compilation
-and device coverage have not been established. The remaining acceptance work
-is to update the validation checkout, finish all available backend builds,
-run the GPU regressions and collect the A100 ensembles using
-`perlmutter.sbatch`. A100 noise/cost, memory and checkpoint measurements must
-be reported separately from the CPU evidence here.
+The complete Perlmutter CUDA 13.2 RZ build, including Python, FFT and openPMD,
+now succeeds. The existing BLAS++ dependency required rebuilding against CUDA
+13 to match Cray MPI's ABI. The independent Gaussian source/projection,
+relativistic, sampling and angular executables pass on an A100. The PJG model
+and full WarpX runtime suites remain under investigation; no runtime acceptance
+or A100 speedup is claimed yet. SYCL compilation is in progress. The installed
+HIP 5.5.1 configuration fails to locate `amd_comgr`, so HIP compilation and
+runtime coverage remain unavailable. The remaining acceptance work is to
+resolve GPU failures and collect the A100 ensembles using `perlmutter.sbatch`.
+A100 noise/cost, memory and checkpoint measurements must be reported separately
+from the CPU evidence here.

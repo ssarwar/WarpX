@@ -1781,28 +1781,28 @@
       {
         "case": "PSATD-dt2.5e-13",
         "electrons": {
-          "mean": 5563486.609131213,
-          "ci99_half_width": 1523.032910503155,
+          "mean": 5563532.620133228,
+          "ci99_half_width": 1795.0380958146152,
           "samples": 6
         },
         "N2plus": {
-          "mean": 4376467.600701609,
-          "ci99_half_width": 2261.1397858654836,
+          "mean": 4376619.119809861,
+          "ci99_half_width": 2266.4543128083374,
           "samples": 6
         },
         "O2plus": {
-          "mean": 1203635.2824584476,
-          "ci99_half_width": 1850.721816440054,
+          "mean": 1203430.19263624,
+          "ci99_half_width": 1969.9002194470306,
           "samples": 6
         },
         "Ominus": {
-          "mean": 16616.27402884283,
-          "ci99_half_width": 707.2837289295225,
+          "mean": 16516.692312874395,
+          "ci99_half_width": 959.5214112036589,
           "samples": 6
         },
         "electron_energy_J": {
-          "mean": 5.743001141973873e-11,
-          "ci99_half_width": 1.8227160475159944e-11,
+          "mean": 5.4153869952356813e-11,
+          "ci99_half_width": 1.3674848413119792e-11,
           "samples": 6
         },
         "N2_primary_yield_relative_error": {
@@ -1819,28 +1819,28 @@
       {
         "case": "PSATD-dt5e-13",
         "electrons": {
-          "mean": 5569325.408361415,
-          "ci99_half_width": 3882.3233398638004,
+          "mean": 5569188.702672095,
+          "ci99_half_width": 3502.6780110909035,
           "samples": 6
         },
         "N2plus": {
-          "mean": 4380897.6308902595,
-          "ci99_half_width": 3140.8264491594687,
+          "mean": 4380720.696120822,
+          "ci99_half_width": 2832.5409830480608,
           "samples": 6
         },
         "O2plus": {
-          "mean": 1205040.6041872194,
-          "ci99_half_width": 957.1646795523333,
+          "mean": 1205020.5243331073,
+          "ci99_half_width": 929.923434578571,
           "samples": 6
         },
         "Ominus": {
-          "mean": 16612.826716063766,
-          "ci99_half_width": 3872.9336053524016,
+          "mean": 16552.51778183333,
+          "ci99_half_width": 3931.208804902269,
           "samples": 6
         },
         "electron_energy_J": {
-          "mean": 5.501602463041026e-11,
-          "ci99_half_width": 1.3936397197060895e-11,
+          "mean": 5.51020011223084e-11,
+          "ci99_half_width": 1.4079413462185941e-11,
           "samples": 6
         },
         "N2_primary_yield_relative_error": {
@@ -2257,5 +2257,16 @@
       "revision": "1f3e60511a0460322989e5d3a30504bfb2817e60",
       "warpx_version": "26.09-165-g385e433a2530-dirty"
     }
-  ]
+  ],
+  "solver_review": {
+    "revision": "536d0aa5a57fa2438a92d8fc3e3b49dddde93b13",
+    "runs": 48,
+    "psatd_initial_B_v_cross_E_relative_residual_before": 0.11731004129588435,
+    "psatd_initial_B_v_cross_E_relative_residual_after": 1.6585927266528527e-16,
+    "affected_NOACC_tests_passed": 26,
+    "affected_OMP_tests_passed": 26,
+    "attachment_reference": "N(t) = N(0) exp(-n_gas sigma v t), with weighted Bernoulli variance",
+    "source_reference": "Closed Gaussian space-time antiderivative and cylindrical annular integral; both propagation directions",
+    "field_reference": "Closed spherical rest-frame Gaussian transformed to the lab at beta = 0.1, -0.8, 0.99"
+  }
 }
