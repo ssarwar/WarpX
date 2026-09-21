@@ -5,6 +5,7 @@
  * License: BSD-3-Clause-LBNL
  */
 #include "Fields.H"
+#include "EmbeddedBoundary/Enabled.H"
 #include "Particles/Pusher/UpdateMomentumHigueraCary.H"
 
 #include "MusclHancockUtils.H"
@@ -17,6 +18,8 @@
 #include <ablastr/coarsen/sample.H>
 #include <ablastr/profiler/ProfilerWrapper.H>
 #include <ablastr/utils/Communication.H>
+
+#include <cmath>
 
 using namespace ablastr::utils::communication;
 using namespace amrex;
@@ -86,6 +89,12 @@ void WarpXFluidContainer::ReadParameters()
     }
     if (isPrescribed()) {
         auto const& warpx = WarpX::GetInstance();
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(std::isfinite(mass) && mass > 0.0 &&
+            std::isfinite(charge), "Prescribed fluids require finite mass and charge, with mass > 0.");
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(!EB::enabled(),
+            "Prescribed fluids do not yet support embedded boundaries.");
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(!m_rigid_beam || !pp_species_name.contains("profile"),
+            "A rigid beam uses its prescribed Gaussian profile, not a density initializer.");
 #ifndef WARPX_DIM_RZ
         WARPX_ABORT_WITH_MESSAGE("Prescribed fluid species require RZ geometry.");
 #endif

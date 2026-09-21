@@ -47,7 +47,13 @@ RigidBeam::RigidBeam (std::string const& name, amrex::Real mass, amrex::Real cha
         auto const gamma = 1.0/std::sqrt(1.0-beta*beta);
         m_energy_ev = rest*gamma*gamma*beta*beta/(gamma+1.0);
     }
-    utils::parser::getWithParser(pp, "sigma_r", p.m_sigma_r);
+    bool const transverse_sigma = utils::parser::queryWithParser(pp, "sigma_r", p.m_sigma_r);
+    double radial_rms = 0.0;
+    bool const transverse_rms = utils::parser::queryWithParser(pp, "r_rms", radial_rms);
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(transverse_sigma != transverse_rms,
+        "A rigid beam requires exactly one of sigma_r and r_rms [m]. "
+        "For the untruncated Gaussian, r_rms = sqrt(2)*sigma_r.");
+    if (transverse_rms) { p.m_sigma_r = radial_rms/std::sqrt(2.0); }
     bool const length = utils::parser::queryWithParser(pp, "sigma_z", p.m_sigma_z);
     double duration = 0.0;
     bool const time_width = utils::parser::queryWithParser(pp, "sigma_t", duration);

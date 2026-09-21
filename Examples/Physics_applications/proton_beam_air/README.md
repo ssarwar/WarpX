@@ -1,9 +1,64 @@
 # RZ proton ionization and electron MCC in air
 
-This example targets the APIs on `codex/proton-impact-ionization-development-sync`,
-starting from commit `c9b6cab3b`. It illustrates an axisymmetric 800 MeV proton
-bunch in a prescribed N2/O2 background. Its mesh, time step, particle weights,
+These examples illustrate an axisymmetric 800 MeV proton beam in a prescribed
+N2/O2 background, using either kinetic beam/ion species or prescribed fluids.
+Their mesh, time step, particle weights,
 domain and run length are starting choices, not a converged LANSCE BPM model.
+
+## Gaussian fluid pulse trains and immobile ions
+
+[The fluid PICMI input](inputs_rz_fluid_beam_air_picmi.py) uses a rigid Gaussian
+beam in both radius and z, kinetic electrons, and immobile N2+, O2+, O−, and O2−
+number densities. The prescribed beam deposits charge and current and supplies
+the same PJG spectrum and secondary-angle model as the particle beam. The
+ions receive the actual emitted/attached electron charge footprints. Their
+motion is omitted; electron collision kinematics still include finite target
+mass. Electron tables and channel settings use the same manifest described below.
+
+Supply the transverse **Cartesian RMS width** `SIGMA_R` in meters explicitly;
+the reported 5 mm beam radius does not specify a Gaussian RMS width. For the
+untruncated distribution, the radial RMS radius is `sqrt(2)*SIGMA_R`.
+
+```sh
+python inputs_rz_fluid_beam_air_picmi.py --sigma-r "$SIGMA_R" \
+  --frequency 201.25e6 --pulses 2 \
+  --cross-sections /path/to/evaluated/cross_sections.json
+```
+
+The longitudinal RMS duration is 25 ps and peak current is 0.6 A. With default
+eight-sigma support, each unit-amplitude bunch has charge
+`0.6*sqrt(2*pi)*25e-12*erf(8/sqrt(2)) = 3.75994e-11 C`. The pulse period is
+`1/201.25e6` seconds. These parameters describe a finite train whose first
+center is at z = 3 cm at t = 0; clipping at the domain walls does not
+renormalize it. The default 200 steps cover 20 ps. Increase the run duration
+to simulate later pulses, while resolving the electron and field dynamics.
+
+Use `--write-input inputs` to generate an equivalent native input, including
+all supplied electron channels. `--restart diags/checkpoint000100` resumes
+stored populations, source remainders, budgets, and sequence counters.
+Keep beam/source physics unchanged on restart; output cadence and run duration
+may change. Particle records contain only electrons. Density, charge, beam
+current, and physical number/energy/momentum diagnostics include the fluids.
+
+[The checked-in text input](inputs_rz_fluid_beam_air) matches the PICMI
+`--proton-only` configuration and requires no electron tables. This mode is
+useful for isolating the proton source; it omits electron impact and attachment.
+The transverse width remains a required runtime constant:
+
+```sh
+warpx.rz inputs_rz_fluid_beam_air my_constants.sigma_r="$SIGMA_R"
+python inputs_rz_fluid_beam_air_picmi.py --sigma-r "$SIGMA_R" --proton-only
+```
+
+The input API also supports signed axial velocity, explicit pulse times and
+amplitudes, bunch-charge or peak-density normalization, configurable cutoffs,
+and optional initial immobile density. See the
+[fluid parameter reference](../../../Docs/source/usage/parameters.rst) and
+`picmi.FluidSpecies`. The following description of projectile sampling and
+thermal ions applies to the original [particle input](inputs_rz_proton_beam_air_picmi.py);
+the fluid source integrates beam density over cylindrical cells and physical
+collision intervals instead. Both representations retain kinetic electrons
+and require convergence in electron weights, timestep, mesh, and source sampling.
 
 ## What the two operators calculate
 

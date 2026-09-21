@@ -63,15 +63,37 @@ solver = picmi.ElectromagneticSolver(
 frozen = dict(
     warpx_do_not_push=True, warpx_do_not_gather=True, warpx_do_not_deposit=True
 )
-beam = picmi.Species(name="beam", particle_type="proton")
+beam = picmi.FluidSpecies(
+    name="beam",
+    model="rigid_beam",
+    particle_type="proton",
+    kinetic_energy=energy,
+    sigma_r=sigma_r,
+    sigma_t=sigma_t,
+    peak_current=peak_current,
+    cutoff_z=cutoff,
+    pulse_times=[0.0, 2e-12],
+    pulse_amplitudes=[0.75, 0.25],
+)
 cases, collisions = {}, []
 for target, mass in [("N2", 28.0134), ("O2", 31.9988)]:
     for mode in ["kinetic", "immobile", "fine"]:
         name = f"{target}_{mode}"
         electron = picmi.Species(name="e_" + name, particle_type="electron", **frozen)
-        ion = picmi.Species(
-            name="i_" + name, charge=qe, mass=mass * 1.66053906660e-27 - me, **frozen
-        )
+        if mode == "kinetic":
+            ion = picmi.Species(
+                name="i_" + name,
+                charge=qe,
+                mass=mass * 1.66053906660e-27 - me,
+                **frozen,
+            )
+        else:
+            ion = picmi.FluidSpecies(
+                name="i_" + name,
+                model="immobile",
+                charge=qe,
+                mass=mass * 1.66053906660e-27 - me,
+            )
         weight = 0.125 if mode == "fine" else 1.0
         cases[name] = (electron, ion, target, mode, weight)
         collisions.append(
@@ -112,10 +134,13 @@ sim = picmi.Simulation(
     else None,
     verbose=0,
 )
+sim.add_fluid_species(beam)
 for electron, ion, _, mode, _ in cases.values():
     sim.add_species(electron, layout=None)
     if mode == "kinetic":
         sim.add_species(ion, layout=None)
+    else:
+        sim.add_fluid_species(ion)
 sim.add_diagnostic(picmi.Checkpoint(name="chk", period=2, write_dir="diags"))
 diagnostic_types = [
     "ParticleNumber",
@@ -158,21 +183,9 @@ if args.openpmd:
         )
     )
 sim.initialize_inputs()
-fluid_names = ["beam"]
-for _, ion, _, mode, _ in cases.values():
-    if mode != "kinetic":
-        fluid_names.append(ion.name)
-        bucket = warpx.get_bucket(ion.name)
-        bucket.model, bucket.mass, bucket.charge = "immobile", ion.mass, qe
-warpx.get_bucket("fluids").species_names = fluid_names
-bucket = warpx.get_bucket("beam")
-bucket.model, bucket.species_type = "rigid_beam", "proton"
-bucket.kinetic_energy, bucket.sigma_r, bucket.sigma_t = energy, sigma_r, sigma_t
-bucket.peak_current, bucket.cutoff_z = peak_current, cutoff
-bucket.pulse_times, bucket.pulse_amplitudes = [0.0, 2e-12], [0.75, 0.25]
 mutation = os.environ.get("WARPX_TEST_RESTART_MUTATION")
 if mutation == "beam":
-    bucket.peak_current *= 2
+    beam.fluid.peak_current *= 2
 elif mutation == "source":
     warpx.get_bucket("N2_immobile").fixed_product_weight = 0.75
 elif mutation == "remove":
@@ -324,7 +337,7 @@ for step in range(start + 1, steps + 1):
         np.testing.assert_allclose(
             charges[name + "(C)"], charge * population_value, rtol=3e-12
         )
-    for name in fluid_names:
+    for name in [species.name for species in sim.fluid_species]:
         assert counts[name + "_macroparticles()"] == 0
         if name != "beam":
             assert energies[name + "(J)"] == 0

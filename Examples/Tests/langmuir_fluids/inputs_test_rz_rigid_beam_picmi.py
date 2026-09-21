@@ -6,7 +6,7 @@ import math
 
 import numpy as np
 
-from pywarpx import algo, picmi, warpx
+from pywarpx import picmi
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -51,7 +51,9 @@ sim = picmi.Simulation(
     max_steps=3,
     particle_shape=args.shape,
     warpx_use_filter=False,
-    warpx_current_deposition_algo="direct" if args.solver.startswith("semi_implicit") else None,
+    warpx_current_deposition_algo="direct"
+    if args.solver.startswith("semi_implicit")
+    else None,
     warpx_evolve_scheme=picmi.SemiImplicitEMEvolveScheme(
         nonlinear_solver=picmi.NewtonNonlinearSolver(
             relative_tolerance=1e-12,
@@ -67,19 +69,33 @@ sim = picmi.Simulation(
     else None,
     verbose=0,
 )
+normalization = {"peak_current": current}
+if args.shape == 1:
+    normalization = {
+        "peak_density": current
+        / (qe * abs(velocity) * 2 * np.pi * sigma_r**2 * (-np.expm1(-32)))
+    }
+elif args.shape == 2:
+    normalization = {
+        "bunch_charge": current
+        * np.sqrt(2 * np.pi)
+        * sigma_t
+        * math.erf(8 / np.sqrt(2))
+    }
+beam = picmi.FluidSpecies(
+    name="beam",
+    model="rigid_beam",
+    particle_type="proton",
+    velocity_z=velocity,
+    r_rms=math.sqrt(2) * sigma_r,
+    sigma_t=sigma_t,
+    **normalization,
+    pulse_times=times,
+    pulse_amplitudes=amplitudes,
+    initialize_self_fields=args.self_fields,
+)
+sim.add_fluid_species(beam)
 sim.initialize_inputs()
-algo.particle_shape = args.shape
-warpx.get_bucket("fluids").species_names = ["beam"]
-beam = warpx.get_bucket("beam")
-beam.model = "rigid_beam"
-beam.species_type = "proton"
-beam.velocity_z = velocity
-beam.sigma_r = sigma_r
-beam.sigma_t = sigma_t
-beam.peak_current = current
-beam.pulse_times = times
-beam.pulse_amplitudes = amplitudes
-beam.initialize_self_fields = args.self_fields
 sim.initialize_warpx()
 
 

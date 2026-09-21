@@ -68,6 +68,196 @@ def _set_refined_region_inputs(refined_regions):
         pywarpx.amr.max_level = 0
 
 
+class FluidSpecies:
+    """A mesh species registered with :py:meth:`Simulation.add_fluid_species`.
+
+    ``model`` is ``"cold_relativistic"`` (the default), ``"rigid_beam"``, or
+    ``"immobile"``. Mass [kg], charge [C], and ``particle_type`` follow
+    :py:class:`Species`. No particle layout is used.
+
+    ``initial_density`` is a number density [m^-3] or a parser expression in
+    ``(x,y,z)``; in RZ, ``x`` is radius and ``y`` is zero. It defaults to zero
+    for cold and immobile fluids. ``directed_velocity`` is the cold fluid's
+    proper velocity gamma*v [m/s], as in the particle distributions.
+
+    A rigid beam requires exactly one of ``kinetic_energy`` [eV] and signed
+    ``velocity_z`` [m/s], and one of ``sigma_z`` [m] and ``sigma_t`` [s].
+    Specify either ``sigma_r`` [m], the Cartesian transverse RMS width of
+    exp(-r^2/(2*sigma_r^2)), or ``r_rms`` [m] = sqrt(2)*sigma_r. These widths
+    refer to the untruncated Gaussian. ``cutoff_r`` and ``cutoff_z`` default
+    to eight sigma; -1 disables truncation.
+
+    Pulse centers cross ``z_reference`` [m] at ``pulse_times`` [s], or at
+    ``first_pulse_time + k*pulse_period`` for ``pulse_count`` pulses. Optional
+    ``pulse_amplitudes`` scale each pulse. Exactly one positive normalization
+    is required: ``peak_current`` [A], ``bunch_charge`` [C], or ``peak_density``
+    [m^-3]. Current and bunch charge are magnitudes integrated over the
+    truncated Gaussian, before domain clipping. ``initialize_self_fields``
+    initializes a rigid beam's electromagnetic self fields.
+    """
+
+    def __init__(
+        self,
+        name,
+        model="cold_relativistic",
+        *,
+        particle_type=None,
+        mass=None,
+        charge=None,
+        charge_state=None,
+        initial_density=None,
+        directed_velocity=None,
+        kinetic_energy=None,
+        velocity_z=None,
+        sigma_r=None,
+        r_rms=None,
+        sigma_z=None,
+        sigma_t=None,
+        z_reference=0.0,
+        pulse_times=None,
+        first_pulse_time=None,
+        pulse_period=None,
+        pulse_count=None,
+        pulse_amplitudes=None,
+        cutoff_r=8.0,
+        cutoff_z=8.0,
+        peak_current=None,
+        bunch_charge=None,
+        peak_density=None,
+        initialize_self_fields=False,
+        warpx_do_not_deposit=False,
+    ):
+        if not isinstance(name, str) or not name or any(c.isspace() for c in name):
+            raise ValueError("A fluid species requires a nonempty name without spaces")
+        if model not in ["cold_relativistic", "rigid_beam", "immobile"]:
+            raise ValueError(f"Unknown fluid model {model!r}")
+        # Reuse the particle interface's physical-species and isotope conversion.
+        physical = Species(
+            name=name,
+            particle_type=particle_type,
+            mass=mass,
+            charge=charge,
+            charge_state=charge_state,
+        )
+        self.name, self.model = name, model
+        self.species_type = physical.species_type
+        self.mass, self.charge = physical.mass, physical.charge
+        self.initial_density = initial_density
+        self.directed_velocity = directed_velocity
+        self.kinetic_energy, self.velocity_z = kinetic_energy, velocity_z
+        self.sigma_r, self.r_rms = sigma_r, r_rms
+        self.sigma_z, self.sigma_t = sigma_z, sigma_t
+        self.z_reference = z_reference
+        self.pulse_times = pulse_times
+        self.first_pulse_time = first_pulse_time
+        self.pulse_period, self.pulse_count = pulse_period, pulse_count
+        self.pulse_amplitudes = pulse_amplitudes
+        self.cutoff_r, self.cutoff_z = cutoff_r, cutoff_z
+        self.peak_current, self.bunch_charge = peak_current, bunch_charge
+        self.peak_density = peak_density
+        self.initialize_self_fields = initialize_self_fields
+        self.do_not_deposit = warpx_do_not_deposit
+
+        beam_options = [
+            kinetic_energy,
+            velocity_z,
+            sigma_r,
+            r_rms,
+            sigma_z,
+            sigma_t,
+            pulse_times,
+            first_pulse_time,
+            pulse_period,
+            pulse_count,
+            pulse_amplitudes,
+            peak_current,
+            bunch_charge,
+            peak_density,
+        ]
+        if model == "rigid_beam":
+            for names, values in [
+                ("kinetic_energy or velocity_z", [kinetic_energy, velocity_z]),
+                ("sigma_r or r_rms", [sigma_r, r_rms]),
+                ("sigma_z or sigma_t", [sigma_z, sigma_t]),
+                (
+                    "peak_current, bunch_charge or peak_density",
+                    [peak_current, bunch_charge, peak_density],
+                ),
+            ]:
+                if sum(value is not None for value in values) != 1:
+                    raise ValueError(f"A rigid beam requires exactly one of {names}")
+            train = [first_pulse_time, pulse_period, pulse_count]
+            if pulse_times is not None:
+                if any(value is not None for value in train) or len(pulse_times) == 0:
+                    raise ValueError(
+                        "Specify nonempty pulse_times or a finite pulse train"
+                    )
+            elif any(value is None for value in train):
+                raise ValueError(
+                    "A pulse train requires first_pulse_time, pulse_period and pulse_count"
+                )
+            if initial_density is not None or directed_velocity is not None:
+                raise ValueError(
+                    "A rigid beam uses its prescribed Gaussian density and axial velocity"
+                )
+        elif any(value is not None for value in beam_options) or initialize_self_fields:
+            raise ValueError(
+                "Beam profile and self-field options require model='rigid_beam'"
+            )
+        if model == "immobile" and directed_velocity is not None:
+            raise ValueError("An immobile fluid has no velocity")
+
+    def fluid_initialize_inputs(self):
+        self.fluid = pywarpx.new_fluid_species(
+            self.name,
+            model=self.model,
+            species_type=self.species_type,
+            mass=self.mass,
+            charge=self.charge,
+            do_not_deposit=self.do_not_deposit,
+        )
+        if self.model == "rigid_beam":
+            for name in [
+                "kinetic_energy",
+                "velocity_z",
+                "sigma_r",
+                "r_rms",
+                "sigma_z",
+                "sigma_t",
+                "z_reference",
+                "pulse_times",
+                "first_pulse_time",
+                "pulse_period",
+                "pulse_count",
+                "pulse_amplitudes",
+                "cutoff_r",
+                "cutoff_z",
+                "peak_current",
+                "bunch_charge",
+                "peak_density",
+                "initialize_self_fields",
+            ]:
+                setattr(self.fluid, name, getattr(self, name))
+        else:
+            density = 0.0 if self.initial_density is None else self.initial_density
+            if isinstance(density, str):
+                self.fluid.profile = "parse_density_function"
+                setattr(self.fluid, "density_function(x,y,z)", density)
+            else:
+                self.fluid.profile = "constant"
+                self.fluid.density = density
+            if self.model == "cold_relativistic":
+                velocity = (
+                    [0.0, 0.0, 0.0]
+                    if self.directed_velocity is None
+                    else self.directed_velocity
+                )
+                self.fluid.momentum_distribution_type = "constant"
+                self.fluid.ux, self.fluid.uy, self.fluid.uz = (
+                    np.asarray(velocity) / constants.c
+                )
+
+
 class Species(picmistandard.PICMI_Species):
     """
     See `Input Parameters <https://warpx.readthedocs.io/en/latest/usage/parameters.html>`__ for more information.
@@ -3468,6 +3658,20 @@ class ProtonImpactIonizationCollisions(picmistandard.base._ClassWithInit):
 
     ndt_subcycle: integer, optional
         Run ``ndt_subcycle`` times per PIC step.
+
+    source_sampling_points: integer, optional
+        Subintervals per longitudinal cell in the rigid beam's spatial sampling
+        CDF, with a default of 8. This does not change the integrated cell yield
+        or the product cap.
+
+    gas_quadrature_points: integer, optional
+        Subintervals per coordinate (r, z, time) in the positive composite
+        quadrature for a nonuniform background gas, from 1 to 16. The default is 2.
+
+    sampling_seed: integer, optional
+        Seed for the rigid fluid beam's quiet sequence; the default is zero.
+        Its cell counters are checkpointed. Rigid sources reject supercycling
+        above one; subcycling is supported.
     """
 
     def __init__(
@@ -3484,6 +3688,9 @@ class ProtonImpactIonizationCollisions(picmistandard.base._ClassWithInit):
         projectile_energy_max=None,
         ndt_supercycle=None,
         ndt_subcycle=None,
+        source_sampling_points=None,
+        gas_quadrature_points=None,
+        sampling_seed=None,
         **kw,
     ):
         self.name = name
@@ -3498,6 +3705,9 @@ class ProtonImpactIonizationCollisions(picmistandard.base._ClassWithInit):
         self.projectile_energy_max = projectile_energy_max
         self.ndt_supercycle = ndt_supercycle
         self.ndt_subcycle = ndt_subcycle
+        self.source_sampling_points = source_sampling_points
+        self.gas_quadrature_points = gas_quadrature_points
+        self.sampling_seed = sampling_seed
 
         if len(product_species) != 2:
             raise ValueError(
@@ -3537,6 +3747,9 @@ class ProtonImpactIonizationCollisions(picmistandard.base._ClassWithInit):
         collision.projectile_energy_max = self.projectile_energy_max
         collision.ndt_supercycle = self.ndt_supercycle
         collision.ndt_subcycle = self.ndt_subcycle
+        collision.source_sampling_points = self.source_sampling_points
+        collision.gas_quadrature_points = self.gas_quadrature_points
+        collision.sampling_seed = self.sampling_seed
 
 
 class DSMCCollisions(picmistandard.base._ClassWithInit):
@@ -4296,6 +4509,7 @@ class Simulation(picmistandard.PICMI_Simulation):
         self.warpx_initialized = False
         self.finalized = False
         self.macroscopic_properties = []
+        self.fluid_species = []
 
     def _check_not_finalized(self):
         if self.finalized:
@@ -4303,6 +4517,21 @@ class Simulation(picmistandard.PICMI_Simulation):
                 "This Simulation was finalized. Create new PICMI objects to "
                 "set up another simulation."
             )
+
+    def add_fluid_species(self, species):
+        """Register a :py:class:`FluidSpecies` before initializing the simulation."""
+        self._check_not_finalized()
+        if self.inputs_initialized:
+            raise RuntimeError(
+                "Add fluid species before initializing simulation inputs"
+            )
+        if not isinstance(species, FluidSpecies):
+            raise TypeError("add_fluid_species requires a FluidSpecies instance")
+        if any(
+            other.name == species.name for other in self.species + self.fluid_species
+        ):
+            raise ValueError(f"Species name {species.name!r} is already registered")
+        self.fluid_species.append(species)
 
     def initialize_inputs(self):
         self._check_not_finalized()
@@ -4385,7 +4614,7 @@ class Simulation(picmistandard.PICMI_Simulation):
                 particle_shape = s.particle_shape
 
         if particle_shape is not None and (
-            len(self.species) > 0 or len(self.lasers) > 0
+            len(self.species) > 0 or len(self.fluid_species) > 0 or len(self.lasers) > 0
         ):
             if isinstance(particle_shape, str):
                 interpolation_order = {
@@ -4431,6 +4660,13 @@ class Simulation(picmistandard.PICMI_Simulation):
                 self.injection_plane_positions[i],
                 self.injection_plane_normal_vectors[i],
             )
+
+        for fluid in self.fluid_species:
+            if fluid.name in pywarpx.particles.species_names:
+                raise ValueError(
+                    f"Species name {fluid.name!r} is also used by a kinetic species"
+                )
+            fluid.fluid_initialize_inputs()
 
         for interaction in self.interactions:
             assert isinstance(interaction, FieldIonization)

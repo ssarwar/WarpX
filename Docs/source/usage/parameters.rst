@@ -2206,16 +2206,208 @@ Particle initialization
 
 .. _running-cpp-parameters-fluids:
 
-Cold Relativistic Fluid initialization
---------------------------------------
+Fluid species
+-------------
 
 .. pp:param:: fluids.species_names
     :type: ``strings``, separated by spaces
 
-    Defines the names of each fluid species. It is a required input to create and evolve fluid species using the cold relativistic fluid equations.
-    Most of the parameters described in the section "Particle initialization" can also be used to initialize fluid properties (e.g. initial density distribution).
-    For fluid-specific inputs we use ``<fluid_species_name>`` as a placeholder. Also see external fields
-    for how to specify these for fluids as the function names differ.
+    Names of the mesh species. Names must be unique across particle and fluid species.
+    Each species specifies its ``model``, and its ``species_type`` or explicit ``mass`` [kg]
+    and ``charge`` [C], using the same physical properties as particle species.
+    No macroparticles are allocated for fluids.
+
+.. pp:param:: <fluid_species_name>.model
+    :type: ``string``
+    :default: ``cold_relativistic``
+
+    ``cold_relativistic`` evolves the existing cold-fluid density and momentum equations.
+    Its density, momentum initialization, and external-field parameters are unchanged.
+    ``rigid_beam`` prescribes a Gaussian beam pulse train translating along z at constant
+    velocity. It deposits charge and current and may cause proton-impact ionization,
+    but neither fields nor collisions change its velocity, density, or energy.
+    ``immobile`` stores a persistent number density with zero current, momentum, and
+    kinetic energy. Its charge contributes to the fields.
+
+    The two prescribed models require a single-level laboratory-frame RZ simulation,
+    one azimuthal mode, no moving window or embedded boundaries, and native solver staggering.
+    Supported solvers are explicit Yee, explicit PSATD with
+    ``psatd.current_correction = 1``, and ``semi_implicit_em`` with or without mass matrices.
+    Beam current is independent of the fields and adds no mass-matrix response.
+
+    Immobile density defaults to zero. To initialize it, use ``profile = constant``
+    with ``density``, or ``profile = parse_density_function`` with
+    ``density_function(x,y,z)``. In this RZ profile, x is radius and y is zero.
+    Values must be finite and nonnegative.
+
+    Proton-impact and electron-impact ionization can target an immobile positive ion;
+    electron attachment can target an immobile negative ion. Accepted events deposit
+    the emitted or removed electron's stored position, weight, and charge shape into
+    the ion density. Fresh increments are synchronized once before accumulation.
+    Electron finite-mass collision kinematics are preserved; ion motion and its recoil
+    energy are omitted. No recombination, detachment, or neutral depletion is added.
+
+.. pp:param:: <fluid_species_name>.kinetic_energy
+    :type: ``float``
+    :unit: eV
+
+    Rigid-beam kinetic energy per projectile, moving in positive z.
+    Specify exactly one of ``kinetic_energy`` and ``velocity_z``.
+
+.. pp:param:: <fluid_species_name>.velocity_z
+    :type: ``float``
+    :unit: m/s
+
+    Signed physical axial velocity, with :math:`0 < |v_z| < c`.
+    This is physical velocity, not the proper velocity :math:`\gamma v_z` used by
+    particle momentum distributions.
+
+.. pp:param:: <fluid_species_name>.sigma_r
+    :type: ``float``
+    :unit: meters
+
+    Transverse Cartesian RMS width of the untruncated Gaussian
+    :math:`\exp[-r^2/(2\sigma_r^2)]`. It has no default.
+    Specify exactly one of ``sigma_r`` and ``r_rms``.
+
+.. pp:param:: <fluid_species_name>.r_rms
+    :type: ``float``
+    :unit: meters
+
+    Alternative radial RMS width of the untruncated profile,
+    :math:`\sqrt{\langle r^2\rangle}=\sqrt{2}\sigma_r`.
+    A measured hard-edge beam radius does not determine either Gaussian width.
+
+.. pp:param:: <fluid_species_name>.sigma_z
+    :type: ``float``
+    :unit: meters
+
+    Longitudinal Gaussian RMS length. Specify exactly one of ``sigma_z`` and ``sigma_t``.
+
+.. pp:param:: <fluid_species_name>.sigma_t
+    :type: ``float``
+    :unit: seconds
+
+    Pulse RMS duration at a fixed plane; :math:`\sigma_z=|v_z|\sigma_t`.
+
+.. pp:param:: <fluid_species_name>.z_reference
+    :type: ``float``
+    :default: ``0``
+    :unit: meters
+
+    Plane crossed by the pulse centers at their arrival times.
+
+.. pp:param:: <fluid_species_name>.pulse_times
+    :type: list of ``float``
+    :unit: seconds
+
+    Explicit pulse-center arrival times at ``z_reference``. Pulses may overlap.
+    Use either this list or all three finite-train parameters below.
+
+.. pp:param:: <fluid_species_name>.first_pulse_time
+    :type: ``float``
+    :unit: seconds
+
+    Arrival time of the first pulse in a finite train.
+
+.. pp:param:: <fluid_species_name>.pulse_period
+    :type: ``float``
+    :unit: seconds
+
+    Positive time between pulse centers in a finite train.
+
+.. pp:param:: <fluid_species_name>.pulse_count
+    :type: ``int``
+
+    Positive number of pulses. Arrival times are
+    ``first_pulse_time + k*pulse_period``, with ``0 <= k < pulse_count``.
+
+.. pp:param:: <fluid_species_name>.pulse_amplitudes
+    :type: list of ``float``
+    :optional:
+
+    Nonnegative relative amplitude for each pulse, in the supplied order.
+    The default is one for every pulse. Normalizations below apply to unit amplitude.
+
+.. pp:param:: <fluid_species_name>.cutoff_r
+    :type: ``float``
+    :default: ``8``
+
+    Radial support in units of ``sigma_r``; -1 disables truncation.
+
+.. pp:param:: <fluid_species_name>.cutoff_z
+    :type: ``float``
+    :default: ``8``
+
+    Longitudinal support on each side of the pulse center in units of ``sigma_z``;
+    -1 disables truncation. Domain clipping never renormalizes the profile.
+
+.. pp:param:: <fluid_species_name>.peak_current
+    :type: ``float``
+    :unit: amperes
+
+    Positive peak-current magnitude, integrated over the complete truncated transverse
+    profile before domain clipping. Specify exactly one of ``peak_current``,
+    ``bunch_charge``, and ``peak_density``. For cutoffs :math:`R,Z`,
+
+    .. math::
+
+        A_R = 2\pi\sigma_r^2(1-e^{-R^2/2}),\qquad
+        I_0 = |qv_z| n_0 A_R,\qquad
+        Q_0 = I_0\sqrt{2\pi}\sigma_t\,\mathrm{erf}(Z/\sqrt{2}).
+
+    With 0.6 A, 25 ps RMS duration, and eight-sigma support, a pulse contains
+    approximately :math:`3.75994\times10^{-11}` C. Its four-sigma duration is 100 ps.
+
+.. pp:param:: <fluid_species_name>.bunch_charge
+    :type: ``float``
+    :unit: coulombs
+
+    Positive charge magnitude of one complete truncated pulse, before domain clipping.
+
+.. pp:param:: <fluid_species_name>.peak_density
+    :type: ``float``
+    :unit: :math:`\mathrm{m}^{-3}`
+
+    Positive peak number density of a unit-amplitude pulse.
+
+.. pp:param:: <fluid_species_name>.initialize_self_fields
+    :type: ``bool``
+    :default: ``0``
+
+    Initialize a rigid beam's self fields with the existing relativistic Poisson solve,
+    using the prescribed charge and velocity directly. This is not repeated on restart.
+
+Fluid outputs and restart
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Native number density is registered as ``fluid_density_<name>`` [m^-3]. A rigid beam also
+registers the instantaneous, unfiltered ``fluid_current_<name>`` z component [A/m^2];
+request ``fluid_current_<name>z`` in ``fields_to_plot``. The current supplied to the
+Maxwell solver is instead averaged over the physical timestep. ``rho`` includes all
+deposited species, and ``rho_<name>`` selects a particle or fluid species with the
+usual charge filtering. Native field access retains solver centering; plotfiles and
+openPMD diagnostics interpolate to cell centers.
+
+For each rigid-beam proton source ``<collision_name>``, the cell-centered outputs
+``<collision_name>_product_weight_remainder`` and ``<collision_name>_emitted_number``
+are pending and cumulative physical electron counts per cylindrical cell.
+``<collision_name>_electron_energy``, ``<collision_name>_binding_energy``, and
+``<collision_name>_discarded_ion_energy`` are cumulative energies [J] per cell.
+These quantities are extensive, not densities. Pending production contributes no charge.
+The reduced diagnostic ``PrescribedSourceBudget`` sums these fields.
+
+Checkpoints store persistent densities, fractional yields, cumulative budgets, and sampling
+counters. Missing required state and changes to immutable beam/source physics, particle
+shape, or solver configuration are errors. Analytic caches are reconstructed without
+replaying collisions or reinitializing fields. Ordinary restart controls, including
+stop time, output cadence, and supported MPI redistribution, can change.
+
+``ParticleNumber``, ``ParticleCharge``, ``ParticleEnergy``, and ``ParticleMomentum`` include
+fluids in their physical totals and means. Fluid macroparticle counts are zero. Particle
+records, phase-space histograms, beam emittance, and temperature diagnostics require
+kinetic species and reject fluid selections. Existing RZ restrictions still apply to
+``FieldMomentum``, ``FieldReduction``, ``FieldMaximum``, and ``RhoMaximum``.
 
 .. _running-cpp-parameters-laser:
 
@@ -3001,6 +3193,7 @@ Details about the collision models can be found in the :ref:`theory section <mul
     If using ``proton_impact_ionization``, this must be one positively charged
     proton or bare-ion projectile species. The charge state must be a positive
     integer and the projectile must be heavier than an electron.
+    The projectile may be kinetic or a fluid with ``model = rigid_beam``.
     If using ``pulsed_decay`` type this should be the name of the parent species.
     If using ``hybrid_resistive_drag``, this should be the one ion species the drag is applied to.
     Each of these models takes only one species name.
@@ -3022,6 +3215,7 @@ Details about the collision models can be found in the :ref:`theory section <mul
     If using ``proton_impact_ionization``, provide exactly two species: first an
     electron and then a singly charged molecular ion whose mass is consistent
     with the selected :math:`\mathrm{N}_2` or :math:`\mathrm{O}_2` target.
+    The electron must be kinetic; the ion may be kinetic or an ``immobile`` fluid.
 
 .. pp:param:: <collision_name>.ndt_supercycle
     :type: ``int``
@@ -3030,6 +3224,7 @@ Details about the collision models can be found in the :ref:`theory section <mul
     Execute collision once every ``ndt_supercycle`` PIC time steps.
     The effective collision time step is ``dt_collision = ndt_supercycle * dt_PIC``.
     Must be >= 1. Mutually exclusive with ``ndt_subcycle``. Default is 1.
+    Rigid-fluid proton sources currently reject values above one.
 
 .. pp:param:: <collision_name>.ndt_subcycle
     :type: ``int``
@@ -3374,6 +3569,9 @@ Details about the collision models can be found in the :ref:`theory section <mul
     ``background_mcc``. This names the positive-ion or negative-ion destination
     species, respectively. The incident species must be electrons. The product
     charge must be exactly ``+q_e`` for ionization or ``-q_e`` for attachment.
+    The destination may be a kinetic species or an ``immobile`` fluid. Fluid updates
+    preserve the emitted/removed electron's charge footprint, including particle
+    shape and boundary treatment; rejected events add no ion density.
 
 .. pp:param:: <collision_name>.<scattering_process>_cross_section_units
     :type: ``string``
@@ -3432,6 +3630,36 @@ Details about the collision models can be found in the :ref:`theory section <mul
     growth; it does not cap physical ionization weight. Smaller values reduce
     launch imbalance and memory growth but produce heavier product
     macroparticles in high-yield cells.
+
+.. pp:param:: <collision_name>.source_sampling_points
+    :type: ``int``
+    :default: ``8``
+
+    Only for a ``rigid_beam`` proton-impact source. Positive number of subintervals
+    per longitudinal cell in the quiet spatial CDF. Increasing this improves the
+    placement of products without changing the integrated physical cell yield.
+    It does not set the number of products; that is controlled by fixed weight and cap.
+
+.. pp:param:: <collision_name>.gas_quadrature_points
+    :type: ``int``
+    :default: ``2``
+
+    Only for a ``rigid_beam`` proton-impact source with a parser background density.
+    Number of subintervals per coordinate (r, z, time), from 1 to 16. The positive
+    composite quadrature samples gas at subinterval midpoints and integrates the
+    beam measure within each subinterval. Resolve gas variation by increasing this
+    parameter, refining the mesh, or subcycling. Constant gas uses the separable
+    beam integral directly and does not require this quadrature.
+
+.. pp:param:: <collision_name>.sampling_seed
+    :type: ``int``
+    :default: ``0``
+
+    Seed of the rigid-source quiet sequence. It is combined with the collision name
+    and global cell index, independent of MPI ownership. Per-cell sequence counters
+    are checkpointed. Energy and angle draws retain the existing PJG spectrum and
+    angular closure. Pending fractional yield creates neither electrons nor ion charge
+    until it is emitted.
 
 .. pp:param:: <collision_name>.projectile_energy_min
     :type: ``float``
@@ -5208,6 +5436,11 @@ This shifts analysis from post-processing to runtime calculation of reduction op
 
         The output columns are the total energy of all species, the total energy per species, the total mean energy :math:`E_p / \sum_i w_i` of all species, and the total mean energy per species.
 
+        Fluid populations are included. A rigid beam contributes its prescribed kinetic
+        energy times its physical population; immobile ions contribute zero. Mean values
+        use the total physical population, including fluids. The prescribed beam is an
+        external energy source, so its energy is not depleted by collisions or field work.
+
     * ``ParticleMomentum``
         This type computes the total and mean relativistic particle momentum among all species:
 
@@ -5218,6 +5451,10 @@ This shifts analysis from post-processing to runtime calculation of reduction op
         where :math:`\boldsymbol{p}_i` is the relativistic momentum of the :math:`i`-th particle, :math:`N` is the number of particles, and :math:`w_i` is the weight of the :math:`i`-th particle.
 
         The output columns are the components of the total momentum of all species, the total momentum per species, the total mean momentum :math:`\boldsymbol{P}_p / \sum_i w_i` of all species, and the total mean momentum per species.
+
+        Fluids are included. A rigid beam contributes :math:`N\gamma m v_z` in z;
+        immobile ions contribute zero. Axisymmetric fluids have zero net transverse
+        Cartesian momentum. Means use physical populations, including fluids.
 
     * ``FieldEnergy``
         This type computes the electromagnetic field energy
@@ -5362,6 +5599,23 @@ This shifts analysis from post-processing to runtime calculation of reduction op
         total number of macroparticles of each species,
         sum of the particles' weight summed over all species,
         sum of the particles' weight of each species.
+
+        Fluid physical populations are volume integrals of the native number-density
+        fields with unique mesh ownership and the RZ deposition volume, including
+        persistent ion charge-shape support at physical boundaries. Fluids have zero
+        macroparticles. Fluid columns follow the kinetic-species columns.
+
+    * ``ParticleCharge``
+        Total physical charge [C], followed by charge per kinetic and fluid species.
+        Particle weights and, where applicable, particle ionization levels are included.
+        Fluid charge is its species charge times the volume-integrated number density.
+
+    * ``PrescribedSourceBudget``
+        For each rigid-fluid proton-impact collision, outputs pending physical count,
+        cumulative emitted count, emitted-electron kinetic energy [J], binding energy [J],
+        and discarded ion kinetic energy [J]. Energies account for prescribed-beam
+        production and omitted ion motion; they are not a closed system energy balance.
+        Values and counters continue across checkpoints. Pending production carries no charge.
 
     * ``BeamRelevant``
         This type computes properties of a particle beam relevant for particle accelerators, like position, momentum, emittance, etc.

@@ -1,6 +1,19 @@
 # Add tests (alphabetical order) ##############################################
 #
 
+if(WarpX_APP)
+    add_warpx_test(
+        test_rz_fluid_interfaces_picmi RZ 1
+        "inputs_test_rz_fluid_interfaces_picmi.py --executable $<TARGET_FILE:app_rz>"
+        OFF OFF OFF
+    )
+    add_warpx_test(
+        test_rz_fluid_beam_air RZ 1
+        "../../Physics_applications/proton_beam_air/inputs_rz_fluid_beam_air my_constants.sigma_r=0.002 amr.n_cell=16 64 max_step=2"
+        OFF OFF OFF
+    )
+endif()
+
 foreach(solver IN ITEMS Yee PSATD semi_implicit_em semi_implicit_mm)
     if(solver STREQUAL "PSATD" AND NOT WarpX_FFT)
         continue()

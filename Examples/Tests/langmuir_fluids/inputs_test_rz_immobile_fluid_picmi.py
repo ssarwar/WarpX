@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 
-from pywarpx import algo, picmi, warpx
+from pywarpx import algo, new_fluid_species, picmi
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--solver", default="Yee", choices=["Yee", "PSATD"])
@@ -37,9 +37,8 @@ sim = picmi.Simulation(
 sim.add_diagnostic(picmi.Checkpoint(name="chk", period=2, write_dir="diags"))
 sim.initialize_inputs()
 algo.particle_shape = 3
-warpx.get_bucket("fluids").species_names = ["positive", "negative"]
 for name, sign in [("positive", 1), ("negative", -1)]:
-    species = warpx.get_bucket(name)
+    species = new_fluid_species(name)
     species.model = "immobile"
     species.mass = 28 * 1.66053906660e-27
     species.charge = sign * picmi.constants.q_e
