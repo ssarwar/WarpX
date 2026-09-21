@@ -38,6 +38,26 @@ foreach(solver IN ITEMS Yee PSATD semi_implicit_em semi_implicit_mm)
     )
 endforeach()
 
+foreach(solver IN ITEMS Yee semi_implicit_em semi_implicit_mm)
+    foreach(direction IN ITEMS positive negative)
+        set(direction_option "")
+        if(direction STREQUAL "negative")
+            set(direction_option "--negative")
+        endif()
+        foreach(filter IN ITEMS unfiltered filtered)
+            set(filter_option "")
+            if(filter STREQUAL "filtered")
+                set(filter_option "--filter")
+            endif()
+            add_warpx_test(
+                test_rz_rigid_boundary_${solver}_${direction}_${filter}_picmi RZ 2
+                "inputs_test_rz_rigid_boundary_picmi.py --solver ${solver} ${direction_option} ${filter_option}"
+                OFF OFF OFF
+            )
+        endforeach()
+    endforeach()
+endforeach()
+
 foreach(solver IN ITEMS Yee PSATD)
     if(solver STREQUAL "PSATD" AND NOT WarpX_FFT)
         continue()

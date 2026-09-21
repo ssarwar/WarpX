@@ -254,9 +254,16 @@ RigidBeam::UpdateDensity (amrex::MultiFab& density, amrex::Geometry const& geom,
 {
 #ifdef WARPX_DIM_RZ
     CacheRadial(density, geom);
-    auto const box = amrex::convert(geom.Domain(), density.ixType());
+    amrex::IntVect grow(0);
+    if (!geom.isPeriodic(1)) {
+        grow[1] = std::min(density.nGrowVect()[1], WarpX::GetInstance().get_ng_depos_rho()[1]);
+    }
+    auto const box = amrex::grow(amrex::convert(geom.Domain(), density.ixType()), grow);
     m_longitudinal_lo = box.smallEnd(1);
     int const count = box.length(1);
+    if (m_longitudinal.size() != count) {
+        m_density_time = std::numeric_limits<amrex::Real>::lowest();
+    }
     m_longitudinal.resize(count);
     auto* longitudinal = m_longitudinal.data();
     auto const* radial = m_radial.data();
@@ -271,7 +278,7 @@ RigidBeam::UpdateDensity (amrex::MultiFab& density, amrex::Geometry const& geom,
     }
     if (m_density_time != time) {
         amrex::ParallelFor(count, [=] AMREX_GPU_DEVICE(int j) noexcept {
-            double const node = zmin + (j + 0.5 * (1 - nodal)) * dz;
+            double const node = zmin + (j - grow[1] + 0.5 * (1 - nodal)) * dz;
             double value = 0.0;
             int first, last;
             p.pulseRange(node - dz / 2, node + dz / 2, time, 0.0, order * dz / 2, first, last);
@@ -290,9 +297,10 @@ RigidBeam::UpdateDensity (amrex::MultiFab& density, amrex::Geometry const& geom,
     int const rlo = m_radial_lo, zlo = m_longitudinal_lo;
     for (amrex::MFIter mfi(density, amrex::TilingIfNotGPU()); mfi.isValid(); ++mfi) {
         auto const a = density.array(mfi);
-        amrex::ParallelFor(mfi.tilebox(), [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-            a(i, j, k) = static_cast<amrex::Real>(radial[i - rlo] * longitudinal[j - zlo]);
-        });
+        amrex::ParallelFor(
+            mfi.growntilebox(grow), [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                a(i, j, k) = static_cast<amrex::Real>(radial[i - rlo] * longitudinal[j - zlo]);
+            });
     }
     density.FillBoundary(geom.periodicity());
 #else
@@ -309,8 +317,17 @@ RigidBeam::DepositCurrent (amrex::MultiFab& current, amrex::Geometry const& geom
         return;
     }
     CacheRadial(current, geom);
-    auto const box = amrex::convert(geom.Domain(), current.ixType());
+    // Boundary charge nodes straddle the physical face. Their continuity
+    // equation needs the exterior current face, including filter support.
+    amrex::IntVect grow(0);
+    if (!geom.isPeriodic(1)) {
+        grow[1] = std::min(current.nGrowVect()[1], WarpX::GetInstance().get_ng_depos_J()[1]);
+    }
+    auto const box = amrex::grow(amrex::convert(geom.Domain(), current.ixType()), grow);
     int const count = box.length(1);
+    if (m_current.size() != count) {
+        m_current_time = std::numeric_limits<amrex::Real>::lowest();
+    }
     m_current.resize(count);
     auto* axial = m_current.data();
     auto const* radial = m_radial.data();
@@ -323,7 +340,7 @@ RigidBeam::DepositCurrent (amrex::MultiFab& current, amrex::Geometry const& geom
     auto const charge = m_charge;
     if (m_current_time != start || m_current_dt != dt) {
         amrex::ParallelFor(count, [=] AMREX_GPU_DEVICE(int j) noexcept {
-            double const face = zmin + (j + 0.5 * (1 - nodal)) * dz;
+            double const face = zmin + (j - grow[1] + 0.5 * (1 - nodal)) * dz;
             double value = 0.0;
             int first, last;
             p.pulseRange(face, face, start, dt, (order + 1) * dz / 2, first, last);
@@ -348,16 +365,17 @@ RigidBeam::DepositCurrent (amrex::MultiFab& current, amrex::Geometry const& geom
         m_current_time = start;
         m_current_dt = dt;
     }
-    auto const mask = amrex::OwnerMask(current, geom.periodicity());
+    auto const mask = amrex::OwnerMask(current, geom.periodicity(), grow);
     int const rlo = m_radial_lo, zlo = box.smallEnd(1);
     for (amrex::MFIter mfi(current, amrex::TilingIfNotGPU()); mfi.isValid(); ++mfi) {
         auto const a = current.array(mfi);
         auto const owner = mask->const_array(mfi);
-        amrex::ParallelFor(mfi.tilebox(), [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-            if (owner(i, j, k)) {
-                a(i, j, k) += static_cast<amrex::Real>(radial[i - rlo] * axial[j - zlo]);
-            }
-        });
+        amrex::ParallelFor(
+            mfi.growntilebox(grow), [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                if (owner(i, j, k)) {
+                    a(i, j, k) += static_cast<amrex::Real>(radial[i - rlo] * axial[j - zlo]);
+                }
+            });
     }
 #else
     amrex::ignore_unused(current, geom, start, dt);

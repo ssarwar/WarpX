@@ -1516,10 +1516,18 @@ void WarpXFluidContainer::DepositCharge (ablastr::fields::MultiFabRegister& fiel
     const amrex::Geometry &geom = warpx.Geom(lev);
     const amrex::Periodicity &period = geom.periodicity();
     const amrex::Real q = getCharge();
-    if (m_model == FluidModel::Immobile) {
+    if (isPrescribed()) {
         auto const& density = *fields.get(name_mf_N, lev);
-        auto const grow = amrex::min(amrex::min(density.nGrowVect(), rho.nGrowVect()),
+        auto grow = amrex::min(amrex::min(density.nGrowVect(), rho.nGrowVect()),
                                      warpx.get_ng_depos_rho());
+        if (m_model == FluidModel::RigidBeam) {
+            // The analytic axial continuation supplies the boundary flux;
+            // radial projection and periodic ownership use the valid mesh.
+            grow[0] = 0;
+#ifdef WARPX_DIM_RZ
+            if (geom.isPeriodic(1)) { grow[1] = 0; }
+#endif
+        }
         // Persistent density is already synchronized. Ownership across the
         // deposited footprint prevents duplicate contributions when rho is
         // summed. Do not assign ownership to farther allocated guard cells:
