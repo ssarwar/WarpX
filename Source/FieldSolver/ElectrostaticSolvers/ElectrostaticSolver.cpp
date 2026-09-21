@@ -334,6 +334,28 @@ ElectrostaticSolver::computeE (
                 );
 #endif
             }
+#ifdef WARPX_DIM_RZ
+            else if (ex_type == amrex::IntVect::TheZeroVector() &&
+                     ey_type == amrex::IntVect::TheZeroVector() &&
+                     ez_type == amrex::IntVect::TheZeroVector())
+            {
+                // RZ PSATD stores all fields at cell centers. The potential is
+                // nodal: average each face gradient in the other direction.
+                // Using the Yee gradient here shifts E by half a cell relative
+                // to B and violates the moving-source relation B = beta x E/c.
+                amrex::ParallelFor(tbx, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
+                    Real const dphi_dr = 0.5_rt * inv_dx *
+                        (phi_arr(i+1,j,k) - phi_arr(i,j,k) +
+                         phi_arr(i+1,j+1,k) - phi_arr(i,j+1,k));
+                    Real const dphi_dz = 0.5_rt * inv_dz *
+                        (phi_arr(i,j+1,k) - phi_arr(i,j,k) +
+                         phi_arr(i+1,j+1,k) - phi_arr(i+1,j,k));
+                    Ex_arr(i,j,k) += (beta_x*beta_x-1._rt)*dphi_dr + beta_x*beta_z*dphi_dz;
+                    Ey_arr(i,j,k) += beta_y*beta_x*dphi_dr + beta_y*beta_z*dphi_dz;
+                    Ez_arr(i,j,k) += beta_z*beta_x*dphi_dr + (beta_z*beta_z-1._rt)*dphi_dz;
+                });
+            }
+#endif
             else // Staggered solver
             {
 #if defined(WARPX_DIM_3D)
@@ -494,6 +516,25 @@ void ElectrostaticSolver::computeB (
                 ignore_unused(beta_z,tbz,Bz_arr);
 #endif
             }
+#ifdef WARPX_DIM_RZ
+            else if (bx_type == amrex::IntVect::TheZeroVector() &&
+                     by_type == amrex::IntVect::TheZeroVector() &&
+                     bz_type == amrex::IntVect::TheZeroVector())
+            {
+                // Use the same cell-centered potential gradients as computeE.
+                amrex::ParallelFor(tbx, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
+                    Real const dphi_dr = 0.5_rt * inv_dx *
+                        (phi_arr(i+1,j,k) - phi_arr(i,j,k) +
+                         phi_arr(i+1,j+1,k) - phi_arr(i,j+1,k));
+                    Real const dphi_dz = 0.5_rt * inv_dz *
+                        (phi_arr(i,j+1,k) - phi_arr(i,j,k) +
+                         phi_arr(i+1,j+1,k) - phi_arr(i+1,j,k));
+                    Bx_arr(i,j,k) -= PhysConst::inv_c * beta_y*dphi_dz;
+                    By_arr(i,j,k) += PhysConst::inv_c * (-beta_z*dphi_dr + beta_x*dphi_dz);
+                    Bz_arr(i,j,k) += PhysConst::inv_c * beta_y*dphi_dr;
+                });
+            }
+#endif
             else // Staggered solver
             {
 #if defined(WARPX_DIM_3D)

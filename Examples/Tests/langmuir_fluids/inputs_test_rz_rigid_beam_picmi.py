@@ -133,6 +133,30 @@ def check(time):
 
 check(0.0)
 old = density()
+if args.self_fields:
+    er = np.squeeze(host(sim.fields.get("Efield_fp", dir="r", level=0)[...]))
+    ez = np.squeeze(host(sim.fields.get("Efield_fp", dir="z", level=0)[...]))
+    bt = np.squeeze(host(sim.fields.get("Bfield_fp", dir="theta", level=0)[...]))
+    if args.solver != "PSATD":
+        # Independent cylindrical Gauss law on the Yee mesh, including the axis.
+        # The outer Dirichlet potential node is excluded from the Poisson equation.
+        radial_divergence = np.empty((nr, nz))
+        radial_divergence[0] = 4 * er[0, :nz] / dr
+        radius = np.arange(1, nr) * dr
+        radial_divergence[1:] = (
+            (radius[:, None] + dr / 2) * er[1:, :nz]
+            - (radius[:, None] - dr / 2) * er[:-1, :nz]
+        ) / (radius[:, None] * dr)
+        divergence = radial_divergence + (ez[:nr] - np.roll(ez[:nr], 1, axis=1)) / dz
+        charge = qe * old[:nr, :nz]
+        np.testing.assert_allclose(
+            picmi.constants.ep0 * divergence, charge, rtol=0, atol=1e-8 * charge.max()
+        )
+    # A rigid axial source satisfies B_theta = v_z E_r/c^2. Yee needs an axial
+    # average to B_theta's staggering; PSATD already stores collocated fields.
+    centered_er = er if args.solver == "PSATD" else (er[:, :-1] + er[:, 1:]) / 2
+    expected_bt = velocity / c**2 * centered_er
+    np.testing.assert_allclose(bt, expected_bt, rtol=0, atol=2e-13 * abs(bt).max())
 for step in range(1, 4):
     sim.step(1)
     check(step * dt)
