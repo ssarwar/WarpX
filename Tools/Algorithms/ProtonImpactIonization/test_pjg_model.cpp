@@ -63,31 +63,58 @@ namespace
         amrex::Gpu::DeviceVector<double> device_q(count);
         amrex::Gpu::copy(amrex::Gpu::hostToDevice, probabilities.begin(), probabilities.end(),
                          device_q.begin());
-        amrex::Gpu::DeviceVector<Real> sampled(4 * count);
+        amrex::Gpu::DeviceVector<Real> sampled(6 * count);
+        using SamplingState = typename PJGModel::ExecutorT<Real>::SamplingState;
+        amrex::Gpu::DeviceVector<SamplingState> prepared(1);
+        auto* prepared_device = prepared.data();
         auto* output = sampled.data();
         auto const* q = device_q.data();
-        amrex::Vector<Real> host(4 * count);
+        amrex::Vector<Real> host(6 * count);
         double max_total = 0, max_mean = 0, max_second = 0, max_binding = 0;
+        double max_host_device_difference = 0;
         for (int row = 0; row <= 48; ++row) {
             auto const e = static_cast<Real>(5e3 * std::pow(2e6, row / 48.0));
             auto const reference = PJGModel::integratedMoments(target, e, proton_mass);
             auto const state = exec.prepareSampling(e);
+            amrex::ParallelFor(1, [=] AMREX_GPU_DEVICE(int) noexcept {
+                prepared_device[0] = exec.prepareSampling(e);
+            });
             amrex::ParallelFor(count, [=] AMREX_GPU_DEVICE(int i) noexcept {
                 exec.sample(state, q[i], output[i], output[count + i]);
-                exec.sample(e, q[i], output[2 * count + i], output[3 * count + i]);
+                exec.sample(prepared_device[0], q[i], output[2 * count + i], output[3 * count + i]);
+                exec.sample(e, q[i], output[4 * count + i], output[5 * count + i]);
             });
             amrex::Gpu::copy(amrex::Gpu::deviceToHost, sampled.begin(), sampled.end(),
                              host.begin());
-            double mean = 0, second = 0, binding = 0;
             for (int i = 0; i < count; ++i) {
-                require(host[i] == host[2 * count + i] &&
-                            host[count + i] == host[3 * count + i],
-                        "Prepared sampling changed the secondary distribution");
-                require(std::isfinite(host[i]) && host[i] >= 0, "Invalid sampled energy");
-                require(i == 0 || host[i] >= host[i - 1], "Nonmonotone inverse CDF");
-                mean += weights[i] * host[i];
-                second += weights[i] * double(host[i]) * host[i];
-                binding += weights[i] * host[count + i];
+                // Compare caching on the same backend. Host and device log/exp
+                // implementations need not yield identical floating-point bits.
+                require(host[2 * count + i] == host[4 * count + i] &&
+                            host[3 * count + i] == host[5 * count + i],
+                        "Device-prepared sampling changed the secondary distribution");
+                max_host_device_difference = std::max(max_host_device_difference,
+                    std::abs(double(host[i])-host[2 * count + i]) /
+                    std::max(1.0, double(host[2 * count + i])));
+            }
+            // Host-cached (rigid beam), device-cached and per-event (particles)
+            // paths all satisfy the same independent physical moment bounds.
+            for (int variant = 0; variant < 3; ++variant) {
+                int const offset = 2 * variant * count;
+                double mean = 0, second = 0, binding = 0;
+                for (int i = 0; i < count; ++i) {
+                    double const energy = host[offset + i];
+                    require(std::isfinite(energy) && energy >= 0, "Invalid sampled energy");
+                    require(i == 0 || energy >= host[offset + i - 1], "Nonmonotone inverse CDF");
+                    mean += weights[i] * energy;
+                    second += weights[i] * energy * energy;
+                    binding += weights[i] * host[offset + count + i];
+                }
+                max_mean = std::max(max_mean,
+                    std::abs(mean * reference.m_total / reference.m_kinetic - 1));
+                max_second = std::max(max_second,
+                    std::abs(second * reference.m_total / reference.m_kinetic_second - 1));
+                max_binding = std::max(max_binding,
+                    std::abs(binding * reference.m_total / reference.m_binding - 1));
             }
             // Check the total with the same device execution path, not a host dereference.
             amrex::ParallelFor(1, [=] AMREX_GPU_DEVICE(int) noexcept {
@@ -95,26 +122,34 @@ namespace
                 exec.sample(e, 1.0, output[1], output[2]);
                 output[3] = exec.crossSection(Real(1));
                 exec.sample(e, -0.1, output[4], output[5]);
+                output[6] = exec.prepareSampling(e).m_secondary_endpoint;
+                output[7] = exec.m_minimum_binding_energy;
             });
-            amrex::Gpu::copy(amrex::Gpu::deviceToHost, sampled.begin(), sampled.begin() + 6,
+            amrex::Gpu::copy(amrex::Gpu::deviceToHost, sampled.begin(), sampled.begin() + 8,
                              host.begin());
             require(host[3] == 0 && host[4] == 0 && host[5] == 0, "Invalid input not rejected");
             auto const endpoint = ProtonImpactIonization::molecularMaximumSecondaryEnergy(
                 e, exec.m_projectile_rest_energy, exec.m_neutral_rest_energy,
                 exec.m_minimum_binding_energy);
+            if (!(std::abs(host[1] / endpoint - 1) < 3e-6)) {
+                SamplingState device_state;
+                amrex::Gpu::copy(amrex::Gpu::deviceToHost, prepared.begin(), prepared.end(),
+                                 &device_state);
+                amrex::Print().SetPrecision(17)
+                    << PJGModel::targetName(target) << " endpoint mismatch at E=" << e
+                    << ": sample=" << host[1] << " host=" << endpoint
+                    << " device=" << device_state.m_secondary_endpoint << '\n';
+            }
             require(std::abs(host[1] / endpoint - 1) < 3e-6, "Molecular endpoint not preserved");
+            require(host[1] == host[6] && host[2] == host[7],
+                    "Unit quantile did not return the exact molecular endpoint");
             max_total = std::max(max_total, std::abs(host[0] / reference.m_total - 1));
-            max_mean =
-                std::max(max_mean, std::abs(mean * reference.m_total / reference.m_kinetic - 1));
-            max_second = std::max(
-                max_second, std::abs(second * reference.m_total / reference.m_kinetic_second - 1));
-            max_binding = std::max(max_binding,
-                                   std::abs(binding * reference.m_total / reference.m_binding - 1));
         }
         amrex::Print() << PJGModel::targetName(target)
                        << (std::is_same_v<Real, float> ? " float" : " double")
                        << " table max relative errors: total=" << max_total << " mean=" << max_mean
-                       << " second=" << max_second << " binding=" << max_binding << '\n';
+                       << " second=" << max_second << " binding=" << max_binding
+                       << " host/device sample difference=" << max_host_device_difference << '\n';
         require(max_total < 1e-3, "Total-table interpolation error");
         require(max_mean < 1e-3, "Mean-energy interpolation error");
         require(max_second < 2e-3, "Second-moment interpolation error");

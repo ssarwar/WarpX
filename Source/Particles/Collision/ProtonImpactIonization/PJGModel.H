@@ -223,6 +223,13 @@ namespace ProtonImpactIonization
             binding_energy = Real(0);
             return;
         }
+        if (quantile == 1.0) {
+            // Preserve the exact support endpoint. Interpolating its logarithm
+            // between incident energies can round below the kinematic bound.
+            secondary_energy = state.m_secondary_endpoint;
+            binding_energy = m_minimum_binding_energy;
+            return;
+        }
         auto const energy_index = state.m_energy_index;
         auto const energy_fraction = state.m_energy_fraction;
 
