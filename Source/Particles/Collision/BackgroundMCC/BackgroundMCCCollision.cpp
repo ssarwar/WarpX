@@ -1102,15 +1102,15 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (WarpXParIter& pti, amr
 
     amrex::ParallelForRNG(
         np,
-        [=] AMREX_GPU_HOST_DEVICE (
+        [=] AMREX_GPU_DEVICE (
             long ip, amrex::RandomEngine const& engine)
         {
-            AMREX_IF_ON_HOST((
-                if (product_events != nullptr)
-                {
-                    product_events[ip].m_process = -1;
-                }
-            ))
+#ifndef AMREX_USE_GPU
+            if (product_events != nullptr)
+            {
+                product_events[ip].m_process = -1;
+            }
+#endif
             if (idcpu[ip] == amrex::ParticleIdCpus::Invalid) {
                 return;
             }
@@ -1137,20 +1137,19 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (WarpXParIter& pti, amr
                  n_a <= max_background_density*(1.0_prt + tolerance));
             bool const valid_temperature = T_a >= 0.0_prt &&
                 T_a <= std::numeric_limits<amrex::ParticleReal>::max();
-            AMREX_IF_ON_DEVICE((
-                AMREX_DEVICE_ASSERT(valid_density);
-                AMREX_DEVICE_ASSERT(valid_temperature);
-            ))
-            AMREX_IF_ON_HOST((
-                if (!valid_density) {
-                    amrex::Abort(
-                        "Background MCC density is negative or exceeds "
-                        "max_background_density.");
-                }
-                if (!valid_temperature) {
-                    amrex::Abort("Background MCC temperature is negative.");
-                }
-            ))
+#ifdef AMREX_USE_GPU
+            AMREX_DEVICE_ASSERT(valid_density);
+            AMREX_DEVICE_ASSERT(valid_temperature);
+#else
+            if (!valid_density) {
+                amrex::Abort(
+                    "Background MCC density is negative or exceeds "
+                    "max_background_density.");
+            }
+            if (!valid_temperature) {
+                amrex::Abort("Background MCC temperature is negative.");
+            }
+#endif
             if (n_a == 0.0_prt) { return; }
 
             amrex::ParticleReal ua_x = 0.0_prt;
@@ -1203,23 +1202,22 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (WarpXParIter& pti, amr
             if (total_cross_section <= 0.0_prt) { return; }
             auto const collision_frequency = (n_a * total_cross_section) * v_coll;
             bool const valid_majorant = collision_frequency <= nu_max * (1.0_prt + tolerance);
-            AMREX_IF_ON_DEVICE((
-                AMREX_DEVICE_ASSERT(valid_majorant);
-            ))
-            AMREX_IF_ON_HOST((
-                if (!valid_majorant)
-                {
-                    if (user_nu_max) {
-                        amrex::Abort(
-                            "User-specified Background MCC nu_max is smaller "
-                            "than the local total collision frequency.");
-                    } else {
-                        amrex::Abort(
-                            "Automatic Background MCC nu_max is smaller than "
-                            "the local total collision frequency.");
-                    }
+#ifdef AMREX_USE_GPU
+            AMREX_DEVICE_ASSERT(valid_majorant);
+#else
+            if (!valid_majorant)
+            {
+                if (user_nu_max) {
+                    amrex::Abort(
+                        "User-specified Background MCC nu_max is smaller "
+                        "than the local total collision frequency.");
+                } else {
+                    amrex::Abort(
+                        "Automatic Background MCC nu_max is smaller than "
+                        "the local total collision frequency.");
                 }
-            ))
+            }
+#endif
 
             auto const acceptance = BackgroundMCCUtils::conditionalEventProbability(
                 static_cast<amrex::ParticleReal>(collision_frequency * dt), total_collision_prob);
@@ -1263,7 +1261,7 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (WarpXParIter& pti, amr
 
             if (process_product_group[chosen_process] >= 0)
             {
-                AMREX_IF_ON_DEVICE((
+#ifdef AMREX_USE_GPU
                     int const product_group =
                         process_product_group[chosen_process];
                     int const group_offset = amrex::Gpu::Atomic::Add(
@@ -1278,8 +1276,7 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (WarpXParIter& pti, amr
                     event.m_source_index = static_cast<int>(ip);
                     event.m_process = chosen_process;
                     event.m_group_offset = group_offset;
-                ))
-                AMREX_IF_ON_HOST((
+#else
                     auto& event = product_events[ip];
                     event.m_neutral_vx = ua_x;
                     event.m_neutral_vy = ua_y;
@@ -1288,7 +1285,7 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (WarpXParIter& pti, amr
                     event.m_source_index = static_cast<int>(ip);
                     event.m_process = chosen_process;
                     event.m_group_offset = -1;
-                ))
+#endif
                 return;
             }
 

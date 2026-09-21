@@ -25,6 +25,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <vector>
 
@@ -49,6 +50,7 @@ struct BackgroundMCCProductEvent
  */
 class BackgroundMCCParticleCreation
 {
+public:
     using ParticleTileType = WarpXParticleContainer::ParticleTileType;
     using ParticleTileDataType = ParticleTileType::ParticleTileDataType;
 
@@ -62,7 +64,6 @@ class BackgroundMCCParticleCreation
         bool m_immobile;
     };
 
-public:
     BackgroundMCCParticleCreation (
         amrex::Vector<ScatteringProcessType> const& product_group_types,
         std::vector<IonProductDestination> const& product_species,
@@ -349,7 +350,7 @@ public:
         bool const rejected =
             total_ionization_events > 0 &&
             amrex::Reduce::AnyOf(total_ionization_events, source_data.m_idcpu + old_source_count,
-                                 [] AMREX_GPU_HOST_DEVICE(auto const id) noexcept {
+                                 [] AMREX_GPU_HOST_DEVICE(std::uint64_t const id) noexcept {
                                      return id == amrex::ParticleIdCpus::Invalid;
                                  });
         if (rejected) {
