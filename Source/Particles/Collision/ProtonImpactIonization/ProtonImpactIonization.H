@@ -47,10 +47,12 @@ public:
     void doCollisionsInInterval (amrex::Real cur_time, amrex::Real start_time,
                                 amrex::Real dt, MultiParticleContainer* mypc) override;
 
-private:
-    std::string m_configuration;
+    // NVCC requires a public enclosing function for extended device lambdas.
     void ProduceFromFluid (amrex::Real cur_time, amrex::Real start_time,
                            amrex::Real dt, MultiParticleContainer* mypc);
+
+private:
+    std::string m_configuration;
     WarpXFluidContainer* m_fluid_projectile = nullptr;
     ProtonImpactIonization::PJGModel::Executor::SamplingState m_sampling_state;
     double m_source_rate = 0.0;

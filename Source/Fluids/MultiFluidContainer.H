@@ -98,11 +98,12 @@ public:
 
     /** Snapshot the immobile charge once per step, before nonlinear residual evaluations. */
     void PrepareImmobileCharge (ablastr::fields::MultiFabRegister const& fields);
+    // NVCC requires a public enclosing function for extended device lambdas.
+    void DepositImmobileCharge (amrex::MultiFab& rho, int component);
 
 private:
 
     [[nodiscard]] std::string CheckpointConfiguration () const;
-    void DepositImmobileCharge (amrex::MultiFab& rho, int component);
 
     // Derived state, rebuilt after initialization/restart and before every step.
     std::unique_ptr<amrex::MultiFab> m_immobile_charge;

@@ -160,11 +160,13 @@ public:
     [[nodiscard]] std::string DensityIncrementName () const
         { return "fluid_density_increment_" + species_name; }
 
+    // NVCC requires a public enclosing function for extended device lambdas.
+    void InitPrescribedDensity (ablastr::fields::MultiFabRegister& fields, int lev);
+
 protected:
     FluidModel m_model = FluidModel::ColdRelativistic;
     std::unique_ptr<RigidBeam> m_rigid_beam;
     bool m_initialize_self_fields = false;
-    void InitPrescribedDensity (ablastr::fields::MultiFabRegister& fields, int lev);
     int species_id;
     std::string species_name;
     amrex::Real charge;

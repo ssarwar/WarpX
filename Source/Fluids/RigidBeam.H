@@ -146,9 +146,10 @@ public:
     void UpdateCurrentDiagnostic (amrex::MultiFab& current, amrex::Geometry const& geom,
                                   amrex::Real time);
 
-private:
+    // NVCC requires public enclosing functions for extended device lambdas.
     void CacheRadial (amrex::MultiFab const& density, amrex::Geometry const& geom);
 
+private:
     Executor m_parameters;
     [[maybe_unused]] amrex::Real m_charge;
     amrex::Real m_energy_ev = 0.0;
