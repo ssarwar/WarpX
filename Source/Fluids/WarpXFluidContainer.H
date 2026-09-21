@@ -7,6 +7,7 @@
 #ifndef WARPX_WarpXFluidContainer_H_
 #define WARPX_WarpXFluidContainer_H_
 
+#include "FluidModel.H"
 #include "Initialization/PlasmaInjector.H"
 #include "MultiFluidContainer.H"
 
@@ -143,8 +144,19 @@ public:
 
     [[nodiscard]] amrex::Real getCharge () const {return charge;}
     [[nodiscard]] amrex::Real getMass () const {return mass;}
+    [[nodiscard]] std::string const& getName () const {return species_name;}
+    [[nodiscard]] FluidModel getModel () const {return m_model;}
+    [[nodiscard]] bool isPrescribed () const {return m_model != FluidModel::ColdRelativistic;}
+
+    /** Synchronize a fresh, unscaled collision deposit and accumulate it exactly once. */
+    void CommitDensityIncrement (ablastr::fields::MultiFabRegister& fields, int lev);
+
+    [[nodiscard]] std::string DensityIncrementName () const
+        { return "fluid_density_increment_" + species_name; }
 
 protected:
+    FluidModel m_model = FluidModel::ColdRelativistic;
+    void InitPrescribedDensity (ablastr::fields::MultiFabRegister& fields, int lev);
     int species_id;
     std::string species_name;
     amrex::Real charge;

@@ -121,9 +121,12 @@ MultiParticleContainer::MultiParticleContainer (AmrCore* amr_core)
         allcontainers[i]->m_deposit_on_main_grid = m_laser_deposit_on_main_grid[i-nspecies];
     }
 
-    // Setup particle collisions
-    collisionhandler = std::make_unique<CollisionHandler>(this);
+}
 
+void
+MultiParticleContainer::InitCollisions ()
+{
+    collisionhandler = std::make_unique<CollisionHandler>(this);
 }
 
 void

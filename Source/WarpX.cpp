@@ -394,7 +394,12 @@ WarpX::WarpX ()
     // Fluid Container
     if (do_fluid_species) {
         myfl = std::make_unique<MultiFluidContainer>();
+        for (auto const& name : mypc->GetSpeciesNames()) {
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(myfl->FindSpecies(name) == nullptr,
+                "Particle and fluid species must have distinct names: '" + name + "'.");
+        }
     }
+    mypc->InitCollisions();
 
     Efield_dotMask.resize(nlevs_max);
     Bfield_dotMask.resize(nlevs_max);
@@ -1152,6 +1157,19 @@ WarpX::ReadParameters ()
             std::vector<std::string> fluid_species_names = {};
             pp_fluids.queryarr("species_names", fluid_species_names);
             do_fluid_species = !fluid_species_names.empty();
+            for (auto const& fluid_name : fluid_species_names) {
+                amrex::ParmParse const pp_fluid(fluid_name);
+                std::string model = "cold_relativistic";
+                pp_fluid.query("model", model);
+                if (model == "immobile" || model == "rigid_beam") {
+                    int shape = 1;
+                    amrex::ParmParse const pp_shape("algo");
+                    utils::parser::queryWithParser(pp_shape, "particle_shape", shape);
+                    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(shape >= 1 && shape <= 4,
+                        "Prescribed fluids support particle shape orders 1 through 4.");
+                    nox = noy = noz = shape;
+                }
+            }
             if (do_fluid_species) {
                 WARPX_ALWAYS_ASSERT_WITH_MESSAGE(max_level <= 1,
                     "Fluid species cannot currently be used with mesh refinement.");

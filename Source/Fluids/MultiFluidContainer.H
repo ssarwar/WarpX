@@ -49,6 +49,16 @@ public:
     [[nodiscard]] WarpXFluidContainer&
     GetFluidContainer (int ispecies) const {return *allcontainers[ispecies];}
 
+    [[nodiscard]] WarpXFluidContainer* FindSpecies (std::string const& name) const;
+    [[nodiscard]] std::vector<std::string> const& GetSpeciesNames () const
+        { return species_names; }
+
+    void CommitDensityIncrements (ablastr::fields::MultiFabRegister& fields);
+
+    void WriteCheckpoint (std::string const& directory) const;
+    void ValidateRestart (std::string const& directory,
+                          ablastr::fields::MultiFabRegister const& fields) const;
+
 #ifdef WARPX_USE_OPENPMD
     std::unique_ptr<WarpXFluidContainer>& GetUniqueContainer(int ispecies) {
       return  allcontainers[ispecies];
@@ -79,6 +89,8 @@ public:
         int lev);
 
 private:
+
+    [[nodiscard]] std::string CheckpointConfiguration () const;
 
     std::vector<std::string> species_names;
 

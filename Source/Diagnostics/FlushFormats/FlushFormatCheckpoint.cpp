@@ -7,6 +7,7 @@
 #include "Diagnostics/ParticleDiag/ParticleDiag.H"
 #include "Diagnostics/ReducedDiags/MultiReducedDiags.H"
 #include "Fields.H"
+#include "Fluids/MultiFluidContainer.H"
 #include "Particles/WarpXParticleContainer.H"
 #include "Utils/TextMsg.H"
 #include "WarpX.H"
@@ -77,6 +78,7 @@ FlushFormatCheckpoint::WriteToFile (
     WriteWarpXHeader(checkpointname, geom);
 
     WriteJobInfo(checkpointname);
+    if (warpx.DoFluidSpecies()) { warpx.GetFluidContainer().WriteCheckpoint(checkpointname); }
 
     for (int lev = 0; lev < nlev; ++lev)
     {

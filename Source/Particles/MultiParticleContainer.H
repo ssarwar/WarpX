@@ -98,6 +98,9 @@ public:
 
     void AllocData ();
 
+    /** Resolve collision species after both particle and fluid registries exist. */
+    void InitCollisions ();
+
     void InitData ();
 
     void InitMultiPhysicsModules ();

@@ -8,7 +8,17 @@
 #include "MultiFluidContainer.H"
 #include "Fluids/WarpXFluidContainer.H"
 #include "Utils/Parser/ParserUtils.H"
+#include "Utils/TextMsg.H"
+#include "WarpX.H"
 
+#include <AMReX_ParallelDescriptor.H>
+#include <AMReX_VisMF.H>
+
+#include <algorithm>
+#include <fstream>
+#include <iomanip>
+#include <limits>
+#include <sstream>
 #include <string>
 
 using namespace amrex;
@@ -22,7 +32,72 @@ MultiFluidContainer::MultiFluidContainer ()
 
     allcontainers.resize(nspecies);
     for (int i = 0; i < nspecies; ++i) {
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            std::count(species_names.begin(), species_names.end(), species_names[i]) == 1,
+            "Fluid species names must be unique.");
         allcontainers[i] = std::make_unique<WarpXFluidContainer>(i, species_names[i]);
+    }
+}
+
+WarpXFluidContainer*
+MultiFluidContainer::FindSpecies (std::string const& name) const
+{
+    for (auto const& fluid : allcontainers) {
+        if (fluid->getName() == name) { return fluid.get(); }
+    }
+    return nullptr;
+}
+
+std::string
+MultiFluidContainer::CheckpointConfiguration () const
+{
+    std::ostringstream config;
+    config << std::setprecision(std::numeric_limits<amrex::Real>::max_digits10);
+    for (auto const& fluid : allcontainers) {
+        if (fluid->isPrescribed()) {
+            config << fluid->getName() << ' ' << static_cast<int>(fluid->getModel()) << ' '
+                   << fluid->getMass() << ' ' << fluid->getCharge() << ' ' << WarpX::nox << '\n';
+        }
+    }
+    return config.str();
+}
+
+void
+MultiFluidContainer::WriteCheckpoint (std::string const& directory) const
+{
+    auto const config = CheckpointConfiguration();
+    if (config.empty() || !amrex::ParallelDescriptor::IOProcessor()) { return; }
+    std::ofstream output(directory + "/FluidModels");
+    output << "WarpX prescribed fluids 1\n" << config;
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(output.good(), "Cannot write fluid checkpoint metadata.");
+}
+
+void
+MultiFluidContainer::ValidateRestart (
+    std::string const& directory, ablastr::fields::MultiFabRegister const& fields) const
+{
+    auto const config = CheckpointConfiguration();
+    if (config.empty()) { return; }
+    amrex::Vector<char> contents;
+    amrex::ParallelDescriptor::ReadAndBcastFile(directory + "/FluidModels", contents);
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+        std::string(contents.data()) == "WarpX prescribed fluids 1\n" + config,
+        "The checkpoint's prescribed-fluid species, models, masses, charges or shapes changed.");
+    for (auto const& fluid : allcontainers) {
+        if (!fluid->isPrescribed()) { continue; }
+        auto const path = directory + "/Level_0/" + fields.mf_name(fluid->name_mf_N, 0);
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(amrex::VisMF::Exist(path),
+            "Missing required prescribed-fluid checkpoint density: " + path);
+    }
+}
+
+void
+MultiFluidContainer::CommitDensityIncrements (ablastr::fields::MultiFabRegister& fields)
+{
+    for (auto const& fluid : allcontainers) {
+        if (fluid->getModel() == FluidModel::Immobile) {
+            fluid->CommitDensityIncrement(fields, 0);
+        }
     }
 }
 

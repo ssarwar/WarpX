@@ -1,6 +1,27 @@
 # Add tests (alphabetical order) ##############################################
 #
 
+foreach(solver IN ITEMS Yee PSATD)
+    if(solver STREQUAL "PSATD" AND NOT WarpX_FFT)
+        continue()
+    endif()
+    add_warpx_test(
+        test_rz_immobile_fluid_${solver}_picmi
+        RZ
+        2
+        "inputs_test_rz_immobile_fluid_picmi.py --solver ${solver}"
+        OFF OFF OFF
+    )
+    add_warpx_test(
+        test_rz_immobile_fluid_${solver}_restart_picmi
+        RZ
+        1
+        "inputs_test_rz_immobile_fluid_picmi.py --solver ${solver} --restart ../test_rz_immobile_fluid_${solver}_picmi/diags/chk000002"
+        OFF OFF
+        "test_rz_immobile_fluid_${solver}_picmi"
+    )
+endforeach()
+
 add_warpx_test(
     test_1d_langmuir_fluid  # name
     1  # dims

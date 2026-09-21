@@ -22,6 +22,7 @@
 #include "Fields.H"
 #include "FieldIO.H"
 #include "FieldSolver/ImplicitSolvers/ImplicitSolver.H"
+#include "Fluids/MultiFluidContainer.H"
 #include "Particles/MultiParticleContainer.H"
 #include "Particles/WarpXParticleContainer.H"
 #include "Python/callbacks.H"
@@ -407,6 +408,7 @@ WarpX::InitFromCheckpoint ()
         // Read any fields flagged checkpoint_restart in the field register
         // (mirrors FlushFormatCheckpoint's write_checkpoints call). Flagged
         // fields absent from an older checkpoint are skipped, not errors.
+        if (lev == 0 && do_fluid_species) { myfl->ValidateRestart(restart_chkfile, m_fields); }
         m_fields.read_restarts(lev, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, level_prefix, ""));
     }
 
