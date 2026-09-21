@@ -127,7 +127,8 @@ noise/cost plots. Preserve the individual JSON/NPZ files to permit reanalysis.
 - An equal-error speedup requires a stated error target and a converged
   reference. An equal-particle-count timing alone does not establish that result.
 
-`perlmutter.sbatch` records hardware, modules and revision, runs GPU regressions,
+`perlmutter.sbatch` records hardware, modules, Python packages, the CMake cache,
+revision and any tracked source changes, runs GPU regressions,
 then executes four ensembles on one A100 at a time. It requests one Perlmutter
 GPU node for up to 30 minutes; edit the account when using another project.
 Run it from the isolated validation checkout after compiling the CUDA build.
@@ -137,5 +138,8 @@ phases, for example `sbatch Tools/Algorithms/PrescribedFluids/perlmutter.sbatch 
 and then `fields`, `push`, `source`, `coupled`, `storage` or `profile`. Omitting
 the phase runs everything. The storage phase compares checkpoint cost at two
 durations; the profile phase measures source cost separately from timing ensembles.
+The test phase collects failures from each independent group before returning
+an unsuccessful status; a failed group still prevents subsequent timing phases
+in an `all` run.
 The build's CTest MPI launcher should be `srun` with
 `MPIEXEC_PREFLAGS='--cpu-bind=cores;--gpus-per-task=1'`.

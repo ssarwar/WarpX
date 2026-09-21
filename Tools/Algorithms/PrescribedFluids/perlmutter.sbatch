@@ -34,19 +34,27 @@ case "$phase" in
 esac
 mkdir -p "$study"
 git rev-parse HEAD > "$study/revision.txt"
+git diff --binary > "$study/source.patch"
+cp build/CMakeCache.txt "$study/CMakeCache.txt"
+python -m pip freeze > "$study/python-packages.txt"
 nvidia-smi > "$study/device.txt"
 module list > "$study/modules.txt" 2>&1
 
 if [[ "$phase" == all || "$phase" == tests ]]; then
+    test_status=0
     for directory in fluid-tests pjg; do
         srun -n 1 -c 32 --gpus-per-task=1 --cpu-bind=cores \
             ctest --test-dir "build/$directory" --output-on-failure \
-            > "$study/$directory.log" 2>&1
+            > "$study/$directory.log" 2>&1 || test_status=1
     done
-    python Tools/Algorithms/PrescribedFluids/gaussian_reference.py > "$study/gaussian.log"
+    python Tools/Algorithms/PrescribedFluids/gaussian_reference.py \
+        > "$study/gaussian.log" 2>&1 || test_status=1
     ctest --test-dir build --output-on-failure --timeout 90 -j 1 \
         -R 'test_rz_(rigid_source|rigid_beam|rigid_train|rigid_boundary|immobile|fluid_|prescribed_|attachment_checkpoint|beam_reference)' \
-        > "$study/ctest.log" 2>&1
+        > "$study/ctest.log" 2>&1 || test_status=1
+    if [[ "$test_status" != 0 ]]; then
+        exit "$test_status"
+    fi
 fi
 
 # Timing runs are serial and synchronize each step. The field suite measures
