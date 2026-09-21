@@ -131,5 +131,11 @@ noise/cost plots. Preserve the individual JSON/NPZ files to permit reanalysis.
 then executes four ensembles on one A100 at a time. It requests one Perlmutter
 GPU node for up to 30 minutes; edit the account when using another project.
 Run it from the isolated validation checkout after compiling the CUDA build.
+Build the standalone tests in `build/fluid-tests` and `build/pjg` against that
+build's AMReX package. To fit the debug queue's time limit, submit individual
+phases, for example `sbatch Tools/Algorithms/PrescribedFluids/perlmutter.sbatch tests`
+and then `fields`, `push`, `source`, `coupled`, `storage` or `profile`. Omitting
+the phase runs everything. The storage phase compares checkpoint cost at two
+durations; the profile phase measures source cost separately from timing ensembles.
 The build's CTest MPI launcher should be `srun` with
 `MPIEXEC_PREFLAGS='--cpu-bind=cores;--gpus-per-task=1'`.
