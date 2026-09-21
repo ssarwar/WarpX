@@ -428,3 +428,18 @@ add_warpx_test(
     "analysis_default_regression.py --path diags/diag1/"  # checksum
     OFF  # dependency
 )
+foreach(solver IN ITEMS Yee PSATD semi_implicit_em semi_implicit_mm)
+    if(solver STREQUAL "PSATD" AND NOT WarpX_FFT)
+        continue()
+    endif()
+    add_warpx_test(
+        test_rz_rigid_train_${solver}_picmi RZ 2
+        "inputs_test_rz_rigid_train_picmi.py --solver ${solver}"
+        OFF OFF OFF
+    )
+    add_warpx_test(
+        test_rz_rigid_train_${solver}_restart_picmi RZ 1
+        "inputs_test_rz_rigid_train_picmi.py --solver ${solver} --restart ../test_rz_rigid_train_${solver}_picmi/diags/chk000075"
+        OFF OFF "test_rz_rigid_train_${solver}_picmi"
+    )
+endforeach()
