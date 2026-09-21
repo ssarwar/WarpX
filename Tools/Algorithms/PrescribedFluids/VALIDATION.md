@@ -1,8 +1,9 @@
-# CPU validation and remaining GPU acceptance
+# Prescribed-fluid validation
 
-The prescribed-fluid implementation and CPU comparisons are recorded here as of
-2026-09-21. **GPU acceptance remains open.** The complete CUDA build succeeds;
-runtime acceptance and measured A100 speedups are still pending.
+The prescribed-fluid implementation, CPU comparisons and Perlmutter A100
+acceptance are recorded here as of 2026-09-21. The complete CUDA build, feature
+tests and all six GPU benchmark phases pass. Remaining backend limits are
+described below.
 
 The implementation is on `codex/rigid-beam-immobile-ions`, based on `c4f620a70`.
 The final CPU timing ensembles used `385e433a2`; the subsequent lifecycle checks
@@ -30,6 +31,9 @@ exceptions in inactive branches with this compiler.
 | Independent PJG and profile executables | Five checks pass, including a million-particle projection quadrature |
 | Independent Gaussian self-field reference | Static and Lorentz-transformed spherical closed forms, and doubled quadrature order, pass |
 | PSATD centering and exact attachment review | 26 affected checks pass in each CPU build, including four-thread ion scatter in the OpenMP selection |
+| Perlmutter A100, CUDA 13.2 | All 112 feature checks and five standalone physics checks pass; Slurm job `58694940` |
+| Existing RZ regressions on A100 | 18 checks pass, including particle collisions, electrostatic spheres, cold fluids and PSATD Langmuir waves; two analysis steps were rerun after installing the missing `openpmd-viewer` package |
+| Focused rerun after the SYCL spectral changes | 23 PSATD checks pass on CPU and 23 on A100; GPU job `58697258` |
 
 The prescribed-fluid checks cover shapes 1–4, both beam directions, axial
 boundary flux, repeated filtering, N2/O2, bare-ion scaling, rejected events,
@@ -192,6 +196,85 @@ from 2.080% to 1.005% in the primary-source fixture, and from 2.129% to 1.069%
 with MCC. Primary yield and the emitted energy samples are unchanged. Kinetic
 electron sampling noise remains even when the beam has no sampling noise.
 
+## A100 noise, physics and cost
+
+The GPU ensembles use one A100-SXM4-40GB, CUDA 13.2, GCC 13.2, double field and
+particle precision, and a 64 by 256 mesh. Each timing/physics group has six
+seeds. The equal-electron-work case contains 65,536 deterministic electrons.
+These use four times as many cells as the CPU timing ensembles; the tables
+compare representations within each backend, not CPU/GPU speedup.
+
+The source checkout is `d6da20fe3`; the CUDA library reports `9723d0a12389`
+because the intervening commit changes restart tests only. The source tree was
+clean throughout the main ensembles. Slurm jobs are `58694961` (fields),
+`58694963` (equal electron work), `58695192` (source), `58695195` (coupled),
+`58695336` (storage) and `58695337` (profiling). They contain 42, 42, 84, 84,
+12 and 8 runs, respectively. Raw results and provenance are retained below
+`build/fluid-comparisons/a100/`, and a compact record is in
+[a100-2026-09-21.json](results/a100-2026-09-21.json).
+
+![A100 noise versus timestep cost](results/a100-2026-09-21-noise-cost.png)
+
+[Standalone PDF](results/a100-2026-09-21-noise-cost.pdf)
+
+| Beam | Input particles/cell | Beam-density RMS error | Field-only step | Step with 65,536 identical electrons |
+| --- | ---: | ---: | ---: | ---: |
+| Fluid | 0 | Numerical floor | 1.194 ms | 1.541 ms |
+| Quiet particles | 16 | 0.07829% | 1.692 ms | 2.039 ms |
+| Quiet particles | 64 | 0.01929% | 2.562 ms | 2.967 ms |
+| Quiet particles | 256 | 0.004805% | 5.852 ms | 6.155 ms |
+| Random particles | 16 | 5.507% | 1.735 ms | 2.129 ms |
+| Random particles | 64 | 2.761% | 2.645 ms | 3.047 ms |
+| Random particles | 256 | 1.405% | 6.024 ms | 6.371 ms |
+
+At the same `1e-3` mesh-projection criterion used above, 16 quiet particles per
+cell is the cheapest tested particle point on this finer mesh. The fluid beam
+is 1.42 times faster for fields and 1.32 times faster at equal electron work.
+At 64 particles per cell the ratios are 2.15 and 1.93; at 256 they are 4.90 and
+3.99. Timing confidence intervals, initialization costs and physical populations
+are retained in the JSON. The field-only fluid timestep is
+`1.194 +/- 0.048 ms` (99% interval). The independent continuum reference still
+shows finite-domain error; deposition agreement does not remove that error.
+
+With immobile ion products, the source-only fluid run takes 2.705 ms per step,
+versus 6.260 ms for the 64-particle quiet beam. Including electron motion and
+MCC gives 3.893 versus 7.519 ms. In the latter case the measured plasma-density
+seed noise is 1.542% for the fluid beam and 2.680% for the quiet particle beam.
+All paired fluid/frozen-ion coupled populations and electron energies have
+overlapping 99% intervals. GPU stochastic trajectories need not be identical
+after changing a collision destination; the deterministic event-deposition
+tests enforce the stricter footprint comparisons separately.
+
+In the primary-source fixture, identical fluid-beam events with fluid and
+frozen kinetic ions differ by at most `6.29e-15` of peak density. Their electron
+energy histograms are exactly equal. The independently summed electron kinetic
+energy matches the emitted source-energy budget within `2.89e-15` relatively;
+discarded recoil agrees with the frozen ions' kinetic energy within `1.25e-12`.
+The primary yield including pending production retains the 0.01515% N2/O2
+agreement with independent PJG quadrature. At this mesh and product weight 100,
+2.45% of N2 and 7.09% of O2 primary production is still pending at 20 steps.
+This is an emission-resolution effect, addressed by the joint weight/mesh
+convergence study above, and is not charge already present in the plasma.
+
+The synchronized source profiler initially includes substantial CUDA module
+loading: the first fluid timestep takes 175 ms. A separate eight-run profile
+with `CUDA_MODULE_LOADING=EAGER` (job `58696154`) reduces that first timestep
+to 7.70 ms. The startup-inclusive source total falls from 89.60 to 33.51 ms
+for 20 steps and two gases. In the eager-loading run, corresponding quiet-beam
+source times are 40.38, 71.06 and 202.8 ms at 16, 64 and 256 particles per cell.
+These are instrumented single-run attribution measurements; the table above
+uses the uninstrumented ensembles. Both profiles are retained in the JSON.
+The fluid source has no beam-particle loop: its work depends on mesh cells
+and emitted products, while the particle source traverses the beam population.
+The repeated profiles retain identical product counts and energy histograms.
+Fluid-source densities agree within `2.50e-15` of peak density. An attempted
+exact comparison of kinetic-beam birth positions exposed the existing source's
+dependence on AMReX GPU dense-bin ordering: atomic bin insertion does not preserve
+projectile order, and the source selects projectiles through that order's weighted
+cumulative distribution. Its spatial snapshots therefore require ensemble
+comparisons even at a fixed random seed. The particle-source noise estimates
+include this run-to-run variability; the fluid source uses cell-based sequences.
+
 ## Ion storage and checkpoints
 
 The same fluid-beam source was run for 20 and 100 steps with fluid or frozen
@@ -208,6 +291,21 @@ scratch storage; those also scale with mesh size. Complete checkpoints still
 grow because electrons remain kinetic. Inclusive checkpoint-step times were
 12.07 / 13.68 ms at 20 steps and 19.49 / 28.02 ms at 100 steps. These include
 the physical timestep and are not isolated filesystem bandwidth measurements.
+
+The A100 storage runs repeat the same comparison on the 64 by 256 mesh. Three
+persistent ion-density fields occupy 511,584 bytes at both durations, including
+guards. Each row averages three seeds.
+
+| Steps | Emitted electron macroparticles | Three fluid ion densities | Frozen-ion particle payload | Complete checkpoint: fluid / frozen ions |
+| --- | ---: | ---: | ---: | ---: |
+| 20 | 53,895 | 511,584 bytes | 3,449,280 bytes | 8.022 / 10.959 MB |
+| 100 | 276,474 | 511,584 bytes | 17,694,336 bytes | 22.267 / 39.449 MB |
+
+Inclusive checkpoint-step times are 44.0 / 51.1 ms at 20 steps and
+64.5 / 93.4 ms at 100 steps. Filesystem timing varies; the independent logical
+storage measurement establishes the mesh-versus-event scaling. Transient
+increments and aggregate charge also scale with mesh size, while electron
+particle storage grows in both representations.
 
 ## Review findings and remaining work
 
@@ -234,12 +332,46 @@ explicit implicit-load-balancing restriction described above.
 
 The complete Perlmutter CUDA 13.2 RZ build, including Python, FFT and openPMD,
 now succeeds. The existing BLAS++ dependency required rebuilding against CUDA
-13 to match Cray MPI's ABI. The independent Gaussian source/projection,
-relativistic, sampling and angular executables pass on an A100. The PJG model
-and full WarpX runtime suites remain under investigation; no runtime acceptance
-or A100 speedup is claimed yet. SYCL compilation is in progress. The installed
-HIP 5.5.1 configuration fails to locate `amd_comgr`, so HIP compilation and
-runtime coverage remain unavailable. The remaining acceptance work is to
-resolve GPU failures and collect the A100 ensembles using `perlmutter.sbatch`.
-A100 noise/cost, memory and checkpoint measurements must be reported separately
-from the CPU evidence here.
+13 to match Cray MPI's ABI, and the Python MPI binding was rebuilt to use the
+same MPICH 9.1.0 library as WarpX. The final feature run at `d6da20fe3` passes
+all 112 CTests and all five standalone physics checks on an A100-SXM4-40GB.
+The independent Gaussian field reference also passes in that job. These tests
+include all solver configurations, shape orders, load balancing, checkpoint
+redistribution, plotfiles and openPMD. Raw acceptance records are retained in
+`build/fluid-comparisons/a100/acceptance/`.
+
+The CUDA review found a float inverse-CDF endpoint rounded below the exact
+molecular bound; `ce1156611` returns the exact endpoint at unit quantile.
+Host-cached, device-cached and per-event sampling retain the original independent
+moment tolerances, with exact cache equivalence checked on the same backend.
+Three PSATD restart comparisons incorrectly scaled roundoff by an individual
+field component that vanishes by symmetry. They now use the vector field norm
+with the original roundoff multipliers. The six-component source-restart
+differences are below one machine epsilon times that norm; populations,
+remainders and cumulative budgets keep their stricter comparisons. The 29
+affected CPU source/train checks pass after this test correction.
+
+The complete FFT-enabled SYCL RZ executable now builds with oneAPI 2025.3.1,
+double field/particle precision and native SYCL BLAS++/LAPACK++. This compiler
+check disables MPI, Python, openPMD, QED and EB. It exposed two inherited RZ
+gaps: the axial complex FFT fell through to FFTW, and Hankel BLAS received an
+AMReX stream wrapper instead of its native SYCL queue. The new complex descriptor
+uses the existing radial/axial strides, unit transform distance and unnormalized
+forward/backward convention. Queue changes wait for outstanding transforms
+before recommitting the descriptor; same-queue execution remains asynchronous.
+All five standalone physics checks and the new direct-DFT test compile with SYCL.
+The 23 affected PSATD checks pass on both CPU and A100 after the guarded changes.
+The GPU run (`58697258`) uses a rebuilt CUDA library and covers self-fields,
+particle references, current correction, source restart and MPI load balancing.
+The workspace review also corrects the inherited rocFFT inverse path to query
+its backward plan, rather than assuming the forward plan needs the same buffer.
+
+SYCL runtime acceptance remains unavailable. After resolving the installed
+runtime's library paths, the OpenCL backend exposes an AMD EPYC CPU, but no
+SYCL GPU. AMReX's GPU selector rejects it before the test executes. The installed
+runtime has no NVIDIA adapter, and no Intel GPU is available on Perlmutter.
+The direct-DFT test is therefore compiled but not claimed as passing at runtime.
+The installed HIP 5.5.1 configuration fails to locate `amd_comgr`, so HIP
+compilation and runtime coverage remain unavailable. The A100 measurements use
+one GPU for timings and host MPI transport for multi-rank acceptance tests;
+they do not measure GPU-aware inter-node communication.
