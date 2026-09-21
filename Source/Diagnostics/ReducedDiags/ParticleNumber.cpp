@@ -119,11 +119,11 @@ void ParticleNumber::ComputeDiags (int step)
                 auto& species = mypc.GetParticleContainer(i);
                 int const ionization_index = species.DoFieldIonization()
                     ? species.GetIntCompIndex("ionizationLevel") : -1;
-                using Particle = WarpXParticleContainer::SuperParticleType;
+                using ParticleData = WarpXParticleContainer::ConstPTDType;
                 auto charge_weight = amrex::ReduceSum(species,
-                    [=] AMREX_GPU_HOST_DEVICE(Particle const& particle) noexcept {
-                        return particle.rdata(PIdx::w)*
-                            (ionization_index < 0 ? 1 : particle.idata(ionization_index));
+                    [=] AMREX_GPU_HOST_DEVICE(ParticleData const& particles, int ip) noexcept {
+                        return particles.m_rdata[PIdx::w][ip] * (ionization_index < 0
+                            ? 1 : particles.m_runtime_idata[ionization_index][ip]);
                     });
                 amrex::ParallelDescriptor::ReduceRealSum(charge_weight);
                 m_data[i+1] = species.getCharge()*charge_weight;

@@ -1,6 +1,12 @@
 # Add tests (alphabetical order) ##############################################
 #
 
+add_warpx_test(
+    test_rz_fluid_charge_picmi RZ 2
+    "inputs_test_rz_fluid_charge_picmi.py"
+    OFF OFF OFF
+)
+
 if(WarpX_APP)
     add_warpx_test(
         test_rz_fluid_interfaces_picmi RZ 1
