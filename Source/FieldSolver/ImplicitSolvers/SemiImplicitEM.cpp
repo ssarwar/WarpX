@@ -6,6 +6,8 @@
  */
 #include "Fields.H"
 #include "SemiImplicitEM.H"
+
+#include "Fluids/MultiFluidContainer.H"
 #include "Diagnostics/ReducedDiags/MultiReducedDiags.H"
 #include "WarpX.H"
 
@@ -66,6 +68,10 @@ int SemiImplicitEM::OneStep (amrex::Real  start_time,
 
     // Set the member time step
     m_dt = a_dt;
+
+    if (m_WarpX->DoFluidSpecies()) {
+        m_WarpX->GetFluidContainer().PrepareImmobileCharge(m_WarpX->m_fields);
+    }
 
     // Fields have Eg^{n}, Bg^{n}
     // Particles have up^{n} and xp^{n}.

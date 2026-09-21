@@ -15,6 +15,7 @@
 #include <AMReX_MultiFab.H>
 #include <AMReX_Vector.H>
 #include <AMReX_REAL.H>
+#include <AMReX_iMultiFab.H>
 
 #include <string>
 
@@ -95,9 +96,18 @@ public:
     void DepositPrescribedSources (ablastr::fields::MultiFabRegister& fields,
                                    amrex::Real start, amrex::Real dt, bool deposit_charge);
 
+    /** Snapshot the immobile charge once per step, before nonlinear residual evaluations. */
+    void PrepareImmobileCharge (ablastr::fields::MultiFabRegister const& fields);
+
 private:
 
     [[nodiscard]] std::string CheckpointConfiguration () const;
+    void DepositImmobileCharge (amrex::MultiFab& rho, int component);
+
+    // Derived state, rebuilt after initialization/restart and before every step.
+    std::unique_ptr<amrex::MultiFab> m_immobile_charge;
+    std::unique_ptr<amrex::iMultiFab> m_immobile_charge_owners;
+    amrex::IntVect m_immobile_charge_grow{-1};
 
     std::vector<std::string> species_names;
 

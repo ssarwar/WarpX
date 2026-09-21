@@ -11,6 +11,10 @@
 #include "Utils/TextMsg.H"
 #include "WarpX.H"
 
+#include <ablastr/profiler/ProfilerWrapper.H>
+
+#include <AMReX_GpuLaunch.H>
+#include <AMReX_MFIter.H>
 #include <AMReX_ParallelDescriptor.H>
 #include <AMReX_VisMF.H>
 
@@ -192,8 +196,14 @@ MultiFluidContainer::DepositPrescribedSources (
     using ablastr::fields::Direction;
     using warpx::fields::FieldType;
     auto const& geom = WarpX::GetInstance().Geom(0);
+    if (deposit_charge && fields.has(FieldType::rho_fp, 0)) {
+        auto& rho = *fields.get(FieldType::rho_fp, 0);
+        for (int comp = 0; comp < rho.nComp(); ++comp) {
+            DepositImmobileCharge(rho, comp);
+        }
+    }
     for (auto& fluid : allcontainers) {
-        if (!fluid->isPrescribed()) { continue; }
+        if (!fluid->getRigidBeam()) { continue; }
         auto* beam = fluid->getRigidBeam();
         if (!fluid->do_not_deposit && deposit_charge && fields.has(FieldType::rho_fp, 0)) {
             auto& rho = *fields.get(FieldType::rho_fp, 0);
@@ -222,7 +232,69 @@ MultiFluidContainer::Evolve (ablastr::fields::MultiFabRegister& fields,
                             amrex::Real cur_time,
                             bool skip_deposition)
 {
+    PrepareImmobileCharge(fields);
+    if (!skip_deposition && fields.has(warpx::fields::FieldType::rho_fp, lev)) {
+        auto& rho = *fields.get(warpx::fields::FieldType::rho_fp, lev);
+        for (int comp = 0; comp < rho.nComp(); ++comp) {
+            DepositImmobileCharge(rho, comp);
+        }
+    }
     for (auto& fl : allcontainers) {
+        if (fl->getModel() == FluidModel::Immobile) { continue; }
         fl->Evolve(fields, lev, current_fp_string, cur_time, skip_deposition);
+    }
+}
+
+void
+MultiFluidContainer::PrepareImmobileCharge (ablastr::fields::MultiFabRegister const& fields)
+{
+    ABLASTR_PROFILE("MultiFluidContainer::PrepareImmobileCharge");
+    bool first = true;
+    for (auto const& fluid : allcontainers) {
+        if (fluid->getModel() != FluidModel::Immobile || fluid->do_not_deposit) { continue; }
+        auto const& density = *fields.get(fluid->name_mf_N, 0);
+        if (first) {
+            if (!m_immobile_charge || m_immobile_charge->boxArray() != density.boxArray() ||
+                m_immobile_charge->DistributionMap() != density.DistributionMap()) {
+                m_immobile_charge = std::make_unique<amrex::MultiFab>(
+                    density.boxArray(), density.DistributionMap(), 1, density.nGrowVect());
+                m_immobile_charge_owners.reset();
+            }
+            amrex::MultiFab::Copy(*m_immobile_charge, density, 0, 0, 1, density.nGrowVect());
+            m_immobile_charge->mult(fluid->getCharge(), density.nGrow());
+            first = false;
+        } else {
+            amrex::MultiFab::Saxpy(*m_immobile_charge, fluid->getCharge(), density,
+                                 0, 0, 1, density.nGrowVect());
+        }
+    }
+    if (first) {
+        m_immobile_charge.reset();
+        m_immobile_charge_owners.reset();
+    }
+}
+
+void
+MultiFluidContainer::DepositImmobileCharge (amrex::MultiFab& rho, int component)
+{
+    if (!m_immobile_charge) { return; }
+    ABLASTR_PROFILE("MultiFluidContainer::DepositImmobileCharge");
+    auto const& warpx = WarpX::GetInstance();
+    auto const grow = amrex::min(amrex::min(m_immobile_charge->nGrowVect(), rho.nGrowVect()),
+                                 warpx.get_ng_depos_rho());
+    if (!m_immobile_charge_owners || grow != m_immobile_charge_grow) {
+        m_immobile_charge_owners = amrex::OwnerMask(rho, warpx.Geom(0).periodicity(), grow);
+        m_immobile_charge_grow = grow;
+    }
+    // Cache physical charge, not a filtered or previously summed rho deposit.
+    // Each residual receives a fresh owned footprint for the normal SyncRho path.
+    for (amrex::MFIter mfi(rho, amrex::TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+        auto const charge = m_immobile_charge->const_array(mfi);
+        auto const owner = m_immobile_charge_owners->const_array(mfi);
+        auto const output = rho.array(mfi);
+        amrex::ParallelFor(mfi.growntilebox(grow),
+            [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                if (owner(i,j,k)) { output(i,j,k,component) += charge(i,j,k); }
+            });
     }
 }
