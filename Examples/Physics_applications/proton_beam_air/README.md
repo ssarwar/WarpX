@@ -33,6 +33,18 @@ center is at z = 3 cm at t = 0; clipping at the domain walls does not
 renormalize it. The default 200 steps cover 20 ps. Increase the run duration
 to simulate later pulses, while resolving the electron and field dynamics.
 
+These are explicit modeling choices. Roy et al., AIP Advances 10, 095023
+([DOI](https://doi.org/10.1063/5.0021497)), Fig. 3(b), describes an illustrative
+CST bunch with 1.4 pC and a Gaussian cut at two sigma. The experimental discussion
+also quotes 0.6 A peak current and approximately `3e8` protons per bunch; those
+rounded quantities do not specify one exact Gaussian normalization. This
+example uses the requested 0.6 A and 25 ps, with eight-sigma support, consistently
+deriving its 37.5994 pC bunch charge. Set `cutoff_z=2` to use the paper's
+longitudinal support; at fixed peak current the charge then becomes about
+35.89 pC. Choose `bunch_charge` instead of `peak_current` to prescribe a different
+charge. The assumed transverse Gaussian also requires its own measured RMS
+width; the quoted beam radius alone does not determine it.
+
 Use `--write-input inputs` to generate an equivalent native input, including
 all supplied electron channels. `--restart diags/checkpoint000100` resumes
 stored populations, source remainders, budgets, and sequence counters.

@@ -5,6 +5,11 @@ acceptance are recorded here as of 2026-09-21. The complete CUDA build, feature
 tests and all six GPU benchmark phases pass. Remaining backend limits are
 described below.
 
+The post-merge, stock-build re-audit is tracked separately in
+[REAUDIT.md](REAUDIT.md). In the historical combined runs below, the configured
+MCC channels were ionization and attachment. Elastic and excitation had
+separate physics tests but were absent from the combined timing fixture.
+
 The implementation is on `codex/rigid-beam-immobile-ions`, based on `c4f620a70`.
 The final CPU timing ensembles used `385e433a2`; the subsequent lifecycle checks
 and safeguards are in `1f3e60511`. The convergence drivers are in `0c108be5a`.
@@ -142,7 +147,7 @@ while pending fractions approximately halve. Pending production carries no
 charge. It must remain visible in the primary-yield budget until electrons
 are emitted.
 
-A further 48 runs compare moving electrons with all collision channels across
+A further 48 runs compare moving electrons with the configured collision channels across
 the four solver configurations at 0.5 ps and 0.25 ps. At 0.25 ps, Yee and both
 semi-implicit variants give the same electron population within roundoff;
 their mean electron energies differ by `5.9e-7` relatively. PSATD's population
