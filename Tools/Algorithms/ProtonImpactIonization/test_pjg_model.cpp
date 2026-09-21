@@ -63,21 +63,26 @@ namespace
         amrex::Gpu::DeviceVector<double> device_q(count);
         amrex::Gpu::copy(amrex::Gpu::hostToDevice, probabilities.begin(), probabilities.end(),
                          device_q.begin());
-        amrex::Gpu::DeviceVector<Real> sampled(2 * count);
+        amrex::Gpu::DeviceVector<Real> sampled(4 * count);
         auto* output = sampled.data();
         auto const* q = device_q.data();
-        amrex::Vector<Real> host(2 * count);
+        amrex::Vector<Real> host(4 * count);
         double max_total = 0, max_mean = 0, max_second = 0, max_binding = 0;
         for (int row = 0; row <= 48; ++row) {
             auto const e = static_cast<Real>(5e3 * std::pow(2e6, row / 48.0));
             auto const reference = PJGModel::integratedMoments(target, e, proton_mass);
+            auto const state = exec.prepareSampling(e);
             amrex::ParallelFor(count, [=] AMREX_GPU_DEVICE(int i) noexcept {
-                exec.sample(e, q[i], output[i], output[count + i]);
+                exec.sample(state, q[i], output[i], output[count + i]);
+                exec.sample(e, q[i], output[2 * count + i], output[3 * count + i]);
             });
             amrex::Gpu::copy(amrex::Gpu::deviceToHost, sampled.begin(), sampled.end(),
                              host.begin());
             double mean = 0, second = 0, binding = 0;
             for (int i = 0; i < count; ++i) {
+                require(host[i] == host[2 * count + i] &&
+                            host[count + i] == host[3 * count + i],
+                        "Prepared sampling changed the secondary distribution");
                 require(std::isfinite(host[i]) && host[i] >= 0, "Invalid sampled energy");
                 require(i == 0 || host[i] >= host[i - 1], "Nonmonotone inverse CDF");
                 mean += weights[i] * host[i];

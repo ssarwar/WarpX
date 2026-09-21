@@ -200,6 +200,9 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
     ABLASTR_PROFILE("ProtonImpactIonizationCollision::doCollisions()");
 
     using namespace amrex::literals;
+    if (m_constant_density && m_background_density == 0.0_prt) {
+        return;
+    }
     using ParticleTileType = WarpXParticleContainer::ParticleTileType;
     using ParticleTileDataType = ParticleTileType::ParticleTileDataType;
     using ParticleBins = amrex::DenseBins<ParticleTileDataType>;
@@ -255,6 +258,11 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
 #endif
         for (amrex::MFIter mfi = projectile.MakeMFIter(lev, info); mfi.isValid(); ++mfi) {
             auto& projectile_tile = projectile.ParticlesAt(lev, mfi);
+            // Empty tiles cannot contribute new weight or select a parent.
+            // Leave their checkpointed fractional remainder for the next visit.
+            if (projectile_tile.numParticles() == 0) {
+                continue;
+            }
             auto const projectile_data = projectile_tile.getParticleTileData();
             auto const& geometry = WarpX::GetInstance().Geom(lev);
             auto const bins =
@@ -292,6 +300,9 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
 #endif
 
             amrex::ParallelFor(num_cells, [=] AMREX_GPU_DEVICE(int const cell) noexcept {
+                if (cell_offsets[cell] == cell_offsets[cell + 1]) {
+                    return;
+                }
                 amrex::IntVect grid_index = lower;
                 amrex::XDim3 position = {0.0_rt, 0.0_rt, 0.0_rt};
                 constexpr auto half = 0.5_rt;
@@ -450,6 +461,7 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
                 BackgroundMCCKinematics::Vector3 transverse_2;
                 auto const thermal_speed =
                     std::sqrt(PhysConst::kb * temperature_pointer[cell] / neutral_mass);
+                ProtonImpactIonization::PJGModel::Executor::SamplingState sampling_state;
 
                 // A 53-bit cell shift retains the rare hard-electron tail
                 // even in single-precision builds. Only two integer draws
@@ -459,10 +471,10 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
                     static_cast<double>(amrex::Random_int(1u << 27, engine)) * 0x1p-53;
                 auto const angle_shift = randomPhase(engine);
                 auto const azimuth_shift = randomPhase(engine);
-                auto const normal_shift_1 = randomPhase(engine);
-                auto const normal_shift_2 = randomPhase(engine);
-                auto const normal_shift_3 = randomPhase(engine);
-                auto const normal_shift_4 = randomPhase(engine);
+                auto const normal_shift_1 = thermal_speed > 0.0_prt ? randomPhase(engine) : 0u;
+                auto const normal_shift_2 = thermal_speed > 0.0_prt ? randomPhase(engine) : 0u;
+                auto const normal_shift_3 = thermal_speed > 0.0_prt ? randomPhase(engine) : 0u;
+                auto const normal_shift_4 = thermal_speed > 0.0_prt ? randomPhase(engine) : 0u;
 
                 for (index_type product = 0; product < product_count; ++product) {
                     // Avoid the cumulative rounding drift of repeatedly adding
@@ -514,12 +526,8 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
                         ProtonImpactIonization::shiftedRadicalInverse(
                             static_cast<std::uint32_t>(product),
                             energy_shift);
-                    amrex::ParticleReal secondary_energy;
-                    amrex::ParticleReal binding_energy;
-                    pjg.sample(kinetic_energy, energy_quantile, secondary_energy, binding_energy);
-
                     // All products selected from one parent share this frame
-                    // and endpoint. Rebuild them only when the parent changes.
+                    // and sampling state. Rebuild them only when the parent changes.
                     if (selected_particle != previous_particle) {
                         incident_direction = {
                             static_cast<double>(projectile_ux[selected_particle] / selected_speed),
@@ -528,8 +536,12 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
                         BackgroundMCCKinematics::transverseDirections(incident_direction,
                                                                       transverse_1, transverse_2);
                         maximum_transfer = pjg.maximumEnergyTransfer(kinetic_energy);
+                        sampling_state = pjg.prepareSampling(kinetic_energy);
                         previous_particle = selected_particle;
                     }
+                    amrex::ParticleReal secondary_energy;
+                    amrex::ParticleReal binding_energy;
+                    pjg.sample(sampling_state, energy_quantile, secondary_energy, binding_energy);
                     using ProtonImpactIonization::shiftedKronecker;
                     // Odd fixed-point approximations to the fractional parts
                     // of sqrt(2), sqrt(3), sqrt(5), sqrt(7), sqrt(11), sqrt(6).
@@ -553,18 +565,24 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
                     electron_uz[electron_index] = static_cast<amrex::ParticleReal>(
                         secondary_proper_speed * electron_direction.z);
 
-                    amrex::ParticleReal normal_x;
-                    amrex::ParticleReal normal_y;
-                    amrex::ParticleReal normal_z;
-                    amrex::ParticleReal unused_normal;
-                    normalPair(
-                        shiftedKronecker<amrex::ParticleReal>(product, normal_shift_1, 0x3c6ef373u),
-                        shiftedKronecker<amrex::ParticleReal>(product, normal_shift_2, 0xa54ff53bu),
-                        normal_x, normal_y);
-                    normalPair(
-                        shiftedKronecker<amrex::ParticleReal>(product, normal_shift_3, 0x510e527fu),
-                        shiftedKronecker<amrex::ParticleReal>(product, normal_shift_4, 0x7311c281u),
-                        normal_z, unused_normal);
+                    amrex::ParticleReal normal_x = 0.0_prt;
+                    amrex::ParticleReal normal_y = 0.0_prt;
+                    amrex::ParticleReal normal_z = 0.0_prt;
+                    if (thermal_speed > 0.0_prt) {
+                        amrex::ParticleReal unused_normal;
+                        normalPair(
+                            shiftedKronecker<amrex::ParticleReal>(product, normal_shift_1,
+                                                                 0x3c6ef373u),
+                            shiftedKronecker<amrex::ParticleReal>(product, normal_shift_2,
+                                                                 0xa54ff53bu),
+                            normal_x, normal_y);
+                        normalPair(
+                            shiftedKronecker<amrex::ParticleReal>(product, normal_shift_3,
+                                                                 0x510e527fu),
+                            shiftedKronecker<amrex::ParticleReal>(product, normal_shift_4,
+                                                                 0x7311c281u),
+                            normal_z, unused_normal);
+                    }
                     ion_ux[ion_index] = thermal_speed * normal_x;
                     ion_uy[ion_index] = thermal_speed * normal_y;
                     ion_uz[ion_index] = thermal_speed * normal_z;

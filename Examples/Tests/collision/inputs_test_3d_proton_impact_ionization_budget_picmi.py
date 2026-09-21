@@ -21,6 +21,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--checkpoint", action="store_true")
 parser.add_argument("--restart")
 parser.add_argument("--reference")
+parser.add_argument("--rz", action="store_true")
 args = parser.parse_args()
 
 DT = 1.0e-9
@@ -36,14 +37,20 @@ SPEED = PROPER_SPEED / (1 + ENERGY / REST)
 BEAM_DENSITY = 1.0e8
 STEPS = 7
 
-grid = picmi.Cartesian3DGrid(
-    number_of_cells=[1] * 3,
-    lower_bound=[0.0] * 3,
-    upper_bound=[1.0] * 3,
-    lower_boundary_conditions=["periodic"] * 3,
-    upper_boundary_conditions=["periodic"] * 3,
-    lower_boundary_conditions_particles=["periodic"] * 3,
-    upper_boundary_conditions_particles=["periodic"] * 3,
+grid_class = picmi.CylindricalGrid if args.rz else picmi.Cartesian3DGrid
+grid_dims = 2 if args.rz else 3
+lower_bc = ["none", "periodic"] if args.rz else ["periodic"] * 3
+upper_bc = ["dirichlet", "periodic"] if args.rz else ["periodic"] * 3
+lower_particle_bc = ["none", "periodic"] if args.rz else ["periodic"] * 3
+upper_particle_bc = ["reflecting", "periodic"] if args.rz else ["periodic"] * 3
+grid = grid_class(
+    number_of_cells=[1] * grid_dims,
+    lower_bound=[0.0] * grid_dims,
+    upper_bound=[1.0] * grid_dims,
+    lower_boundary_conditions=lower_bc,
+    upper_boundary_conditions=upper_bc,
+    lower_boundary_conditions_particles=lower_particle_bc,
+    upper_boundary_conditions_particles=upper_particle_bc,
     warpx_max_grid_size=1,
     warpx_blocking_factor=1,
 )
@@ -64,7 +71,9 @@ for target, mass_number in (("N2", 28.0134), ("O2", 31.9988)):
             charge=(2 if alpha else 1) * QE,
             mass=(4 if alpha else 1) * MP,
             initial_distribution=picmi.UniformDistribution(
-                density=BEAM_DENSITY, directed_velocity=[0.0, 0.0, PROPER_SPEED]
+                # Match the Cartesian source count in a unit-radius cylinder.
+                density=BEAM_DENSITY / (np.pi if args.rz else 1.0),
+                directed_velocity=[0.0, 0.0, PROPER_SPEED],
             ),
             **options,
         )

@@ -1189,6 +1189,7 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (WarpXParIter& pti, amr
                 }
             }
 
+            if (total_cross_section <= 0.0_prt) { return; }
             auto const collision_frequency = (n_a * total_cross_section) * v_coll;
             bool const valid_majorant = collision_frequency <= nu_max * (1.0_prt + tolerance);
             AMREX_IF_ON_DEVICE((

@@ -12,6 +12,7 @@
 #include <AMReX_REAL.H>
 
 #include <cmath>
+#include <cstdlib>
 #include <fstream>
 #include <limits>
 #include <sstream>
@@ -36,8 +37,11 @@ namespace
         while (std::getline(input, line))
         {
             std::istringstream row_stream(line);
-            double energy;
-            if (!(row_stream >> energy))
+            std::string energy_token;
+            if (!(row_stream >> energy_token)) { continue; }
+            char* energy_end = nullptr;
+            auto const energy = std::strtod(energy_token.c_str(), &energy_end);
+            if (energy_end == energy_token.c_str())
             {
                 std::istringstream metadata_stream(line);
                 std::string label;
@@ -57,10 +61,20 @@ namespace
                 }
                 continue;
             }
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                *energy_end == '\0',
+                "Invalid energy token in elastic differential-cross-section file '" +
+                    file_name + "'.");
 
             std::vector<double> row;
-            double value;
-            while (row_stream >> value) { row.push_back(value); }
+            while (row_stream >> std::ws && !row_stream.eof() && row_stream.peek() != '#') {
+                double value;
+                WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                    static_cast<bool>(row_stream >> value),
+                    "Invalid angular value in elastic differential-cross-section file '" +
+                        file_name + "'.");
+                row.push_back(value);
+            }
 
             WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
                 row.size() >= 3u,
@@ -76,7 +90,7 @@ namespace
                 "Elastic differential-cross-section energies must be finite and positive.");
             auto const particle_energy = static_cast<amrex::ParticleReal>(energy);
             WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-                std::isfinite(static_cast<double>(particle_energy)),
+                std::isfinite(static_cast<double>(particle_energy)) && particle_energy > 0.0,
                 "Elastic differential-cross-section energies exceed particle precision.");
             if (!energies.empty())
             {
@@ -227,6 +241,11 @@ BackgroundMCCElasticScatteringModel::BackgroundMCCElasticScatteringModel (
     m_log_energies_h.resize(energies.size());
     for (std::size_t i = 0; i < energies.size(); ++i) {
         m_log_energies_h[i] = std::log(energies[i]);
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            std::isfinite(m_log_energies_h[i]) &&
+                (i == 0 || m_log_energies_h[i] > m_log_energies_h[i - 1]),
+            "Elastic differential-cross-section log energies must remain finite and "
+            "strictly increasing in particle precision.");
     }
 
     m_executor_h.m_log_energies = m_log_energies_h.data();

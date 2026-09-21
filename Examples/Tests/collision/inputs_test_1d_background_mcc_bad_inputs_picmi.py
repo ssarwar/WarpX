@@ -41,6 +41,11 @@ CASES = {
         "attachment",
         {"cross_section_units": "m2"},
     ),
+    "below_threshold_cross_section": (
+        "Cross-section must be zero at and below the energy cost",
+        "excitation",
+        {"energy": 10.0},
+    ),
     "wrong_product_charge": (
         "attachment product species must have charge -q_e",
         "attachment",
@@ -66,6 +71,29 @@ CASES = {
         "elastic",
         {"scattering_angle_model": "IAA", "differential_cross_section": "zero"},
     ),
+    "trailing_garbage_elastic_dcs": (
+        "Invalid angular value in elastic differential-cross-section file",
+        "elastic",
+        {"scattering_angle_model": "IAA", "differential_cross_section": "trailing"},
+    ),
+    "nonfinite_elastic_dcs_energy": (
+        "Elastic differential-cross-section energies must be finite",
+        "elastic",
+        {"scattering_angle_model": "IAA", "differential_cross_section": "nonfinite"},
+    ),
+    "collapsed_log_elastic_dcs_energy": (
+        "strictly increasing",
+        "elastic",
+        {
+            "scattering_angle_model": "IAA",
+            "differential_cross_section": "collapsed_log",
+        },
+    ),
+    "commented_elastic_dcs": (
+        None,
+        "elastic",
+        {"scattering_angle_model": "IAA", "differential_cross_section": "commented"},
+    ),
 }
 
 
@@ -85,6 +113,9 @@ def run_invalid_case(case):
     if case == "malformed_cross_section":
         cross_section = Path("background_mcc_malformed_cross_section.txt").resolve()
         cross_section.write_text("0.0 1.0e-22\nnot-a-number 1.0e-22\n")
+    elif case == "below_threshold_cross_section":
+        cross_section = Path("background_mcc_below_threshold.txt").resolve()
+        cross_section.write_text("0 0\n5 1e-22\n10 0\n100 1e-22\n")
 
     dcs_kind = process_options.pop("differential_cross_section", None)
     if dcs_kind is not None:
@@ -95,6 +126,20 @@ def run_invalid_case(case):
             differential_cross_section.write_text("10 1 1 1\n100 1 1 1\n")
         elif dcs_kind == "inconsistent":
             differential_cross_section.write_text("10 1 1 1\n100 1 1 1 1\n")
+        elif dcs_kind == "trailing":
+            differential_cross_section.write_text("10 1 1 1 nan\n100 1 1 1 nan\n")
+        elif dcs_kind == "nonfinite":
+            differential_cross_section.write_text("10 1 1 1\nnan 1 1 1\n100 1 1 1\n")
+        elif dcs_kind == "collapsed_log":
+            # Distinct double energies round to the same double logarithm.
+            # Particle-float builds reject them already on the raw energy grid.
+            differential_cross_section.write_text(
+                "100000000 1 1 1\n100000000.00000001 1 1 1\n"
+            )
+        elif dcs_kind == "commented":
+            differential_cross_section.write_text(
+                "# angular data\n10 1 1 1 # first row\n100 1 1 1 # last row\n"
+            )
         else:
             assert dcs_kind == "zero"
             differential_cross_section.write_text("10 0 0 0\n100 0 0 0\n")

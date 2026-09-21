@@ -105,10 +105,16 @@ ScatteringProcess::init (const std::string& scattering_process, const amrex::Par
 
     setCrossSectionMultiplier(1.0);
 
-    // check that the cross-section is 0 at the energy cost if the energy
-    // cost is > 0 - this is to prevent the possibility of negative left
-    // over energy after a collision event
+    // A zero at the threshold alone does not exclude an unphysical island
+    // below it. Check the unscaled data too, before an m^5 table can underflow
+    // in particle precision. Linear interpolation then preserves the cutoff.
     if (m_exe_h.m_energy_penalty > 0) {
+        for (std::size_t i = 0; i < m_sigmas_unscaled.size(); ++i) {
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                m_energies[i] > energy || m_sigmas_unscaled[i] == 0.0,
+                "Cross-section must be zero at and below the energy cost for collision."
+            );
+        }
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
             (getCrossSection(m_exe_h.m_energy_penalty) == 0),
             "Cross-section > 0 at energy cost for collision."

@@ -3276,6 +3276,11 @@ Details about the collision models can be found in the :ref:`theory section <mul
     rest-frame approximation described in :ref:`multiphysics-collisions-mcc`.
     The energy values in this column must be finite, non-negative and in strictly
     increasing order. Cross sections must be finite and non-negative.
+    For a process with a positive energy cost, its cross section must be zero
+    at and below that cost. Blank lines and comments starting with ``#`` are
+    accepted. Outside the supplied energy range, the first or last cross
+    section is held constant; supply a physically justified extension when
+    particles can leave that range.
 
 .. pp:param:: <collision_name>.<scattering_process>_energy
     :type: ``float``
@@ -3338,6 +3343,10 @@ Details about the collision models can be found in the :ref:`theory section <mul
     whose ``SPECIES:`` metadata identifies ``N2`` or ``O2``: at and above
     10 keV, WarpX samples the analytic IAA screened-Rutherford continuation
     through the 1 GeV model range.
+    Non-finite energy tokens and malformed angular values are rejected;
+    a trailing ``#`` comment is allowed after the angular values. Energies
+    must also remain distinct after conversion to logarithms in particle
+    precision.
 
 .. pp:param:: <collision_name>.<scattering_process>_energy_sharing_model
     :type: ``string``

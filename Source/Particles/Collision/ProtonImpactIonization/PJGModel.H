@@ -41,6 +41,14 @@ namespace ProtonImpactIonization
 
         template <typename Real> struct ExecutorT
         {
+            /** Projectile-dependent quantities shared by its secondary samples. */
+            struct SamplingState
+            {
+                int m_energy_index = -1;
+                Real m_energy_fraction = 0.0;
+                Real m_secondary_endpoint = 0.0;
+            };
+
             Real const* m_cross_section = nullptr;
             Real const* m_log_secondary_energy = nullptr;
             Real const* m_binding_energy = nullptr;
@@ -59,6 +67,14 @@ namespace ProtonImpactIonization
             /** Sample ejected-electron kinetic and effective binding energies in eV. */
             AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void
             sample (Real projectile_energy, double quantile, Real& secondary_energy,
+                    Real& binding_energy) const noexcept;
+
+            /** Prepare once when several products share a projectile energy. */
+            AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE SamplingState
+            prepareSampling (Real projectile_energy) const noexcept;
+
+            AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void
+            sample (SamplingState const& state, double quantile, Real& secondary_energy,
                     Real& binding_energy) const noexcept;
 
             /** Return the exact free-electron maximum energy transfer in eV. */
@@ -165,20 +181,40 @@ namespace ProtonImpactIonization
     }
 
     template <typename Real>
+    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE typename PJGModel::ExecutorT<Real>::SamplingState
+    PJGModel::ExecutorT<Real>::prepareSampling (Real const projectile_energy) const noexcept
+    {
+        SamplingState state;
+        if (energyCoordinate(projectile_energy, state.m_energy_index, state.m_energy_fraction)) {
+            state.m_secondary_endpoint = molecularMaximumSecondaryEnergy(
+                projectile_energy, m_projectile_rest_energy, m_neutral_rest_energy,
+                m_minimum_binding_energy);
+        }
+        return state;
+    }
+
+    template <typename Real>
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void
     PJGModel::ExecutorT<Real>::sample (Real const projectile_energy, double const quantile,
                                        Real& secondary_energy, Real& binding_energy) const noexcept
     {
+        sample(prepareSampling(projectile_energy), quantile, secondary_energy, binding_energy);
+    }
+
+    template <typename Real>
+    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void
+    PJGModel::ExecutorT<Real>::sample (SamplingState const& state, double const quantile,
+                                       Real& secondary_energy, Real& binding_energy) const noexcept
+    {
         using std::expm1;
 
-        int energy_index;
-        Real energy_fraction;
-        if (!(quantile >= 0.0 && quantile <= 1.0) ||
-            !energyCoordinate(projectile_energy, energy_index, energy_fraction)) {
+        if (!(quantile >= 0.0 && quantile <= 1.0) || state.m_energy_index < 0) {
             secondary_energy = Real(0);
             binding_energy = Real(0);
             return;
         }
+        auto const energy_index = state.m_energy_index;
+        auto const energy_fraction = state.m_energy_fraction;
 
         // Invert q = x^4/(x^4 + (1-x)^4). Endpoint clustering resolves
         // hard-electron moments; there is no per-event CDF search. Form
@@ -207,10 +243,7 @@ namespace ProtonImpactIonization
             (Real(1) - energy_fraction) * lower_log_energy + energy_fraction * upper_log_energy;
         // Guard the molecular endpoint against inter-row roundoff, never
         // clip the physical bound-electron tail at the free binary limit.
-        secondary_energy = amrex::min(
-            expm1(log_energy),
-            molecularMaximumSecondaryEnergy(projectile_energy, m_projectile_rest_energy,
-                                            m_neutral_rest_energy, m_minimum_binding_energy));
+        secondary_energy = amrex::min(expm1(log_energy), state.m_secondary_endpoint);
 
         auto const lower_binding = (Real(1) - quantile_fraction) * m_binding_energy[lower_offset] +
                                    quantile_fraction * m_binding_energy[lower_offset + 1];

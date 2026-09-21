@@ -196,6 +196,12 @@ The model benchmark synchronizes the execution stream, runs one warmup and
 seven timed passes over 2^20 events with interleaved incident energies,
 and reports the median/range plus a checksum. It includes total lookup,
 energy/binding sampling, input-energy generation and output stores.
+It also compares per-event sampling with prepared sampling state in groups
+of 64 products selected from eight weighted parents. This mirrors the source's
+ordered parent selection: the energy changes within the product loop, and
+each selected parent usually supplies several products. The prepared path
+reuses its logarithmic table coordinate and molecular endpoint. Both paths
+report a checksum and include the same parent-selection and output work.
 The quantile-only benchmark is a separate host diagnostic; its ordered
 baseline is not a valid source algorithm. It also compares floating and
 fixed-point angular/thermal phases at large indices and prints their second
@@ -223,6 +229,28 @@ are scanned in 64 bits before checking particle-tile indexing limits.
 Fixed-point angular/thermal phases remove a float accuracy failure at roughly
 the same host cost (about 0.75–0.78 ns per phase in the microbenchmark).
 These measurements do not isolate a causal speedup for each optimization.
+
+The source now also skips binning/allocations for empty projectile tiles,
+skips empty cells and constant zero-density backgrounds, and preserves their
+fractional remainders. Zero-temperature ions bypass thermal random draws
+and Box–Muller evaluations. These fast paths add no device synchronization
+or host/device transfer. The prepared sampling state adds a small amount of
+live per-thread state; measure register use and occupancy on the intended GPU
+alongside the benchmark timings.
+
+On the same CPU/compiler with native particle-double AMReX, the matched
+64-product/eight-parent benchmark gave the following medians (ns/product,
+seven timed passes after warmup):
+
+| Target | Float per-event / prepared | Double per-event / prepared |
+| --- | --- | --- |
+| N2 | 14.16 / 10.20 | 15.34 / 10.31 |
+| O2 | 14.16 / 10.16 | 15.38 / 10.37 |
+
+The paired checksums agree. This is approximately 28–33% less CPU time in
+this sampling loop, not a full PIC timestep or accelerator speedup. Native
+particle-float AMReX gave similar reductions; all four standalone physics
+tests passed with each native particle precision.
 
 Across 49 incident energies and both table precisions, maximum relative
 errors were below 0.030% (total), 0.013% (mean), 0.077% (second moment)
