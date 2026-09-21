@@ -204,13 +204,32 @@ if args.restart:
             np.testing.assert_allclose(array, saved[name], rtol=2e-13, atol=0)
     with np.load(directory / "attachment_initial.npz") as saved:
         initial, squared_weights = saved["rho"], float(saved["squared_weights"])
+        initial_weight = float(saved["initial_weight"])
+        initial_count = int(saved["initial_count"])
+        attachment_rate = float(saved["attachment_rate"])
 else:
     initial = rho("electrons")
     if args.kind == "attachment":
-        squared_weights = np.sum(state()["particles"][:, 3] ** 2)
+        initial_particles = state()["particles"]
+        weights = initial_particles[:, 3]
+        initial_weight = weights.sum()
+        squared_weights = np.sum(weights**2)
+        initial_count = len(weights)
+        # Frozen monoenergetic electrons in a stationary, uniform gas obey
+        # dN/dt = -n_gas*sigma*v*N exactly. Compute v from stored proper momentum
+        # independently of the collision code and PICMI injection convention.
+        proper_speed2 = np.sum(initial_particles[:, 4:] ** 2, axis=1)
+        np.testing.assert_allclose(proper_speed2, proper_speed2[0], rtol=2e-15)
+        speed = np.sqrt(proper_speed2[0] / (1 + proper_speed2[0] / c**2))
+        attachment_rate = 1e24 * 1e-20 * speed
         if MPI.COMM_WORLD.rank == 0:
             np.savez_compressed(
-                "attachment_initial.npz", rho=initial, squared_weights=squared_weights
+                "attachment_initial.npz",
+                rho=initial,
+                squared_weights=squared_weights,
+                initial_weight=initial_weight,
+                initial_count=initial_count,
+                attachment_rate=attachment_rate,
             )
 previous = np.zeros_like(initial)
 for step in range(start, 3):
@@ -229,6 +248,18 @@ for step in range(start, 3):
     previous = actual.copy()
     if args.kind == "attachment":
         saved_state = state()
+        probability = np.exp(-attachment_rate * sim.extension.warpx.gett_new(lev=0))
+        survivors = saved_state["particles"]
+        # The exact Bernoulli variance is p*(1-p)*sum(w^2), including unequal
+        # cylindrical particle weights. Six-sigma bounds are fixed beforehand
+        # and allow stochastic CPU/GPU and checkpoint continuations.
+        variance_factor = probability * (1 - probability)
+        assert abs(survivors[:, 3].sum() - probability * initial_weight) < 6 * np.sqrt(
+            variance_factor * squared_weights
+        )
+        assert abs(len(survivors) - probability * initial_count) < 6 * np.sqrt(
+            variance_factor * initial_count
+        )
         if not args.restart and MPI.COMM_WORLD.rank == 0:
             np.savez_compressed(f"attachment_{step + 1}.npz", **saved_state)
 if args.restart:

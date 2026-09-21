@@ -12,9 +12,14 @@ Recorded CPU results, convergence limits and outstanding GPU acceptance are in
 `test_profiles.cpp` compares the analytic projection with an independent million
 particle quadrature using WarpX's actual particle shape functions. It also
 checks normalization and the Yee continuity equation on CPU or GPU.
+Closed Gaussian antiderivatives independently check the annular and space-time
+source integrals for both beam directions, overlapping pulses and finite or
+unbounded support. The attachment CTests also check exact exponential survival,
+with the weighted Bernoulli variance accounting for cylindrical particle weights.
 `gaussian_reference.py` integrates the Coulomb Green function for a Gaussian in its rest
 frame and Lorentz transforms its fields. Its own check uses the closed spherical
-Gaussian solution and doubled quadrature order. No production projection code
+Gaussian solution, its exact Lorentz-contracted moving solution, and doubled
+quadrature order. No production projection code
 is used by this reference.
 
 ## Build and run
