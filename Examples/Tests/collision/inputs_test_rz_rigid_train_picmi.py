@@ -159,11 +159,19 @@ def compare(state, saved, resumed_steps=0):
     for name, array in state.items():
         scale = np.max(np.abs(saved[name]), initial=0)
         operations = 64
-        if name.startswith(("Efield", "Bfield", "current")):
+        vectors = ("Efield_fp", "Bfield_fp", "current_fp")
+        kind = next((kind for kind in vectors if name.startswith(kind)), None)
+        if kind is not None:
             # MPI redistribution changes reduction order. Bound accumulated
             # roundoff in the two curl updates (four operations each) per step;
             # immediate restoration and all chemistry retain the strict bound.
             operations += 8 * resumed_steps
+            # Components that vanish by symmetry can contain transform
+            # roundoff. Use the vector norm, not that roundoff as its own scale.
+            scale = max(
+                np.max(np.abs(saved[kind + direction]))
+                for direction in ["r", "theta", "z"]
+            )
         error = operations * np.finfo(float).eps
         np.testing.assert_allclose(
             array,

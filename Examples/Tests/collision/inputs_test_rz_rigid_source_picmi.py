@@ -406,11 +406,16 @@ if args.restart or args.load_balance:
     with np.load(reference_directory / f"state_{steps}.npz") as saved:
         for name, value in state().items():
             if name.startswith(("Efield_fp", "Bfield_fp")):
-                # MPI redistribution changes the order of the implicit solver's
-                # dot products. Bound roundoff in the field norm; pointwise
-                # relative error is undefined at cancellation zeros. Chemistry
-                # and persistent budgets retain their stricter checks below.
-                rounding = 64 * np.finfo(value.dtype).eps * np.max(np.abs(saved[name]))
+                # MPI redistribution changes reduction and transform ordering.
+                # Bound roundoff in the vector field norm: a whole component
+                # can vanish by symmetry, so its own norm is not an error scale.
+                # Chemistry and persistent budgets retain stricter checks below.
+                kind = name.rsplit("_", 1)[0]
+                scale = max(
+                    np.max(np.abs(saved[kind + "_" + direction]))
+                    for direction in ["r", "theta", "z"]
+                )
+                rounding = 64 * np.finfo(value.dtype).eps * scale
                 np.testing.assert_allclose(
                     value, saved[name], rtol=0, atol=rounding, err_msg=name
                 )
