@@ -86,7 +86,9 @@ namespace
         for (int repeat = -1; repeat < 7; ++repeat) {
             amrex::Gpu::streamSynchronize();
             auto const start = std::chrono::steady_clock::now();
-            amrex::ParallelFor(groups, [=] AMREX_GPU_DEVICE(int group) noexcept {
+            // Explicitly capture the executor before either constexpr branch;
+            // NVCC cannot first infer a capture inside a discarded branch.
+            amrex::ParallelFor(groups, [=, sampler = exec] AMREX_GPU_DEVICE(int group) noexcept {
                 Real total_score = 0;
                 for (int parent = 0; parent < parents; ++parent) {
                     total_score += scores[group * parents + parent];
@@ -114,12 +116,12 @@ namespace
                     Real secondary, binding;
                     if constexpr (prepared) {
                         if (selected_parent != previous_parent) {
-                            state = exec.prepareSampling(energy);
+                            state = sampler.prepareSampling(energy);
                             previous_parent = selected_parent;
                         }
-                        exec.sample(state, probability, secondary, binding);
+                        sampler.sample(state, probability, secondary, binding);
                     } else {
-                        exec.sample(energy, probability, secondary, binding);
+                        sampler.sample(energy, probability, secondary, binding);
                     }
                     output[index] = secondary + binding;
                 }
