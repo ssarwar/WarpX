@@ -1,0 +1,96 @@
+# Prescribed-fluid validation and performance studies
+
+The short CTests under `Examples/Tests/collision` and
+`Examples/Tests/langmuir_fluids` check continuity, shapes 1–4, exact collision
+charge footprints, explicit/implicit solvers, diagnostic totals and checkpoint
+restoration before the first resumed step. This directory contains larger
+particle-reference studies, separate from routine CI.
+
+`test_profiles.cpp` compares the analytic projection with an independent million
+particle quadrature using WarpX's actual particle shape functions. It also
+checks normalization and the Yee continuity equation on CPU or GPU.
+`reference.py` integrates the Coulomb Green function for a Gaussian in its rest
+frame and Lorentz transforms its fields. Its own check uses the closed spherical
+Gaussian solution and doubled quadrature order. No production projection code
+is used by this reference.
+
+## Build and run
+
+Use a WarpX RZ build with Python, MPI and FFT support. Set `PYTHONPATH` to that
+build's `lib/site-packages`. NumPy, SciPy, mpi4py and Matplotlib are required;
+CUDA/HIP measurements also need CuPy. The scripts use the existing build and do
+not modify installed packages or source files.
+
+```bash
+python Tools/Algorithms/PrescribedFluids/reference.py
+python Tools/Algorithms/PrescribedFluids/ensemble.py \
+    --suite fields --output build/beam-fields --cells 32 128 \
+    --ppc 4 16 64 256 --seeds 8 --steps 20
+python Tools/Algorithms/PrescribedFluids/analyze.py build/beam-fields
+```
+
+Repeat with `--suite source`, `--suite coupled` and `--suite push`.
+`source` freezes emitted electrons to isolate the integrated PJG yield and
+spectrum. `coupled` evolves electrons with PJG production, RBEQ energy sharing,
+IAA scattering and attachment. **The MCC rate tables are synthetic regression
+fixtures; these runs compare numerical representations, not measured air
+chemistry.** Both suites compare fluid ions with identical frozen kinetic ions.
+`benchmark.py --ions thermal` provides a moving-ion displacement reference.
+`push` uses the same deterministic electron population in every run, without
+chemistry, to isolate the cost of the beam representation at equal electron
+work. Particle beams are ballistic and do not gather fields.
+
+`--solver` accepts `Yee`, `PSATD`, `semi_implicit_em` and `semi_implicit_mm`.
+Use `--dt`, `--cells`, `--weight`, `--cap`, `--source-resolution` and
+`--subcycles` independently for convergence. Additional arguments passed to
+`ensemble.py` reach each individual benchmark. Quiet particle counts per cell
+must be perfect squares. No beam wraps around the periodic longitudinal domain
+in these comparison runs; the driver rejects runs long enough to do so.
+
+For a mesh study, hold domain extents fixed and double both cell counts. For a
+domain study, double `--radial-sigmas`, `--longitudinal-sigmas` and cell counts
+together. The default finite-domain self-field solve has a conducting outer
+radius and periodic axial boundaries in **all** representations. Its axial
+electric field can differ substantially from the unbounded continuum result;
+domain convergence must accompany comparison with `reference.py`.
+
+`--dry-run` writes the complete command manifest before execution. `--resume`
+skips completed runs only if that manifest is unchanged. Each case saves its
+configuration, revision, backend, MPI count, timings, populations, native field
+snapshots, and electron spectrum. `analyze.py` writes `summary.json` and standalone
+noise/cost plots. Preserve the individual JSON/NPZ files to permit reanalysis.
+
+## Interpreting results
+
+- Density and field RMS errors compare with a fluid beam on the same mesh.
+  They include particle quadrature error; they are not continuum error estimates.
+  Seed noise is computed around each representation's ensemble mean.
+- Independent unbounded self-field errors are reported separately in the core
+  region `r < 3 sigma_r`, `|z| < 3 sigma_z`, at initialization.
+- Primary yield includes the fractional pending population. Compare it against
+  the independent PJG quadrature using the existing table accuracy bound of
+  `1e-3`, plus independently established spatial/temporal quadrature error.
+- Frozen fluid/particle ion destinations should agree to accumulated floating
+  point roundoff when supplied identical events. Charge footprints and rejected
+  events are checked directly by the short CTests.
+- Means include two-sided 99% Student confidence intervals across seeds. Spectrum
+  and rare-tail comparisons require more samples than total-yield checks.
+  Compare seed distributions and convergence; do not apply an IID count-error
+  formula to correlated quiet samples or unequal particle weights.
+- Timings exclude Python measurements, synchronize the device and MPI ranks,
+  and omit two warm-up steps. Report the actual electron work as well as wall
+  time. `--profile` enables synchronized TinyProfiler instrumentation for kernel
+  attribution; use separate uninstrumented runs for overall timings.
+- `--checkpoint` records the final checkpoint's bytes and the inclusive
+  checkpoint-step time. This is not an isolated I/O timing. Initialization can
+  include an initial checkpoint. Particle payload and density bytes are logical
+  storage, distinct from reserved device memory and allocator capacity.
+- An equal-error speedup requires a stated error target and a converged
+  reference. An equal-particle-count timing alone does not establish that result.
+
+`perlmutter.sbatch` records hardware, modules and revision, runs GPU regressions,
+then executes four ensembles on one A100 at a time. It requests one Perlmutter
+GPU node for up to 30 minutes; edit the account when using another project.
+Run it from the isolated validation checkout after compiling the CUDA build.
+The build's CTest MPI launcher should be `srun` with
+`MPIEXEC_PREFLAGS='--cpu-bind=cores;--gpus-per-task=1'`.
