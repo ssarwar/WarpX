@@ -12,13 +12,14 @@ import yt
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--openpmd", action="store_true")
+parser.add_argument("--cells-z", type=int, default=64)
 args = parser.parse_args()
 qe = 1.602176634e-19
 
 
 def cell_center(values):
     values = np.squeeze(values)
-    for axis, cells in enumerate([16, 64]):
+    for axis, cells in enumerate([16, args.cells_z]):
         if values.shape[axis] == cells + 1:
             values = (
                 np.take(values, range(cells), axis=axis)
@@ -39,6 +40,9 @@ def expected(saved):
         "N2_immobile_emitted_number": cell_center(budget[..., 0]),
         "N2_immobile_electron_energy": cell_center(budget[..., 1]),
         "N2_immobile_binding_energy": cell_center(budget[..., 2]),
+        "part_per_cell_beam": np.zeros((16, args.cells_z)),
+        "part_per_cell_i_N2_immobile": np.zeros((16, args.cells_z)),
+        "part_per_cell_e_N2_immobile": saved["e_N2_immobile_cell_counts"],
     }
 
 
@@ -52,7 +56,7 @@ for path in outputs:
     step = int(path.name[-6:])
     ds = yt.load(str(path))
     np.testing.assert_allclose(float(ds.current_time), step * 1e-12, rtol=2e-15)
-    assert ds.domain_dimensions.tolist() == [16, 64, 1]
+    assert ds.domain_dimensions.tolist() == [16, args.cells_z, 1]
     grid = ds.covering_grid(0, ds.domain_left_edge, ds.domain_dimensions)
     if step == 0:
         continue

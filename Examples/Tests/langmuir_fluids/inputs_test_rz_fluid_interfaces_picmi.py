@@ -89,6 +89,10 @@ fields = [
     "fluid_density_positive",
     "fluid_density_cold",
     "fluid_current_beamz",
+    "part_per_cell",
+    "part_per_cell_beam",
+    "part_per_cell_positive",
+    "part_per_cell_cold",
 ]
 sim.add_diagnostic(
     picmi.FieldDiagnostic(name="fields", grid=grid, period=2, data_list=fields)
@@ -140,6 +144,8 @@ for step in [0, 2]:
         0, text_data.domain_left_edge, text_data.domain_dimensions
     )
     for field in fields:
+        if field.startswith("part_per_cell"):
+            np.testing.assert_array_equal(python_grid["boxlib", field].v, 0)
         np.testing.assert_allclose(
             python_grid["boxlib", field].v,
             text_grid["boxlib", field].v,

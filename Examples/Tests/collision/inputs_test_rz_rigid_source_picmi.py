@@ -31,8 +31,12 @@ parser.add_argument("--openpmd", action="store_true")
 parser.add_argument("--subcycles", type=int, default=1)
 parser.add_argument("--alpha", action="store_true")
 parser.add_argument("--load-balance", action="store_true")
+parser.add_argument("--max-grid-size", type=int, default=16)
+parser.add_argument("--cells-z", type=int, default=64)
+parser.add_argument("--bad-density", action="store_true")
+parser.add_argument("--bad-temperature", action="store_true")
 args = parser.parse_args()
-if os.environ.get("WARPX_TEST_RESTART_MUTATION"):
+if os.environ.get("WARPX_TEST_RESTART_MUTATION") or args.bad_density or args.bad_temperature:
     amrex.throw_exception = 1
     amrex.signal_handling = 0
 qe, mp, me, c = (
@@ -52,14 +56,14 @@ sigma_z = speed * sigma_t
 cutoff, ngas, dt, steps = 2.0, 1e21, 1e-12, 6
 rmax, zmin, zmax = 8 * sigma_r, -4 * sigma_z, 4 * sigma_z
 grid = picmi.CylindricalGrid(
-    number_of_cells=[16, 64],
+    number_of_cells=[16, args.cells_z],
     lower_bound=[0, zmin],
     upper_bound=[rmax, zmax],
     lower_boundary_conditions=["none", "periodic"],
     upper_boundary_conditions=["none", "periodic"],
     lower_boundary_conditions_particles=["none", "periodic"],
     upper_boundary_conditions_particles=["absorbing", "periodic"],
-    warpx_max_grid_size=16,
+    warpx_max_grid_size=args.max_grid_size,
     warpx_blocking_factor=8,
     n_azimuthal_modes=1,
 )
@@ -109,8 +113,8 @@ for target, mass in [("N2", 28.0134), ("O2", 31.9988)]:
                 species=beam,
                 product_species=[electron, ion],
                 ionization_target=target,
-                background_density=ngas,
-                background_temperature=0,
+                background_density="-(1+t)" if args.bad_density else ngas,
+                background_temperature="-(1+t)" if args.bad_temperature else 0,
                 fixed_product_weight=weight,
                 max_products_per_cell=2,
                 ndt_subcycle=args.subcycles,
@@ -173,7 +177,13 @@ plot_fields = [
     "N2_immobile_emitted_number",
     "N2_immobile_electron_energy",
     "N2_immobile_binding_energy",
+    "part_per_cell_beam",
+    "part_per_cell_i_N2_immobile",
+    "part_per_cell_e_N2_immobile",
 ]
+if args.bad_density or args.bad_temperature:
+    # Isolate parser validation from unrelated output diagnostics.
+    plot_fields = [name for name in plot_fields if not name.startswith("part_per_cell")]
 sim.add_diagnostic(
     picmi.FieldDiagnostic(
         name="fields", grid=grid, period=2, data_list=plot_fields, write_dir="diags"
@@ -245,6 +255,13 @@ def state():
             result[ion.name] = field("fluid_density_" + ion.name)
         result[electron.name] = np.array(population(electron.name))
         result[electron.name + "_phase_space"] = particle_state(electron.name)
+        if electron.name == "e_N2_immobile":
+            positions = result[electron.name + "_phase_space"]
+            result[electron.name + "_cell_counts"] = np.histogram2d(
+                positions[:, 0],
+                positions[:, 2],
+                bins=[np.linspace(0, rmax, 17), np.linspace(zmin, zmax, args.cells_z + 1)],
+            )[0]
     for kind in ["Efield_fp", "Bfield_fp", "current_fp"]:
         for direction in ["r", "theta", "z"]:
             result[kind + "_" + direction] = host(
