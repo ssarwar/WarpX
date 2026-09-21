@@ -19,6 +19,7 @@ from pjg_model import (
     MOLECULAR_REST_ENERGIES,
     PARAMETERS,
     SpectrumGrid,
+    binding_log_scale,
     endpoint_momentum_broadening,
     hard_factor,
     molecular_endpoint,
@@ -36,6 +37,14 @@ from target_parameters import TARGETS
 
 
 class MatchedPJGChecks(unittest.TestCase):
+    def test_archived_binding_scale_matches_definition(self):
+        # The coefficients are frozen, while log/exp can differ by a few ulps.
+        for target, parameters in PARAMETERS.items():
+            self.assertLess(
+                abs(parameters.bethe_scale / binding_log_scale(target) - 1),
+                8 * np.finfo(float).eps,
+            )
+
     def test_complete_bhabha_bracket(self):
         for energy in (1e3, 1e6, 8e8, 1e12, 1e15):
             maximum = free_maximum_transfer(energy)

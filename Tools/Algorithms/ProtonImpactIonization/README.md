@@ -14,6 +14,14 @@ validation outputs. Its chronology distinguishes rejected candidates from
 the frozen production model; payloads and compressed source snapshots have
 SHA-256 manifests and [offline reproduction instructions](Research/REPRODUCING.md).
 
+The Perlmutter re-audit found that recomputing the frozen O2 logarithm scale
+with a different NumPy/libm backend changed it by a few binary64 rounding bits.
+The Python reference now stores the archived N2/O2 coefficients literally, while
+an independent test checks their defining logarithmic expression. The strict
+archive comparison and all existing physics tolerances are unchanged. All 64
+Python physics/archive tests passed on Perlmutter on 2026-09-21; the separate
+A100 C++ checks also passed before this reference-only correction.
+
 The source emits effective electron/singly charged molecular-ion pairs.
 It does not resolve exclusive single ionization, fragmentation or capture.
 The beam is rigid and ions are neutral-thermal. The proton incident range is
