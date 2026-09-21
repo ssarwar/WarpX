@@ -121,7 +121,7 @@ void ParticleNumber::ComputeDiags (int step)
                     ? species.GetIntCompIndex("ionizationLevel") : -1;
                 using Particle = WarpXParticleContainer::SuperParticleType;
                 auto charge_weight = amrex::ReduceSum(species,
-                    [=] AMREX_GPU_DEVICE(Particle const& particle) noexcept {
+                    [=] AMREX_GPU_HOST_DEVICE(Particle const& particle) noexcept {
                         return particle.rdata(PIdx::w)*
                             (ionization_index < 0 ? 1 : particle.idata(ionization_index));
                     });
