@@ -6,6 +6,9 @@ charge footprints, explicit/implicit solvers, diagnostic totals and checkpoint
 restoration before the first resumed step. This directory contains larger
 particle-reference studies, separate from routine CI.
 
+Recorded CPU results, convergence limits and outstanding GPU acceptance are in
+[VALIDATION.md](VALIDATION.md).
+
 `test_profiles.cpp` compares the analytic projection with an independent million
 particle quadrature using WarpX's actual particle shape functions. It also
 checks normalization and the Yee continuity equation on CPU or GPU.
