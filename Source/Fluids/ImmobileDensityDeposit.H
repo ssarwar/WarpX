@@ -38,14 +38,14 @@ struct ImmobileDensityDeposit
     {
 #ifdef WARPX_DIM_RZ
         Compute_shape_factor<Order> const compute;
-        amrex::Real sr[Order+1], sz[Order+1];
-        int const ir = m_rlo + compute(sr, (r-m_rmin)*m_dr_inv - 0.5*(1-m_rnodal));
-        int const iz = m_zlo + compute(sz, (z-m_zmin)*m_dz_inv - 0.5*(1-m_znodal));
-        auto const density = weight*m_dr_inv*m_dz_inv;
+        amrex::Real sr[Order + 1], sz[Order + 1];
+        int const ir = m_rlo + compute(sr, (r - m_rmin) * m_dr_inv - 0.5 * (1 - m_rnodal));
+        int const iz = m_zlo + compute(sz, (z - m_zmin) * m_dz_inv - 0.5 * (1 - m_znodal));
+        auto const density = weight * m_dr_inv * m_dz_inv;
         for (int j = 0; j <= Order; ++j) {
             for (int i = 0; i <= Order; ++i) {
-                amrex::HostDevice::Atomic::Add(&m_increment(ir+i, iz+j, 0),
-                                               sr[i]*sz[j]*density);
+                amrex::HostDevice::Atomic::Add(&m_increment(ir + i, iz + j, 0),
+                                               sr[i] * sz[j] * density);
             }
         }
 #else
@@ -54,13 +54,21 @@ struct ImmobileDensityDeposit
     }
 
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void
-    operator() (amrex::Real r, amrex::Real z, amrex::Real weight) const noexcept
+    operator()(amrex::Real r, amrex::Real z, amrex::Real weight) const noexcept
     {
         switch (m_order) {
-        case 1: deposit<1>(r, z, weight); break;
-        case 2: deposit<2>(r, z, weight); break;
-        case 3: deposit<3>(r, z, weight); break;
-        case 4: deposit<4>(r, z, weight); break;
+        case 1:
+            deposit<1>(r, z, weight);
+            break;
+        case 2:
+            deposit<2>(r, z, weight);
+            break;
+        case 3:
+            deposit<3>(r, z, weight);
+            break;
+        case 4:
+            deposit<4>(r, z, weight);
+            break;
         }
     }
 };

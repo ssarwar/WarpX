@@ -37,23 +37,31 @@ public:
 
         /** Find pulses whose truncated support intersects a space-time interval. */
         AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void
-        pulseRange (double lo, double hi, double t, double dt, double padding,
-                    int& first, int& last) const noexcept
+        pulseRange (double lo, double hi, double t, double dt, double padding, int& first,
+                    int& last) const noexcept
         {
-            double const extent = m_cutoff_z*m_sigma_z+padding;
-            double const a = t-(hi+extent-m_z_reference)/m_velocity;
-            double const b = t-(lo-extent-m_z_reference)/m_velocity;
-            double const lower = std::min(a,b), upper = std::max(a,b)+dt;
+            double const extent = m_cutoff_z * m_sigma_z + padding;
+            double const a = t - (hi + extent - m_z_reference) / m_velocity;
+            double const b = t - (lo - extent - m_z_reference) / m_velocity;
+            double const lower = std::min(a, b), upper = std::max(a, b) + dt;
             int left = 0, right = m_count;
             while (left < right) {
-                int const middle = left+(right-left)/2;
-                if (m_times[middle] < lower) { left = middle+1; } else { right = middle; }
+                int const middle = left + (right - left) / 2;
+                if (m_times[middle] < lower) {
+                    left = middle + 1;
+                } else {
+                    right = middle;
+                }
             }
             first = left;
             right = m_count;
             while (left < right) {
-                int const middle = left+(right-left)/2;
-                if (m_times[middle] <= upper) { left = middle+1; } else { right = middle; }
+                int const middle = left + (right - left) / 2;
+                if (m_times[middle] <= upper) {
+                    left = middle + 1;
+                } else {
+                    right = middle;
+                }
             }
             last = left;
         }
@@ -66,11 +74,12 @@ public:
             int first, last;
             pulseRange(lo, hi, t, 0.0, 0.0, first, last);
             for (int pulse = first; pulse < last; ++pulse) {
-                auto const center = m_z_reference + m_velocity*(t-m_times[pulse]);
-                sum += m_amplitudes[pulse]*m_sigma_z*warpx::fluid::gaussianIntegral(
-                    (lo-center)/m_sigma_z, (hi-center)/m_sigma_z, m_cutoff_z);
+                auto const center = m_z_reference + m_velocity * (t - m_times[pulse]);
+                sum += m_amplitudes[pulse] * m_sigma_z *
+                       warpx::fluid::gaussianIntegral((lo - center) / m_sigma_z,
+                                                      (hi - center) / m_sigma_z, m_cutoff_z);
             }
-            return m_peak_density*sum;
+            return m_peak_density * sum;
         }
 
         /** Space-time integral in z. Subintervals resolve translation by sigma_z. */
@@ -82,38 +91,50 @@ public:
             int first, last;
             pulseRange(lo, hi, t, dt, 0.0, first, last);
             for (int pulse = first; pulse < last; ++pulse) {
-                double cuts[6] = {t, t+dt};
+                double cuts[6] = {t, t + dt};
                 int count = 2;
                 for (int boundary = 0; boundary < 2; ++boundary) {
                     double const z = boundary == 0 ? lo : hi;
                     for (int sign = -1; sign <= 1; sign += 2) {
-                        double const crossing = m_times[pulse] +
-                            (z-m_z_reference+sign*m_cutoff_z*m_sigma_z)/m_velocity;
-                        if (crossing > t && crossing < t+dt) { cuts[count++] = crossing; }
+                        double const crossing =
+                            m_times[pulse] +
+                            (z - m_z_reference + sign * m_cutoff_z * m_sigma_z) / m_velocity;
+                        if (crossing > t && crossing < t + dt) {
+                            cuts[count++] = crossing;
+                        }
                     }
                 }
                 for (int i = 1; i < count; ++i) {
-                    for (int j = i; j > 0 && cuts[j] < cuts[j-1]; --j) {
-                        double const value = cuts[j]; cuts[j] = cuts[j-1]; cuts[j-1] = value;
+                    for (int j = i; j > 0 && cuts[j] < cuts[j - 1]; --j) {
+                        double const value = cuts[j];
+                        cuts[j] = cuts[j - 1];
+                        cuts[j - 1] = value;
                     }
                 }
                 for (int segment = 1; segment < count; ++segment) {
-                    int const intervals = 1 + static_cast<int>(std::abs(m_velocity)*
-                        (cuts[segment]-cuts[segment-1])/m_sigma_z);
-                    double const step = (cuts[segment]-cuts[segment-1])/intervals;
+                    int const intervals =
+                        1 + static_cast<int>(std::abs(m_velocity) *
+                                             (cuts[segment] - cuts[segment - 1]) / m_sigma_z);
+                    double const step = (cuts[segment] - cuts[segment - 1]) / intervals;
                     for (int i = 0; i < intervals; ++i) {
-                        sum += m_amplitudes[pulse]*warpx::fluid::integrate(
-                            [=] AMREX_GPU_HOST_DEVICE(double time) noexcept {
-                                double const center = profile.m_z_reference+
-                                    profile.m_velocity*(time-profile.m_times[pulse]);
-                                return profile.m_sigma_z*warpx::fluid::gaussianIntegral(
-                                    (lo-center)/profile.m_sigma_z, (hi-center)/profile.m_sigma_z,
-                                    profile.m_cutoff_z);
-                            }, cuts[segment-1]+i*step, cuts[segment-1]+(i+1)*step);
+                        sum +=
+                            m_amplitudes[pulse] *
+                            warpx::fluid::integrate(
+                                [=] AMREX_GPU_HOST_DEVICE(double time) noexcept {
+                                    double const center =
+                                        profile.m_z_reference +
+                                        profile.m_velocity * (time - profile.m_times[pulse]);
+                                    return profile.m_sigma_z *
+                                           warpx::fluid::gaussianIntegral(
+                                               (lo - center) / profile.m_sigma_z,
+                                               (hi - center) / profile.m_sigma_z,
+                                               profile.m_cutoff_z);
+                                },
+                                cuts[segment - 1] + i * step, cuts[segment - 1] + (i + 1) * step);
                     }
                 }
             }
-            return m_peak_density*sum;
+            return m_peak_density * sum;
         }
 
         /** Integral of the transverse profile over an annulus, including 2*pi*r. */
@@ -121,28 +142,37 @@ public:
         radialIntegral (double lo, double hi) const noexcept
         {
             lo = lo < 0.0 ? 0.0 : lo;
-            hi = hi > m_cutoff_r*m_sigma_r ? m_cutoff_r*m_sigma_r : hi;
-            if (hi <= lo) { return 0.0; }
-            auto const a = lo/m_sigma_r;
-            auto const b = hi/m_sigma_r;
-            return 6.2831853071795864769*m_sigma_r*m_sigma_r*std::exp(-0.5*a*a)*
-                (-std::expm1(-0.5*(b-a)*(b+a)));
+            hi = hi > m_cutoff_r * m_sigma_r ? m_cutoff_r * m_sigma_r : hi;
+            if (hi <= lo) {
+                return 0.0;
+            }
+            auto const a = lo / m_sigma_r;
+            auto const b = hi / m_sigma_r;
+            return 6.2831853071795864769 * m_sigma_r * m_sigma_r * std::exp(-0.5 * a * a) *
+                   (-std::expm1(-0.5 * (b - a) * (b + a)));
         }
     };
 
     RigidBeam (std::string const& name, amrex::Real mass, amrex::Real charge);
 
     [[nodiscard]] Executor executor () const;
-    [[nodiscard]] amrex::Real velocity () const { return m_parameters.m_velocity; }
-    [[nodiscard]] amrex::Real kineticEnergyEV () const { return m_energy_ev; }
+    [[nodiscard]] amrex::Real
+    velocity () const
+    {
+        return m_parameters.m_velocity;
+    }
+    [[nodiscard]] amrex::Real
+    kineticEnergyEV () const
+    {
+        return m_energy_ev;
+    }
     [[nodiscard]] std::string configuration () const;
-    [[nodiscard]] bool active (amrex::Geometry const& geom, amrex::Real start,
-                               amrex::Real dt, amrex::Real padding = 0.0) const;
+    [[nodiscard]] bool active (amrex::Geometry const& geom, amrex::Real start, amrex::Real dt,
+                               amrex::Real padding = 0.0) const;
 
-    void UpdateDensity (amrex::MultiFab& density, amrex::Geometry const& geom,
-                        amrex::Real time);
-    void DepositCurrent (amrex::MultiFab& current, amrex::Geometry const& geom,
-                         amrex::Real start, amrex::Real dt);
+    void UpdateDensity (amrex::MultiFab& density, amrex::Geometry const& geom, amrex::Real time);
+    void DepositCurrent (amrex::MultiFab& current, amrex::Geometry const& geom, amrex::Real start,
+                         amrex::Real dt);
     void UpdateCurrentDiagnostic (amrex::MultiFab& current, amrex::Geometry const& geom,
                                   amrex::Real time);
 

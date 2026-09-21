@@ -26,25 +26,45 @@ public:
     IonProductDestination (std::string const& name, MultiParticleContainer const& particles)
     {
         auto& warpx = WarpX::GetInstance();
-        if (warpx.DoFluidSpecies()) { m_fluid = warpx.GetFluidContainer().FindSpecies(name); }
+        if (warpx.DoFluidSpecies()) {
+            m_fluid = warpx.GetFluidContainer().FindSpecies(name);
+        }
         if (m_fluid) {
-            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(m_fluid->getModel() == FluidModel::Immobile,
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                m_fluid->getModel() == FluidModel::Immobile,
                 "Collision ion products require a kinetic or immobile species: '" + name + "'.");
         } else {
             m_particles = &particles.GetParticleContainerFromName(name);
         }
     }
 
-    [[nodiscard]] amrex::Real getMass () const
-        { return m_fluid ? m_fluid->getMass() : m_particles->getMass(); }
-    [[nodiscard]] amrex::Real getCharge () const
-        { return m_fluid ? m_fluid->getCharge() : m_particles->getCharge(); }
-    [[nodiscard]] WarpXParticleContainer* particles () const { return m_particles; }
-    [[nodiscard]] bool isFluid () const { return m_fluid != nullptr; }
-
-    [[nodiscard]] ImmobileDensityDeposit deposit (int lev, amrex::MFIter const& mfi) const
+    [[nodiscard]] amrex::Real
+    getMass () const
     {
-        if (!m_fluid) { return {}; }
+        return m_fluid ? m_fluid->getMass() : m_particles->getMass();
+    }
+    [[nodiscard]] amrex::Real
+    getCharge () const
+    {
+        return m_fluid ? m_fluid->getCharge() : m_particles->getCharge();
+    }
+    [[nodiscard]] WarpXParticleContainer*
+    particles () const
+    {
+        return m_particles;
+    }
+    [[nodiscard]] bool
+    isFluid () const
+    {
+        return m_fluid != nullptr;
+    }
+
+    [[nodiscard]] ImmobileDensityDeposit
+    deposit (int lev, amrex::MFIter const& mfi) const
+    {
+        if (!m_fluid) {
+            return {};
+        }
         auto& warpx = WarpX::GetInstance();
         auto& increment = *warpx.m_fields.get(m_fluid->DensityIncrementName(), lev);
         auto const& geom = warpx.Geom(lev);
@@ -52,10 +72,8 @@ public:
         result.m_increment = increment.array(mfi);
 #ifdef WARPX_DIM_RZ
         auto const lo = amrex::lbound(increment[mfi].box());
-        result.m_rmin = geom.ProbLo(0) +
-            (lo.x-geom.Domain().smallEnd(0))*geom.CellSize(0);
-        result.m_zmin = geom.ProbLo(1) +
-            (lo.y-geom.Domain().smallEnd(1))*geom.CellSize(1);
+        result.m_rmin = geom.ProbLo(0) + (lo.x - geom.Domain().smallEnd(0)) * geom.CellSize(0);
+        result.m_zmin = geom.ProbLo(1) + (lo.y - geom.Domain().smallEnd(1)) * geom.CellSize(1);
         result.m_dr_inv = geom.InvCellSize(0);
         result.m_dz_inv = geom.InvCellSize(1);
         result.m_rlo = lo.x;
@@ -69,7 +87,8 @@ public:
         return result;
     }
 
-    void commit (int lev) const
+    void
+    commit (int lev) const
     {
         if (m_fluid) {
             m_fluid->CommitDensityIncrement(WarpX::GetInstance().m_fields, lev);
