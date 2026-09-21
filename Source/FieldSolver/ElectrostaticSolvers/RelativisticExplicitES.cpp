@@ -22,18 +22,20 @@ using namespace amrex;
 void RelativisticExplicitES::InitData () {
     auto & warpx = WarpX::GetInstance();
     bool prepare_field_solve = (WarpX::electrostatic_solver_id == ElectrostaticSolverAlgo::Relativistic);
+    bool initial_self_fields = false;
     // check if any of the particle containers have initialize_self_fields = True
     for (auto const& species : warpx.GetPartContainer()) {
-        prepare_field_solve |= species->initialize_self_fields;
+        initial_self_fields |= species->initialize_self_fields;
     }
     if (warpx.DoFluidSpecies()) {
-        prepare_field_solve |= warpx.GetFluidContainer().InitializeSelfFields();
+        initial_self_fields |= warpx.GetFluidContainer().InitializeSelfFields();
     }
+    prepare_field_solve |= initial_self_fields;
     prepare_field_solve |= m_poisson_boundary_handler->m_boundary_potential_specified;
 
     if (prepare_field_solve) {
         m_poisson_boundary_handler->DefinePhiBCs(warpx.Geom(0),
-            warpx.DoFluidSpecies() && warpx.GetFluidContainer().InitializeSelfFields());
+            initial_self_fields && WarpX::electrostatic_solver_id == ElectrostaticSolverAlgo::None);
     }
 }
 

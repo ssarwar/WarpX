@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Independent continuum self-field quadrature for a translating 3D Gaussian.
+"""Independent continuum field quadrature for a translating 3D Gaussian.
 
 Integrate the Coulomb Green function in the beam rest frame, then Lorentz
 transform the fields. The integration variable is a Gaussian variance (m^2).

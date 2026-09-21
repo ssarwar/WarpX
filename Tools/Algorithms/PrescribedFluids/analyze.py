@@ -14,7 +14,7 @@ from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
-from reference import gaussian_fields
+from gaussian_reference import gaussian_fields
 from scipy.constants import c, e, proton_mass
 from scipy.stats import t as student_t
 
@@ -84,6 +84,9 @@ def main():
         continuum[component] = (field, mask)
     # Reject mixing grids, physical inputs or solver methods in one ensemble.
     for case in cases:
+        for key in ["radial_sigmas", "longitudinal_sigmas", "implicit_deposition"]:
+            if case["parameters"].get(key) != settings.get(key):
+                raise ValueError(f"Incompatible {key}: {case['path']}")
         for key in [
             "cells",
             "steps",

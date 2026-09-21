@@ -1659,6 +1659,9 @@ Particle initialization
     Whether to calculate the space-charge fields associated with this species
     at the beginning of the simulation.
     The fields are calculated for the mean gamma of the species.
+    For electromagnetic runs, a ``none`` or ``pml`` field boundary uses zero
+    potential at that boundary during this initial Poisson solve. This does not
+    change the boundary condition used by the subsequent Maxwell evolution.
 
 .. pp:param:: <species_name>.self_fields_required_precision
     :type: ``float``

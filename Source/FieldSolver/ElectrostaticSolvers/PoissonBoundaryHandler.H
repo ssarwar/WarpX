@@ -35,7 +35,7 @@ public:
      * \brief Read the input settings and set the boundary conditions used
      * on each domain boundary for the Poisson solver.
      */
-    void DefinePhiBCs (const amrex::Geometry& geom, bool prescribed_self_fields = false);
+    void DefinePhiBCs (const amrex::Geometry& geom, bool initial_self_fields = false);
 
     /**
      * \brief Initialize amrex::Parser objects to get the boundary potential

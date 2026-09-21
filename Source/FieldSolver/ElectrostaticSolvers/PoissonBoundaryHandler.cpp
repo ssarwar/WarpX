@@ -53,13 +53,13 @@ void PoissonBoundaryHandler::ReadParameters()
 }
 
 void PoissonBoundaryHandler::DefinePhiBCs (
-    const amrex::Geometry& geom, bool prescribed_self_fields)
+    const amrex::Geometry& geom, bool initial_self_fields)
 {
-    // Initial prescribed-beam fields use zero potential at the finite solve
+    // Initial beam fields use zero potential at the finite solve
     // boundary when the electromagnetic solver has no electrostatic condition.
     // This does not impose a conducting boundary on the subsequent Maxwell solve.
     auto const dirichlet = [=](FieldBoundaryType boundary) {
-        return boundary == FieldBoundaryType::PEC || (prescribed_self_fields &&
+        return boundary == FieldBoundaryType::PEC || (initial_self_fields &&
             (boundary == FieldBoundaryType::None || boundary == FieldBoundaryType::PML));
     };
 #ifdef WARPX_DIM_RZ
@@ -131,7 +131,7 @@ void PoissonBoundaryHandler::DefinePhiBCs (
             }
 
             WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-                prescribed_self_fields ||
+                initial_self_fields ||
                 (WarpX::field_boundary_lo[idim] != FieldBoundaryType::Open &&
                 WarpX::field_boundary_hi[idim] != FieldBoundaryType::Open &&
                 WarpX::field_boundary_lo[idim] != FieldBoundaryType::PML &&

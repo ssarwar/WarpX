@@ -47,6 +47,9 @@ def main():
     parser.add_argument("--gas-density", type=float, default=1e23)
     parser.add_argument("--temperature", type=float, default=300.0)
     parser.add_argument("--shape", type=int, default=3)
+    parser.add_argument(
+        "--implicit-deposition", choices=["direct", "villasenor"], default="villasenor"
+    )
     parser.add_argument("--source-resolution", type=int, default=8)
     parser.add_argument("--subcycles", type=int, default=1)
     parser.add_argument("--mcc", action="store_true")
@@ -86,7 +89,10 @@ def main():
         lower_bound=[0, -zmax],
         upper_bound=[rmax, zmax],
         lower_boundary_conditions=["none", "periodic"],
-        upper_boundary_conditions=["dirichlet", "periodic"],
+        upper_boundary_conditions=[
+            "none" if args.solver == "PSATD" else "dirichlet",
+            "periodic",
+        ],
         lower_boundary_conditions_particles=["none", "periodic"],
         upper_boundary_conditions_particles=["absorbing", "periodic"],
         n_azimuthal_modes=1,
@@ -242,7 +248,7 @@ def main():
         warpx_collisions=collisions,
         warpx_random_seed=args.seed,
         warpx_use_filter=False,
-        warpx_current_deposition_algo="direct" if implicit else None,
+        warpx_current_deposition_algo=args.implicit_deposition if implicit else None,
         warpx_evolve_scheme=picmi.SemiImplicitEMEvolveScheme(
             nonlinear_solver=picmi.NewtonNonlinearSolver(
                 relative_tolerance=1e-10,
@@ -367,12 +373,30 @@ def main():
         row["electron_energy_J"] = sim.particles.get("electrons").sum_particle_energy(
             False
         )
+        # Frozen kinetic ions retain their recoil/thermal momenta. Their energy
+        # is the independently measured mechanical energy omitted by a matching
+        # immobile destination (the ions never undergo further collisions here).
+        row["ion_energy_J"] = {
+            ion.name: 0.0
+            if ion in sim.fluid_species
+            else sim.particles.get(ion.name).sum_particle_energy(False)
+            for ion in ions
+        }
         row["pending"] = {
             collision.name: float(
                 values(collision.name + "_product_weight_remainder").sum()
             )
             for collision in collisions
             if isinstance(collision, picmi.ProtonImpactIonizationCollisions)
+        }
+        row["primary_source_budgets"] = {
+            collision.name: values(collision.name + "_source_budget")
+            .reshape(-1, 4)
+            .sum(axis=0)
+            .tolist()
+            for collision in collisions
+            if args.beam == "fluid"
+            and isinstance(collision, picmi.ProtonImpactIonizationCollisions)
         }
         histories.append(row)
         for name, array in densities.items():

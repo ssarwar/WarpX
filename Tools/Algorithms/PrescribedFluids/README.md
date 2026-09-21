@@ -9,7 +9,7 @@ particle-reference studies, separate from routine CI.
 `test_profiles.cpp` compares the analytic projection with an independent million
 particle quadrature using WarpX's actual particle shape functions. It also
 checks normalization and the Yee continuity equation on CPU or GPU.
-`reference.py` integrates the Coulomb Green function for a Gaussian in its rest
+`gaussian_reference.py` integrates the Coulomb Green function for a Gaussian in its rest
 frame and Lorentz transforms its fields. Its own check uses the closed spherical
 Gaussian solution and doubled quadrature order. No production projection code
 is used by this reference.
@@ -22,7 +22,7 @@ CUDA/HIP measurements also need CuPy. The scripts use the existing build and do
 not modify installed packages or source files.
 
 ```bash
-python Tools/Algorithms/PrescribedFluids/reference.py
+python Tools/Algorithms/PrescribedFluids/gaussian_reference.py
 python Tools/Algorithms/PrescribedFluids/ensemble.py \
     --suite fields --output build/beam-fields --cells 32 128 \
     --ppc 4 16 64 256 --seeds 8 --steps 20
@@ -41,6 +41,10 @@ chemistry, to isolate the cost of the beam representation at equal electron
 work. Particle beams are ballistic and do not gather fields.
 
 `--solver` accepts `Yee`, `PSATD`, `semi_implicit_em` and `semi_implicit_mm`.
+Semi-implicit particle references use charge-conserving Villasenor deposition,
+including mass matrices, to match the prescribed beam's continuity equation.
+Use `--implicit-deposition direct` to study the native direct-deposition option;
+its current shape differs at finite mesh spacing and requires mesh convergence.
 Use `--dt`, `--cells`, `--weight`, `--cap`, `--source-resolution` and
 `--subcycles` independently for convergence. Additional arguments passed to
 `ensemble.py` reach each individual benchmark. Quiet particle counts per cell
@@ -49,10 +53,11 @@ in these comparison runs; the driver rejects runs long enough to do so.
 
 For a mesh study, hold domain extents fixed and double both cell counts. For a
 domain study, double `--radial-sigmas`, `--longitudinal-sigmas` and cell counts
-together. The default finite-domain self-field solve has a conducting outer
-radius and periodic axial boundaries in **all** representations. Its axial
+together. The finite-domain initial self-field solve has zero potential at the outer
+radius and periodic axial boundaries in **all** representations. Yee retains a
+conducting outer wall during evolution; PSATD uses its native radial boundary. Its axial
 electric field can differ substantially from the unbounded continuum result;
-domain convergence must accompany comparison with `reference.py`.
+domain convergence must accompany comparison with `gaussian_reference.py`.
 
 `--dry-run` writes the complete command manifest before execution. `--resume`
 skips completed runs only if that manifest is unchanged. Each case saves its

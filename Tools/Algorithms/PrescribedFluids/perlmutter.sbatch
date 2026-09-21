@@ -29,7 +29,7 @@ nvidia-smi > "$study/device.txt"
 module list > "$study/modules.txt" 2>&1
 
 ctest --test-dir build --output-on-failure --timeout 90 -j 1 \
-    -R 'test_rz_(rigid_source|rigid_beam|rigid_train|immobile|fluid_charge)' \
+    -R 'test_rz_(rigid_source|rigid_beam|rigid_train|immobile|fluid_charge|prescribed_openpmd|attachment_checkpoint|beam_reference)' \
     > "$study/ctest.log" 2>&1
 
 # Timing runs are serial and synchronize each step. The field suite measures

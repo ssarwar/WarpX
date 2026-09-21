@@ -98,3 +98,30 @@ add_warpx_test(
     "analysis_default_regression.py --path diags/diag1000080"  # checksum
     OFF  # dependency
 )
+foreach(solver IN ITEMS Yee PSATD semi_implicit_em semi_implicit_mm)
+    if(solver STREQUAL "PSATD" AND NOT WarpX_FFT)
+        continue()
+    endif()
+    set(reference_name test_rz_beam_reference_${solver})
+    if(solver STREQUAL "PSATD")
+        set(reference_cells "32 64")
+    else()
+        set(reference_cells "16 64")
+    endif()
+    add_warpx_test(
+        ${reference_name}_fluid_picmi RZ 1
+        "../../../Tools/Algorithms/PrescribedFluids/benchmark.py --mode fields --solver ${solver} --beam fluid --cells ${reference_cells} --steps 6"
+        OFF OFF OFF
+    )
+    add_warpx_test(
+        ${reference_name}_coarse_picmi RZ 1
+        "../../../Tools/Algorithms/PrescribedFluids/benchmark.py --mode fields --solver ${solver} --beam quiet --ppc 4 --cells ${reference_cells} --steps 6"
+        OFF OFF ${reference_name}_fluid_picmi
+    )
+    add_warpx_test(
+        ${reference_name}_fine_picmi RZ 1
+        "../../../Tools/Algorithms/PrescribedFluids/benchmark.py --mode fields --solver ${solver} --beam quiet --ppc 256 --cells ${reference_cells} --steps 6"
+        "analysis_rz_beam_reference.py ../${reference_name}_fluid_picmi/result.json ../${reference_name}_coarse_picmi/result.json result.json"
+        OFF ${reference_name}_coarse_picmi
+    )
+endforeach()
