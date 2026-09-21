@@ -6,7 +6,7 @@ charge footprints, explicit/implicit solvers, diagnostic totals and checkpoint
 restoration before the first resumed step. This directory contains larger
 particle-reference studies, separate from routine CI.
 
-Recorded CPU results, convergence limits and outstanding GPU acceptance are in
+Recorded CPU/A100 results, convergence limits and backend coverage are in
 [VALIDATION.md](VALIDATION.md).
 
 `test_profiles.cpp` compares the analytic projection with an independent million
@@ -143,3 +143,42 @@ an unsuccessful status; a failed group still prevents subsequent timing phases
 in an `all` run.
 The build's CTest MPI launcher should be `srun` with
 `MPIEXEC_PREFLAGS='--cpu-bind=cores;--gpus-per-task=1'`.
+
+TinyProfiler's inclusive source tables include first-call setup even though
+the separate timestep statistic omits two warm-up steps. To distinguish CUDA
+module loading from source execution, repeat the profiling phase with
+`sbatch --export=ALL,CUDA_MODULE_LOADING=EAGER Tools/Algorithms/PrescribedFluids/perlmutter.sbatch profile`.
+The script records this setting; keep both profiles and the uninstrumented
+ensembles. Eager loading is a profiling control, not a required simulation setting.
+
+`export_report.py` produces the compact JSON record and combined noise/cost plot.
+Gather the phase directories into the layout described in its help, including
+the acceptance CMake cache and optional `profile-eager/profile/` directory:
+
+```bash
+python Tools/Algorithms/PrescribedFluids/export_report.py build/fluid-comparisons/a100 \
+    --output Tools/Algorithms/PrescribedFluids/results/a100-2026-09-21 \
+    --date 2026-09-21 --hardware 'Perlmutter A100-SXM4-40GB' \
+    --compiler 'CUDA 13.2, GCC 13.2'
+```
+
+Use the same MPI library for WarpX and `mpi4py`. In the recorded CUDA 13.2
+environment, Cray Python 3.11.7's bundled `mpi4py` loads MPICH 9.0.1, while the
+compiler wrapper links WarpX with MPICH 9.1.0. Mixing them stalls AMReX
+initialization. The validation virtual environment uses `mpi4py` 4.1.2 built
+from source with `MPICC=cc` and `MPI4PY_BUILD_MPICC=cc` after loading the build's
+compiler and MPI modules. Verify `MPI.Get_library_version()` and the linked
+libraries before running the suite. NumPy 2.4.6 and SciPy 1.17.1 are installed
+together in that environment; the older system SciPy has an incompatible ABI.
+
+The RZ FFT dependencies must also match the accelerator toolchain. These runs
+use BLAS++ and LAPACK++ v2024.05.31 built for CUDA 13.2 in
+`build/backend-deps/cuda13`; the batch script selects that library directory
+when it exists. The Python package list and CMake cache saved with each study
+record the precise environment used for its measurements.
+
+The standalone SYCL complex-transform check and its build instructions are in
+[SpectralRZ](../SpectralRZ/README.md). It compares the production strided FFT with
+a direct long-double DFT, including all complex modes and changes of queue.
+Compilation alone is not runtime acceptance: the test needs a SYCL GPU that
+AMReX and oneMKL both support.

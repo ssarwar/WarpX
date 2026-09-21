@@ -22,8 +22,8 @@ fi
 export PYTHONPATH="$PWD/build/lib/site-packages${PYTHONPATH:+:$PYTHONPATH}"
 export MPLCONFIGDIR="$PWD/build/.mpl-cache"
 export OMP_NUM_THREADS=1
-# These tests exercise ordinary MPI transport, including two-rank restarts.
-# Cray's Python MPI binding is not linked to the CUDA GTL library.
+# Use host MPI transport for the two-rank restart comparisons. Timing ensembles
+# use one GPU and do not measure GPU-aware network communication.
 export MPICH_GPU_SUPPORT_ENABLED=0
 
 study="build/fluid-a100-${SLURM_JOB_ID}"
@@ -38,6 +38,7 @@ git diff --binary > "$study/source.patch"
 cp build/CMakeCache.txt "$study/CMakeCache.txt"
 python -m pip freeze > "$study/python-packages.txt"
 nvidia-smi > "$study/device.txt"
+printf '%s\n' "${CUDA_MODULE_LOADING:-default}" > "$study/cuda-module-loading.txt"
 module list > "$study/modules.txt" 2>&1
 
 if [[ "$phase" == all || "$phase" == tests ]]; then
