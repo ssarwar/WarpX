@@ -428,7 +428,7 @@ SpectralFieldDataRZ::FABZBackwardTransform (amrex::MFIter const & mfi, amrex::Bo
     rocfft_execution_info execinfo = nullptr;
     rocfft_status result = rocfft_execution_info_create(&execinfo);
     std::size_t buffersize = 0;
-    result = rocfft_plan_get_work_buffer_size(forward_plan[mfi], &buffersize);
+    result = rocfft_plan_get_work_buffer_size(backward_plan[mfi], &buffersize);
     void* buffer = amrex::The_Arena()->alloc(buffersize);
     result = rocfft_execution_info_set_work_buffer(execinfo, buffer, buffersize);
     result = rocfft_execution_info_set_stream(execinfo, amrex::Gpu::gpuStream());
