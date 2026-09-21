@@ -9,8 +9,11 @@
 #include "RelativisticExplicitES.H"
 
 #include "Fields.H"
+#include "Fluids/MultiFluidContainer.H"
+#include "Fluids/WarpXFluidContainer.H"
 #include "Particles/MultiParticleContainer.H"
 #include "Particles/WarpXParticleContainer.H"
+#include "Utils/Parser/ParserUtils.H"
 #include "WarpX.H"
 
 
@@ -23,10 +26,14 @@ void RelativisticExplicitES::InitData () {
     for (auto const& species : warpx.GetPartContainer()) {
         prepare_field_solve |= species->initialize_self_fields;
     }
+    if (warpx.DoFluidSpecies()) {
+        prepare_field_solve |= warpx.GetFluidContainer().InitializeSelfFields();
+    }
     prepare_field_solve |= m_poisson_boundary_handler->m_boundary_potential_specified;
 
     if (prepare_field_solve) {
-        m_poisson_boundary_handler->DefinePhiBCs(warpx.Geom(0));
+        m_poisson_boundary_handler->DefinePhiBCs(warpx.Geom(0),
+            warpx.DoFluidSpecies() && warpx.GetFluidContainer().InitializeSelfFields());
     }
 }
 
@@ -54,6 +61,14 @@ void RelativisticExplicitES::ComputeSpaceChargeField (
         if (always_run_solve || (species->initialize_self_fields)) {
             int const verbosity = verbose_step ? species->self_fields_verbosity : 0;
             AddSpaceChargeField(*species, Efield_fp, Bfield_fp, verbosity);
+        }
+    }
+    if (mfl) {
+        for (int i = 0; i < mfl->nSpecies(); ++i) {
+            auto& fluid = mfl->GetFluidContainer(i);
+            if (fluid.InitializeSelfFields()) {
+                AddSpaceChargeField(fluid, Efield_fp, Bfield_fp, verbose_step);
+            }
         }
     }
 
@@ -139,6 +154,50 @@ void RelativisticExplicitES::AddSpaceChargeField (
     computeE( Efield_fp, amrex::GetVecOfPtrs(phi), beta );
     computeB( Bfield_fp, amrex::GetVecOfPtrs(phi), beta );
 
+}
+
+void
+RelativisticExplicitES::AddSpaceChargeField (
+    WarpXFluidContainer& fluid, ablastr::fields::MultiLevelVectorField& electric,
+    ablastr::fields::MultiLevelVectorField& magnetic, bool verbose_step)
+{
+    auto& warpx = WarpX::GetInstance();
+    auto* beam = fluid.getRigidBeam();
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(beam && num_levels == 1,
+        "Prescribed self fields require a single-level rigid beam.");
+    auto const nodal = amrex::convert(warpx.boxArray(0), amrex::IntVect::TheNodeVector());
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> rho(1), phi(1), empty(1);
+    rho[0] = std::make_unique<amrex::MultiFab>(nodal, warpx.DistributionMap(0), 1,
+                                             warpx.get_ng_depos_rho());
+    phi[0] = std::make_unique<amrex::MultiFab>(nodal, warpx.DistributionMap(0), 1, 1);
+    rho[0]->setVal(0.0);
+    phi[0]->setVal(0.0);
+    beam->UpdateDensity(*rho[0], warpx.Geom(0), warpx.gett_new(0));
+    rho[0]->setBndry(0.0);
+    auto const mask = amrex::OwnerMask(*rho[0], warpx.Geom(0).periodicity());
+    auto const charge = fluid.getCharge();
+    for (amrex::MFIter mfi(*rho[0], amrex::TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+        auto const a = rho[0]->array(mfi);
+        auto const owner = mask->const_array(mfi);
+        amrex::ParallelFor(mfi.tilebox(), [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+            a(i,j,k) *= owner(i,j,k) ? charge : 0.0;
+        });
+    }
+    warpx.SyncRho(amrex::GetVecOfPtrs(rho), amrex::GetVecOfPtrs(empty), amrex::GetVecOfPtrs(empty));
+    amrex::Real precision = self_fields_required_precision;
+    amrex::Real absolute = self_fields_absolute_tolerance;
+    int iterations = self_fields_max_iters;
+    int verbosity = self_fields_verbosity;
+    amrex::ParmParse const pp(fluid.getName());
+    utils::parser::queryWithParser(pp, "self_fields_required_precision", precision);
+    utils::parser::queryWithParser(pp, "self_fields_absolute_tolerance", absolute);
+    utils::parser::queryWithParser(pp, "self_fields_max_iters", iterations);
+    pp.query("self_fields_verbosity", verbosity);
+    std::array<amrex::Real, 3> const beta{0.0, 0.0, beam->velocity()/PhysConst::c};
+    computePhi(amrex::GetVecOfPtrs(rho), amrex::GetVecOfPtrs(phi), beta, precision, absolute,
+               iterations, verbose_step ? verbosity : 0, is_igf_2d_slices);
+    computeE(electric, amrex::GetVecOfPtrs(phi), beta);
+    computeB(magnetic, amrex::GetVecOfPtrs(phi), beta);
 }
 
 void RelativisticExplicitES::AddBoundaryField (ablastr::fields::MultiLevelVectorField& Efield_fp)

@@ -57,9 +57,17 @@ MultiFluidContainer::CheckpointConfiguration () const
         if (fluid->isPrescribed()) {
             config << fluid->getName() << ' ' << static_cast<int>(fluid->getModel()) << ' '
                    << fluid->getMass() << ' ' << fluid->getCharge() << ' ' << WarpX::nox << '\n';
+            if (fluid->getRigidBeam()) { config << fluid->getRigidBeam()->configuration() << '\n'; }
         }
     }
     return config.str();
+}
+
+bool
+MultiFluidContainer::InitializeSelfFields () const
+{
+    return std::any_of(allcontainers.begin(), allcontainers.end(),
+                       [](auto const& fluid) { return fluid->InitializeSelfFields(); });
 }
 
 void

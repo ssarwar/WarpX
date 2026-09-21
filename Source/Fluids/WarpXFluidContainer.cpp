@@ -76,6 +76,10 @@ void WarpXFluidContainer::ReadParameters()
     pp_species_name.query("model", model);
     if (model == "immobile") {
         m_model = FluidModel::Immobile;
+    } else if (model == "rigid_beam") {
+        m_model = FluidModel::RigidBeam;
+        m_rigid_beam = std::make_unique<RigidBeam>(species_name, mass, charge);
+        pp_species_name.query("initialize_self_fields", m_initialize_self_fields);
     } else {
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(model == "cold_relativistic",
             "Unknown fluid model '" + model + "' for species '" + species_name + "'.");
@@ -96,6 +100,15 @@ void WarpXFluidContainer::ReadParameters()
                 (warpx.evolve_scheme == EvolveScheme::Explicit ||
                  warpx.evolve_scheme == EvolveScheme::Semi_Implicit_EM),
             "Prescribed fluids support explicit Yee, explicit PSATD, and semi_implicit_em.");
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            !m_rigid_beam || WarpX::electromagnetic_solver_id != ElectromagneticSolverAlgo::PSATD ||
+                warpx.current_correction,
+            "A rigid beam with PSATD requires psatd.current_correction = 1.");
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(!warpx.do_current_centering &&
+            (WarpX::electromagnetic_solver_id == ElectromagneticSolverAlgo::PSATD ||
+             WarpX::grid_type == ablastr::utils::enums::GridType::Staggered) &&
+            WarpX::current_deposition_algo != CurrentDepositionAlgo::Vay,
+            "Prescribed fluids require the native solver grid and no current centering.");
     }
     pp_species_name.query("do_not_deposit", do_not_deposit);
     pp_species_name.query("do_not_gather", do_not_gather);
@@ -217,7 +230,11 @@ void WarpXFluidContainer::InitData(
     ABLASTR_PROFILE("WarpXFluidContainer::InitData");
 
     if (isPrescribed()) {
-        InitPrescribedDensity(fields, lev);
+        if (m_rigid_beam) {
+            m_rigid_beam->UpdateDensity(*fields.get(name_mf_N, lev), geom_lev, cur_time);
+        } else {
+            InitPrescribedDensity(fields, lev);
+        }
         return;
     }
 
@@ -341,6 +358,24 @@ void WarpXFluidContainer::Evolve(
     ABLASTR_PROFILE("WarpXFluidContainer::Evolve");
 
     if (isPrescribed()) {
+        if (m_rigid_beam) {
+            auto const& warpx = WarpX::GetInstance();
+            auto const dt = warpx.getdt(lev);
+            m_rigid_beam->UpdateDensity(*fields.get(name_mf_N, lev), warpx.Geom(lev), cur_time);
+            if (!skip_deposition && !do_not_deposit && fields.has(FieldType::rho_fp, lev)) {
+                DepositCharge(fields, *fields.get(FieldType::rho_fp, lev), lev, 0);
+            }
+            m_rigid_beam->UpdateDensity(*fields.get(name_mf_N, lev), warpx.Geom(lev), cur_time+dt);
+            if (!skip_deposition && !do_not_deposit) {
+                if (fields.has(FieldType::rho_fp, lev)) {
+                    auto& rho = *fields.get(FieldType::rho_fp, lev);
+                    if (rho.nComp() > 1) { DepositCharge(fields, rho, lev, 1); }
+                }
+                m_rigid_beam->DepositCurrent(*fields.get(current_fp_string, Direction{2}, lev),
+                                             warpx.Geom(lev), cur_time, dt);
+            }
+            return;
+        }
         if (!skip_deposition && !do_not_deposit && fields.has(FieldType::rho_fp, lev)) {
             auto& rho = *fields.get(FieldType::rho_fp, lev);
             for (int comp = 0; comp < rho.nComp(); ++comp) {
@@ -1499,7 +1534,13 @@ void WarpXFluidContainer::DepositCurrent(
     using ablastr::fields::Direction;
     ABLASTR_PROFILE("WarpXFluidContainer::DepositCurrent");
 
-    if (isPrescribed()) { return; }
+    if (isPrescribed()) {
+        if (m_rigid_beam) {
+            auto const& warpx = WarpX::GetInstance();
+            m_rigid_beam->DepositCurrent(jz, warpx.Geom(lev), warpx.gett_new(lev), 0.0);
+        }
+        return;
+    }
 
     // Temporary nodal currents
     amrex::MultiFab tmp_jx_fluid(fields.get(name_mf_N, lev)->boxArray(), fields.get(name_mf_N, lev)->DistributionMap(), 1, 0);

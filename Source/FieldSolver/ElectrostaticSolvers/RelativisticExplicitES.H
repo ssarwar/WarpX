@@ -11,6 +11,7 @@
 #define WARPX_RELATIVISTICEXPLICITES_H_
 
 #include "ElectrostaticSolver.H"
+#include "Fluids/WarpXFluidContainer_fwd.H"
 #include "Particles/WarpXParticleContainer.H"
 
 
@@ -72,6 +73,13 @@ public:
     void AddBoundaryField (
         ablastr::fields::MultiLevelVectorField& Efield
     );
+
+    /** Initialize fields from a prescribed beam density and velocity, without particles. */
+    void AddSpaceChargeField (
+        WarpXFluidContainer& fluid,
+        ablastr::fields::MultiLevelVectorField& Efield,
+        ablastr::fields::MultiLevelVectorField& Bfield,
+        bool verbose_step);
 };
 
 #endif // WARPX_RELATIVISTICEXPLICITES_H_

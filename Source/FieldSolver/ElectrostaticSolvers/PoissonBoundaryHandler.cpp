@@ -52,15 +52,23 @@ void PoissonBoundaryHandler::ReadParameters()
     }
 }
 
-void PoissonBoundaryHandler::DefinePhiBCs (const amrex::Geometry& geom)
+void PoissonBoundaryHandler::DefinePhiBCs (
+    const amrex::Geometry& geom, bool prescribed_self_fields)
 {
+    // Initial prescribed-beam fields use zero potential at the finite solve
+    // boundary when the electromagnetic solver has no electrostatic condition.
+    // This does not impose a conducting boundary on the subsequent Maxwell solve.
+    auto const dirichlet = [=](FieldBoundaryType boundary) {
+        return boundary == FieldBoundaryType::PEC || (prescribed_self_fields &&
+            (boundary == FieldBoundaryType::None || boundary == FieldBoundaryType::PML));
+    };
 #ifdef WARPX_DIM_RZ
     if (geom.ProbLo(0) == 0){
         lobc[0] = LinOpBCType::Neumann;
         dirichlet_flag[0] = false;
 
         // handle the r_max boundary explicitly
-        if (WarpX::field_boundary_hi[0] == FieldBoundaryType::PEC) {
+        if (dirichlet(WarpX::field_boundary_hi[0])) {
             hibc[0] = LinOpBCType::Dirichlet;
             dirichlet_flag[1] = true;
         }
@@ -91,7 +99,7 @@ void PoissonBoundaryHandler::DefinePhiBCs (const amrex::Geometry& geom)
             }
             else {
                 has_non_periodic = true;
-                if ( WarpX::field_boundary_lo[idim] == FieldBoundaryType::PEC ) {
+                if (dirichlet(WarpX::field_boundary_lo[idim])) {
                     lobc[idim] = LinOpBCType::Dirichlet;
                     dirichlet_flag[idim*2] = true;
                 }
@@ -106,7 +114,7 @@ void PoissonBoundaryHandler::DefinePhiBCs (const amrex::Geometry& geom)
                     );
                 }
 
-                if ( WarpX::field_boundary_hi[idim] == FieldBoundaryType::PEC ) {
+                if (dirichlet(WarpX::field_boundary_hi[idim])) {
                     hibc[idim] = LinOpBCType::Dirichlet;
                     dirichlet_flag[idim*2+1] = true;
                 }
@@ -123,6 +131,7 @@ void PoissonBoundaryHandler::DefinePhiBCs (const amrex::Geometry& geom)
             }
 
             WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                prescribed_self_fields ||
                 (WarpX::field_boundary_lo[idim] != FieldBoundaryType::Open &&
                 WarpX::field_boundary_hi[idim] != FieldBoundaryType::Open &&
                 WarpX::field_boundary_lo[idim] != FieldBoundaryType::PML &&

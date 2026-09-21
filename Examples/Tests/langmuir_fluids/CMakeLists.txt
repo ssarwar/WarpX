@@ -5,6 +5,24 @@ foreach(solver IN ITEMS Yee PSATD)
     if(solver STREQUAL "PSATD" AND NOT WarpX_FFT)
         continue()
     endif()
+    foreach(shape RANGE 1 4)
+        add_warpx_test(
+            test_rz_rigid_beam_${solver}_${shape}_picmi RZ 2
+            "inputs_test_rz_rigid_beam_picmi.py --solver ${solver} --shape ${shape}"
+            OFF OFF OFF
+        )
+    endforeach()
+    add_warpx_test(
+        test_rz_rigid_beam_${solver}_self_fields_picmi RZ 2
+        "inputs_test_rz_rigid_beam_picmi.py --solver ${solver} --negative --self-fields"
+        OFF OFF OFF
+    )
+endforeach()
+
+foreach(solver IN ITEMS Yee PSATD)
+    if(solver STREQUAL "PSATD" AND NOT WarpX_FFT)
+        continue()
+    endif()
     add_warpx_test(
         test_rz_immobile_fluid_${solver}_picmi
         RZ

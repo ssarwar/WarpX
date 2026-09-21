@@ -10,6 +10,7 @@
 #include "FluidModel.H"
 #include "Initialization/PlasmaInjector.H"
 #include "MultiFluidContainer.H"
+#include "RigidBeam.H"
 
 #include <AMReX_Geometry.H>
 #include <AMReX_MultiFab.H>
@@ -147,6 +148,8 @@ public:
     [[nodiscard]] std::string const& getName () const {return species_name;}
     [[nodiscard]] FluidModel getModel () const {return m_model;}
     [[nodiscard]] bool isPrescribed () const {return m_model != FluidModel::ColdRelativistic;}
+    [[nodiscard]] RigidBeam* getRigidBeam () const {return m_rigid_beam.get();}
+    [[nodiscard]] bool InitializeSelfFields () const {return m_initialize_self_fields;}
 
     /** Synchronize a fresh, unscaled collision deposit and accumulate it exactly once. */
     void CommitDensityIncrement (ablastr::fields::MultiFabRegister& fields, int lev);
@@ -156,6 +159,8 @@ public:
 
 protected:
     FluidModel m_model = FluidModel::ColdRelativistic;
+    std::unique_ptr<RigidBeam> m_rigid_beam;
+    bool m_initialize_self_fields = false;
     void InitPrescribedDensity (ablastr::fields::MultiFabRegister& fields, int lev);
     int species_id;
     std::string species_name;

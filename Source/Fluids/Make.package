@@ -1,5 +1,6 @@
 CEXE_sources += MultiFluidContainer.cpp
 CEXE_sources += PrescribedFluid.cpp
+CEXE_sources += RigidBeam.cpp
 CEXE_sources += QdsmcParticleContainer.cpp
 CEXE_sources += WarpXFluidContainer.cpp
 
