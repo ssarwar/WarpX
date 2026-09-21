@@ -193,7 +193,7 @@ ProtonImpactIonizationCollision::ProtonImpactIonizationCollision (
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(m_ndt == 1 ||
             m_collision_stepping_mode == CollisionSteppingMode::Subcycle,
             "Rigid-beam ionization supports subcycling, but not supercycling above one.");
-        m_sampling_state = m_pjg_model->executor().prepareSampling(mono_energy);
+        m_sampling_state = m_pjg_model->monoenergeticSamplingState();
         m_source_rate = m_projectile_charge_squared*m_pjg_model->monoenergeticCrossSection()*
             std::abs(m_fluid_projectile->getRigidBeam()->velocity());
         utils::parser::queryWithParser(pp_collision_name, "source_sampling_points", m_source_sampling_points);

@@ -160,9 +160,21 @@ namespace
     checkMonoenergetic (PJGModel const& full, PJGTarget target)
     {
         auto const reference = full.executor();
-        for (auto energy : {5e3, 1.5e5, 8e8, 1e10}) {
+        amrex::Vector<amrex::ParticleReal> energies{5e3, 1.5e5, 8e8, 1e10};
+        for (int row : {1, 7, 32, 127, 254}) {
+            auto const edge =
+                std::exp(reference.m_log_projectile_energy_min +
+                         amrex::ParticleReal(row) /
+                             reference.m_inv_log_projectile_energy_step);
+            energies.push_back(std::nextafter(edge, amrex::ParticleReal(0)));
+            energies.push_back(edge);
+            energies.push_back(std::nextafter(
+                edge, std::numeric_limits<amrex::ParticleReal>::infinity()));
+        }
+        for (auto energy : energies) {
             PJGModel const mono(target, proton_mass, 5e3, 1e10, energy);
             auto const sample = mono.executor();
+            auto const cached = mono.monoenergeticSamplingState();
             require(sample.m_rows == 2, "Monoenergetic table constructed unused rows");
             constexpr int n = 4097;
             amrex::Gpu::DeviceVector<amrex::ParticleReal> output(4*n+2);
@@ -172,7 +184,8 @@ namespace
                 double const x = static_cast<double>(i)/(n-1);
                 double const a = x*x*x*x, b = (1-x)*(1-x)*(1-x)*(1-x);
                 reference.sample(energy, a/(a+b), values[4*i], values[4*i+1]);
-                sample.sample(energy, a/(a+b), values[4*i+2], values[4*i+3]);
+                sample.sample(cached, a / (a + b), values[4 * i + 2],
+                              values[4 * i + 3]);
                 if (i == 0) {
                     values[4*n] = reference.crossSection(energy);
                     values[4*n+1] = sample.crossSection(energy);

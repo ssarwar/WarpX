@@ -107,6 +107,10 @@ namespace ProtonImpactIonization
         [[nodiscard]] Executor executor () const noexcept;
         [[nodiscard]] amrex::ParticleReal monoenergeticCrossSection () const noexcept
             { return m_monoenergetic_cross_section; }
+        [[nodiscard]] Executor::SamplingState
+        monoenergeticSamplingState () const noexcept {
+            return m_monoenergetic_sampling_state;
+        }
 
         [[nodiscard]] static PJGTarget parseTarget (std::string const& target);
         [[nodiscard]] static std::string targetName (PJGTarget target);
@@ -142,6 +146,7 @@ namespace ProtonImpactIonization
         amrex::ParticleReal m_neutral_rest_energy = 0.0;
         amrex::ParticleReal m_minimum_binding_energy = 0.0;
         amrex::ParticleReal m_monoenergetic_cross_section = 0.0;
+        Executor::SamplingState m_monoenergetic_sampling_state;
         int m_first_row = 0;
         int m_rows = table_energy_points;
     };

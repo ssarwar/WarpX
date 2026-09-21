@@ -153,6 +153,12 @@ The model test initializes AMReX, builds the actual production tables and
 runs the executor through `amrex::ParallelFor`. It compares host SDCS and
 moments with independent Python/Simpson fixtures and checks float/double
 table interpolation, monotone quantiles, molecular support and invalid input.
+For a monoenergetic rigid beam, row selection, interpolation fraction, support
+endpoint and cached total are evaluated on the execution backend. Host/device
+logarithms can differ at float row boundaries. The test requires exact equality
+with the full device table at four physical energies and the neighboring
+representable energies around five table rows. Both native float and double
+particle versions passed on Perlmutter A100s in jobs `58712117` and `58712116`.
 The fixture can be regenerated with:
 
 ```sh

@@ -10,6 +10,8 @@
 #include "Utils/WarpXConst.H"
 
 #include <AMReX_Gpu.H>
+#include <AMReX_GpuLaunch.H>
+#include <AMReX_GpuMemory.H>
 #include <AMReX_REAL.H>
 #include <AMReX_Vector.H>
 
@@ -365,6 +367,27 @@ namespace ProtonImpactIonization
                 return std::expm1(m_x[i] + (lower + upper) / 2.0 * width);
             }
         };
+        PJGModel::Executor::SamplingState
+        samplingStateOnDevice (PJGModel::Executor executor,
+                               amrex::ParticleReal energy) {
+            amrex::Gpu::DeviceScalar<PJGModel::Executor::SamplingState> state;
+            auto* pointer = state.dataPtr();
+            amrex::ParallelFor(1, [=] AMREX_GPU_DEVICE(int) noexcept {
+                *pointer = executor.prepareSampling(energy);
+            });
+            return state.dataValue();
+        }
+
+        amrex::ParticleReal
+        crossSectionOnDevice (PJGModel::Executor executor,
+                              amrex::ParticleReal energy) {
+            amrex::Gpu::DeviceScalar<amrex::ParticleReal> total;
+            auto* pointer = total.dataPtr();
+            amrex::ParallelFor(1, [=] AMREX_GPU_DEVICE(int) noexcept {
+                *pointer = executor.crossSection(energy);
+            });
+            return total.dataValue();
+        }
     } // namespace
 
     PJGModel::PJGModel (PJGTarget const target, amrex::ParticleReal const projectile_rest_energy,
@@ -395,20 +418,24 @@ namespace ProtonImpactIonization
                                    static_cast<double>(projectile_energy_min)) /
                           (table_energy_points - 1);
         m_log_projectile_energy_min = static_cast<amrex::ParticleReal>(log_min);
-        m_inv_log_projectile_energy_step = static_cast<amrex::ParticleReal>(1.0 / step);
-        amrex::ParticleReal mono_fraction = 0.0;
+        m_inv_log_projectile_energy_step =
+            static_cast<amrex::ParticleReal>(1.0 / step);
         if (monoenergetic_energy >= 0.0) {
             WARPX_ALWAYS_ASSERT_WITH_MESSAGE(std::isfinite(monoenergetic_energy) &&
                 monoenergetic_energy >= projectile_energy_min &&
                 monoenergetic_energy <= projectile_energy_max,
                 "The rigid-beam energy must lie within the PJG table bounds.");
-            // Preserve the full table's coordinate arithmetic and row energies.
-            // Constructing a new two-point energy grid would change interpolation.
-            auto const coordinate = (std::log(monoenergetic_energy) -
-                m_log_projectile_energy_min)*m_inv_log_projectile_energy_step;
-            m_first_row = std::clamp(static_cast<int>(coordinate), 0, table_energy_points-2);
-            mono_fraction = std::clamp(coordinate-static_cast<amrex::ParticleReal>(m_first_row),
-                                       amrex::ParticleReal{0}, amrex::ParticleReal{1});
+            // Choose the same rows and fraction as the full table on the
+            // execution backend. Host and device log/fma can straddle a float
+            // table boundary. prepareSampling does not dereference the
+            // still-unallocated tables.
+            m_monoenergetic_sampling_state =
+                samplingStateOnDevice(executor(), monoenergetic_energy);
+            m_first_row = m_monoenergetic_sampling_state.m_energy_index;
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                m_first_row >= 0 && m_first_row < table_energy_points - 1,
+                "Invalid monoenergetic PJG coordinate.");
+            m_monoenergetic_sampling_state.m_energy_index = 0;
             m_rows = 2;
         }
         amrex::Vector<amrex::ParticleReal> cross_section(m_rows);
@@ -432,10 +459,6 @@ namespace ProtonImpactIonization
                     values[0] > 0.0 ? values[1] / values[0] : p.m_thresholds[0]);
             }
         }
-        if (m_rows == 2) {
-            m_monoenergetic_cross_section =
-                (1-mono_fraction)*cross_section[0] + mono_fraction*cross_section[1];
-        }
         m_cross_section.resize(cross_section.size());
         m_log_secondary_energy.resize(log_secondary.size());
         m_binding_energy.resize(binding.size());
@@ -445,6 +468,10 @@ namespace ProtonImpactIonization
                          m_log_secondary_energy.begin());
         amrex::Gpu::copy(amrex::Gpu::hostToDevice, binding.begin(), binding.end(),
                          m_binding_energy.begin());
+        if (m_rows == 2) {
+            m_monoenergetic_cross_section =
+                crossSectionOnDevice(executor(), monoenergetic_energy);
+        }
     }
 
     PJGModel::Executor
