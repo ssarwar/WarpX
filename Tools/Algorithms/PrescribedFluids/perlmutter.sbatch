@@ -15,6 +15,10 @@ module load gcc-native/13.2 cudatoolkit/13.2 cmake/3.30.2
 module load cray-python/3.11.7 cray-hdf5-parallel/1.14.3.9
 cd "${SLURM_SUBMIT_DIR}"
 source .venv/bin/activate
+if [[ -d "$PWD/build/backend-deps/cuda13/lib" ]]; then
+    # Keep an older user BLAS++ installation from overriding the build's ABI.
+    export LD_LIBRARY_PATH="$PWD/build/backend-deps/cuda13/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+fi
 export PYTHONPATH="$PWD/build/lib/site-packages${PYTHONPATH:+:$PYTHONPATH}"
 export MPLCONFIGDIR="$PWD/build/.mpl-cache"
 export OMP_NUM_THREADS=1
