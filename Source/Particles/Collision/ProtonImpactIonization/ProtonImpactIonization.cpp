@@ -7,6 +7,7 @@
 #include "ProtonImpactIonization.H"
 
 #include "Particles/Collision/BackgroundMCC/BackgroundMCCKinematics.H"
+#include "Particles/Collision/IonProductDestination.H"
 #include "Particles/Collision/ProtonImpactIonization/IonizationSampling.H"
 #include "Particles/Collision/ProtonImpactIonization/ProtonImpactIonizationKinematics.H"
 #include "Particles/MultiParticleContainer.H"
@@ -83,7 +84,7 @@ ProtonImpactIonizationCollision::ProtonImpactIonizationCollision (
 
     auto& projectile = mypc->GetParticleContainerFromName(m_species_names[0]);
     auto& electron = mypc->GetParticleContainerFromName(m_product_species[0]);
-    auto& ion = mypc->GetParticleContainerFromName(m_product_species[1]);
+    IonProductDestination const ion(m_product_species[1], *mypc);
 
     auto const projectile_charge_state = projectile.getCharge() / PhysConst::q_e;
     auto const rounded_charge_state = amrex::Math::round(projectile_charge_state);
@@ -211,14 +212,16 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
 
     auto& projectile = mypc->GetParticleContainerFromName(m_species_names[0]);
     auto& electron = mypc->GetParticleContainerFromName(m_product_species[0]);
-    auto& ion = mypc->GetParticleContainerFromName(m_product_species[1]);
+    IonProductDestination const ion_destination(m_product_species[1], *mypc);
+    auto* ion = ion_destination.particles();
+    bool const fluid_ion = ion_destination.isFluid();
     electron.defineAllParticleTiles();
-    ion.defineAllParticleTiles();
+    if (ion) { ion->defineAllParticleTiles(); }
 
     SmartCopyFactory const electron_copy_factory(projectile, electron);
-    SmartCopyFactory const ion_copy_factory(projectile, ion);
+    auto const ion_copy_factory = ion ? std::make_unique<SmartCopyFactory>(projectile, *ion) : nullptr;
     SmartCopy const copy_electron = electron_copy_factory.getSmartCopy();
-    SmartCopy const copy_ion = ion_copy_factory.getSmartCopy();
+    SmartCopy const copy_ion = ion_copy_factory ? ion_copy_factory->getSmartCopy() : copy_electron;
 
 #ifdef AMREX_USE_GPU
     amrex::Gpu::DeviceScalar<SmartCopy> device_copy_electron(copy_electron);
@@ -240,7 +243,7 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
     auto const projectile_mass = projectile.getMass();
     // Products inherit the neutral velocity distribution, not an ion Maxwellian
     // at the same temperature. Neglect the binding mass defect in this conversion.
-    auto const neutral_mass = ion.getMass() + PhysConst::m_e;
+    auto const neutral_mass = ion_destination.getMass() + PhysConst::m_e;
     auto const charge_squared = m_projectile_charge_squared;
     auto const fixed_product_weight = m_fixed_product_weight;
     auto const max_products_per_cell = m_max_products_per_cell;
@@ -400,18 +403,18 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
             }
 
             auto& electron_tile = electron.ParticlesAt(lev, mfi);
-            auto& ion_tile = ion.ParticlesAt(lev, mfi);
+            auto* ion_tile = ion ? &ion->ParticlesAt(lev, mfi) : nullptr;
             auto const old_electron_count = electron_tile.numParticles();
-            auto const old_ion_count = ion_tile.numParticles();
+            auto const old_ion_count = ion_tile ? ion_tile->numParticles() : 0;
             WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
                 old_electron_count + total_new <= std::numeric_limits<int>::max() &&
                     old_ion_count + total_new <= std::numeric_limits<int>::max(),
                 "Proton-impact product tiles must contain fewer than INT_MAX "
                 "particles.");
             electron_tile.resize(old_electron_count + total_new);
-            ion_tile.resize(old_ion_count + total_new);
+            if (ion_tile) { ion_tile->resize(old_ion_count + total_new); }
             SoaDataType const electron_data = electron_tile.getParticleTileData();
-            SoaDataType const ion_data = ion_tile.getParticleTileData();
+            SoaDataType const ion_data = ion_tile ? ion_tile->getParticleTileData() : SoaDataType{};
 
 #ifdef AMREX_USE_GPU
             amrex::Gpu::DeviceScalar<SoaDataType> device_electron_data(electron_data);
@@ -516,8 +519,10 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
                     auto const ion_index = old_ion_count + output_offset;
                     electron_copy(*electron_data_pointer, projectile_data, selected_particle,
                                   static_cast<int>(electron_index), engine);
-                    ion_copy(*ion_data_pointer, projectile_data, selected_particle,
-                             static_cast<int>(ion_index), engine);
+                    if (!fluid_ion) {
+                        ion_copy(*ion_data_pointer, projectile_data, selected_particle,
+                                 static_cast<int>(ion_index), engine);
+                    }
 
                     // An independent shift makes every energy quantile uniform
                     // conditional on its selected parent. Ordered quantiles
@@ -583,13 +588,15 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
                                                                  0x7311c281u),
                             normal_z, unused_normal);
                     }
-                    ion_ux[ion_index] = thermal_speed * normal_x;
-                    ion_uy[ion_index] = thermal_speed * normal_y;
-                    ion_uz[ion_index] = thermal_speed * normal_z;
+                    if (!fluid_ion) {
+                        ion_ux[ion_index] = thermal_speed * normal_x;
+                        ion_uy[ion_index] = thermal_speed * normal_y;
+                        ion_uz[ion_index] = thermal_speed * normal_z;
+                    }
 
                     auto const weight = product_weight_pointer[cell];
                     electron_weight[electron_index] = weight;
-                    ion_weight[ion_index] = weight;
+                    if (!fluid_ion) { ion_weight[ion_index] = weight; }
                 }
             });
 
@@ -597,13 +604,28 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
                 ParticleCreation::DefaultInitializeRuntimeAttributes(
                     electron_tile, electron, static_cast<int>(old_electron_count),
                     static_cast<int>(old_electron_count + total_new));
-                ParticleCreation::DefaultInitializeRuntimeAttributes(
-                    ion_tile, ion, static_cast<int>(old_ion_count),
-                    static_cast<int>(old_ion_count + total_new));
+                if (ion_tile) {
+                    ParticleCreation::DefaultInitializeRuntimeAttributes(
+                        *ion_tile, *ion, static_cast<int>(old_ion_count),
+                        static_cast<int>(old_ion_count + total_new));
+                }
             }
+#ifdef WARPX_DIM_RZ
+            if (fluid_ion) {
+                auto const deposit = ion_destination.deposit(lev, mfi);
+                // Scatter the actual stored electron footprint, after SmartCopy
+                // and weight assignment. There is no temporary ion particle.
+                amrex::For(total_new, [=] AMREX_GPU_DEVICE(int i) noexcept {
+                    auto const p = old_electron_count + i;
+                    deposit(electron_data.m_rdata[PIdx::r][p],
+                            electron_data.m_rdata[PIdx::z][p], electron_weight[p]);
+                });
+            }
+#endif
             amrex::Gpu::synchronize();
             setNewParticleIDs(electron_tile, old_electron_count, total_new);
-            setNewParticleIDs(ion_tile, old_ion_count, total_new);
+            if (ion_tile) { setNewParticleIDs(*ion_tile, old_ion_count, total_new); }
         }
+        ion_destination.commit(lev);
     }
 }

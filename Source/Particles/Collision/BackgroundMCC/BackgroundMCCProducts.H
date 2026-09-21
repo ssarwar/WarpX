@@ -60,7 +60,8 @@ public:
                int const i_dst2, int const process_index,
                amrex::ParticleReal const collision_energy, amrex::ParticleReal const neutral_vx,
                amrex::ParticleReal const neutral_vy, amrex::ParticleReal const neutral_vz,
-               double const ion_mass, amrex::RandomEngine const& engine) const noexcept
+               double const ion_mass, amrex::RandomEngine const& engine,
+               bool const immobile_ion = false) const noexcept
     {
         using namespace amrex;
         using namespace amrex::literals;
@@ -72,9 +73,12 @@ public:
         auto& e_ux = dst1.m_rdata[PIdx::ux][i_dst1];
         auto& e_uy = dst1.m_rdata[PIdx::uy][i_dst1];
         auto& e_uz = dst1.m_rdata[PIdx::uz][i_dst1];
-        auto& i_ux = dst2.m_rdata[PIdx::ux][i_dst2];
-        auto& i_uy = dst2.m_rdata[PIdx::uy][i_dst2];
-        auto& i_uz = dst2.m_rdata[PIdx::uz][i_dst2];
+        // The electron kinematics still include finite-mass recoil when the
+        // product ion is immobile. Only the resulting ion motion is discarded.
+        ParticleReal discarded_ux = 0.0, discarded_uy = 0.0, discarded_uz = 0.0;
+        auto& i_ux = immobile_ion ? discarded_ux : dst2.m_rdata[PIdx::ux][i_dst2];
+        auto& i_uy = immobile_ion ? discarded_uy : dst2.m_rdata[PIdx::uy][i_dst2];
+        auto& i_uz = immobile_ion ? discarded_uz : dst2.m_rdata[PIdx::uz][i_dst2];
 
         ParticleReal const energy_cost =
             m_processes[process_index].m_energy_penalty;

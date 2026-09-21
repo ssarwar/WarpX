@@ -1,6 +1,25 @@
 # Add tests (alphabetical order) ##############################################
 #
 
+foreach(kind IN ITEMS proton ionization attachment)
+    foreach(shape RANGE 1 4)
+        add_warpx_test(
+            test_rz_immobile_${kind}_${shape}_picmi
+            RZ 2
+            "inputs_test_rz_immobile_products_picmi.py --kind ${kind} --shape ${shape}"
+            OFF OFF OFF
+        )
+    endforeach()
+    if(WarpX_FFT)
+        add_warpx_test(
+            test_rz_immobile_${kind}_psatd_picmi
+            RZ 2
+            "inputs_test_rz_immobile_products_picmi.py --kind ${kind} --solver PSATD"
+            OFF OFF OFF
+        )
+    endif()
+endforeach()
+
 add_warpx_test(
     test_1d_background_mcc_attachment_picmi  # name
     1  # dims

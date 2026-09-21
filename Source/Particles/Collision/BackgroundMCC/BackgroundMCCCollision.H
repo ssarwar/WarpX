@@ -11,6 +11,7 @@
 #include "BackgroundMCCIonization.H"
 #include "BackgroundMCCProcessSelector.H"
 #include "Particles/Collision/CollisionBase.H"
+#include "Particles/Collision/IonProductDestination.H"
 #include "Particles/Collision/ScatteringProcess.H"
 #include "Particles/MultiParticleContainer.H"
 
@@ -92,7 +93,7 @@ private:
     std::unique_ptr<SmartCopyFactory> m_electron_copy_factory;
     std::vector<std::unique_ptr<SmartCopyFactory>> m_product_copy_factories;
     std::unique_ptr<BackgroundMCCParticleCreation> m_particle_creation;
-    std::vector<WarpXParticleContainer*> m_product_species;
+    std::vector<IonProductDestination> m_product_species;
 
     bool init_flag = false;
     bool m_has_iaa_differential_processes = false;

@@ -726,9 +726,8 @@ BackgroundMCCCollision::doCollisions (
             m_product_species.reserve(m_product_groups.size());
             for (auto const& product_group : m_product_groups)
             {
-                auto& product = mypc->GetParticleContainerFromName(
-                    product_group.species_name);
-                m_product_species.push_back(&product);
+                m_product_species.emplace_back(product_group.species_name, *mypc);
+                auto const& product = m_product_species.back();
                 WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
                     product_group.species_name != m_species_names[0],
                     "Background MCC product species must differ from the incident "
@@ -783,7 +782,8 @@ BackgroundMCCCollision::doCollisions (
             {
                 m_product_copy_factories.push_back(
                     std::make_unique<SmartCopyFactory>(
-                        species1, *m_product_species[group]));
+                        species1, m_product_species[group].isFluid()
+                                      ? species1 : *m_product_species[group].particles()));
                 product_copies.push_back(
                     m_product_copy_factories.back()->getSmartCopy());
                 product_group_types.push_back(m_product_groups[group].type);
@@ -999,9 +999,10 @@ BackgroundMCCCollision::doCollisions (
                 amrex::Vector<WarpXParticleContainer::ParticleTileType*>
                     product_tiles;
                 product_tiles.reserve(product_group_count);
-                for (auto* product : product_species)
+                for (auto const& product : product_species)
                 {
-                    product_tiles.push_back(&product->ParticlesAt(lev, pti));
+                    product_tiles.push_back(product.isFluid() ? nullptr :
+                        &product.particles()->ParticlesAt(lev, pti));
                 }
 
                 ABLASTR_PROFILE_VAR(
@@ -1012,7 +1013,7 @@ BackgroundMCCCollision::doCollisions (
                     product_species,
                     product_tiles,
                     product_events.dataPtr(),
-                    product_counts_h);
+                    product_counts_h, lev, pti);
                 ABLASTR_PROFILE_VAR_STOP(prof_create_products);
 
                 if (attachment_events > 0)
@@ -1032,6 +1033,16 @@ BackgroundMCCCollision::doCollisions (
                 wt = static_cast<amrex::Real>(amrex::second()) - wt;
                 amrex::HostDevice::Atomic::Add(&(*cost)[pti.index()], wt);
             }
+        }
+        // The same fluid can receive several groups; commit each destination
+        // only once, after all tiles have completed their fresh deposits.
+        for (std::size_t group = 0; group < product_species.size(); ++group) {
+            bool first = true;
+            for (std::size_t previous = 0; previous < group; ++previous) {
+                first = first && m_product_groups[previous].species_name !=
+                                     m_product_groups[group].species_name;
+            }
+            if (first) { product_species[group].commit(lev); }
         }
     }
 

@@ -9,6 +9,7 @@
 
 #include "BackgroundMCCProducts.H"
 
+#include "Particles/Collision/IonProductDestination.H"
 #include "Particles/ParticleCreation/DefaultInitialization.H"
 #include "Particles/ParticleCreation/SmartCopy.H"
 #include "Particles/WarpXParticleContainer.H"
@@ -57,12 +58,14 @@ class BackgroundMCCParticleCreation
         amrex::Long m_first_id;
         int m_old_count;
         int m_electron_offset;
+        ImmobileDensityDeposit m_deposit;
+        bool m_immobile;
     };
 
 public:
     BackgroundMCCParticleCreation (
         amrex::Vector<ScatteringProcessType> const& product_group_types,
-        std::vector<WarpXParticleContainer*> const& product_species,
+        std::vector<IonProductDestination> const& product_species,
         SmartCopy const copy_electron,
         std::vector<SmartCopy> const& copy_products,
         ScatteringProcess::Executor const* processes,
@@ -86,7 +89,8 @@ public:
         for (std::size_t group = 0; group < group_count; ++group)
         {
             m_product_group_types_h[group] = static_cast<int>(product_group_types[group]);
-            m_product_masses_h[group] = static_cast<double>(product_species[group]->getMass());
+            m_product_masses_h[group] = static_cast<double>(product_species[group].getMass());
+            m_has_fluid |= product_species[group].isFluid();
         }
 
 #ifdef AMREX_USE_GPU
@@ -125,10 +129,11 @@ public:
     operator() (
         WarpXParticleContainer& source_species,
         ParticleTileType& source_tile,
-        std::vector<WarpXParticleContainer*> const& product_species,
+        std::vector<IonProductDestination> const& product_species,
         amrex::Vector<ParticleTileType*> const& product_tiles,
         BackgroundMCCProductEvent const* product_events,
-        amrex::Vector<int> const& product_counts) const
+        amrex::Vector<int> const& product_counts,
+        int lev, amrex::MFIter const& mfi) const
     {
         auto const group_count = static_cast<std::size_t>(product_counts.size());
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(product_species.size() == group_count,
@@ -181,6 +186,12 @@ public:
         amrex::Gpu::HostVector<ProductTileMetadata> product_tile_metadata_h(group_count);
         for (std::size_t group = 0; group < group_count; ++group)
         {
+            if (product_species[group].isFluid()) {
+                product_tile_metadata_h[group] = {
+                    ParticleTileDataType{}, -1, 0, electron_group_offsets_h[group],
+                    product_species[group].deposit(lev, mfi), true};
+                continue;
+            }
             auto& product_tile = *product_tiles[group];
             auto const old_count = product_tile.numParticles();
             auto const count = product_counts[group];
@@ -193,7 +204,7 @@ public:
                 product_tile.getParticleTileData(),
                 count > 0 ? reserveParticleIDs(count) : -1,
                 static_cast<int>(old_count),
-                electron_group_offsets_h[group]};
+                electron_group_offsets_h[group], {}, false};
         }
 
         int const* product_group_types = m_product_group_types_h.data();
@@ -227,6 +238,9 @@ public:
             ImpactIonizationTransformFunc(processes, ionization_processes, electron_mass);
         AttachmentTransformFunc const attachment_transform;
 
+        amrex::Gpu::DeviceVector<int> deposited_source(m_has_fluid ? total_events : 0, -1);
+        auto* deposit_index = deposited_source.data();
+
         amrex::ParallelForRNG(total_events,
             [=] AMREX_GPU_DEVICE(int const event_index, amrex::RandomEngine const& engine) noexcept
             {
@@ -239,19 +253,26 @@ public:
                 int const product_index = group_metadata.m_old_count + group_offset;
                 auto source = source_data;
                 auto product = group_metadata.m_data;
-                copy_products[group](product, source, source_index, product_index, engine);
+                if (!group_metadata.m_immobile) {
+                    copy_products[group](product, source, source_index, product_index, engine);
+                }
 
                 auto const type = static_cast<ScatteringProcessType>(product_group_types[group]);
                 if (type == ScatteringProcessType::ATTACHMENT)
                 {
-                    attachment_transform(product,
+                    if (group_metadata.m_immobile) {
+                        source.m_idcpu[source_index] = amrex::ParticleIdCpus::Invalid;
+                        deposit_index[event_index] = source_index;
+                    } else {
+                        attachment_transform(product,
                         source,
                         source_index,
                         product_index,
                         event.m_neutral_vx,
                         event.m_neutral_vy,
                         event.m_neutral_vz,
-                        engine);
+                            engine);
+                    }
                 }
                 else
                 {
@@ -261,25 +282,46 @@ public:
                     auto const accepted = ionization_transform(
                         source, product, source, source_index, electron_index, product_index,
                         process, event.m_collision_energy, event.m_neutral_vx, event.m_neutral_vy,
-                        event.m_neutral_vz, product_masses[group], engine);
+                        event.m_neutral_vz, product_masses[group], engine,
+                        group_metadata.m_immobile);
                     if (!accepted) {
                         // An inadmissible recoil draw is a null collision.
                         // The source is unchanged. Compact the reserved slots
                         // after this kernel, before another collision operator.
                         source.m_idcpu[electron_index] = amrex::ParticleIdCpus::Invalid;
-                        product.m_idcpu[product_index] = amrex::ParticleIdCpus::Invalid;
                         source.m_rdata[PIdx::w][electron_index] = 0.0;
-                        product.m_rdata[PIdx::w][product_index] = 0.0;
+                        if (!group_metadata.m_immobile) {
+                            product.m_idcpu[product_index] = amrex::ParticleIdCpus::Invalid;
+                            product.m_rdata[PIdx::w][product_index] = 0.0;
+                        }
                         return;
                     }
                     source.m_idcpu[electron_index] = amrex::SetParticleIDandCPU(
                         first_electron_id + group_metadata.m_electron_offset +
                             group_offset,
                         cpu);
+                    if (group_metadata.m_immobile) { deposit_index[event_index] = electron_index; }
                 }
-                product.m_idcpu[product_index] = amrex::SetParticleIDandCPU(
-                    group_metadata.m_first_id + group_offset, cpu);
+                if (!group_metadata.m_immobile) {
+                    product.m_idcpu[product_index] = amrex::SetParticleIDandCPU(
+                        group_metadata.m_first_id + group_offset, cpu);
+                }
             });
+
+#ifdef WARPX_DIM_RZ
+        // This scatter must finish before attached and rejected electrons are
+        // compacted. In particular, attachment transfers the removed footprint.
+        if (m_has_fluid) {
+            amrex::For(total_events, [=] AMREX_GPU_DEVICE(int event_index) noexcept {
+                int const p = deposit_index[event_index];
+                if (p < 0) { return; }
+                auto const group = process_product_group[product_events[event_index].m_process];
+                product_tile_metadata[group].m_deposit(
+                    source_data.m_rdata[PIdx::r][p], source_data.m_rdata[PIdx::z][p],
+                    source_data.m_rdata[PIdx::w][p]);
+            });
+        }
+#endif
 
         if (total_ionization_events > 0)
         {
@@ -291,14 +333,14 @@ public:
         for (std::size_t group = 0; group < group_count; ++group)
         {
             auto const count = product_counts[group];
-            if (count == 0)
+            if (count == 0 || product_species[group].isFluid())
             {
                 continue;
             }
             auto const old_count = product_tile_metadata_h[group].m_old_count;
             auto const new_count = old_count + count;
             ParticleCreation::DefaultInitializeRuntimeAttributes(
-                *product_tiles[group], *product_species[group], old_count, new_count);
+                *product_tiles[group], *product_species[group].particles(), old_count, new_count);
         }
 
         // Particle-tile data and group offsets are local temporaries. Complete
@@ -316,7 +358,7 @@ public:
                 amrex::removeInvalidParticles(source_tile);
             }
             for (std::size_t group = 0; group < group_count; ++group) {
-                if (product_counts[group] > 0 &&
+                if (!product_species[group].isFluid() && product_counts[group] > 0 &&
                     static_cast<ScatteringProcessType>(m_product_group_types_h[group]) ==
                         ScatteringProcessType::IONIZATION) {
                     amrex::removeInvalidParticles(*product_tiles[group]);
@@ -355,6 +397,7 @@ private:
     BackgroundMCCIonizationModel::Executor const* m_ionization_processes;
     int const* m_process_product_group;
     double m_electron_mass;
+    bool m_has_fluid = false;
 };
 
 #endif // WARPX_PARTICLES_COLLISION_BACKGROUNDMCC_PARTICLE_CREATION_H_
