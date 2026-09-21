@@ -18,7 +18,7 @@ qe = 1.602176634e-19
 
 def cell_center(values):
     values = np.squeeze(values)
-    for axis, cells in enumerate([16, 32]):
+    for axis, cells in enumerate([16, 64]):
         if values.shape[axis] == cells + 1:
             values = (
                 np.take(values, range(cells), axis=axis)
@@ -52,7 +52,7 @@ for path in outputs:
     step = int(path.name[-6:])
     ds = yt.load(str(path))
     np.testing.assert_allclose(float(ds.current_time), step * 1e-12, rtol=2e-15)
-    assert ds.domain_dimensions.tolist() == [16, 32, 1]
+    assert ds.domain_dimensions.tolist() == [16, 64, 1]
     grid = ds.covering_grid(0, ds.domain_left_edge, ds.domain_dimensions)
     if step == 0:
         continue

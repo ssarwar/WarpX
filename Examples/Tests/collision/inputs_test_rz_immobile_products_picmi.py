@@ -21,6 +21,7 @@ parser.add_argument(
 )
 parser.add_argument("--walls", action="store_true")
 parser.add_argument("--restart")
+parser.add_argument("--small-tiles", action="store_true")
 args = parser.parse_args()
 
 grid = picmi.CylindricalGrid(
@@ -151,6 +152,10 @@ for sp in species:
 if args.kind == "attachment":
     sim.add_diagnostic(picmi.Checkpoint(name="chk", period=2))
 sim.initialize_inputs()
+if args.small_tiles:
+    # Neighboring OpenMP tiles scatter into shared nodes of the same FAB.
+    warpx.get_bucket("particles").do_tiling = True
+    warpx.get_bucket("particles").tile_size = [4, 4]
 if args.restart:
     amr.restart = args.restart
 warpx.get_bucket("fluids").species_names = ["ion_fluid"]

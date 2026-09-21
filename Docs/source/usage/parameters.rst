@@ -2237,6 +2237,10 @@ Fluid species
     Supported solvers are explicit Yee, explicit PSATD with
     ``psatd.current_correction = 1``, and ``semi_implicit_em`` with or without mass matrices.
     Beam current is independent of the fields and adds no mass-matrix response.
+    Runtime load balancing is supported with the explicit solvers. With
+    ``semi_implicit_em``, keep ``algo.load_balance_intervals = 0``: the native
+    implicit solver's work arrays retain their original MPI ownership.
+    All supported solvers allow a different MPI decomposition on restart.
 
     Immobile density defaults to zero. To initialize it, use ``profile = constant``
     with ``density``, or ``profile = parse_density_function`` with

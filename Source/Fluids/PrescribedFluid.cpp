@@ -78,7 +78,9 @@ WarpXFluidContainer::CommitDensityIncrement (ablastr::fields::MultiFabRegister& 
     // frozen kinetic ions, rather than truncating each persistent increment.
     amrex::MultiFab::Add(density, increment, 0, 0, 1, density.nGrowVect());
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-        density.min(0) >= 0.0 && !density.contains_nan() && !density.contains_inf(),
+        density.min(0, density.nGrow()) >= 0.0 &&
+            !density.contains_nan(0, 1, density.nGrow()) &&
+            !density.contains_inf(0, 1, density.nGrow()),
         "An immobile-fluid update produced a negative or non-finite number density.");
     density.FillBoundary(warpx.Geom(lev).periodicity());
     increment.setVal(0.0);

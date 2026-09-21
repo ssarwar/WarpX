@@ -15,6 +15,13 @@ foreach(solver IN ITEMS Yee PSATD semi_implicit_em semi_implicit_mm)
         "inputs_test_rz_rigid_source_picmi.py --solver ${solver} --subcycles 2 --restart ../test_rz_rigid_source_${solver}_picmi/diags/chk000002"
         analysis_rz_prescribed_outputs.py OFF "test_rz_rigid_source_${solver}_picmi"
     )
+    if(solver STREQUAL "Yee" OR solver STREQUAL "PSATD")
+        add_warpx_test(
+            test_rz_rigid_source_${solver}_load_balance_picmi RZ 2
+            "inputs_test_rz_rigid_source_picmi.py --solver ${solver} --subcycles 2 --load-balance"
+            analysis_rz_prescribed_outputs.py OFF "test_rz_rigid_source_${solver}_picmi"
+        )
+    endif()
 endforeach()
 
 if(WarpX_OPENPMD)
@@ -51,6 +58,16 @@ foreach(kind IN ITEMS proton ionization attachment)
             RZ 2
             "inputs_test_rz_immobile_products_picmi.py --kind ${kind} --solver PSATD"
             OFF OFF OFF
+        )
+    endif()
+    if(WarpX_COMPUTE STREQUAL "OMP")
+        add_warpx_test(
+            test_rz_immobile_${kind}_threaded_picmi RZ 2
+            "inputs_test_rz_immobile_products_picmi.py --kind ${kind} --shape 4 --walls --small-tiles"
+            OFF OFF OFF
+        )
+        set_tests_properties(test_rz_immobile_${kind}_threaded_picmi.run PROPERTIES
+            ENVIRONMENT_MODIFICATION "OMP_NUM_THREADS=set:4"
         )
     endif()
 endforeach()

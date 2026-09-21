@@ -29,6 +29,7 @@ cases = {
     "beam": (None, "prescribed-fluid species, models"),
     "source": (None, "immutable physics/sampling configuration changed"),
     "particle_diagnostic": (None, "requires kinetic species"),
+    "load_balance": (None, "require fixed MPI ownership during a run"),
 }
 for name, (missing, expected) in cases.items():
     directory = Path(name).resolve()
@@ -48,7 +49,7 @@ for name, (missing, expected) in cases.items():
             sys.executable,
             str(source),
             "--solver",
-            "Yee",
+            "semi_implicit_em" if name == "load_balance" else "Yee",
             "--subcycles",
             "2",
             "--restart",

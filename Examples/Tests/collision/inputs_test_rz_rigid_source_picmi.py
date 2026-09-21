@@ -30,6 +30,7 @@ parser.add_argument("--restart")
 parser.add_argument("--openpmd", action="store_true")
 parser.add_argument("--subcycles", type=int, default=1)
 parser.add_argument("--alpha", action="store_true")
+parser.add_argument("--load-balance", action="store_true")
 args = parser.parse_args()
 if os.environ.get("WARPX_TEST_RESTART_MUTATION"):
     amrex.throw_exception = 1
@@ -51,7 +52,7 @@ sigma_z = speed * sigma_t
 cutoff, ngas, dt, steps = 2.0, 1e21, 1e-12, 6
 rmax, zmin, zmax = 8 * sigma_r, -4 * sigma_z, 4 * sigma_z
 grid = picmi.CylindricalGrid(
-    number_of_cells=[16, 32],
+    number_of_cells=[16, 64],
     lower_bound=[0, zmin],
     upper_bound=[rmax, zmax],
     lower_boundary_conditions=["none", "periodic"],
@@ -122,6 +123,9 @@ sim = picmi.Simulation(
     particle_shape=3,
     warpx_collisions=collisions,
     warpx_amr_restart=args.restart,
+    warpx_load_balance_intervals=1 if args.load_balance else None,
+    warpx_load_balance_efficiency_ratio_threshold=0.1 if args.load_balance else None,
+    warpx_load_balance_costs_update="heuristic" if args.load_balance else None,
     warpx_current_deposition_algo="direct"
     if args.solver.startswith("semi_implicit")
     else None,
@@ -198,6 +202,8 @@ elif mutation == "remove":
     warpx.get_bucket("fluids").species_names = ["beam"]
 elif mutation == "particle_diagnostic":
     warpx.get_bucket("ParticleEnergy").species = ["beam"]
+elif mutation == "load_balance":
+    warpx.get_bucket("algo").load_balance_intervals = 1
 sim.initialize_warpx()
 
 
@@ -252,6 +258,8 @@ def state():
 
 
 start = sim.extension.warpx.getistep(lev=0)
+initial_distribution = list(sim.extension.warpx.DistributionMap(0).ProcessorMap())
+redistributed = False
 if args.restart:
     assert start == 2
     reference = Path(args.restart).parents[1] / "state_2.npz"
@@ -269,6 +277,10 @@ number = (
 previous = {name: population(values[0].name) for name, values in cases.items()}
 for step in range(start + 1, steps + 1):
     sim.step(1)
+    redistributed |= (
+        list(sim.extension.warpx.DistributionMap(0).ProcessorMap())
+        != initial_distribution
+    )
     for name, (electron, ion, target, mode, weight) in cases.items():
         emitted = population(electron.name)
         remaining = field(name + "_product_weight_remainder")
@@ -381,8 +393,17 @@ for step in range(start + 1, steps + 1):
     saved_state = state()
     if MPI.COMM_WORLD.rank == 0:
         np.savez(f"state_{step}.npz", **saved_state)
-if args.restart:
-    with np.load(Path(args.restart).parents[1] / f"state_{steps}.npz") as saved:
+if args.load_balance:
+    assert redistributed, (
+        "The test must redistribute persistent fields across MPI ranks"
+    )
+if args.restart or args.load_balance:
+    reference_directory = (
+        Path(args.restart).parents[1]
+        if args.restart
+        else Path(f"../test_rz_rigid_source_{args.solver}_picmi")
+    )
+    with np.load(reference_directory / f"state_{steps}.npz") as saved:
         for name, value in state().items():
             if name.startswith(("Efield_fp", "Bfield_fp")):
                 # MPI redistribution changes the order of the implicit solver's

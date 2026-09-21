@@ -110,6 +110,12 @@ void WarpXFluidContainer::ReadParameters()
                  warpx.evolve_scheme == EvolveScheme::Semi_Implicit_EM),
             "Prescribed fluids support explicit Yee, explicit PSATD, and semi_implicit_em.");
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            warpx.evolve_scheme != EvolveScheme::Semi_Implicit_EM ||
+                !warpx.get_load_balance_intervals().isActivated(),
+            "Prescribed fluids with semi_implicit_em require fixed MPI ownership during a run: "
+            "the implicit solver's work arrays do not support runtime load balancing. "
+            "Restarting with a different MPI decomposition is supported.");
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
             !m_rigid_beam || WarpX::electromagnetic_solver_id != ElectromagneticSolverAlgo::PSATD ||
                 warpx.current_correction,
             "A rigid beam with PSATD requires psatd.current_correction = 1.");
