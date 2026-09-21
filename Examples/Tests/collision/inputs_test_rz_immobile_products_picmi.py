@@ -54,7 +54,8 @@ qe, me, mp, c = (
     picmi.constants.m_p,
     picmi.constants.c,
 )
-mi = 28.0134 * 1.66053906660e-27 - me
+neutral_mass = 28.0134 * 1.66053906660e-27
+mi = neutral_mass + (me if args.kind == "attachment" else -me)
 ion_fluid = picmi.Species(name="ion_fluid", charge=qe, mass=mi)
 electrons = picmi.Species(name="electrons", particle_type="electron", **frozen)
 species = [electrons]
@@ -116,7 +117,7 @@ else:
             species=electrons,
             background_density=1e24,
             background_temperature=0,
-            background_mass=mi + me,
+            background_mass=neutral_mass,
             scattering_processes={args.kind: process},
         )
     )
