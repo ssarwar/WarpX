@@ -51,6 +51,32 @@ Use `--dt`, `--cells`, `--weight`, `--cap`, `--source-resolution` and
 must be perfect squares. No beam wraps around the periodic longitudinal domain
 in these comparison runs; the driver rejects runs long enough to do so.
 
+`convergence.py` writes and runs five fixed study manifests. Analyze each with
+`analyze_convergence.py` using the same study name and output directory:
+
+```bash
+python Tools/Algorithms/PrescribedFluids/convergence.py deposition --output build/deposition-study
+python Tools/Algorithms/PrescribedFluids/analyze_convergence.py deposition build/deposition-study
+python Tools/Algorithms/PrescribedFluids/convergence.py source --output build/source-study
+python Tools/Algorithms/PrescribedFluids/analyze_convergence.py source build/source-study
+python Tools/Algorithms/PrescribedFluids/convergence.py joint --output build/joint-study
+python Tools/Algorithms/PrescribedFluids/analyze_convergence.py joint build/joint-study
+python Tools/Algorithms/PrescribedFluids/convergence.py solvers --output build/solver-study
+python Tools/Algorithms/PrescribedFluids/analyze_convergence.py solvers build/solver-study
+python Tools/Algorithms/PrescribedFluids/convergence.py continuum --output build/continuum-study
+python Tools/Algorithms/PrescribedFluids/analyze_convergence.py continuum build/continuum-study
+```
+
+The source study varies one parameter at a time over six seeds and includes
+moving thermal ions. At fixed product weight, mesh refinement increases the
+number of cells retaining fractional yields. Include pending production in the
+primary-yield budget, then reduce the weight to converge the emission delay and
+secondary chemistry. A finer mesh alone does not remove that sampling error.
+The joint study reduces product weight by eight when halving each mesh spacing,
+so the global un-emitted fraction tends to zero during mesh refinement.
+The solver study compares moving electrons and all collision channels across
+Yee, PSATD and both semi-implicit configurations, at two resolved timesteps.
+
 For a mesh study, hold domain extents fixed and double both cell counts. For a
 domain study, double `--radial-sigmas`, `--longitudinal-sigmas` and cell counts
 together. The finite-domain initial self-field solve has zero potential at the outer

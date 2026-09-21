@@ -237,27 +237,43 @@ def main():
     import matplotlib.pyplot as plt
 
     fig, axes = plt.subplots(1, 2, figsize=(10, 4), constrained_layout=True)
-    for beam, ions in dict.fromkeys((row["beam"], row["ions"]) for row in rows):
+    for group_index, (beam, ions) in enumerate(
+        dict.fromkeys((row["beam"], row["ions"]) for row in rows)
+    ):
         selected = sorted(
             [row for row in rows if row["beam"] == beam and row["ions"] == ions],
             key=lambda row: row["ppc"],
         )
         label = f"{beam} beam, {ions} ions"
+        color = f"C{group_index}"
         x = [row["timestep_s"]["mean"] for row in selected]
+        xerr = [row["timestep_s"]["ci99_half_width"] or 0 for row in selected]
         y = [
             row.get("beam_relative_rms_error", {"mean": 0})["mean"] for row in selected
         ]
-        axes[0].plot(x, y, "o-", label=label)
+        yerr = [
+            row.get("beam_relative_rms_error", {}).get("ci99_half_width", 0) or 0
+            for row in selected
+        ]
+        axes[0].errorbar(x, y, xerr=xerr, yerr=yerr, fmt="o-", color=color, label=label)
         if beam == "fluid":
-            axes[1].axhline(x[0], linestyle="--", label=label)
+            axes[1].axhline(x[0], linestyle="--", color=color, label=label)
         else:
-            axes[1].plot([row["ppc"] for row in selected], x, "o-", label=label)
+            axes[1].errorbar(
+                [row["ppc"] for row in selected],
+                x,
+                yerr=xerr,
+                fmt="o-",
+                color=color,
+                label=label,
+            )
     axes[0].set(
         xlabel="Median timestep wall time (s)",
         ylabel="Beam density relative RMS error",
         xscale="log",
     )
     axes[0].set_yscale("symlog", linthresh=1e-5, linscale=0.4)
+    axes[0].set_ylim(bottom=0)
     axes[1].set(
         xlabel="Beam macroparticles per cell (input)",
         ylabel="Median timestep wall time (s)",
@@ -266,7 +282,7 @@ def main():
     )
     for axis in axes:
         axis.grid(True, alpha=0.3)
-    axes[0].legend(fontsize=8)
+    axes[0].legend(fontsize=8, title="99% confidence intervals", title_fontsize=8)
     fig.savefig(args.directory / "noise_cost.png", dpi=180)
     fig.savefig(args.directory / "noise_cost.pdf")
     plt.close(fig)
