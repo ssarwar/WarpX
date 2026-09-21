@@ -26,6 +26,11 @@ public:
 
     virtual void doCollisions (amrex::Real /*cur_time*/, amrex::Real /*dt*/, MultiParticleContainer* /*mypc*/ ){}
 
+    /** Separate the physical source interval from the collision placement time. */
+    virtual void doCollisionsInInterval (amrex::Real cur_time, amrex::Real /*start_time*/,
+                                        amrex::Real dt, MultiParticleContainer* mypc)
+        { doCollisions(cur_time, dt, mypc); }
+
     CollisionBase(CollisionBase const &) = delete;
     CollisionBase(CollisionBase &&) = delete;
     CollisionBase & operator=(CollisionBase const &) = delete;

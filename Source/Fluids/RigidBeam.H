@@ -136,6 +136,8 @@ public:
     [[nodiscard]] amrex::Real velocity () const { return m_parameters.m_velocity; }
     [[nodiscard]] amrex::Real kineticEnergyEV () const { return m_energy_ev; }
     [[nodiscard]] std::string configuration () const;
+    [[nodiscard]] bool active (amrex::Geometry const& geom, amrex::Real start,
+                               amrex::Real dt, amrex::Real padding = 0.0) const;
 
     void UpdateDensity (amrex::MultiFab& density, amrex::Geometry const& geom,
                         amrex::Real time);

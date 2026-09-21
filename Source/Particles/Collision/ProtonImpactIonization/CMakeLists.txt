@@ -4,5 +4,6 @@ foreach(D IN LISTS WarpX_DIMS)
       PRIVATE
         PJGModel.cpp
         ProtonImpactIonization.cpp
+        RigidBeamIonization.cpp
     )
 endforeach()

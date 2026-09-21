@@ -82,15 +82,24 @@ ProtonImpactIonizationCollision::ProtonImpactIonizationCollision (
         "Proton-impact product species must differ from the projectile "
         "species.");
 
-    auto& projectile = mypc->GetParticleContainerFromName(m_species_names[0]);
+    auto& warpx = WarpX::GetInstance();
+    if (warpx.DoFluidSpecies()) {
+        m_fluid_projectile = warpx.GetFluidContainer().FindSpecies(m_species_names[0]);
+    }
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(!m_fluid_projectile || m_fluid_projectile->getRigidBeam(),
+        "A fluid proton-impact projectile must use model = rigid_beam.");
+    auto* projectile = m_fluid_projectile ? nullptr :
+        &mypc->GetParticleContainerFromName(m_species_names[0]);
+    auto const projectile_mass = m_fluid_projectile ? m_fluid_projectile->getMass() : projectile->getMass();
+    auto const projectile_charge = m_fluid_projectile ? m_fluid_projectile->getCharge() : projectile->getCharge();
     auto& electron = mypc->GetParticleContainerFromName(m_product_species[0]);
     IonProductDestination const ion(m_product_species[1], *mypc);
 
-    auto const projectile_charge_state = projectile.getCharge() / PhysConst::q_e;
+    auto const projectile_charge_state = projectile_charge / PhysConst::q_e;
     auto const rounded_charge_state = amrex::Math::round(projectile_charge_state);
     auto const charge_tolerance = 100.0_prt * std::numeric_limits<amrex::ParticleReal>::epsilon();
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-        projectile.getMass() > PhysConst::m_e && rounded_charge_state >= 1.0_prt &&
+        projectile_mass > PhysConst::m_e && rounded_charge_state >= 1.0_prt &&
             amrex::Math::abs(projectile_charge_state - rounded_charge_state) <= charge_tolerance,
         "The proton-impact projectile must be a positively charged proton or "
         "bare ion.");
@@ -166,18 +175,42 @@ ProtonImpactIonizationCollision::ProtonImpactIonizationCollision (
         m_background_temperature_func = m_background_temperature_parser.compile<4>();
     }
 
-    auto const projectile_rest_energy = projectile.getMass() * PhysConst::c2 / PhysConst::q_e;
-    auto const projectile_mass_scale = projectile.getMass() / PhysConst::m_p;
+    auto const projectile_rest_energy = projectile_mass * PhysConst::c2 / PhysConst::q_e;
+    auto const projectile_mass_scale = projectile_mass / PhysConst::m_p;
     amrex::ParticleReal projectile_energy_min = 5.0e3_prt * projectile_mass_scale;
     amrex::ParticleReal projectile_energy_max = 1.0e10_prt * projectile_mass_scale;
     utils::parser::queryWithParser(pp_collision_name, "projectile_energy_min",
                                    projectile_energy_min);
     utils::parser::queryWithParser(pp_collision_name, "projectile_energy_max",
                                    projectile_energy_max);
+    auto const mono_energy = m_fluid_projectile ?
+        m_fluid_projectile->getRigidBeam()->kineticEnergyEV() : -1.0;
     m_pjg_model = std::make_unique<ProtonImpactIonization::PJGModel>(
-        m_target, projectile_rest_energy, projectile_energy_min, projectile_energy_max);
+        m_target, projectile_rest_energy, projectile_energy_min, projectile_energy_max, mono_energy);
+    if (m_fluid_projectile) {
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(m_ndt == 1 ||
+            m_collision_stepping_mode == CollisionSteppingMode::Subcycle,
+            "Rigid-beam ionization supports subcycling, but not supercycling above one.");
+        m_sampling_state = m_pjg_model->executor().prepareSampling(mono_energy);
+        m_source_rate = m_projectile_charge_squared*m_pjg_model->monoenergeticCrossSection()*
+            std::abs(m_fluid_projectile->getRigidBeam()->velocity());
+        utils::parser::queryWithParser(pp_collision_name, "source_sampling_points", m_source_sampling_points);
+        utils::parser::queryWithParser(pp_collision_name, "gas_quadrature_points", m_gas_quadrature_points);
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(m_source_sampling_points > 0 &&
+            m_gas_quadrature_points > 0 && m_gas_quadrature_points <= 16,
+            "Source sampling points must be positive; gas quadrature points must lie in [1,16].");
+        int seed = 0;
+        utils::parser::queryWithParser(pp_collision_name, "sampling_seed", seed);
+        m_sampling_seed = static_cast<std::uint64_t>(seed);
+        // Stable across processes, restarts, standard libraries and backends.
+        for (unsigned char character : collision_name) {
+            m_sampling_seed = (m_sampling_seed ^ character)*1099511628211ull;
+        }
+    }
 
     m_remainder_field_name = collision_name + "_product_weight_remainder";
+    m_budget_field_name = collision_name + "_source_budget";
+    m_counter_field_name = collision_name + "_sampling_counter";
 }
 
 void
@@ -191,6 +224,23 @@ ProtonImpactIonizationCollision::AllocData ()
                                   amrex::IntVect::TheZeroVector(), amrex::Real{0.0},
                                   /*remake=*/true, /*redistribute_on_remake=*/true,
                                   /*checkpoint_restart=*/true);
+        if (m_fluid_projectile) {
+            for (auto const& name : {m_budget_field_name, m_counter_field_name}) {
+                warpx.m_fields.alloc_init(name, lev, box_array, distribution_mapping, 4,
+                    amrex::IntVect::TheZeroVector(), amrex::Real{0.0}, true, true, true);
+            }
+        }
+    }
+}
+
+void
+ProtonImpactIonizationCollision::doCollisionsInInterval (
+    amrex::Real cur_time, amrex::Real start_time, amrex::Real dt, MultiParticleContainer* mypc)
+{
+    if (m_fluid_projectile) {
+        ProduceFromFluid(cur_time, start_time, dt, mypc);
+    } else {
+        doCollisions(cur_time, dt, mypc);
     }
 }
 

@@ -30,8 +30,8 @@ template <typename Real> struct CopiedTable
             amrex::Gpu::copy(amrex::Gpu::hostToDevice, converted.begin(), converted.end(),
                              destination.begin());
         };
-        copy(source.m_cross_section, PJGModel::table_energy_points, m_total);
-        auto const count = PJGModel::table_energy_points * PJGModel::table_quantile_points;
+        copy(source.m_cross_section, source.m_rows, m_total);
+        auto const count = source.m_rows * PJGModel::table_quantile_points;
         copy(source.m_log_secondary_energy, count, m_energy);
         copy(source.m_binding_energy, count, m_binding);
         m_executor = {m_total.data(),
@@ -43,7 +43,9 @@ template <typename Real> struct CopiedTable
                       Real(source.m_projectile_energy_max),
                       Real(source.m_projectile_rest_energy),
                       Real(source.m_neutral_rest_energy),
-                      Real(source.m_minimum_binding_energy)};
+                      Real(source.m_minimum_binding_energy),
+                      source.m_first_row,
+                      source.m_rows};
     }
 };
 

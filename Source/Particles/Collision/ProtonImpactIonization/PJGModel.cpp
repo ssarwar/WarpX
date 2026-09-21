@@ -369,7 +369,8 @@ namespace ProtonImpactIonization
 
     PJGModel::PJGModel (PJGTarget const target, amrex::ParticleReal const projectile_rest_energy,
                         amrex::ParticleReal const projectile_energy_min,
-                        amrex::ParticleReal const projectile_energy_max)
+                        amrex::ParticleReal const projectile_energy_max,
+                        amrex::ParticleReal const monoenergetic_energy)
         : m_projectile_energy_min(projectile_energy_min),
           m_projectile_energy_max(projectile_energy_max),
           m_projectile_rest_energy(projectile_rest_energy)
@@ -395,12 +396,26 @@ namespace ProtonImpactIonization
                           (table_energy_points - 1);
         m_log_projectile_energy_min = static_cast<amrex::ParticleReal>(log_min);
         m_inv_log_projectile_energy_step = static_cast<amrex::ParticleReal>(1.0 / step);
-        amrex::Vector<amrex::ParticleReal> cross_section(table_energy_points);
-        amrex::Vector<amrex::ParticleReal> log_secondary(table_energy_points *
-                                                         table_quantile_points);
-        amrex::Vector<amrex::ParticleReal> binding(table_energy_points * table_quantile_points);
-        for (int i = 0; i < table_energy_points; ++i) {
-            auto const energy = std::exp(log_min + i * step);
+        amrex::ParticleReal mono_fraction = 0.0;
+        if (monoenergetic_energy >= 0.0) {
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(std::isfinite(monoenergetic_energy) &&
+                monoenergetic_energy >= projectile_energy_min &&
+                monoenergetic_energy <= projectile_energy_max,
+                "The rigid-beam energy must lie within the PJG table bounds.");
+            // Preserve the full table's coordinate arithmetic and row energies.
+            // Constructing a new two-point energy grid would change interpolation.
+            auto const coordinate = (std::log(monoenergetic_energy) -
+                m_log_projectile_energy_min)*m_inv_log_projectile_energy_step;
+            m_first_row = std::clamp(static_cast<int>(coordinate), 0, table_energy_points-2);
+            mono_fraction = std::clamp(coordinate-static_cast<amrex::ParticleReal>(m_first_row),
+                                       amrex::ParticleReal{0}, amrex::ParticleReal{1});
+            m_rows = 2;
+        }
+        amrex::Vector<amrex::ParticleReal> cross_section(m_rows);
+        amrex::Vector<amrex::ParticleReal> log_secondary(m_rows * table_quantile_points);
+        amrex::Vector<amrex::ParticleReal> binding(m_rows * table_quantile_points);
+        for (int i = 0; i < m_rows; ++i) {
+            auto const energy = std::exp(log_min + (i+m_first_row) * step);
             Spectrum const spectrum(target, energy, projectile_rest_energy);
             IntegratedSpectrum const integrated(spectrum);
             WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
@@ -416,6 +431,10 @@ namespace ProtonImpactIonization
                 binding[offset] = static_cast<amrex::ParticleReal>(
                     values[0] > 0.0 ? values[1] / values[0] : p.m_thresholds[0]);
             }
+        }
+        if (m_rows == 2) {
+            m_monoenergetic_cross_section =
+                (1-mono_fraction)*cross_section[0] + mono_fraction*cross_section[1];
         }
         m_cross_section.resize(cross_section.size());
         m_log_secondary_energy.resize(log_secondary.size());
@@ -440,7 +459,9 @@ namespace ProtonImpactIonization
                 m_projectile_energy_max,
                 m_projectile_rest_energy,
                 m_neutral_rest_energy,
-                m_minimum_binding_energy};
+                m_minimum_binding_energy,
+                m_first_row,
+                m_rows};
     }
 
     PJGTarget

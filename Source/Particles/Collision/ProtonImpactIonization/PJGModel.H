@@ -59,6 +59,8 @@ namespace ProtonImpactIonization
             Real m_projectile_rest_energy = 0.0;
             Real m_neutral_rest_energy = 0.0;
             Real m_minimum_binding_energy = 0.0;
+            int m_first_row = 0;
+            int m_rows = table_energy_points;
 
             /** Return the unit-charge total ionization cross section in m^2. */
             AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE Real
@@ -99,9 +101,12 @@ namespace ProtonImpactIonization
 
         PJGModel (PJGTarget target, amrex::ParticleReal projectile_rest_energy,
                   amrex::ParticleReal projectile_energy_min,
-                  amrex::ParticleReal projectile_energy_max);
+                  amrex::ParticleReal projectile_energy_max,
+                  amrex::ParticleReal monoenergetic_energy = -1.0);
 
         [[nodiscard]] Executor executor () const noexcept;
+        [[nodiscard]] amrex::ParticleReal monoenergeticCrossSection () const noexcept
+            { return m_monoenergetic_cross_section; }
 
         [[nodiscard]] static PJGTarget parseTarget (std::string const& target);
         [[nodiscard]] static std::string targetName (PJGTarget target);
@@ -136,6 +141,9 @@ namespace ProtonImpactIonization
         amrex::ParticleReal m_projectile_rest_energy = 0.0;
         amrex::ParticleReal m_neutral_rest_energy = 0.0;
         amrex::ParticleReal m_minimum_binding_energy = 0.0;
+        amrex::ParticleReal m_monoenergetic_cross_section = 0.0;
+        int m_first_row = 0;
+        int m_rows = table_energy_points;
     };
 
     template <typename Real>
@@ -156,6 +164,8 @@ namespace ProtonImpactIonization
         index = static_cast<int>(coordinate);
         index = amrex::max(0, amrex::min(index, table_energy_points - 2));
         fraction = amrex::max(Real(0), amrex::min(coordinate - static_cast<Real>(index), Real(1)));
+        index -= m_first_row;
+        if (index < 0 || index >= m_rows-1) { return false; }
         return true;
     }
 

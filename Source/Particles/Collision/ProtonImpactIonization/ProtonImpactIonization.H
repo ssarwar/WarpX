@@ -14,8 +14,11 @@
 #include <AMReX_REAL.H>
 #include <AMReX_Vector.H>
 
+#include <cstdint>
 #include <memory>
 #include <string>
+
+class WarpXFluidContainer;
 
 /** Rigid-beam proton and bare-ion impact ionization of a neutral background.
  *
@@ -38,8 +41,25 @@ public:
     void AllocData () override;
 
     void doCollisions (amrex::Real cur_time, amrex::Real dt, MultiParticleContainer* mypc) override;
+    void doCollisionsInInterval (amrex::Real cur_time, amrex::Real start_time,
+                                amrex::Real dt, MultiParticleContainer* mypc) override;
 
 private:
+    void ProduceFromFluid (amrex::Real cur_time, amrex::Real start_time,
+                           amrex::Real dt, MultiParticleContainer* mypc);
+    WarpXFluidContainer* m_fluid_projectile = nullptr;
+    ProtonImpactIonization::PJGModel::Executor::SamplingState m_sampling_state;
+    double m_source_rate = 0.0;
+    std::uint64_t m_sampling_seed = 0;
+    int m_source_sampling_points = 8;
+    int m_gas_quadrature_points = 2;
+    std::string m_budget_field_name;
+    std::string m_counter_field_name;
+    // Reused across tiles and calls; there are no beam-sized particle buffers.
+    amrex::Gpu::DeviceVector<amrex::Long> m_source_indices;
+    amrex::Gpu::DeviceVector<amrex::ParticleReal> m_source_weights;
+    amrex::Gpu::DeviceVector<double> m_source_axial;
+    amrex::Gpu::DeviceVector<double> m_source_cdf;
     amrex::Vector<std::string> m_product_species;
     ProtonImpactIonization::PJGTarget m_target = ProtonImpactIonization::PJGTarget::N2;
     std::unique_ptr<ProtonImpactIonization::PJGModel> m_pjg_model;

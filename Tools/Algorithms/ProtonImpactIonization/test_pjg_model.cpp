@@ -122,6 +122,40 @@ namespace
     }
 
     void
+    checkMonoenergetic (PJGModel const& full, PJGTarget target)
+    {
+        auto const reference = full.executor();
+        for (auto energy : {5e3, 1.5e5, 8e8, 1e10}) {
+            PJGModel const mono(target, proton_mass, 5e3, 1e10, energy);
+            auto const sample = mono.executor();
+            require(sample.m_rows == 2, "Monoenergetic table constructed unused rows");
+            constexpr int n = 4097;
+            amrex::Gpu::DeviceVector<amrex::ParticleReal> output(4*n+2);
+            auto* values = output.data();
+            amrex::ParallelFor(n, [=] AMREX_GPU_DEVICE(int i) noexcept {
+                // Include both endpoints and clustered quantiles in the rare tail.
+                double const x = static_cast<double>(i)/(n-1);
+                double const a = x*x*x*x, b = (1-x)*(1-x)*(1-x)*(1-x);
+                reference.sample(energy, a/(a+b), values[4*i], values[4*i+1]);
+                sample.sample(energy, a/(a+b), values[4*i+2], values[4*i+3]);
+                if (i == 0) {
+                    values[4*n] = reference.crossSection(energy);
+                    values[4*n+1] = sample.crossSection(energy);
+                }
+            });
+            amrex::Vector<amrex::ParticleReal> host(output.size());
+            amrex::Gpu::copy(amrex::Gpu::deviceToHost, output.begin(), output.end(), host.begin());
+            for (int i = 0; i < n; ++i) {
+                require(host[4*i] == host[4*i+2] && host[4*i+1] == host[4*i+3],
+                        "Monoenergetic tables changed the PJG samples");
+            }
+            require(host[4*n] == host[4*n+1] &&
+                        host[4*n] == mono.monoenergeticCrossSection(),
+                    "Monoenergetic tables changed the total cross section");
+        }
+    }
+
+    void
     checkReference ()
     {
         for (auto const invalid :
@@ -170,6 +204,7 @@ main (int argc, char* argv[])
                 << '\n';
             checkTables<float>(model, target);
             checkTables<double>(model, target);
+            checkMonoenergetic(model, target);
         }
     }
     amrex::Finalize();

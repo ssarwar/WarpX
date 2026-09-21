@@ -1,6 +1,22 @@
 # Add tests (alphabetical order) ##############################################
 #
 
+foreach(solver IN ITEMS Yee PSATD)
+    if(solver STREQUAL "PSATD" AND NOT WarpX_FFT)
+        continue()
+    endif()
+    add_warpx_test(
+        test_rz_rigid_source_${solver}_picmi RZ 2
+        "inputs_test_rz_rigid_source_picmi.py --solver ${solver} --subcycles 2"
+        OFF OFF OFF
+    )
+    add_warpx_test(
+        test_rz_rigid_source_${solver}_restart_picmi RZ 1
+        "inputs_test_rz_rigid_source_picmi.py --solver ${solver} --subcycles 2 --restart ../test_rz_rigid_source_${solver}_picmi/diags/chk000002"
+        OFF OFF "test_rz_rigid_source_${solver}_picmi"
+    )
+endforeach()
+
 foreach(kind IN ITEMS proton ionization attachment)
     foreach(shape RANGE 1 4)
         add_warpx_test(

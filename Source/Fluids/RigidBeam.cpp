@@ -145,6 +145,22 @@ RigidBeam::configuration () const
     return out.str();
 }
 
+bool
+RigidBeam::active (amrex::Geometry const& geom, amrex::Real start, amrex::Real dt,
+                   amrex::Real padding) const
+{
+#ifdef WARPX_DIM_RZ
+    auto parameters = m_parameters;
+    parameters.m_times = m_times.data();
+    int first, last;
+    parameters.pulseRange(geom.ProbLo(1), geom.ProbHi(1), start, dt, padding, first, last);
+    return first < last && geom.ProbLo(0) < parameters.m_cutoff_r*parameters.m_sigma_r+padding;
+#else
+    amrex::ignore_unused(geom, start, dt, padding);
+    return false;
+#endif
+}
+
 void
 RigidBeam::CacheRadial (amrex::MultiFab const& density, amrex::Geometry const& geom)
 {
@@ -247,6 +263,7 @@ RigidBeam::DepositCurrent (amrex::MultiFab& current, amrex::Geometry const& geom
                            amrex::Real start, amrex::Real dt)
 {
 #ifdef WARPX_DIM_RZ
+    if (!active(geom, start, dt, (WarpX::nox+1)*geom.CellSize(1))) { return; }
     auto const box = amrex::convert(geom.Domain(), current.ixType());
     int const count = box.length(1);
     m_current.resize(count);
