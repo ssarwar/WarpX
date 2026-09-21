@@ -89,6 +89,11 @@ public:
         amrex::MultiFab& jx, amrex::MultiFab& jy, amrex::MultiFab& jz,
         int lev);
 
+    void UpdatePrescribedDensities (ablastr::fields::MultiFabRegister& fields,
+                                    amrex::Real time);
+    void DepositPrescribedSources (ablastr::fields::MultiFabRegister& fields,
+                                   amrex::Real start, amrex::Real dt, bool deposit_charge);
+
 private:
 
     [[nodiscard]] std::string CheckpointConfiguration () const;

@@ -1,7 +1,7 @@
 # Add tests (alphabetical order) ##############################################
 #
 
-foreach(solver IN ITEMS Yee PSATD)
+foreach(solver IN ITEMS Yee PSATD semi_implicit_em semi_implicit_mm)
     if(solver STREQUAL "PSATD" AND NOT WarpX_FFT)
         continue()
     endif()

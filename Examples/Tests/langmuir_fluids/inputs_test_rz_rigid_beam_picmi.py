@@ -9,7 +9,11 @@ import numpy as np
 from pywarpx import algo, picmi, warpx
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--solver", choices=["Yee", "PSATD"], default="Yee")
+parser.add_argument(
+    "--solver",
+    choices=["Yee", "PSATD", "semi_implicit_em", "semi_implicit_mm"],
+    default="Yee",
+)
 parser.add_argument("--shape", type=int, default=3)
 parser.add_argument("--self-fields", action="store_true")
 parser.add_argument("--negative", action="store_true")
@@ -39,7 +43,7 @@ grid = picmi.CylindricalGrid(
 sim = picmi.Simulation(
     solver=picmi.ElectromagneticSolver(
         grid=grid,
-        method=args.solver,
+        method="PSATD" if args.solver == "PSATD" else "Yee",
         stencil_order=[16, 16],
         **({"warpx_current_correction": True} if args.solver == "PSATD" else {}),
     ),
@@ -47,6 +51,20 @@ sim = picmi.Simulation(
     max_steps=3,
     particle_shape=args.shape,
     warpx_use_filter=False,
+    warpx_current_deposition_algo="direct" if args.solver.startswith("semi_implicit") else None,
+    warpx_evolve_scheme=picmi.SemiImplicitEMEvolveScheme(
+        nonlinear_solver=picmi.NewtonNonlinearSolver(
+            relative_tolerance=1e-12,
+            use_mass_matrices_jacobian=args.solver == "semi_implicit_mm",
+            use_mass_matrices_pc=args.solver == "semi_implicit_mm",
+            pc_type=picmi.JacobiPreconditioner()
+            if args.solver == "semi_implicit_mm"
+            else None,
+            linear_solver=picmi.GMRESLinearSolver(relative_tolerance=1e-12),
+        )
+    )
+    if args.solver.startswith("semi_implicit")
+    else None,
     verbose=0,
 )
 sim.initialize_inputs()
@@ -77,7 +95,7 @@ def density():
 mf = sim.fields.get("fluid_density_beam", level=0)
 r, z = host(mf.mesh("r")), host(mf.mesh("z"))
 volume = 2 * np.pi * r * dr * dz
-if args.solver == "Yee":
+if args.solver != "PSATD":
     volume[0] = np.pi * dr**2 * dz / 3
     # The periodic high node duplicates the low node.
     z = z[:-1]
@@ -103,7 +121,7 @@ for step in range(1, 4):
     sim.step(1)
     check(step * dt)
     new = density()
-    if args.solver == "Yee":
+    if args.solver != "PSATD":
         jz = np.squeeze(host(sim.fields.get("current_fp", dir="z", level=0)[...]))
         change = qe * (new[:, 1:-1] - old[:, 1:-1])
         divergence = dt / dz * (jz[:, 1:] - jz[:, :-1])

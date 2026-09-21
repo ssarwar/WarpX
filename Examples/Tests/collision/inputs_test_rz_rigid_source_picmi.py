@@ -89,10 +89,15 @@ sim = picmi.Simulation(
     particle_shape=3,
     warpx_collisions=collisions,
     warpx_amr_restart=args.restart,
+    warpx_current_deposition_algo="direct" if args.solver.startswith("semi_implicit") else None,
     warpx_evolve_scheme=picmi.SemiImplicitEMEvolveScheme(
         nonlinear_solver=picmi.NewtonNonlinearSolver(
             relative_tolerance=1e-12,
             use_mass_matrices_jacobian=args.solver == "semi_implicit_mm",
+            use_mass_matrices_pc=args.solver == "semi_implicit_mm",
+            pc_type=picmi.JacobiPreconditioner()
+            if args.solver == "semi_implicit_mm"
+            else None,
             linear_solver=picmi.GMRESLinearSolver(relative_tolerance=1e-12),
         )
     )

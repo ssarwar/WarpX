@@ -146,6 +146,48 @@ MultiFluidContainer::DepositCurrent (ablastr::fields::MultiFabRegister& m_fields
 }
 
 void
+MultiFluidContainer::UpdatePrescribedDensities (
+    ablastr::fields::MultiFabRegister& fields, amrex::Real time)
+{
+    for (auto& fluid : allcontainers) {
+        if (auto* beam = fluid->getRigidBeam()) {
+            beam->UpdateDensity(*fields.get(fluid->name_mf_N, 0), WarpX::GetInstance().Geom(0), time);
+        }
+    }
+}
+
+void
+MultiFluidContainer::DepositPrescribedSources (
+    ablastr::fields::MultiFabRegister& fields, amrex::Real start, amrex::Real dt,
+    bool deposit_charge)
+{
+    using ablastr::fields::Direction;
+    using warpx::fields::FieldType;
+    auto const& geom = WarpX::GetInstance().Geom(0);
+    for (auto& fluid : allcontainers) {
+        if (!fluid->isPrescribed()) { continue; }
+        auto* beam = fluid->getRigidBeam();
+        if (!fluid->do_not_deposit && deposit_charge && fields.has(FieldType::rho_fp, 0)) {
+            auto& rho = *fields.get(FieldType::rho_fp, 0);
+            for (int comp = 0; comp < rho.nComp(); ++comp) {
+                if (beam) {
+                    beam->UpdateDensity(*fields.get(fluid->name_mf_N, 0), geom, start+comp*dt);
+                }
+                fluid->DepositCharge(fields, rho, 0, comp);
+            }
+        }
+        if (beam) {
+            // Mid-step diagnostics see the same physical time as the implicit fields.
+            beam->UpdateDensity(*fields.get(fluid->name_mf_N, 0), geom, start+0.5*dt);
+            if (!fluid->do_not_deposit) {
+                beam->DepositCurrent(*fields.get(FieldType::current_fp, Direction{2}, 0),
+                                     geom, start, dt);
+            }
+        }
+    }
+}
+
+void
 MultiFluidContainer::Evolve (ablastr::fields::MultiFabRegister& fields,
                             int lev,
                             std::string const& current_fp_string,
