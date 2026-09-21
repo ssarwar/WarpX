@@ -200,6 +200,10 @@ void WarpXFluidContainer::AllocateLevelMFs(ablastr::fields::MultiFabRegister& fi
                           /*checkpoint_restart=*/true);
         if (m_model == FluidModel::Immobile) {
             fields.alloc_init(DensityIncrementName(), lev, native_ba, dm, 1, guards, 0.0_rt);
+        } else {
+            auto const& jz = *fields.get(warpx::fields::FieldType::current_fp, Direction{2}, lev);
+            fields.alloc_init("fluid_current_"+species_name, Direction{2}, lev,
+                              jz.boxArray(), dm, 1, jz.nGrowVect(), 0.0_rt);
         }
         return;
     }
@@ -232,6 +236,8 @@ void WarpXFluidContainer::InitData(
     if (isPrescribed()) {
         if (m_rigid_beam) {
             m_rigid_beam->UpdateDensity(*fields.get(name_mf_N, lev), geom_lev, cur_time);
+            m_rigid_beam->UpdateCurrentDiagnostic(
+                *fields.get("fluid_current_"+species_name, Direction{2}, lev), geom_lev, cur_time);
         } else {
             InitPrescribedDensity(fields, lev);
         }
@@ -374,6 +380,9 @@ void WarpXFluidContainer::Evolve(
                 m_rigid_beam->DepositCurrent(*fields.get(current_fp_string, Direction{2}, lev),
                                              warpx.Geom(lev), cur_time, dt);
             }
+            m_rigid_beam->UpdateCurrentDiagnostic(
+                *fields.get("fluid_current_"+species_name, Direction{2}, lev),
+                warpx.Geom(lev), cur_time+dt);
             return;
         }
         if (!skip_deposition && !do_not_deposit && fields.has(FieldType::rho_fp, lev)) {
@@ -1498,6 +1507,26 @@ void WarpXFluidContainer::DepositCharge (ablastr::fields::MultiFabRegister& fiel
     const amrex::Geometry &geom = warpx.Geom(lev);
     const amrex::Periodicity &period = geom.periodicity();
     const amrex::Real q = getCharge();
+    if (m_model == FluidModel::Immobile) {
+        auto const& density = *fields.get(name_mf_N, lev);
+        auto const grow = amrex::min(amrex::min(density.nGrowVect(), rho.nGrowVect()),
+                                     warpx.get_ng_depos_rho());
+        // Persistent density is already synchronized. Ownership across the
+        // deposited footprint prevents duplicate contributions when rho is
+        // summed. Do not assign ownership to farther allocated guard cells:
+        // SyncRho and field diagnostics only sum the deposition guard extent.
+        auto const owner_mask = amrex::OwnerMask(rho, period, grow);
+        for (amrex::MFIter mfi(density, amrex::TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+            auto const number = density.const_array(mfi);
+            auto const output = rho.array(mfi);
+            auto const owner = owner_mask->const_array(mfi);
+            amrex::ParallelFor(mfi.growntilebox(grow),
+                [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                    if (owner(i,j,k)) { output(i,j,k,icomp) += q*number(i,j,k); }
+                });
+        }
+        return;
+    }
     auto const &owner_mask_rho = amrex::OwnerMask(rho, period);
 
     // Assertion, make sure rho is at the same location as N

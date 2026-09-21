@@ -8,6 +8,8 @@
 #include "ParticleNumber.H"
 
 #include "Diagnostics/ReducedDiags/ReducedDiags.H"
+#include "Fluids/MultiFluidContainer.H"
+#include "Fluids/WarpXFluidContainer.H"
 #include "Particles/MultiParticleContainer.H"
 #include "Particles/WarpXParticleContainer.H"
 #include "WarpX.H"
@@ -27,8 +29,8 @@
 using namespace amrex::literals;
 
 // constructor
-ParticleNumber::ParticleNumber (const std::string& rd_name)
-: ReducedDiags{rd_name}
+ParticleNumber::ParticleNumber (const std::string& rd_name, bool charge)
+: ReducedDiags{rd_name}, m_charge(charge)
 {
     // get a reference to WarpX instance
     auto & warpx = WarpX::GetInstance();
@@ -37,14 +39,19 @@ ParticleNumber::ParticleNumber (const std::string& rd_name)
     const auto & mypc = warpx.GetPartContainer();
 
     // get number of species (int)
-    const auto nSpecies = mypc.nSpecies();
+    const auto nSpecies = mypc.nSpecies() +
+        (warpx.DoFluidSpecies() ? warpx.GetFluidContainer().nSpecies() : 0);
 
     // resize data array to 2*(nSpecies+1) (each species + sum over all species
     // for both number of macroparticles and of physical particles)
-    m_data.resize(2*(nSpecies+1), 0.0_rt);
+    m_data.resize((m_charge ? 1 : 2)*(nSpecies+1), 0.0_rt);
 
     // get species names (std::vector<std::string>)
-    const auto species_names = mypc.GetSpeciesNames();
+    auto species_names = mypc.GetSpeciesNames();
+    if (warpx.DoFluidSpecies()) {
+        auto const& fluids = warpx.GetFluidContainer().GetSpeciesNames();
+        species_names.insert(species_names.end(), fluids.begin(), fluids.end());
+    }
 
     if (amrex::ParallelDescriptor::IOProcessor())
     {
@@ -58,6 +65,14 @@ ParticleNumber::ParticleNumber (const std::string& rd_name)
             ofs << "[" << c++ << "]step()";
             ofs << m_sep;
             ofs << "[" << c++ << "]time(s)";
+            if (m_charge) {
+                ofs << m_sep << "[" << c++ << "]total(C)";
+                for (auto const& species : species_names) {
+                    ofs << m_sep << "[" << c++ << "]" << species << "(C)";
+                }
+                ofs << '\n';
+                return;
+            }
             ofs << m_sep;
             ofs << "[" << c++ << "]total_macroparticles()";
             // Column number of first species macroparticle number
@@ -90,10 +105,36 @@ void ParticleNumber::ComputeDiags (int step)
     if (!m_intervals.contains(step+1)) { return; }
 
     // get MultiParticleContainer class object
-    const auto & mypc = WarpX::GetInstance().GetPartContainer();
+    auto& warpx = WarpX::GetInstance();
+    const auto & mypc = warpx.GetPartContainer();
 
     // get number of species (int)
-    const auto nSpecies = mypc.nSpecies();
+    const auto nSpecies = mypc.nSpecies() +
+        (warpx.DoFluidSpecies() ? warpx.GetFluidContainer().nSpecies() : 0);
+
+    if (m_charge) {
+        m_data[0] = 0.0;
+        for (int i = 0; i < nSpecies; ++i) {
+            if (i < mypc.nSpecies()) {
+                auto& species = mypc.GetParticleContainer(i);
+                int const ionization_index = species.DoFieldIonization()
+                    ? species.GetIntCompIndex("ionizationLevel") : -1;
+                using Particle = WarpXParticleContainer::SuperParticleType;
+                auto charge_weight = amrex::ReduceSum(species,
+                    [=] AMREX_GPU_DEVICE(Particle const& particle) noexcept {
+                        return particle.rdata(PIdx::w)*
+                            (ionization_index < 0 ? 1 : particle.idata(ionization_index));
+                    });
+                amrex::ParallelDescriptor::ReduceRealSum(charge_weight);
+                m_data[i+1] = species.getCharge()*charge_weight;
+            } else {
+                auto const& fluid = warpx.GetFluidContainer().GetFluidContainer(i-mypc.nSpecies());
+                m_data[i+1] = fluid.getCharge()*fluid.PhysicalTotals()[0];
+            }
+            m_data[0] += m_data[i+1];
+        }
+        return;
+    }
 
     // Index of total number of macroparticles (all species) in m_data
     constexpr int idx_total_macroparticles = 0;
@@ -111,14 +152,15 @@ void ParticleNumber::ComputeDiags (int step)
     // loop over species
     for (int i_s = 0; i_s < nSpecies; ++i_s)
     {
-        // get WarpXParticleContainer class object
-        auto & myspc = mypc.GetParticleContainer(i_s);
-
-        // Save total number of macroparticles for this species
-        m_data[idx_first_species_macroparticles + i_s] = myspc.TotalNumberOfParticles();
-
-        // Save sum of particles weight for this species
-        m_data[idx_first_species_sum_weight + i_s] = myspc.sumParticleWeight(false);
+        if (i_s < mypc.nSpecies()) {
+            auto & myspc = mypc.GetParticleContainer(i_s);
+            m_data[idx_first_species_macroparticles + i_s] = myspc.TotalNumberOfParticles();
+            m_data[idx_first_species_sum_weight + i_s] = myspc.sumParticleWeight(false);
+        } else {
+            auto const& fluid = warpx.GetFluidContainer().GetFluidContainer(i_s-mypc.nSpecies());
+            m_data[idx_first_species_macroparticles + i_s] = 0.0;
+            m_data[idx_first_species_sum_weight + i_s] = fluid.PhysicalTotals()[0];
+        }
 
         // Increase total number of macroparticles and total weight (all species)
         m_data[idx_total_macroparticles] += m_data[idx_first_species_macroparticles + i_s];

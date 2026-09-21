@@ -7,6 +7,8 @@
 
 #include "ParticleMomentum.H"
 
+#include "Fluids/MultiFluidContainer.H"
+#include "Fluids/WarpXFluidContainer.H"
 #include "Particles/MultiParticleContainer.H"
 #include "Particles/SpeciesPhysicalProperties.H"
 #include "Particles/WarpXParticleContainer.H"
@@ -42,13 +44,18 @@ ParticleMomentum::ParticleMomentum (const std::string& rd_name)
     const auto & mypc = warpx.GetPartContainer();
 
     // Get number of species
-    const int nSpecies = mypc.nSpecies();
+    const int nSpecies = mypc.nSpecies() +
+        (warpx.DoFluidSpecies() ? warpx.GetFluidContainer().nSpecies() : 0);
 
     // Resize data array
     m_data.resize(6*nSpecies+6, 0.0_rt);
 
     // Get species names
-    const std::vector<std::string> species_names = mypc.GetSpeciesNames();
+    auto species_names = mypc.GetSpeciesNames();
+    if (warpx.DoFluidSpecies()) {
+        auto const& fluids = warpx.GetFluidContainer().GetSpeciesNames();
+        species_names.insert(species_names.end(), fluids.begin(), fluids.end());
+    }
 
     if (ParallelDescriptor::IOProcessor())
     {
@@ -119,15 +126,17 @@ void ParticleMomentum::ComputeDiags (int step)
     if (!m_intervals.contains(step+1)) { return; }
 
     // Get MultiParticleContainer class object
-    const auto & mypc = WarpX::GetInstance().GetPartContainer();
+    auto& warpx = WarpX::GetInstance();
+    const auto & mypc = warpx.GetPartContainer();
 
     // Get number of species
-    const int nSpecies = mypc.nSpecies();
+    const int nSpecies = mypc.nSpecies() +
+        (warpx.DoFluidSpecies() ? warpx.GetFluidContainer().nSpecies() : 0);
 
     amrex::Real Wtot = 0.0_rt;
 
     // Loop over species
-    for (int i_s = 0; i_s < nSpecies; ++i_s)
+    for (int i_s = 0; i_s < mypc.nSpecies(); ++i_s)
     {
         // Get WarpXParticleContainer class object
         const auto & myspc = mypc.GetParticleContainer(i_s);
@@ -193,6 +202,19 @@ void ParticleMomentum::ComputeDiags (int step)
             m_data[offset_mean_species+0] = 0.0_rt;
             m_data[offset_mean_species+1] = 0.0_rt;
             m_data[offset_mean_species+2] = 0.0_rt;
+        }
+    }
+
+    if (warpx.DoFluidSpecies()) {
+        auto const& fluids = warpx.GetFluidContainer();
+        for (int i = 0; i < fluids.nSpecies(); ++i) {
+            int const species = mypc.nSpecies()+i;
+            auto const totals = fluids.GetFluidContainer(i).PhysicalTotals();
+            Wtot += totals[0];
+            for (int dir = 0; dir < 3; ++dir) {
+                m_data[3+3*species+dir] = totals[2+dir];
+                m_data[6+3*nSpecies+3*species+dir] = totals[0] > 0 ? totals[2+dir]/totals[0] : 0;
+            }
         }
     }
 

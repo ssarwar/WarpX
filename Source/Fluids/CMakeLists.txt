@@ -5,6 +5,7 @@ foreach(D IN LISTS WarpX_DIMS)
         MultiFluidContainer.cpp
         PrescribedFluid.cpp
         RigidBeam.cpp
+        FluidDiagnostics.cpp
         QdsmcParticleContainer.cpp
         WarpXFluidContainer.cpp
     )

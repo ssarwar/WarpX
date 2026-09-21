@@ -14,16 +14,23 @@ parser.add_argument(
 )
 parser.add_argument("--shape", type=int, default=3)
 parser.add_argument("--solver", choices=["Yee", "PSATD"], default="Yee")
+parser.add_argument("--walls", action="store_true")
 args = parser.parse_args()
 
 grid = picmi.CylindricalGrid(
     number_of_cells=[16, 32],
     lower_bound=[0.0, 0.0],
     upper_bound=[1.0, 2.0],
-    lower_boundary_conditions=["none", "periodic"],
-    upper_boundary_conditions=["none", "periodic"],
-    lower_boundary_conditions_particles=["none", "periodic"],
-    upper_boundary_conditions_particles=["absorbing", "periodic"],
+    lower_boundary_conditions=["none", "none" if args.walls else "periodic"],
+    upper_boundary_conditions=["none", "none" if args.walls else "periodic"],
+    lower_boundary_conditions_particles=[
+        "none",
+        "absorbing" if args.walls else "periodic",
+    ],
+    upper_boundary_conditions_particles=[
+        "absorbing",
+        "absorbing" if args.walls else "periodic",
+    ],
     warpx_max_grid_size=16,
     warpx_blocking_factor=8,
     n_azimuthal_modes=1,
@@ -138,8 +145,10 @@ def host(array):
 
 
 def rho(name):
-    mf = sim.particles.get(name).get_charge_density(lev=0, local=False)
-    return host(mf[...]).copy()
+    mf = sim.particles.get(name).get_charge_density(lev=0, local=True)
+    periodicity = sim.extension.warpx.Geom(0).periodicity()
+    mf.sum_boundary(0, 1, mf.n_grow_vect, mf.n_grow_vect, periodicity)
+    return host(mf[0:3j, -2j:3j]).copy()
 
 
 initial = rho("electrons")
@@ -151,7 +160,7 @@ for step in range(3):
     else:
         expected = initial - rho("electrons")
     actual = fluid.charge * host(
-        sim.fields.get("fluid_density_ion_fluid", level=0)[...]
+        sim.fields.get("fluid_density_ion_fluid", level=0)[0:3j, -2j:3j]
     )
     scale = np.max(np.abs(expected))
     assert scale > 0, "The fixture emitted no products"

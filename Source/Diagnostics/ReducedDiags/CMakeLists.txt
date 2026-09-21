@@ -24,6 +24,7 @@ foreach(D IN LISTS WarpX_DIMS)
         ParticleHistogram2D.cpp
         ParticleMomentum.cpp
         ParticleNumber.cpp
+        PrescribedSourceBudget.cpp
         ReducedDiags.cpp
         RhoMaximum.cpp
         Timestep.cpp

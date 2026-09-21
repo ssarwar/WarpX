@@ -15,6 +15,7 @@
 #include <AMReX_VisMF.H>
 
 #include <algorithm>
+#include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <limits>
@@ -60,6 +61,13 @@ MultiFluidContainer::CheckpointConfiguration () const
             if (fluid->getRigidBeam()) { config << fluid->getRigidBeam()->configuration() << '\n'; }
         }
     }
+    if (!config.str().empty()) {
+        bool correction = true;
+        amrex::ParmParse("boundary").query("verboncoeur_axis_correction", correction);
+        auto const& warpx = WarpX::GetInstance();
+        config << "discretization " << static_cast<int>(WarpX::electromagnetic_solver_id) << ' '
+            << static_cast<int>(warpx.evolve_scheme) << ' ' << correction << '\n';
+    }
     return config.str();
 }
 
@@ -85,17 +93,35 @@ MultiFluidContainer::ValidateRestart (
     std::string const& directory, ablastr::fields::MultiFabRegister const& fields) const
 {
     auto const config = CheckpointConfiguration();
-    if (config.empty()) { return; }
+    if (config.empty() && !std::filesystem::exists(directory+"/FluidModels")) { return; }
     amrex::Vector<char> contents;
     amrex::ParallelDescriptor::ReadAndBcastFile(directory + "/FluidModels", contents);
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
         std::string(contents.data()) == "WarpX prescribed fluids 1\n" + config,
-        "The checkpoint's prescribed-fluid species, models, masses, charges or shapes changed.");
+        "The checkpoint's prescribed-fluid species, models, masses, charges or shapes or discretization changed.");
     for (auto const& fluid : allcontainers) {
         if (!fluid->isPrescribed()) { continue; }
         auto const path = directory + "/Level_0/" + fields.mf_name(fluid->name_mf_N, 0);
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(amrex::VisMF::Exist(path),
             "Missing required prescribed-fluid checkpoint density: " + path);
+    }
+}
+
+void
+MultiFluidContainer::ValidateRestartState (ablastr::fields::MultiFabRegister& fields) const
+{
+    for (auto const& fluid : allcontainers) {
+        if (!fluid->isPrescribed()) { continue; }
+        auto const& density = *fields.get(fluid->name_mf_N, 0);
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(density.min(0, density.nGrow()) >= 0.0 &&
+            !density.contains_nan(0, 1, density.nGrow()) &&
+            !density.contains_inf(0, 1, density.nGrow()),
+            "Invalid prescribed-fluid checkpoint density: "+fluid->getName());
+        if (auto* beam = fluid->getRigidBeam()) {
+            auto const& warpx = WarpX::GetInstance();
+            beam->UpdateCurrentDiagnostic(*fields.get("fluid_current_"+fluid->getName(),
+                ablastr::fields::Direction{2}, 0), warpx.Geom(0), warpx.gett_new(0));
+        }
     }
 }
 
@@ -152,6 +178,8 @@ MultiFluidContainer::UpdatePrescribedDensities (
     for (auto& fluid : allcontainers) {
         if (auto* beam = fluid->getRigidBeam()) {
             beam->UpdateDensity(*fields.get(fluid->name_mf_N, 0), WarpX::GetInstance().Geom(0), time);
+            beam->UpdateCurrentDiagnostic(*fields.get("fluid_current_"+fluid->getName(),
+                ablastr::fields::Direction{2}, 0), WarpX::GetInstance().Geom(0), time);
         }
     }
 }

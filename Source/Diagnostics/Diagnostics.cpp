@@ -17,6 +17,7 @@
 #include "Utils/Parser/ParserUtils.H"
 #include "Utils/TextMsg.H"
 #include "Utils/WarpXAlgorithmSelection.H"
+#include "Fluids/MultiFluidContainer.H"
 #include "WarpX.H"
 
 #include <ablastr/profiler/ProfilerWrapper.H>
@@ -204,7 +205,7 @@ Diagnostics::BaseReadParameters ()
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
             !p_species_name_is_wrong,
             "Input error: string " + species + " in " + m_diag_name
-            + ".particle_fields_species does not match any species"
+            + ".particle_fields_species requires a kinetic species (fluids have no particle records)"
         );
     }
 
@@ -278,6 +279,13 @@ Diagnostics::BaseReadParameters ()
         pp_diag_name.queryarr("species", m_output_species_names);
 
 
+    // Charge-density fields can also select fluids. Particle reductions above
+    // deliberately retain the kinetic registry and its particle indices.
+    if (warpx.DoFluidSpecies()) {
+        auto const& fluids = warpx.GetFluidContainer().GetSpeciesNames();
+        m_all_species_names.insert(m_all_species_names.end(), fluids.begin(), fluids.end());
+    }
+
     // Loop over all fields stored in m_varnames
     for (const auto& var : m_varnames) {
         // Check if m_varnames contains a string of the form rho_<species_name>
@@ -315,6 +323,8 @@ Diagnostics::BaseReadParameters ()
                 // Check if species name extracted from the string T_<species_name>
                 // matches any of the species in the simulation
                 if (species == m_all_species_names[i]) {
+                    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(i < warpx.GetPartContainer().nSpecies(),
+                        "Temperature diagnostics require a kinetic species; '"+species+"' is a fluid.");
                     // Store species index: will be used in TemperatureFunctor to dump
                     // T for this species
                     m_T_per_species_index.push_back(i);
@@ -333,6 +343,10 @@ Diagnostics::BaseReadParameters ()
         if (var.starts_with("Tx_") || var.starts_with("Ty_") || var.starts_with("Tz_")) {
             // Extract species name from the string T_<species_name>
             const std::string species = var.substr(var.find("T") + 3);
+
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                utils::algorithms::is_in(warpx.GetPartContainer().GetSpeciesNames(), species),
+                "Particle temperature components require a kinetic species: "+species);
 
             WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
                 utils::algorithms::is_in(m_all_species_names, species),

@@ -264,6 +264,7 @@ RigidBeam::DepositCurrent (amrex::MultiFab& current, amrex::Geometry const& geom
 {
 #ifdef WARPX_DIM_RZ
     if (!active(geom, start, dt, (WarpX::nox+1)*geom.CellSize(1))) { return; }
+    CacheRadial(current, geom);
     auto const box = amrex::convert(geom.Domain(), current.ixType());
     int const count = box.length(1);
     m_current.resize(count);
@@ -291,8 +292,8 @@ RigidBeam::DepositCurrent (amrex::MultiFab& current, amrex::Geometry const& geom
                         spectral ? order : order-1, std::min(a,b), std::max(a,b),
                         dz, p.m_sigma_z, p.m_cutoff_z)/dt;
                 } else {
-                    value += p.m_amplitudes[pulse]*p.m_velocity*warpx::fluid::projectedIntegral(
-                        order-1, a-dz/2, a+dz/2, dz, p.m_sigma_z, p.m_cutoff_z)/dz;
+                    value += p.m_amplitudes[pulse]*p.m_velocity*warpx::fluid::projectedDensity(
+                        spectral ? order : order-1, a, dz, p.m_sigma_z, p.m_cutoff_z);
                 }
             }
             axial[j] = charge*p.m_peak_density*value;
@@ -312,4 +313,16 @@ RigidBeam::DepositCurrent (amrex::MultiFab& current, amrex::Geometry const& geom
 #else
     amrex::ignore_unused(current, geom, start, dt);
 #endif
+}
+
+void
+RigidBeam::UpdateCurrentDiagnostic (amrex::MultiFab& current, amrex::Geometry const& geom,
+                                     amrex::Real time)
+{
+    // Instantaneous, unfiltered prescribed current at the density output time.
+    // The Maxwell solver separately receives the time-integrated interval current.
+    current.setVal(0.0);
+    DepositCurrent(current, geom, time, 0.0);
+    current.SumBoundary(geom.periodicity());
+    current.FillBoundary(geom.periodicity());
 }

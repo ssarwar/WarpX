@@ -79,6 +79,7 @@ FlushFormatCheckpoint::WriteToFile (
 
     WriteJobInfo(checkpointname);
     if (warpx.DoFluidSpecies()) { warpx.GetFluidContainer().WriteCheckpoint(checkpointname); }
+    warpx.GetPartContainer().WriteCollisionCheckpoint(checkpointname);
 
     for (int lev = 0; lev < nlev; ++lev)
     {

@@ -2,6 +2,7 @@
 """Check integrated rigid-source budgets and immediate checkpoint restoration."""
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -9,7 +10,7 @@ import numpy as np
 from mpi4py import MPI
 from scipy.special import erf
 
-from pywarpx import picmi, warpx
+from pywarpx import amrex, picmi, warpx
 
 sys.path.insert(
     0,
@@ -26,8 +27,12 @@ parser.add_argument(
     choices=["Yee", "PSATD", "semi_implicit_em", "semi_implicit_mm"],
 )
 parser.add_argument("--restart")
+parser.add_argument("--openpmd", action="store_true")
 parser.add_argument("--subcycles", type=int, default=1)
 args = parser.parse_args()
+if os.environ.get("WARPX_TEST_RESTART_MUTATION"):
+    amrex.throw_exception = 1
+    amrex.signal_handling = 0
 qe, mp, me, c = (
     picmi.constants.q_e,
     picmi.constants.m_p,
@@ -89,7 +94,9 @@ sim = picmi.Simulation(
     particle_shape=3,
     warpx_collisions=collisions,
     warpx_amr_restart=args.restart,
-    warpx_current_deposition_algo="direct" if args.solver.startswith("semi_implicit") else None,
+    warpx_current_deposition_algo="direct"
+    if args.solver.startswith("semi_implicit")
+    else None,
     warpx_evolve_scheme=picmi.SemiImplicitEMEvolveScheme(
         nonlinear_solver=picmi.NewtonNonlinearSolver(
             relative_tolerance=1e-12,
@@ -110,6 +117,46 @@ for electron, ion, _, mode, _ in cases.values():
     if mode == "kinetic":
         sim.add_species(ion, layout=None)
 sim.add_diagnostic(picmi.Checkpoint(name="chk", period=2, write_dir="diags"))
+diagnostic_types = [
+    "ParticleNumber",
+    "ParticleCharge",
+    "ParticleEnergy",
+    "ParticleMomentum",
+    "PrescribedSourceBudget",
+]
+for kind in diagnostic_types:
+    sim.add_diagnostic(picmi.ReducedDiagnostic(diag_type=kind, name=kind, period=1))
+plot_fields = [
+    "rho",
+    "rho_beam",
+    "rho_i_N2_immobile",
+    "rho_e_N2_immobile",
+    "fluid_density_beam",
+    "fluid_current_beamz",
+    "fluid_density_i_N2_immobile",
+    "N2_immobile_product_weight_remainder",
+    "N2_immobile_emitted_number",
+    "N2_immobile_electron_energy",
+    "N2_immobile_binding_energy",
+]
+sim.add_diagnostic(
+    picmi.FieldDiagnostic(
+        name="fields", grid=grid, period=2, data_list=plot_fields, write_dir="diags"
+    )
+)
+if args.openpmd:
+    sim.add_diagnostic(
+        picmi.FieldDiagnostic(
+            name="pmd",
+            grid=grid,
+            period=2,
+            data_list=plot_fields,
+            write_dir="diags/pmd",
+            warpx_format="openpmd",
+            warpx_openpmd_backend="h5",
+            warpx_dump_rz_modes=True,
+        )
+    )
 sim.initialize_inputs()
 fluid_names = ["beam"]
 for _, ion, _, mode, _ in cases.values():
@@ -123,6 +170,15 @@ bucket.model, bucket.species_type = "rigid_beam", "proton"
 bucket.kinetic_energy, bucket.sigma_r, bucket.sigma_t = energy, sigma_r, sigma_t
 bucket.peak_current, bucket.cutoff_z = peak_current, cutoff
 bucket.pulse_times, bucket.pulse_amplitudes = [0.0, 2e-12], [0.75, 0.25]
+mutation = os.environ.get("WARPX_TEST_RESTART_MUTATION")
+if mutation == "beam":
+    bucket.peak_current *= 2
+elif mutation == "source":
+    warpx.get_bucket("N2_immobile").fixed_product_weight = 0.75
+elif mutation == "remove":
+    warpx.get_bucket("fluids").species_names = ["beam"]
+elif mutation == "particle_diagnostic":
+    warpx.get_bucket("ParticleEnergy").species = ["beam"]
 sim.initialize_warpx()
 
 
@@ -142,6 +198,19 @@ def population(name):
     return MPI.COMM_WORLD.allreduce(local)
 
 
+def particle_state(name):
+    arrays = []
+    for tile in sim.particles.get(name).iterator(level=0):
+        arrays.append(
+            np.column_stack(
+                [host(tile[key]) for key in ["r", "theta", "z", "w", "ux", "uy", "uz"]]
+            )
+        )
+    local = np.concatenate(arrays) if arrays else np.empty((0, 7))
+    values = np.concatenate(MPI.COMM_WORLD.allgather(local))
+    return values[np.lexsort(values.T[::-1])]
+
+
 def state():
     result = {}
     for name, (electron, ion, _, mode, _) in cases.items():
@@ -150,6 +219,16 @@ def state():
         if mode != "kinetic":
             result[ion.name] = field("fluid_density_" + ion.name)
         result[electron.name] = np.array(population(electron.name))
+        result[electron.name + "_phase_space"] = particle_state(electron.name)
+    for kind in ["Efield_fp", "Bfield_fp", "current_fp"]:
+        for direction in ["r", "theta", "z"]:
+            result[kind + "_" + direction] = host(
+                sim.fields.get(kind, direction, level=0)[...]
+            ).copy()
+    result["beam"] = field("fluid_density_beam")
+    result["beam_current"] = host(
+        sim.fields.get("fluid_current_beam", "z", level=0)[...]
+    ).copy()
     return result
 
 
@@ -206,13 +285,88 @@ for step in range(start + 1, steps + 1):
             for mode in ["kinetic", "immobile", "fine"]
         ]
         np.testing.assert_allclose(budgets, budgets[0], rtol=2e-14)
+    beam_population = number
+    expected_populations = {
+        electron.name: population(electron.name)
+        for electron, _, _, _, _ in cases.values()
+    }
+    for electron, ion, _, _, _ in cases.values():
+        expected_populations[ion.name] = expected_populations[electron.name]
+    expected_populations["beam"] = beam_population
+    source_totals = {
+        name: (
+            field(name + "_product_weight_remainder").sum(),
+            field(name + "_source_budget").reshape(-1, 4).sum(axis=0),
+        )
+        for name in cases
+    }
+    import re
+
+    def reduced(kind):
+        path = Path("diags/reducedfiles") / (kind + ".txt")
+        columns = [
+            re.sub(r"^\[\d+\]", "", key)
+            for key in path.read_text().splitlines()[0].lstrip("#").split()
+        ]
+        row = np.loadtxt(path, ndmin=2)[-1]
+        np.testing.assert_allclose(row[1], step * dt, rtol=2e-14)
+        return dict(zip(columns, row))
+
+    counts = reduced("ParticleNumber")
+    charges = reduced("ParticleCharge")
+    energies = reduced("ParticleEnergy")
+    momenta = reduced("ParticleMomentum")
+    for name, population_value in expected_populations.items():
+        np.testing.assert_allclose(
+            counts[name + "_weight()"], population_value, rtol=3e-12
+        )
+        charge = -qe if name.startswith("e_") else qe
+        np.testing.assert_allclose(
+            charges[name + "(C)"], charge * population_value, rtol=3e-12
+        )
+    for name in fluid_names:
+        assert counts[name + "_macroparticles()"] == 0
+        if name != "beam":
+            assert energies[name + "(J)"] == 0
+            assert momenta[name + "_z(kg*m/s)"] == 0
+    np.testing.assert_allclose(energies["beam(J)"], number * energy * qe, rtol=3e-12)
+    np.testing.assert_allclose(
+        momenta["beam_z(kg*m/s)"], number * gamma * mp * speed, rtol=3e-12
+    )
+    np.testing.assert_allclose(
+        energies["total_mean(J)"],
+        energies["total(J)"] / sum(expected_populations.values()),
+        rtol=3e-12,
+    )
+    budgets = reduced("PrescribedSourceBudget")
+    for name, (pending, totals) in source_totals.items():
+        np.testing.assert_allclose(budgets[name + "_pending()"], pending, rtol=3e-12)
+        np.testing.assert_allclose(budgets[name + "_emitted()"], totals[0], rtol=3e-12)
+        for comp, suffix in enumerate(
+            ["electron_energy", "binding_energy", "discarded_ion_energy"], 1
+        ):
+            np.testing.assert_allclose(
+                budgets[name + "_" + suffix + "(J)"], totals[comp], rtol=3e-12
+            )
     saved_state = state()
     if MPI.COMM_WORLD.rank == 0:
         np.savez(f"state_{step}.npz", **saved_state)
 if args.restart:
     with np.load(Path(args.restart).parents[1] / f"state_{steps}.npz") as saved:
         for name, value in state().items():
-            np.testing.assert_allclose(value, saved[name], rtol=2e-14, atol=1e-300)
+            if name.startswith(("Efield_fp", "Bfield_fp")):
+                # MPI redistribution changes the order of the implicit solver's
+                # dot products. Bound roundoff in the field norm; pointwise
+                # relative error is undefined at cancellation zeros. Chemistry
+                # and persistent budgets retain their stricter checks below.
+                rounding = 64 * np.finfo(value.dtype).eps * np.max(np.abs(saved[name]))
+                np.testing.assert_allclose(
+                    value, saved[name], rtol=0, atol=rounding, err_msg=name
+                )
+            else:
+                np.testing.assert_allclose(
+                    value, saved[name], rtol=2e-14, atol=1e-300, err_msg=name
+                )
 print(
     "PASS: N2/O2 rigid-source budgets, caps, ion charge footprints and deterministic restart"
 )

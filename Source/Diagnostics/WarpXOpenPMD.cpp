@@ -347,7 +347,22 @@ namespace detail
     inline void
     setOpenPMDUnit ( openPMD::Mesh mesh, const std::string& field_name )
     {
-        if (field_name[0] == 'E'){  // Electric field
+        if (field_name.starts_with("fluid_density_")) {
+            mesh.setUnitDimension({{openPMD::UnitDimension::L, -3}});
+        } else if (field_name.starts_with("fluid_momentum_density_")) {
+            // The cold-fluid field stores number density times gamma*v, without mass.
+            mesh.setUnitDimension({{openPMD::UnitDimension::L, -2},
+                                   {openPMD::UnitDimension::T, -1}});
+        } else if (field_name.ends_with("_electron_energy") ||
+                   field_name.ends_with("_binding_energy") ||
+                   field_name.ends_with("_discarded_ion_energy")) {
+            mesh.setUnitDimension({{openPMD::UnitDimension::M, 1},
+                                   {openPMD::UnitDimension::L, 2},
+                                   {openPMD::UnitDimension::T, -2}});
+        } else if (field_name.ends_with("_product_weight_remainder") ||
+                   field_name.ends_with("_emitted_number")) {
+            mesh.setUnitDimension(std::map<openPMD::UnitDimension, double>{});
+        } else if (field_name[0] == 'E'){  // Electric field
             mesh.setUnitDimension({
                                           {openPMD::UnitDimension::L,  1},
                                           {openPMD::UnitDimension::M,  1},
@@ -360,7 +375,7 @@ namespace detail
                                           {openPMD::UnitDimension::I, -1},
                                           {openPMD::UnitDimension::T, -2}
                                   });
-        } else if (field_name[0] == 'j'){ // current
+        } else if (field_name[0] == 'j' || field_name.starts_with("fluid_current_")){ // current
             mesh.setUnitDimension({
                                           {openPMD::UnitDimension::L, -2},
                                           {openPMD::UnitDimension::I,  1},

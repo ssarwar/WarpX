@@ -41,6 +41,7 @@
 #include "EmbeddedBoundary/ParticleScraper.H"
 #include "EmbeddedBoundary/ParticleBoundaryProcess.H"
 
+#include "Fluids/MultiFluidContainer.H"
 #include "WarpX.H"
 
 #include <ablastr/fields/MultiFabRegister.H>
@@ -1090,6 +1091,10 @@ MultiParticleContainer::mapSpeciesProduct ()
 int
 MultiParticleContainer::getSpeciesID (const std::string& product_str) const
 {
+    auto& warpx = WarpX::GetInstance();
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(!warpx.DoFluidSpecies() ||
+        !warpx.GetFluidContainer().FindSpecies(product_str),
+        "This operation requires a kinetic particle species; '"+product_str+"' is a fluid.");
     auto species_and_lasers_names = GetSpeciesAndLasersNames();
     int i_product = 0;
     bool found = false;

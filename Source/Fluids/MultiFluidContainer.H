@@ -58,6 +58,7 @@ public:
     void WriteCheckpoint (std::string const& directory) const;
     void ValidateRestart (std::string const& directory,
                           ablastr::fields::MultiFabRegister const& fields) const;
+    void ValidateRestartState (ablastr::fields::MultiFabRegister& fields) const;
     [[nodiscard]] bool InitializeSelfFields () const;
 
 #ifdef WARPX_USE_OPENPMD

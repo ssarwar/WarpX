@@ -52,6 +52,9 @@ namespace
             auto const hi = (node+0.5)*dx-center;
             auto const density = projectedIntegral(Order-1, lo, hi, dx, sigma, cutoff)/dx;
             error = std::max(error, std::abs(density-reference[node+cells]));
+            auto const instantaneous = warpx::fluid::projectedDensity(
+                Order, node*dx-center, dx, sigma, cutoff);
+            error = std::max(error, std::abs(instantaneous-reference[node+cells]));
             total += density*dx;
         }
         amrex::Print() << "order=" << Order << " dx=" << dx << " cutoff=" << cutoff

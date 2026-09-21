@@ -25,6 +25,7 @@
 #include "ParticleHistogram2D.H"
 #include "ParticleMomentum.H"
 #include "ParticleNumber.H"
+#include "PrescribedSourceBudget.H"
 #include "RhoMaximum.H"
 #include "Timestep.H"
 #include "Utils/TextMsg.H"
@@ -66,6 +67,8 @@ MultiReducedDiags::MultiReducedDiags ()
             {"ParticleHistogram2D",   [](CS s){return std::make_unique<ParticleHistogram2D>(s);}},
             {"ParticleMomentum",      [](CS s){return std::make_unique<ParticleMomentum>(s);}},
             {"ParticleNumber",        [](CS s){return std::make_unique<ParticleNumber>(s);}},
+            {"PrescribedSourceBudget", [](CS s){return std::make_unique<PrescribedSourceBudget>(s);}},
+            {"ParticleCharge",        [](CS s){return std::make_unique<ParticleNumber>(s, true);}},
             {"FieldEnergy",           [](CS s){return std::make_unique<FieldEnergy>(s);}},
             {"FieldMaximum",          [](CS s){return std::make_unique<FieldMaximum>(s);}},
             {"FieldMomentum",         [](CS s){return std::make_unique<FieldMomentum>(s);}},

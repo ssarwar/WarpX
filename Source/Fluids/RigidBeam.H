@@ -143,6 +143,8 @@ public:
                         amrex::Real time);
     void DepositCurrent (amrex::MultiFab& current, amrex::Geometry const& geom,
                          amrex::Real start, amrex::Real dt);
+    void UpdateCurrentDiagnostic (amrex::MultiFab& current, amrex::Geometry const& geom,
+                                  amrex::Real time);
 
 private:
     void CacheRadial (amrex::MultiFab const& density, amrex::Geometry const& geom);

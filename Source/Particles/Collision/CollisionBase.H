@@ -23,6 +23,9 @@ public:
     explicit CollisionBase (const std::string& collision_name);
 
     virtual void AllocData () {}
+    [[nodiscard]] virtual std::string CheckpointConfiguration () const { return {}; }
+    [[nodiscard]] virtual amrex::Vector<std::string> CheckpointFields () const { return {}; }
+    virtual void ValidateRestartState () const {}
 
     virtual void doCollisions (amrex::Real /*cur_time*/, amrex::Real /*dt*/, MultiParticleContainer* /*mypc*/ ){}
 

@@ -5524,6 +5524,8 @@ class ReducedDiagnostic(picmistandard.base._ClassWithInit, WarpXDiagnosticBase):
             "FieldPoyntingFlux",
             "RhoMaximum",
             "ParticleNumber",
+            "ParticleCharge",
+            "PrescribedSourceBudget",
             "LoadBalanceCosts",
             "LoadBalanceEfficiency",
             "Timestep",

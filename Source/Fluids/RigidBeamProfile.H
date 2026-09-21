@@ -10,6 +10,7 @@
 #include <AMReX_Extension.H>
 #include <AMReX_GpuQualifiers.H>
 
+#include <algorithm>
 #include <cmath>
 
 namespace warpx::fluid
@@ -81,6 +82,27 @@ namespace warpx::fluid
             sum += w[i] * (f(mid-half*x[i]) + f(mid+half*x[i]));
         }
         return half * sum;
+    }
+
+    /** Gaussian convolved with a compact particle shape at one coordinate. */
+    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE double
+    projectedDensity (int order, double coordinate, double dx, double sigma, double cutoff) noexcept
+    {
+        double result = 0.0;
+        for (int piece = 0; piece <= order; ++piece) {
+            double const lo = std::max(-0.5*(order+1)+piece, (coordinate-cutoff*sigma)/dx);
+            double const hi = std::min(-0.5*(order+1)+piece+1, (coordinate+cutoff*sigma)/dx);
+            if (hi <= lo) { continue; }
+            int const count = 1+static_cast<int>((hi-lo)*dx/sigma);
+            double const step = (hi-lo)/count;
+            for (int sub = 0; sub < count; ++sub) {
+                result += integrate([=] AMREX_GPU_HOST_DEVICE(double u) noexcept {
+                    double const x = (coordinate-dx*u)/sigma;
+                    return shape(order, u)*std::exp(-0.5*x*x);
+                }, lo+sub*step, lo+(sub+1)*step);
+            }
+        }
+        return result;
     }
 
     /** Gaussian convolved with a compact particle shape, integrated over an interval.

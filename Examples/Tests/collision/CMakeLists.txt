@@ -8,21 +8,40 @@ foreach(solver IN ITEMS Yee PSATD semi_implicit_em semi_implicit_mm)
     add_warpx_test(
         test_rz_rigid_source_${solver}_picmi RZ 2
         "inputs_test_rz_rigid_source_picmi.py --solver ${solver} --subcycles 2"
-        OFF OFF OFF
+        analysis_rz_prescribed_outputs.py OFF OFF
     )
     add_warpx_test(
         test_rz_rigid_source_${solver}_restart_picmi RZ 1
         "inputs_test_rz_rigid_source_picmi.py --solver ${solver} --subcycles 2 --restart ../test_rz_rigid_source_${solver}_picmi/diags/chk000002"
-        OFF OFF "test_rz_rigid_source_${solver}_picmi"
+        analysis_rz_prescribed_outputs.py OFF "test_rz_rigid_source_${solver}_picmi"
     )
 endforeach()
+
+if(WarpX_OPENPMD)
+    add_warpx_test(
+        test_rz_prescribed_openpmd_picmi RZ 2
+        "inputs_test_rz_rigid_source_picmi.py --solver Yee --subcycles 2 --openpmd"
+        "analysis_rz_prescribed_outputs.py --openpmd" OFF OFF
+    )
+    add_warpx_test(
+        test_rz_prescribed_openpmd_restart_picmi RZ 1
+        "inputs_test_rz_rigid_source_picmi.py --solver Yee --subcycles 2 --openpmd --restart ../test_rz_prescribed_openpmd_picmi/diags/chk000002"
+        "analysis_rz_prescribed_outputs.py --openpmd" OFF "test_rz_prescribed_openpmd_picmi"
+    )
+endif()
+
+add_warpx_test(
+    test_rz_prescribed_restart_guards_picmi RZ 1
+    inputs_test_rz_prescribed_restart_guards_picmi.py
+    OFF OFF "test_rz_rigid_source_Yee_picmi"
+)
 
 foreach(kind IN ITEMS proton ionization attachment)
     foreach(shape RANGE 1 4)
         add_warpx_test(
             test_rz_immobile_${kind}_${shape}_picmi
             RZ 2
-            "inputs_test_rz_immobile_products_picmi.py --kind ${kind} --shape ${shape}"
+            "inputs_test_rz_immobile_products_picmi.py --kind ${kind} --shape ${shape} --walls"
             OFF OFF OFF
         )
     endforeach()

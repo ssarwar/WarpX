@@ -53,13 +53,28 @@ WarpXFluidContainer::CommitDensityIncrement (ablastr::fields::MultiFabRegister& 
     auto& density = *fields.get(name_mf_N, lev);
 #ifdef WARPX_DIM_RZ
     warpx.ApplyInverseVolumeScalingToChargeDensity(&increment, lev);
+    // The axis fold has consumed these raw deposits. They are not a physical
+    // negative-radius population and must not enter persistent state.
+    if (warpx.Geom(lev).ProbLo(0) == 0.0) {
+        for (amrex::MFIter mfi(increment, amrex::TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+            auto const values = increment.array(mfi);
+            auto box = mfi.growntilebox();
+            box.setBig(0, std::min(box.bigEnd(0), warpx.Geom(lev).Domain().smallEnd(0)-1));
+            amrex::ParallelFor(box, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                values(i,j,k) = 0.0;
+            });
+        }
+    }
 #endif
     // Only fresh deposits are summed. Summing an accumulated nodal population
     // would duplicate it at every grid interface on each collision call.
     ablastr::utils::communication::SumBoundary(
-        increment, 0, 1, increment.nGrowVect(), amrex::IntVect(0),
+        increment, 0, 1, increment.nGrowVect(), increment.nGrowVect(),
         WarpX::do_single_precision_comms, warpx.Geom(lev).periodicity());
-    amrex::MultiFab::Add(density, increment, 0, 0, 1, 0);
+    // Retain the charge-shape support beyond physical walls as well. Boundary
+    // reflection and filtering act on the transient total charge, just as for
+    // frozen kinetic ions, rather than truncating each persistent increment.
+    amrex::MultiFab::Add(density, increment, 0, 0, 1, density.nGrowVect());
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(density.min(0) >= 0.0 && !density.contains_nan() &&
                                         !density.contains_inf(),
         "An immobile-fluid update produced a negative or non-finite number density.");

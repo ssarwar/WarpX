@@ -33,8 +33,10 @@
 
 #include <cmath>
 #include <cstdint>
+#include <iomanip>
 #include <limits>
 #include <memory>
+#include <sstream>
 #include <string>
 
 namespace
@@ -211,6 +213,59 @@ ProtonImpactIonizationCollision::ProtonImpactIonizationCollision (
     m_remainder_field_name = collision_name + "_product_weight_remainder";
     m_budget_field_name = collision_name + "_source_budget";
     m_counter_field_name = collision_name + "_sampling_counter";
+    if (m_fluid_projectile || ion.isFluid()) {
+        std::ostringstream configuration;
+        configuration << std::setprecision(std::numeric_limits<double>::max_digits10);
+        configuration << collision_name << ' ' << m_species_names[0] << ' '
+            << m_product_species[0] << ' ' << m_product_species[1] << ' '
+            << projectile_mass << ' ' << projectile_charge << ' '
+            << ion.getMass() << ' ' << static_cast<int>(m_target) << ' '
+            << m_ndt << ' ' << static_cast<int>(m_collision_stepping_mode) << ' '
+            << m_fixed_product_weight << ' ' << m_max_products_per_cell << ' '
+            << projectile_energy_min << ' ' << projectile_energy_max << ' '
+            << m_sampling_seed << ' ' << m_source_sampling_points << ' '
+            << m_gas_quadrature_points << ' ' << m_constant_density << ' '
+            << m_background_density << ' ' << m_constant_temperature << ' '
+            << m_background_temperature << '\n';
+        if (!m_constant_density) { configuration << m_background_density_parser.expr() << '\n'; }
+        if (!m_constant_temperature) { configuration << m_background_temperature_parser.expr() << '\n'; }
+        m_configuration = configuration.str();
+    }
+}
+
+amrex::Vector<std::string>
+ProtonImpactIonizationCollision::CheckpointFields () const
+{
+    if (m_configuration.empty()) { return {}; }
+    if (!m_fluid_projectile) { return {m_remainder_field_name}; }
+    return {m_remainder_field_name, m_budget_field_name, m_counter_field_name};
+}
+
+void
+ProtonImpactIonizationCollision::ValidateRestartState () const
+{
+    if (m_configuration.empty()) { return; }
+    auto const& fields = WarpX::GetInstance().m_fields;
+    for (auto const& name : CheckpointFields()) {
+        auto const& state = *fields.get(name, 0);
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(!state.contains_nan() && !state.contains_inf(),
+            "Non-finite prescribed-source checkpoint state: "+name);
+        for (int comp = 0; comp < state.nComp(); ++comp) {
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(state.min(comp) >= 0.0,
+                "Negative prescribed-source checkpoint state: "+name);
+        }
+    }
+    if (!m_fluid_projectile) { return; }
+    auto const& counter = *fields.get(m_counter_field_name, 0);
+    for (amrex::MFIter mfi(counter, amrex::TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+        auto const values = counter.const_array(mfi);
+        amrex::ParallelFor(mfi.tilebox(), 4,
+            [=] AMREX_GPU_DEVICE(int i, int j, int k, int n) noexcept {
+                auto const value = values(i,j,k,n);
+                AMREX_ALWAYS_ASSERT_WITH_MESSAGE(value <= 65535.0 && value == std::floor(value),
+                    "Invalid prescribed-source checkpoint sampling counter.");
+            });
+    }
 }
 
 void

@@ -29,8 +29,57 @@
 #include "Utils/TextMsg.H"
 
 #include <AMReX_ParmParse.H>
+#include <AMReX_ParallelDescriptor.H>
+#include <AMReX_VisMF.H>
 
+#include <filesystem>
+#include <fstream>
 #include <vector>
+
+std::string
+CollisionHandler::CheckpointConfiguration () const
+{
+    std::string configuration;
+    for (auto const& collision : allcollisions) { configuration += collision->CheckpointConfiguration(); }
+    return configuration;
+}
+
+void
+CollisionHandler::WriteCheckpoint (std::string const& directory) const
+{
+    auto const configuration = CheckpointConfiguration();
+    if (configuration.empty() || !amrex::ParallelDescriptor::IOProcessor()) { return; }
+    std::ofstream output(directory+"/PrescribedSources");
+    output << "WarpX prescribed sources 1\n" << configuration;
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(output.good(), "Cannot write prescribed-source checkpoint metadata.");
+}
+
+void
+CollisionHandler::ValidateRestart (std::string const& directory) const
+{
+    auto const configuration = CheckpointConfiguration();
+    auto const path = directory+"/PrescribedSources";
+    if (configuration.empty() && !std::filesystem::exists(path)) { return; }
+    amrex::Vector<char> contents;
+    amrex::ParallelDescriptor::ReadAndBcastFile(path, contents);
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(std::string(contents.data()) ==
+        "WarpX prescribed sources 1\n"+configuration,
+        "Prescribed collision sources or their immutable physics/sampling configuration changed.");
+    auto const& warpx = WarpX::GetInstance();
+    for (auto const& collision : allcollisions) {
+        for (auto const& field : collision->CheckpointFields()) {
+            auto const field_path = directory+"/Level_0/"+warpx.m_fields.mf_name(field, 0);
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(amrex::VisMF::Exist(field_path),
+                "Missing required prescribed-source checkpoint state: "+field_path);
+        }
+    }
+}
+
+void
+CollisionHandler::ValidateRestartState () const
+{
+    for (auto const& collision : allcollisions) { collision->ValidateRestartState(); }
+}
 
 CollisionHandler::CollisionHandler(MultiParticleContainer const * const mypc)
 {

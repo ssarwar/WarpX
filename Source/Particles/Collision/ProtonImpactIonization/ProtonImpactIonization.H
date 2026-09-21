@@ -39,12 +39,16 @@ public:
     ProtonImpactIonizationCollision& operator= (ProtonImpactIonizationCollision&&) = delete;
 
     void AllocData () override;
+    [[nodiscard]] std::string CheckpointConfiguration () const override { return m_configuration; }
+    [[nodiscard]] amrex::Vector<std::string> CheckpointFields () const override;
+    void ValidateRestartState () const override;
 
     void doCollisions (amrex::Real cur_time, amrex::Real dt, MultiParticleContainer* mypc) override;
     void doCollisionsInInterval (amrex::Real cur_time, amrex::Real start_time,
                                 amrex::Real dt, MultiParticleContainer* mypc) override;
 
 private:
+    std::string m_configuration;
     void ProduceFromFluid (amrex::Real cur_time, amrex::Real start_time,
                            amrex::Real dt, MultiParticleContainer* mypc);
     WarpXFluidContainer* m_fluid_projectile = nullptr;

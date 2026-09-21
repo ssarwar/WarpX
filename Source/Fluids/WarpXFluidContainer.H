@@ -17,6 +17,7 @@
 #include <AMReX_Vector.H>
 #include <AMReX_REAL.H>
 
+#include <array>
 #include <string>
 
 
@@ -150,6 +151,8 @@ public:
     [[nodiscard]] bool isPrescribed () const {return m_model != FluidModel::ColdRelativistic;}
     [[nodiscard]] RigidBeam* getRigidBeam () const {return m_rigid_beam.get();}
     [[nodiscard]] bool InitializeSelfFields () const {return m_initialize_self_fields;}
+    /** Physical number, kinetic energy, and Cartesian momentum, summed across MPI. */
+    [[nodiscard]] std::array<amrex::Real, 5> PhysicalTotals () const;
 
     /** Synchronize a fresh, unscaled collision deposit and accumulate it exactly once. */
     void CommitDensityIncrement (ablastr::fields::MultiFabRegister& fields, int lev);
