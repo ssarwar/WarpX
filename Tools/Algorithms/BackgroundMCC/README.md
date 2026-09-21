@@ -101,3 +101,20 @@ unmeasured GPU speedup is claimed. The many-channel PIC tests retain their
 catastrophic-regression timing guards. Profile launch/synchronization cost,
 register pressure, table locality and fallback frequency on the intended GPU,
 using identical physical rates and product counts for comparisons.
+
+## Perlmutter Release validation
+
+The subsequent [coupled re-audit](../PrescribedFluids/REAUDIT.md) uses the stock
+Perlmutter build profile and CUDA 13.2 on A100s. Both standalone tests pass with
+native double and float particles (`58712917`, `58712918`). The actual N2/O2 DCS
+angular and recoil comparison also passes (`58712279`).
+
+Ordinary device assertions disappear in Release builds. Density, temperature
+and majorant validation now records a GPU error flag and checks it on the host.
+The product path uses its existing count transfer; the pure scattering path
+checks once per collision call. GPU invalid-input tests cover negative/excess
+parser density, negative temperature, and insufficient majorants with and
+without product creation. All cases pass in `58714986`, as do the tight/loose
+majorant, RBEQ spectrum and thermal/two-/three-body attachment analyses. CuPy
+particle IDs are copied to the host before calling the host-only ID unpacker.
+These repairs do not change collision probabilities, spectra or tolerances.

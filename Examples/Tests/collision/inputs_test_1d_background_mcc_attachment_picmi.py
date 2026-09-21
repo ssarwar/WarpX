@@ -149,7 +149,7 @@ def get_component(container, component):
 def get_ids(container):
     return np.concatenate(
         [
-            to_numpy(libwarpx.amr.unpack_ids(pti["idcpu"]))
+            to_numpy(libwarpx.amr.unpack_ids(to_numpy(pti["idcpu"])))
             for pti in container.iterator(level=0)
         ]
     )

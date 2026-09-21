@@ -10,6 +10,31 @@ from pathlib import Path
 from pywarpx import amrex, picmi
 
 CASES = {
+    "runtime_majorant_elastic": (
+        "User-specified Background MCC nu_max is smaller",
+        "elastic",
+        {},
+    ),
+    "runtime_majorant_attachment": (
+        "User-specified Background MCC nu_max is smaller",
+        "attachment",
+        {"cross_section_units": "m2"},
+    ),
+    "runtime_negative_density": (
+        "Background MCC density is negative",
+        "elastic",
+        {},
+    ),
+    "runtime_excess_density": (
+        "Background MCC density is negative or exceeds max_background_density",
+        "elastic",
+        {},
+    ),
+    "runtime_negative_temperature": (
+        "Background MCC temperature is negative",
+        "elastic",
+        {},
+    ),
     "mixed_ion_masses_implicit": (
         "Ionization product masses imply different neutral masses.",
         "ionization",
@@ -103,6 +128,7 @@ def run_invalid_case(case):
 
     _, process_type, process_options = CASES[case]
     process_options = process_options.copy()
+    runtime_case = case.startswith("runtime_")
 
     source_dir = Path(__file__).resolve().parent
     cross_section = source_dir / "background_mcc_attachment_m2.txt"
@@ -148,7 +174,8 @@ def run_invalid_case(case):
     grid = picmi.Cartesian1DGrid(
         number_of_cells=[1],
         lower_bound=[0.0],
-        upper_bound=[1.0],
+        # Keep the deterministic runtime-rejection timestep below the CFL limit.
+        upper_bound=[1.0e6 if runtime_case else 1.0],
         lower_boundary_conditions=["periodic"],
         upper_boundary_conditions=["periodic"],
         lower_boundary_conditions_particles=["periodic"],
@@ -161,7 +188,10 @@ def run_invalid_case(case):
     electrons = picmi.Species(
         particle_type="electron",
         name="electrons",
-        initial_distribution=picmi.UniformDistribution(density=1.0),
+        initial_distribution=picmi.UniformDistribution(
+            density=1.0,
+            directed_velocity=[0, 0, 1e7] if runtime_case else [0, 0, 0],
+        ),
         warpx_do_not_deposit=True,
         warpx_do_not_gather=True,
     )
@@ -193,20 +223,30 @@ def run_invalid_case(case):
         )
         process.update(species=negative_ions, energy=15.58)
         processes["ionization_fragment"] = {**process, "species": fragment_ions}
+    background_density = 1.0e23 if runtime_case else 1.0e20
+    if case == "runtime_negative_density":
+        background_density = "-(1+t)"
+    elif case == "runtime_excess_density":
+        background_density = "2e23*(1+t)"
     collision = picmi.MCCCollisions(
         name="mcc",
         species=electrons,
-        background_density=1.0e20,
-        background_temperature=0.0,
+        background_density=background_density,
+        max_background_density=1.0e23 if case == "runtime_excess_density" else None,
+        background_temperature="-(1+t)"
+        if case == "runtime_negative_temperature"
+        else 0.0,
         background_mass=None
         if case == "mixed_ion_masses_implicit"
         else 32.0 * picmi.constants.m_p,
         scattering_processes=processes,
-        nu_max=1.0e6,
+        nu_max=None if case == "runtime_excess_density" else 1.0e6,
     )
     sim = picmi.Simulation(
         solver=solver,
-        time_step_size=1.0e-9,
+        # exp(-nu_max*dt) underflows below the rounding threshold, so every
+        # particle attempts a collision and a runtime rejection is deterministic.
+        time_step_size=1.0e-4 if runtime_case else 1.0e-9,
         max_steps=1,
         warpx_collisions=[collision],
         verbose=0,
@@ -246,14 +286,20 @@ def check_invalid_cases():
             timeout=60,
             env=environment,
         )
+        Path(f"{case}.log").write_text(result.stdout)
         if expected_message is None:
             assert result.returncode == 0, result.stdout
             print(f"{case}: explicit neutral mass accepted")
             continue
         assert result.returncode != 0, f"Invalid case {case!r} unexpectedly succeeded"
-        assert expected_message in result.stdout, (
+        # WarpX wraps long diagnostic messages with a '#' continuation prefix.
+        # Compare the complete message independently of terminal line wrapping.
+        message_text = " ".join(
+            " ".join(line.lstrip("# ").split()) for line in result.stdout.splitlines()
+        )
+        assert expected_message in message_text, (
             f"Invalid case {case!r} did not report {expected_message!r}.\n"
-            f"Output:\n{result.stdout[-8000:]}"
+            f"Output:\n{result.stdout[:8000]}\n{result.stdout[-8000:]}"
         )
         print(f"{case}: rejected as expected")
 

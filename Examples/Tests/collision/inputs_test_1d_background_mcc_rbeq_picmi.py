@@ -191,7 +191,7 @@ def component(container, name):
 def particle_ids(container):
     return np.concatenate(
         [
-            to_numpy(libwarpx.amr.unpack_ids(pti["idcpu"]))
+            to_numpy(libwarpx.amr.unpack_ids(to_numpy(pti["idcpu"])))
             for pti in container.iterator(level=0)
         ]
     )

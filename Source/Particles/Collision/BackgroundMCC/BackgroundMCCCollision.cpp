@@ -18,12 +18,13 @@
 #include "Utils/WarpXAlgorithmSelection.H"
 #include "WarpX.H"
 
-#include <ablastr/profiler/ProfilerWrapper.H>
 #include <AMReX_GpuAtomic.H>
-#include <AMReX_ParticleUtil.H>
+#include <AMReX_GpuMemory.H>
 #include <AMReX_ParmParse.H>
+#include <AMReX_ParticleUtil.H>
 #include <AMReX_REAL.H>
 #include <AMReX_Vector.H>
+#include <ablastr/profiler/ProfilerWrapper.H>
 
 #include <algorithm>
 #include <cmath>
@@ -453,6 +454,22 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
 }
 
 BackgroundMCCCollision::~BackgroundMCCCollision () = default;
+
+void
+BackgroundMCCCollision::CheckRuntimeInputs (int error) const
+{
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(error != 1,
+                                     "Background MCC density is negative or "
+                                     "exceeds max_background_density.");
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+        error != 2, "Background MCC temperature is negative or non-finite.");
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+        error != 3,
+        m_user_nu_max ? "User-specified Background MCC nu_max is smaller than "
+                        "the local total collision frequency."
+                      : "Automatic Background MCC nu_max is smaller than "
+                        "the local total collision frequency.");
+}
 
 amrex::ParticleReal
 BackgroundMCCCollision::get_nu_max (
@@ -890,6 +907,7 @@ BackgroundMCCCollision::doCollisions (
 
     if (m_product_groups.empty())
     {
+        amrex::Gpu::DeviceScalar<int> runtime_error(0);
         for (int lev = 0; lev <= finest_level; ++lev)
         {
             auto* cost = WarpX::getCosts(lev);
@@ -905,7 +923,9 @@ BackgroundMCCCollision::doCollisions (
                 }
                 auto wt = static_cast<amrex::Real>(amrex::second());
 
-                doBackgroundCollisionsWithinTile(pti, cur_time, dt, nullptr, nullptr, nullptr);
+                doBackgroundCollisionsWithinTile(pti, cur_time, dt, nullptr,
+                                                 nullptr, nullptr,
+                                                 runtime_error.dataPtr());
 
                 if (cost && WarpX::load_balance_costs_update_algo ==
                             LoadBalanceCostsUpdateAlgo::Timers)
@@ -916,6 +936,7 @@ BackgroundMCCCollision::doCollisions (
                 }
             }
         }
+        CheckRuntimeInputs(runtime_error.dataValue());
         return;
     }
 
@@ -953,11 +974,13 @@ BackgroundMCCCollision::doCollisions (
                 amrex::Gpu::DeviceVector<BackgroundMCCProductEvent>
                     product_events(np_source);
                 amrex::Gpu::DeviceVector<int> product_counts(
-                    product_group_count + 1, 0);
+                    product_group_count + 2, 0);
 
-                doBackgroundCollisionsWithinTile(pti, cur_time, dt, product_events.dataPtr(),
-                                                 product_counts.dataPtr(),
-                                                 product_counts.dataPtr() + product_group_count);
+                doBackgroundCollisionsWithinTile(
+                    pti, cur_time, dt, product_events.dataPtr(),
+                    product_counts.dataPtr(),
+                    product_counts.dataPtr() + product_group_count,
+                    product_counts.dataPtr() + product_group_count + 1);
 
 #ifndef AMREX_USE_GPU
                 auto const* const process_groups =
@@ -977,12 +1000,17 @@ BackgroundMCCCollision::doCollisions (
                 product_counts[product_group_count] = host_product_event_count;
 #endif
 
-                amrex::Vector<int> product_counts_h(product_group_count + 1);
+                amrex::Vector<int> product_counts_h(product_group_count + 2);
                 amrex::Gpu::copy(
                     amrex::Gpu::deviceToHost,
                     product_counts.begin(),
                     product_counts.end(),
                     product_counts_h.begin());
+                // Reuse the existing counter transfer: invalid parser inputs
+                // and majorants must also be rejected when device assertions
+                // are disabled by Release optimization.
+                CheckRuntimeInputs(product_counts_h.back());
+                product_counts_h.pop_back();
                 int const product_event_count = product_counts_h.back();
                 product_counts_h.pop_back();
                 amrex::Long grouped_product_event_count = 0;
@@ -1049,14 +1077,13 @@ BackgroundMCCCollision::doCollisions (
 }
 
 void
-BackgroundMCCCollision::doBackgroundCollisionsWithinTile (WarpXParIter& pti, amrex::Real t,
-                                                          amrex::Real dt,
-                                                          BackgroundMCCProductEvent* product_events,
-                                                          int* product_counts,
-                                                          int* product_event_count)
+BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
+    WarpXParIter& pti, amrex::Real t, amrex::Real dt,
+    BackgroundMCCProductEvent* product_events, int* product_counts,
+    int* product_event_count, int* runtime_error)
 {
     ABLASTR_PROFILE("BackgroundMCCCollision::selectAndScatter()");
-    amrex::ignore_unused(product_counts, product_event_count);
+    amrex::ignore_unused(product_counts, product_event_count, runtime_error);
     using namespace amrex::literals;
     using std::sqrt;
 
@@ -1138,8 +1165,10 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (WarpXParIter& pti, amr
             bool const valid_temperature = T_a >= 0.0_prt &&
                 T_a <= std::numeric_limits<amrex::ParticleReal>::max();
 #ifdef AMREX_USE_GPU
-            AMREX_DEVICE_ASSERT(valid_density);
-            AMREX_DEVICE_ASSERT(valid_temperature);
+            if (!valid_density || !valid_temperature) {
+                amrex::Gpu::Atomic::Max(runtime_error, valid_density ? 2 : 1);
+                return;
+            }
 #else
             if (!valid_density) {
                 amrex::Abort(
@@ -1203,7 +1232,10 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (WarpXParIter& pti, amr
             auto const collision_frequency = (n_a * total_cross_section) * v_coll;
             bool const valid_majorant = collision_frequency <= nu_max * (1.0_prt + tolerance);
 #ifdef AMREX_USE_GPU
-            AMREX_DEVICE_ASSERT(valid_majorant);
+            if (!valid_majorant) {
+                amrex::Gpu::Atomic::Max(runtime_error, 3);
+                return;
+            }
 #else
             if (!valid_majorant)
             {

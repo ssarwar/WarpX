@@ -65,12 +65,18 @@ public:
      * @param product_events optional compact product-event buffer
      * @param product_counts optional event counter for each product group
      * @param product_event_count optional total product-event counter
+     * @param runtime_error device error code, checked on the host in Release
+     * builds
      */
-    void doBackgroundCollisionsWithinTile (WarpXParIter& pti, amrex::Real t, amrex::Real dt,
-                                           BackgroundMCCProductEvent* product_events,
-                                           int* product_counts, int* product_event_count);
+    void doBackgroundCollisionsWithinTile (
+        WarpXParIter& pti, amrex::Real t, amrex::Real dt,
+        BackgroundMCCProductEvent* product_events, int* product_counts,
+        int* product_event_count, int* runtime_error);
 
-private:
+  private:
+    /** Report invalid device inputs after the kernel has completed. */
+    void CheckRuntimeInputs (int error) const;
+
     struct ProductGroup
     {
         ScatteringProcessType type = ScatteringProcessType::INVALID;
