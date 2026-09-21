@@ -242,9 +242,10 @@ include(${WarpX_SOURCE_DIR}/cmake/dependencies/FFT.cmake)
 if(WarpX_FFT)
     # BLASPP and LAPACKPP
     if(RZ IN_LIST WarpX_DIMS)
+        # Their package configs discover OpenMP when those libraries use it.
+        # Do not require a host OpenMP runtime for a SYCL-only installation.
         find_package(blaspp CONFIG REQUIRED)
         find_package(lapackpp CONFIG REQUIRED)
-        find_package(OpenMP REQUIRED)  # pulled by the two above
     endif()
 endif()
 
