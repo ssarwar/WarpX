@@ -295,8 +295,6 @@ FlushFormatCheckpoint::WriteDMaps (const std::string& dir, int nlev) const
 void
 FlushFormatCheckpoint::WriteReducedDiagsData (std::string const & dir) const
 {
-    if (ParallelDescriptor::IOProcessor()) {
-        auto & warpx = WarpX::GetInstance();
-        warpx.reduced_diags->WriteCheckpointData(dir);
-    }
+    auto& warpx = WarpX::GetInstance();
+    warpx.reduced_diags->WriteCheckpointData(dir);
 }

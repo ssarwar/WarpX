@@ -59,6 +59,14 @@ public:
      */
     void ComputeDiags (int step) final;
 
+    /** Save probe positions, accumulated fields and sampling time on all ranks.
+     */
+    void WriteCheckpointData (std::string const& dir) final;
+
+    /** Validate saved probe configuration and defer particle loading to
+     * InitData. */
+    void ReadCheckpointData (std::string const& dir) final;
+
     /*
      * Define constants used throughout FieldProbe
      */
@@ -77,14 +85,27 @@ private:
     amrex::Real target_up_x = 0.;
     amrex::Real target_up_y = 0.;
     amrex::Real target_up_z = 1.;
-    amrex::Real z_probe, z1_probe;
-    amrex::Real detector_radius;
+    amrex::Real z_probe = 0.;
+    amrex::Real z1_probe = 0.;
+    amrex::Real detector_radius = 0.;
 
     //! counts number of particles for all MPI ranks
     long m_valid_particles {0};
 
     //! remember the last time @see ComputeDiags was called to count the number of steps in between (for non-integrated detectors)
     int m_last_compute_step = 0;
+
+    //! Last sampled physical time; repeated diagnostic writes integrate no new
+    //! interval.
+    amrex::Real m_last_compute_time = 0.;
+
+    //! Input configuration before InitData normalizes plane orientation
+    //! vectors.
+    std::string m_checkpoint_config;
+
+    //! Checkpoint directory to restore after WarpX initializes its particle
+    //! grids.
+    std::string m_restart_directory;
 
     //! determines geometry of detector point distribution
     DetectorGeometry m_probe_geometry = DetectorGeometry::Point;

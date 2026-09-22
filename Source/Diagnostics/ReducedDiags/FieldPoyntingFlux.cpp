@@ -34,8 +34,9 @@
 #include <AMReX_Tuple.H>
 #include <AMReX_Vector.H>
 
-#include <ostream>
 #include <algorithm>
+#include <cmath>
+#include <ostream>
 #include <vector>
 
 using namespace amrex::literals;
@@ -98,24 +99,27 @@ FieldPoyntingFlux::FieldPoyntingFlux (const std::string& rd_name)
     }
 }
 
-void FieldPoyntingFlux::ComputeDiags (int /*step*/)
+void
+FieldPoyntingFlux::ComputeDiags (int step)
 {
     // This will be called at the end of the time step. Only calculate the
     // flux if it had not already been calculated mid step.
-    if (!use_mid_step_value) {
-        ComputePoyntingFlux();
-    }
+    ComputePoyntingFlux(step);
 }
 
-void FieldPoyntingFlux::ComputeDiagsMidStep (int /*step*/)
+void
+FieldPoyntingFlux::ComputeDiagsMidStep (int step)
 {
     // If this is called, always use the value calculated here.
-    use_mid_step_value = true;
-    ComputePoyntingFlux();
+    ComputePoyntingFlux(step);
 }
 
-void FieldPoyntingFlux::ComputePoyntingFlux ()
+void
+FieldPoyntingFlux::ComputePoyntingFlux (int step)
 {
+    if (step <= m_last_sample_step) {
+        return;
+    }
     using warpx::fields::FieldType;
     using ablastr::fields::Direction;
 
@@ -199,7 +203,7 @@ void FieldPoyntingFlux::ComputePoyntingFlux ()
         amrex::Real flux = 0._rt;
 
 #ifdef AMREX_USE_OMP
-#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
+#pragma omp parallel if (amrex::Gpu::notInLaunchRegion()) reduction(+ : flux)
 #endif
         // Loop over boxes, interpolate E,B data to cell face centers
         // and compute sum over cells of (E x B) components
@@ -301,16 +305,22 @@ void FieldPoyntingFlux::ComputePoyntingFlux ()
 
     amrex::ParallelDescriptor::ReduceRealSum(m_data.data(), 2*AMREX_SPACEDIM);
 
-    amrex::Real const dt = warpx.getdt(lev);
-    for (int ii=0 ; ii < 2*AMREX_SPACEDIM ; ii++) {
-        m_data[ii + 2*AMREX_SPACEDIM] += m_data[ii]*dt;
+    if (step > m_last_integrated_step) {
+        amrex::Real const dt = warpx.getdt(lev);
+        for (int ii = 0; ii < 2 * AMREX_SPACEDIM; ii++) {
+            m_data[ii + 2 * AMREX_SPACEDIM] += m_data[ii] * dt;
+        }
+        m_last_integrated_step = step;
     }
-
+    m_last_sample_step = step;
 }
 
 void
 FieldPoyntingFlux::WriteCheckpointData (std::string const & dir)
 {
+    if (!amrex::ParallelDescriptor::IOProcessor()) {
+        return;
+    }
     // Write out the current values of the time integrated data
     std::ofstream chkfile{dir + "/FieldPoyntingFlux_data.txt", std::ofstream::out};
     if (!chkfile.good()) {
@@ -322,6 +332,15 @@ FieldPoyntingFlux::WriteCheckpointData (std::string const & dir)
     for (int i=0; i < 2*AMREX_SPACEDIM; i++) {
         chkfile << m_data[2*AMREX_SPACEDIM + i] << "\n";
     }
+    // Append to the legacy integral-only format. Restart output must preserve
+    // the saved time centering of an implicit midstep sample.
+    chkfile << "FieldPoyntingFlux_v2 " << m_last_sample_step << ' '
+            << m_last_integrated_step << '\n';
+    for (int i = 0; i < 2 * AMREX_SPACEDIM; i++) {
+        chkfile << m_data[i] << '\n';
+    }
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+        chkfile.good(), "Could not write FieldPoyntingFlux checkpoint state.");
 }
 
 void
@@ -335,10 +354,31 @@ FieldPoyntingFlux::ReadCheckpointData (std::string const & dir)
 
     for (int i=0; i < 2*AMREX_SPACEDIM; i++) {
         amrex::Real data;
-        if (chkfile >> data) {
+        if ((chkfile >> data) && std::isfinite(data)) {
             m_data[2*AMREX_SPACEDIM + i] = data;
         } else {
             WARPX_ABORT_WITH_MESSAGE("FieldPoyntingFlux::ReadCheckpointData: could not read in time integrated data");
         }
+    }
+    std::string version;
+    if (!(chkfile >> version) && chkfile.eof()) {
+        // Legacy checkpoints have integrals only. Recompute instantaneous
+        // power if requested, without adding another integration interval.
+        m_last_integrated_step = WarpX::GetInstance().getistep(0) - 1;
+        return;
+    }
+    chkfile >> m_last_sample_step >> m_last_integrated_step;
+    int const completed_step = WarpX::GetInstance().getistep(0) - 1;
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+        chkfile.good() && version == "FieldPoyntingFlux_v2" &&
+            m_last_sample_step >= -2 && m_last_sample_step <= completed_step &&
+            m_last_integrated_step >= -1 &&
+            m_last_integrated_step <= completed_step,
+        "Invalid FieldPoyntingFlux checkpoint sampling metadata.");
+    for (int i = 0; i < 2 * AMREX_SPACEDIM; i++) {
+        chkfile >> m_data[i];
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            chkfile.good() && std::isfinite(m_data[i]),
+            "Invalid FieldPoyntingFlux checkpoint instantaneous power.");
     }
 }

@@ -333,3 +333,37 @@ as `d8340a34e`, preserving the audit changes and the upstream AMReX update from
 dependency revision. Final validation will use a separate build against the
 new stock comparator `66f380f98e44b0cce493a435305009693d0e261e`; it will not
 overwrite libraries used by an active measurement.
+
+### Analytical and statistical interpretation
+
+The independent manufactured-field test in `58717936` fails for the stock Yee
+RZ `E_r B_theta` axial interpolation: it takes the radial predecessor instead
+of the axial predecessor. Correcting that index passes all three manufactured
+geometry checks in `58718520`. The earlier cell-centered and temporal fixes
+remain covered by their separate exact-field and continuation tests.
+
+The complete coupled ensemble `58715832` also passes the automated population,
+energy, spectrum and charge checks in `assess_ensemble.py`. Population means use
+the previously documented overlapping 99% Student intervals. Spectra use
+simultaneous seed-based Student bands with Bonferroni correction for both
+ensembles, tails, bins and comparisons. These are nominal sampling confidence
+bounds, not bounds on molecular-model or discretization error. Correlated quiet
+samples and variable macro weights are not treated as independent particles.
+
+All 1/2/4/8-GPU strong-scaling ensembles completed (`58718343`, `58718342`).
+At 256 by 1024 cells, the fluid beam/fluid ion coupled timestep takes
+28.86, 18.18, 13.30 and 10.90 ms, respectively (three repetitions per setting).
+At equal electron work of 1,048,576 macroparticles, the fluid beam takes
+10.43, 6.87, 4.89 and 3.60 ms, versus 32.03, 18.20, 12.88 and 7.48 ms for
+the quiet 64-particle-per-cell beam. The raw summaries include confidence
+intervals, initialization and memory measurements. Small meshes and sparse
+ion populations can still favor frozen ion particles because fluid updates
+communicate mesh data. These measurements do not imply ideal strong scaling.
+
+The short coupled studies span 10 ps. They verify the numerical representation;
+they do not establish that ion motion is negligible over an arbitrary nanosecond
+pulse train. A physical application must compare its full duration, fields and
+transverse scale with a moving-ion reference. Neutral depletion, recombination,
+detachment and chemistry beyond the specified channels remain omitted model
+assumptions. The explicit transverse width and molecular data still determine
+the experimental relevance of a particular run.

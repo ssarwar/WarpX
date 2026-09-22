@@ -5515,6 +5515,12 @@ This shifts analysis from post-processing to runtime calculation of reduction op
         This provides the power and total energy loss into or out of the simulation domain.
         The output columns are the flux for each dimension on the lower boundaries, then the higher boundaries,
         then the integrated energy loss for each dimension on the the lower and higher boundaries.
+        The initial integrated loss is zero. Each physical timestep contributes
+        once, using the implicit solver's midstep field sample when available.
+        Checkpoints preserve both the integrated loss and the sampled power;
+        writing diagnostics immediately after restart does not integrate another
+        timestep. Legacy checkpoints retain their saved integrated loss, but
+        their instantaneous power must be reconstructed from the saved fields.
 
     * ``FieldProbe``
         This type computes the value of each component of the electric and magnetic fields
@@ -5557,6 +5563,13 @@ This shifts analysis from post-processing to runtime calculation of reduction op
         0'th azimuthal mode component of the fields.
         Time integrated electric and magnetic field components can instead be obtained by specifying
         ``<reduced_diags_name>.integrate = true``.
+        Integration starts at zero at the initial simulation time, using the elapsed
+        time between samples. Checkpoints preserve the accumulated values and probe
+        positions, including when the MPI decomposition changes. Restart output at
+        the checkpoint time does not add another integration interval. The probe
+        geometry, interpolation order and integration settings must match the
+        checkpoint; output intervals may change. Older checkpoints without probe
+        state cannot restore integrated probes.
         The integration is done every time step even when the data is written out less often.
         In a *moving window* simulation, the FieldProbe can be set to follow the moving frame by specifying ``<reduced_diags_name>.do_moving_window_FP = 1`` (default 0).
 
