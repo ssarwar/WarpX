@@ -56,6 +56,7 @@ def main():
                 "physics-executable-sha256.txt",
                 "library-sha256.txt",
                 "compiler.txt",
+                "device.txt",
                 "runtime.txt",
                 "modules.txt",
             ]:

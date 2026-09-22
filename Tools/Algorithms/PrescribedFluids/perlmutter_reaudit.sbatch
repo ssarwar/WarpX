@@ -193,6 +193,12 @@ elif [[ "$phase" == coupled ]]; then
         python3 Tools/Algorithms/PrescribedFluids/analyze.py "$output"
         python3 Tools/Algorithms/PrescribedFluids/assess_ensemble.py "$output"
     done
+elif [[ "$phase" == equal_error ]]; then
+    python3 Tools/Algorithms/PrescribedFluids/ensemble.py --suite fields \
+        --output "$study/fields" --cells 256 1024 \
+        --radial-sigmas 32 --longitudinal-sigmas 48 --ppc 4 16 64 256 \
+        --seeds 6 --steps 20 --dt 1e-13 --launcher "$launcher"
+    python3 Tools/Algorithms/PrescribedFluids/analyze_equal_error.py "$study/fields"
 elif [[ "$phase" == coupled_restart ]]; then
     solver=${2:-Yee}
     ranks=$((4 * SLURM_JOB_NUM_NODES))

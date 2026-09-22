@@ -198,6 +198,19 @@ records while retaining failures. `report_state_difference.py` quantifies native
 snapshot discrepancies without altering an acceptance test or its tolerance.
 Large checkpoints and arrays remain in the validation directory.
 
+The `equal_error` phase compares fluid, quiet and random beams on the expanded
+256 by 1024 mesh (`r_max = 32 sigma_r`, `|z_max| = 48 sigma_z`). It uses six seeds
+and 4, 16, 64 and 256 particles per cell. `analyze_equal_error.py` compares the
+initial and final fields with the independently integrated translating Gaussian
+solution in `r < 3 sigma_r`, `|z-v*t| < 3 sigma_z`. Its predefined targets are
+1% cylindrical RMS error for Er/Btheta and 2% for Ez, chosen from the separate
+domain-convergence study. A representation qualifies when the upper end of its
+99% interval for the worse of the two outputs meets every target. The report
+retains unsuccessful particle resolutions and compares the fastest qualifying
+particle setting with the fluid case. This measures matched vacuum-field
+accuracy, not matched nonlinear plasma accuracy. Existing physics assertions
+are unchanged.
+
 ## Historical one-GPU measurements
 
 `perlmutter.sbatch` records hardware, modules, Python packages, the CMake cache,

@@ -458,3 +458,65 @@ The approved raw-output root is
 `/pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build/reaudit-2026-09-21`.
 Library hashes and CMake configurations distinguish builds even when the remote
 working tree contains explicitly uploaded, not-yet-committed driver changes.
+
+### Focused review passes
+
+The equation review followed the production paths through `RigidBeamProfile.H`,
+`RigidBeam.cpp`, `RigidBeamIonization.cpp`, and the electron collision kinematics
+and sampling headers. Independent checks include:
+
+| Quantity | Reference and applicable check |
+| --- | --- |
+| Gaussian charge and clipped pulse yield | Error-function integrals, cylindrical volume measure and independent SciPy quadrature; profile, boundary and train fixtures |
+| Beam initialization | Independent continuum Gaussian-field integral, spherical/static limits, cylindrical Gauss law and `B_theta = v_z E_r/c^2`; particle and domain/mesh comparisons |
+| Charge continuity | Nodewise finite-difference residual, both propagation directions and physical boundaries, with and without repeated filter passes |
+| Primary source | Independent PJG Python quadrature, N2/O2 spectra, `Z_b^2` scaling and kinetic-projectile references; emitted plus pending yield |
+| Electron collisions | Independent four-momentum/kinetic-plus-binding budgets, recoil thresholds, elastic backward limit, inadmissible-draw checks and attachment survival law |
+| Angular sampling | Integrated measured DCS moments/backward probabilities, screened-Rutherford continuation and analytic IAA angular limits |
+| Diagnostics | Manufactured constant-field energy and probe integrals, exact initial surface Poynting flux, independently histogrammed kinetic counts and exact zero fluid macroparticle counts |
+
+Relativistic kinetic energy is evaluated in rationalized form,
+`m*u^2/(sqrt(1+u^2/c^2)+1)`, and recoil solves use `pc` in eV to avoid
+subtraction of nearly equal molecular rest energies. The ionization solver
+checks its residual after its fast Newton iterations and rejects a draw without
+updating either source or product density when no admissible solution is found.
+The IAA and PJG distributions themselves remain model assumptions; conservation
+checks do not turn their empirical closures into exact molecular predictions.
+
+The execution/lifecycle review followed collision selection, batched creation,
+fluid deposition, MPI synchronization, implicit current accumulation, field
+registration, diagnostic output and checkpoint restoration. In particular:
+
+- Scatter deposits use `amrex::For` and host/device atomics. GPU event-counter
+  atomics have a separate CPU path; they are not relied on for CPU SIMD safety.
+- Source prefix sums use `amrex::Long`, followed by explicit particle-tile index
+  limits. Product buffers remain alive until their dependent kernels finish.
+- Attachment transfers the original electron's stored footprint before
+  compaction. Rejected ionization slots are invalidated and removed before the
+  next collision operator. Particle IDs are reserved independently of GPU
+  event ordering.
+- Fresh increments are synchronized once. Persistent densities retain physical
+  boundary support and are never re-summed as new deposits. Owner masks prevent
+  duplicate nodal contributions to totals and field-source synchronization.
+- Source remainder, emitted budgets and four exact 16-bit sampling-counter
+  digits are persistent fields. Required checkpoint files and immutable source
+  configurations are validated before using restored state.
+- The analytic beam cache and diagnostic current are reconstructed from saved
+  time without replaying chemistry. Kinetic current accumulation and mass
+  matrices exclude the prescribed current; each residual receives it once.
+
+These checks found and repaired the diagnostic, Release-guard, table-precision
+and validation problems described in the chronological record. The final review
+retains the unresolved strict numerical comparisons in the acceptance matrix;
+it does not certify that arbitrary inputs or untested backends are error-free.
+
+The stationary-ion approximation needs a separate application-duration check.
+Useful scales are `t*sqrt(k_B*T_i/m_i)` for thermal displacement and
+`abs(q_i)*E*t^2/(2*m_i)` for displacement in a constant field. The 10 ps coupled
+fixtures are not a validation of every nanosecond pulse sequence. Immobile ion
+densities preserve the electron event's footprint and its sampling noise;
+they remove ion particle storage and motion, while the continuous beam removes
+beam-particle sampling. Pending-yield resolution, mesh/boundary errors and MCC
+noise remain distinct. Constant neutral backgrounds are used in the coupled
+benchmarks; time-dependent MCC parsers retain WarpX's collision-placement and
+operator-splitting semantics and require a timestep convergence study.
