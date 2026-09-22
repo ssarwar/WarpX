@@ -10,6 +10,14 @@ All new compilation, physics tests, regression tests and timing measurements
 run on Perlmutter. The matrix gives current acceptance; the chronological
 investigations below retain unsuccessful runs and intermediate findings.
 
+The subsequent [failure investigation](FAILURE_AUDIT.md) rebuilds fetched
+GitHub revision `f5177036b` and adds independent full-run controls and native
+state checks to the outstanding comparisons. The acceleration failures occur
+in both branch and stock, including runs without a restart; checkpointed E/B
+fields restore exactly. The strict RZ PSATD current differences also occur
+between fresh runs. The original acceptance thresholds and failed results
+remain unchanged.
+
 ## Previously committed records
 
 - [Fluid validation](VALIDATION.md), its compact JSON measurements and figures
