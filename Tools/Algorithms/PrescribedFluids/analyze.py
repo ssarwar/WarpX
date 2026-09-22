@@ -84,7 +84,13 @@ def main():
         continuum[component] = (field, mask)
     # Reject mixing grids, physical inputs or solver methods in one ensemble.
     for case in cases:
-        for key in ["radial_sigmas", "longitudinal_sigmas", "implicit_deposition"]:
+        for key in [
+            "radial_sigmas",
+            "longitudinal_sigmas",
+            "implicit_deposition",
+            "mcc_all",
+            "max_grid_size",
+        ]:
             if case["parameters"].get(key) != settings.get(key):
                 raise ValueError(f"Incompatible {key}: {case['path']}")
         for key in [
@@ -168,7 +174,7 @@ def main():
                 if len(samples) > 1
                 else None
             )
-        for species in ["beam", "electrons", "N2plus", "O2plus", "Ominus"]:
+        for species in reference["history"][-1]["physical"]:
             row[species + "_number"] = interval(
                 [case["history"][-1]["physical"][species] for case in members]
             )
@@ -181,6 +187,7 @@ def main():
                     case["history"][-1]["physical"]["N2plus"]
                     + case["history"][-1]["physical"]["O2plus"]
                     - case["history"][-1]["physical"]["Ominus"]
+                    - case["history"][-1]["physical"].get("O2minus", 0.0)
                     - case["history"][-1]["physical"]["electrons"]
                 )
                 / max(1.0, case["history"][-1]["physical"]["electrons"])

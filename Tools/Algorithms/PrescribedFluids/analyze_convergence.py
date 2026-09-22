@@ -95,7 +95,7 @@ def main():
             p = members[0][0]["parameters"]
             final = [result["history"][-1] for result, _ in members]
             row = dict(case=name, parameters=p)
-            for species in ["electrons", "N2plus", "O2plus", "Ominus"]:
+            for species in final[0]["physical"]:
                 row[species] = interval([state["physical"][species] for state in final])
             row["electron_energy_J"] = interval(
                 [state["electron_energy_J"] for state in final]

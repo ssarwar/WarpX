@@ -25,12 +25,15 @@ def main():
     parser.add_argument("--launcher", default="")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--resume", action="store_true")
+    parser.add_argument("--mcc-all", action="store_true")
     args = parser.parse_args()
     program = Path(__file__).with_name("benchmark.py")
     cases = []
 
     def add(name, *options):
         command = shlex.split(args.launcher) + [sys.executable, str(program)]
+        if args.mcc_all and "--mcc" in options:
+            options = (*options, "--mcc-all")
         cases.append(dict(name=name, command=command + list(map(str, options))))
 
     if args.study == "deposition":

@@ -35,6 +35,7 @@ def main():
         default="Yee",
     )
     parser.add_argument("--cells", type=int, nargs=2, default=[32, 128])
+    parser.add_argument("--max-grid-size", type=int, default=64)
     parser.add_argument("--radial-sigmas", type=float, default=8.0)
     parser.add_argument("--longitudinal-sigmas", type=float, default=12.0)
     parser.add_argument("--ppc", type=int, default=16)
@@ -53,11 +54,21 @@ def main():
     parser.add_argument("--source-resolution", type=int, default=8)
     parser.add_argument("--subcycles", type=int, default=1)
     parser.add_argument("--mcc", action="store_true")
+    parser.add_argument(
+        "--mcc-all",
+        action="store_true",
+        help="Include IAA elastic/excitation and three-body attachment fixtures",
+    )
     parser.add_argument("--no-self-fields", action="store_true")
     parser.add_argument("--checkpoint", action="store_true")
+    parser.add_argument("--checkpoint-period", type=int)
+    parser.add_argument("--restart", type=Path)
+    parser.add_argument("--check-restored", type=Path)
+    parser.add_argument("--snapshot-particles", action="store_true")
     parser.add_argument("--profile", action="store_true")
     parser.add_argument("--output", type=Path, default=Path("result.json"))
     args = parser.parse_args()
+    args.mcc = args.mcc or args.mcc_all
     if args.steps < 3 or args.ppc < 1 or args.electron_ppc < 1:
         parser.error("Use at least three steps and positive particle counts")
     nquiet = int(np.sqrt(args.ppc))
@@ -96,7 +107,7 @@ def main():
         lower_boundary_conditions_particles=["none", "periodic"],
         upper_boundary_conditions_particles=["absorbing", "periodic"],
         n_azimuthal_modes=1,
-        warpx_max_grid_size=64,
+        warpx_max_grid_size=args.max_grid_size,
         warpx_blocking_factor=8,
     )
     if args.beam == "fluid":
@@ -135,11 +146,14 @@ def main():
         else None,
     )
     ions = []
-    for name, mass, sign in [
+    ion_definitions = [
         ("N2plus", 28.0134 * amu - me, 1),
         ("O2plus", 31.9988 * amu - me, 1),
         ("Ominus", 15.9994 * amu + me, -1),
-    ]:
+    ]
+    if args.mcc_all:
+        ion_definitions.append(("O2minus", 31.9988 * amu + me, -1))
+    for name, mass, sign in ion_definitions:
         if args.ions == "fluid":
             ion = picmi.FluidSpecies(
                 name=name, model="immobile", mass=mass, charge=sign * qe
@@ -179,6 +193,51 @@ def main():
                 )
             )
     if args.mcc:
+        extra_processes = {"N2": {}, "O2": {}}
+        if args.mcc_all:
+            # Manufactured tables exercise every collision path together. Their
+            # values are numerical fixtures, not an evaluated air dataset.
+            fixture = Path("mcc-fixture").resolve()
+            if comm.rank == 0:
+                fixture.mkdir(exist_ok=True)
+                np.savetxt(fixture / "elastic.txt", [[0, 2e-20], [1e9, 2e-20]])
+                np.savetxt(
+                    fixture / "excitation.txt",
+                    [[0, 0], [6, 0], [8, 1e-20], [1e9, 1e-20]],
+                )
+                np.savetxt(fixture / "attachment-m5.txt", [[0, 1e-43], [1e9, 1e-43]])
+                theta = np.linspace(0, np.pi, 361)
+                for target in extra_processes:
+                    np.savetxt(
+                        fixture / f"DCS.e-{target}",
+                        np.column_stack(
+                            (
+                                [1, 10, 100, 1000, 10000, 1e9],
+                                np.tile(1 + 0.5 * np.cos(theta), (6, 1)),
+                            )
+                        ),
+                        header=(
+                            "Synthetic DCS with IAA/elmolcs row layout\n"
+                            f"SPECIES: e / {target}\n"
+                            "COLUMNS: theta = linspace(0, 180, 361) (deg)"
+                        ),
+                        comments="",
+                    )
+            comm.Barrier()
+            for target, processes in extra_processes.items():
+                for kind in ["elastic", "excitation"]:
+                    processes[kind] = dict(
+                        cross_section=str(fixture / f"{kind}.txt"),
+                        scattering_angle_model="IAA",
+                        differential_cross_section=str(fixture / f"DCS.e-{target}"),
+                    )
+                processes["excitation"]["energy"] = 6.0
+            extra_processes["O2"]["attachment_three_body"] = dict(
+                cross_section=str(fixture / "attachment-m5.txt"),
+                cross_section_units="m5",
+                third_body_density=args.gas_density,
+                species=ions[3],
+            )
         # Intentionally synthetic: isolate destination handling and finite-mass
         # kinematics with the same fixed rate functions in every representation.
         collisions.append(
@@ -189,6 +248,7 @@ def main():
                 background_temperature=args.temperature,
                 background_mass=28.0134 * amu,
                 scattering_processes={
+                    **extra_processes["N2"],
                     "ionization": dict(
                         cross_section=str(
                             root
@@ -199,7 +259,7 @@ def main():
                         energy_sharing_model="RBEQ",
                         scattering_angle_model="IAA",
                         rbeq_target="N2",
-                    )
+                    ),
                 },
                 ndt_subcycle=args.subcycles,
             )
@@ -212,6 +272,7 @@ def main():
                 background_temperature=args.temperature,
                 background_mass=31.9988 * amu,
                 scattering_processes={
+                    **extra_processes["O2"],
                     "ionization": dict(
                         cross_section=str(
                             root / "Examples/Tests/collision/background_mcc_rbeq_o2.txt"
@@ -246,6 +307,7 @@ def main():
         max_steps=args.steps,
         particle_shape=args.shape,
         warpx_collisions=collisions,
+        warpx_amr_restart=str(args.restart) if args.restart else None,
         warpx_random_seed=args.seed,
         warpx_use_filter=False,
         warpx_current_deposition_algo=args.implicit_deposition if implicit else None,
@@ -289,7 +351,9 @@ def main():
         else:
             sim.add_species(ion, layout=None)
     if args.checkpoint:
-        sim.add_diagnostic(picmi.Checkpoint(name="chk", period=args.steps))
+        sim.add_diagnostic(
+            picmi.Checkpoint(name="chk", period=args.checkpoint_period or args.steps)
+        )
     sim.initialize_inputs()
     amrex.the_arena_init_size = 0
     sim.extension.load_library()
@@ -364,7 +428,7 @@ def main():
         counts.update({species.name: 0 for species in sim.fluid_species})
         row = dict(
             step=step,
-            time=step * args.dt,
+            time=sim.extension.warpx.gett_new(lev=0),
             physical={
                 name: physical_number(array) for name, array in densities.items()
             },
@@ -403,10 +467,55 @@ def main():
             snapshots[f"{step}_{name}"] = array
         for name, array in field_values.items():
             snapshots[f"{step}_{name}"] = array
+        if args.snapshot_particles:
+            for species in sim.species:
+                parts = [
+                    np.column_stack(
+                        [
+                            host(tile[key])
+                            for key in ["r", "theta", "z", "w", "ux", "uy", "uz"]
+                        ]
+                    )
+                    for tile in sim.particles.get(species.name).iterator(level=0)
+                ]
+                local = np.concatenate(parts) if parts else np.empty((0, 7))
+                particles = np.concatenate(comm.allgather(local))
+                snapshots[f"{step}_particles_{species.name}"] = particles[
+                    np.lexsort(particles.T[::-1])
+                ]
+            for collision in collisions:
+                if not isinstance(collision, picmi.ProtonImpactIonizationCollisions):
+                    continue
+                suffixes = ["product_weight_remainder"]
+                if args.beam == "fluid":
+                    suffixes += ["source_budget", "sampling_counter"]
+                for suffix in suffixes:
+                    name = collision.name + "_" + suffix
+                    snapshots[f"{step}_{name}"] = values(name)
 
-    sample(0)
+    start_step = sim.extension.warpx.getistep(lev=0)
+    sample(start_step)
+    if args.check_restored:
+        assert args.restart and args.snapshot_particles
+        reference = np.load(args.check_restored)
+        for name, actual in snapshots.items():
+            if "particles_" in name or name.endswith("sampling_counter"):
+                np.testing.assert_array_equal(actual, reference[name], err_msg=name)
+            else:
+                scale = np.max(np.abs(reference[name]), initial=0)
+                np.testing.assert_allclose(
+                    actual,
+                    reference[name],
+                    rtol=3e-13,
+                    atol=3e-13 * scale,
+                    err_msg=name,
+                )
+        if comm.rank == 0:
+            print(
+                "PASS: all saved fields, particles and source state restored before stepping"
+            )
     timings = []
-    for step in range(1, args.steps + 1):
+    for step in range(start_step + 1, args.steps + 1):
         timings.append(timed(lambda: sim.step(1)))
         if step in [args.steps // 2, args.steps]:
             sample(step)
