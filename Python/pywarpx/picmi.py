@@ -3616,7 +3616,11 @@ class ProtonImpactIonizationCollisions(picmistandard.base._ClassWithInit):
 
     The calibrated PJG-type N2/O2 SDCS represents inclusive electron yield
     with effective electron/ion pairs, not exclusive single ionization.
-    All secondary energies are kinetic; ions inherit neutral thermal velocities.
+    All secondary energies are kinetic. Kinetic product ions inherit neutral
+    thermal velocities; immobile fluid products receive density increments.
+    Total cross sections are calculated from the built-in SDCS for particle
+    and fluid projectiles; no total-cross-section file is required. Configure
+    separate collision instances and neutral densities for N2 and O2.
 
     Parameters
     ----------

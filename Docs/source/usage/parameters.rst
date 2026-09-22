@@ -3611,6 +3611,15 @@ Details about the collision models can be found in the :ref:`theory section <mul
     whose Porter--Jackman--Green ionization model is used. Supported values are
     ``N2`` and ``O2`` (case-insensitive).
 
+    WarpX constructs the total electron-production cross section by integrating
+    the built-in target SDCS, then interpolates it at the projectile kinetic
+    energy. This applies to both particle projectiles and rigid fluid beams;
+    no user-supplied total proton-impact cross-section table is required.
+    Configure separate collision instances for N2 and O2, each with its own
+    ``background_density``. The IAA secondary-electron angular model does not
+    supply or replace the total cross section. Electron-impact MCC total
+    cross-section tables are configured separately.
+
 .. pp:param:: <collision_name>.decay_rate(x,y,z,t)
     :type: `string`
 
