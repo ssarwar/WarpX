@@ -7,6 +7,8 @@ root=$(git rev-parse --show-toplevel)
 audit="$root/build/reaudit-2026-09-21"
 prefix="$audit/software"
 phase=${1:-configure}
+build_name=${WARPX_AUDIT_BUILD_NAME:-build_pm_gpu_py}
+stock_revision=${WARPX_AUDIT_STOCK_REVISION:-66f380f98e44b0cce493a435305009693d0e261e}
 mkdir -p "$audit"
 
 # Account and installation paths are the only edits to the stock profile.
@@ -73,14 +75,56 @@ if [[ "$phase" == prepare ]]; then
 fi
 
 source "$prefix/venvs/warpx-gpu/bin/activate"
+if [[ "$phase" == test-data ]]; then
+    mkdir -p "$audit/test-data"
+    for entry in \
+        'warpx-data https://github.com/BLAST-WarpX/warpx-data.git' \
+        'openPMD-example-datasets https://github.com/openPMD/openPMD-example-datasets.git'; do
+        read -r name repository <<< "$entry"
+        if [[ ! -d "$audit/test-data/$name/.git" ]]; then
+            git clone --depth 1 "$repository" "$audit/test-data/$name"
+        fi
+        git -C "$audit/test-data/$name" rev-parse HEAD > "$audit/$name-revision.txt"
+        # Stock inputs resolve these paths relative to their CTest directory.
+        for destination in "$root/../$name" "$root/build/$name"; do
+            if [[ ! -e "$destination" ]]; then
+                ln -s "$audit/test-data/$name" "$destination"
+            fi
+        done
+    done
+    exit 0
+fi
 checkout="$root"
 if [[ "$phase" == stock ]]; then
     checkout="$root/build/stock-warpx"
     if [[ ! -d "$checkout" ]]; then
-        git worktree add --detach "$checkout" cb5672fae0b9099d2c7631e93ffff3404a553821
+        git worktree add --detach "$checkout" "$stock_revision"
+    elif [[ "$(git -C "$checkout" rev-parse HEAD)" != "$stock_revision" ]]; then
+        git -C "$checkout" diff --exit-code
+        git -C "$checkout" diff --cached --exit-code
+        git -C "$checkout" switch --detach "$stock_revision"
     fi
 fi
-build="$checkout/build_pm_gpu_py"
+build="$checkout/$build_name"
+
+if [[ "$phase" == float ]]; then
+    # Native float particles are needed to test probability narrowing and
+    # recoil arithmetic; casting tables in a double build is insufficient.
+    float_amrex="$audit/amrex-float-$build_name"
+    cmake -S "$root/$build_name/_deps/fetchedamrex-src" -B "$float_amrex" \
+        -DCMAKE_BUILD_TYPE=Release -DAMReX_SPACEDIM=1 -DAMReX_GPU_BACKEND=CUDA \
+        -DAMReX_BUILD_SHARED_LIBS=ON \
+        -DAMReX_CUDA_ARCH=80 -DAMReX_MPI=ON -DAMReX_OMP=OFF \
+        -DAMReX_PRECISION=DOUBLE -DAMReX_PARTICLES=ON \
+        -DAMReX_PARTICLES_PRECISION=SINGLE -DAMReX_FORTRAN=OFF \
+        -DAMReX_EB=OFF -DAMReX_AMRLEVEL=OFF -DAMReX_LINEAR_SOLVERS=OFF
+    cmake --build "$float_amrex" --parallel 16
+    build="$root/${build_name}_float"
+    physics_amrex="$float_amrex/lib/cmake/AMReX"
+    phase=physics
+else
+    physics_amrex="$build/_deps/fetchedamrex-build/lib/cmake/AMReX"
+fi
 
 if [[ "$phase" == configure || "$phase" == stock ]]; then
     cmake -S "$checkout" -B "$build" \
@@ -90,8 +134,8 @@ if [[ "$phase" == configure || "$phase" == stock ]]; then
         -DWarpX_PRECISION=DOUBLE -DWarpX_PARTICLE_PRECISION=DOUBLE \
         -DWarpX_TESTING=ON -DWarpX_TEST_CLEANUP=OFF \
         -DWarpX_PYTHON_IPO=OFF -DpyAMReX_IPO=OFF \
-        -DMPIEXEC_EXECUTABLE="$(command -v srun)" -DMPIEXEC_NUMPROC_FLAG=-n \
-        -DMPIEXEC_PREFLAGS='--cpu-bind=cores;--gpus-per-task=1'
+        -DMPIEXEC_EXECUTABLE="$root/Tools/Algorithms/PrescribedFluids/perlmutter_mpiexec.sh" \
+        -DMPIEXEC_NUMPROC_FLAG=-n -DMPIEXEC_PREFLAGS= -DMPIEXEC_POSTFLAGS=
 fi
 
 if [[ "$phase" == build || "$phase" == stock ]]; then
@@ -100,4 +144,15 @@ if [[ "$phase" == build || "$phase" == stock ]]; then
     # same virtual environment would obscure which library a comparison loaded.
     cp "$build/CMakeCache.txt" "$audit/$(basename "$checkout")-CMakeCache.txt"
     git -C "$checkout" rev-parse HEAD > "$audit/$(basename "$checkout")-revision.txt"
+fi
+
+if [[ "$phase" == physics ]]; then
+    for entry in 'PrescribedFluids fluid-tests' 'ProtonImpactIonization pjg' \
+        'BackgroundMCC mcc-physics'; do
+        read -r source destination <<< "$entry"
+        cmake -S "$root/Tools/Algorithms/$source" -B "$build/$destination" \
+            -DAMReX_DIR="$physics_amrex" \
+            -DCMAKE_BUILD_TYPE=Release
+        cmake --build "$build/$destination" --parallel 8
+    done
 fi

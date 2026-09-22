@@ -8,6 +8,8 @@ particle-reference studies, separate from routine CI.
 
 Recorded CPU/A100 results, convergence limits and backend coverage are in
 [VALIDATION.md](VALIDATION.md).
+The subsequent upstream-merge review, all-channel MCC comparisons and
+distributed GPU acceptance are recorded separately in [REAUDIT.md](REAUDIT.md).
 
 `test_profiles.cpp` compares the analytic projection with an independent million
 particle quadrature using WarpX's actual particle shape functions. It also
@@ -40,7 +42,9 @@ python Tools/Algorithms/PrescribedFluids/analyze.py build/beam-fields
 Repeat with `--suite source`, `--suite coupled` and `--suite push`.
 `source` freezes emitted electrons to isolate the integrated PJG yield and
 spectrum. `coupled` evolves electrons with PJG production, RBEQ energy sharing,
-IAA scattering and attachment. **The MCC rate tables are synthetic regression
+IAA ionization angles and attachment. Add `--mcc-all` to include tabulated IAA
+elastic/excitation scattering and three-body attachment in the same run.
+**The MCC rate tables are synthetic regression
 fixtures; these runs compare numerical representations, not measured air
 chemistry.** Both suites compare fluid ions with identical frozen kinetic ions.
 `benchmark.py --ions thermal` provides a moving-ion displacement reference.
@@ -82,7 +86,7 @@ primary-yield budget, then reduce the weight to converge the emission delay and
 secondary chemistry. A finer mesh alone does not remove that sampling error.
 The joint study reduces product weight by eight when halving each mesh spacing,
 so the global un-emitted fraction tends to zero during mesh refinement.
-The solver study compares moving electrons and all collision channels across
+The solver study compares moving electrons with ionization and attachment across
 Yee, PSATD and both semi-implicit configurations, at two resolved timesteps.
 
 For a mesh study, hold domain extents fixed and double both cell counts. For a
@@ -126,6 +130,75 @@ noise/cost plots. Preserve the individual JSON/NPZ files to permit reanalysis.
   storage, distinct from reserved device memory and allocator capacity.
 - An equal-error speedup requires a stated error target and a converged
   reference. An equal-particle-count timing alone does not establish that result.
+
+## Current Perlmutter re-audit
+
+`perlmutter_stock_build.sh` uses the repository's stock Perlmutter GPU profile
+and documented dependency/CMake recipes. It isolates rebuilt dependencies and
+the Python environment under `build/reaudit-2026-09-21/software`, with only the
+account and installation path changed in the profile. Run `prepare`, then
+`configure`, `build`, `physics`, `float` and `test-data` as separate phases on
+Perlmutter. Compilation does not require a GPU. `stock` builds the selected
+upstream comparator in a separate checkout. The environment variables
+`WARPX_AUDIT_BUILD_NAME` and `WARPX_AUDIT_STOCK_REVISION` select an additional
+build directory and comparator without replacing an active build.
+
+`perlmutter_reaudit.sbatch` requests exclusive GPU nodes, enables GPU-aware MPI
+and uses the stock local-rank GPU placement through `perlmutter_gpu_rank.sh`.
+Its CTest launcher is `perlmutter_mpiexec.sh`; configure with empty
+`MPIEXEC_PREFLAGS` and `MPIEXEC_POSTFLAGS`. Every study records its command
+manifest, source-file hashes, loaded Python-library hashes, build configuration,
+software versions and rank-to-device topology. A one-node allocation has four
+A100s, but the `noise` phase deliberately runs one rank/GPU at a time.
+
+```bash
+sbatch Tools/Algorithms/PrescribedFluids/perlmutter_reaudit.sbatch physics
+sbatch Tools/Algorithms/PrescribedFluids/perlmutter_reaudit.sbatch regression
+sbatch Tools/Algorithms/PrescribedFluids/perlmutter_reaudit.sbatch coupled_restart semi_implicit_em
+sbatch --nodes=2 Tools/Algorithms/PrescribedFluids/perlmutter_reaudit.sbatch ownership
+sbatch --nodes=2 Tools/Algorithms/PrescribedFluids/perlmutter_reaudit.sbatch coupled_restart PSATD
+sbatch Tools/Algorithms/PrescribedFluids/perlmutter_reaudit.sbatch noise coupled
+sbatch Tools/Algorithms/PrescribedFluids/perlmutter_reaudit.sbatch scaling
+sbatch --nodes=2 Tools/Algorithms/PrescribedFluids/perlmutter_reaudit.sbatch scaling
+```
+
+The `coupled` phase accepts each of the four solver names and compares all four
+fluid/particle beam-ion combinations at subcycle counts 1, 2 and 4. `dcs` uses
+the measured N2/O2 reference DCS files; combined representation comparisons use
+the synthetic rates described above. `ownership` checks source/attachment on
+four or eight GPUs and restores on half as many. `coupled_restart` verifies
+restored fields, particles and source state before stepping, then applies paired
+ensemble bounds to stochastic continuation. `scaling` holds the problem fixed
+at 1/2/4 GPUs or 8 GPUs on two nodes. `weak` fixes electron work per rank while
+extending the axial domain; it does not scale the prescribed Gaussian beam.
+Use `convergence` followed by one of the five study names above for independent
+mesh, timestep, weight, cap, sampling and subcycling studies.
+
+`perlmutter_reaudit_suite.sbatch` groups finite studies into one allocation and
+records each exit status, continuing independent studies after a failure. It
+accepts `convergence` (joint, solver and deposition sweeps), `noise` (all four
+modes), `restart` (all four solvers), `scaling` (strong/weak scaling and one-node
+storage), `physics` (native float and measured DCS), or `coupled_mm`. For example:
+
+```bash
+sbatch --export=ALL,WARPX_AUDIT_BUILD_NAME=build_pm_gpu_latest \
+    --nodes=2 Tools/Algorithms/PrescribedFluids/perlmutter_reaudit_suite.sbatch restart
+```
+
+The native-float physics build uses `<build-name>_float`, with a separate AMReX
+build, so dependency updates cannot replace an active validation library.
+`perlmutter_docs_build.sh` renders Sphinx/PICMI documentation in an isolated
+environment. `perlmutter_sycl_build.sh` is a supplementary oneAPI compilation
+check based on the repository's Intel CI and Aurora BLAS++/LAPACK++ recipes;
+it is separate from the stock Perlmutter CUDA build. A successful compilation
+does not establish SYCL GPU runtime acceptance on Perlmutter.
+
+`export_reaudit.py` archives compact job, test, configuration and measurement
+records while retaining failures. `report_state_difference.py` quantifies native
+snapshot discrepancies without altering an acceptance test or its tolerance.
+Large checkpoints and arrays remain in the validation directory.
+
+## Historical one-GPU measurements
 
 `perlmutter.sbatch` records hardware, modules, Python packages, the CMake cache,
 revision and any tracked source changes, runs GPU regressions,
