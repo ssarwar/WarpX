@@ -27,9 +27,9 @@ CXXFLAGS=-qmkl cmake -S "$audit/sources/blaspp" -B "$audit/dependencies/blaspp-s
     -DCMAKE_INSTALL_PREFIX="$prefix/blaspp" -DCMAKE_EXE_LINKER_FLAGS=-qmkl
 cmake --build "$audit/dependencies/blaspp-sycl" --target install --parallel 16
 CXXFLAGS='-DLAPACK_FORTRAN_ADD_ -qmkl' \
-    cmake -S "$audit/sources/lapackpp" -B "$audit/dependencies/lapackpp-sycl" \
-    -DCMAKE_CXX_FLAGS="$sycl_flags -DLAPACK_FORTRAN_ADD_ -qmkl" \
-    -DCMAKE_CXX_STANDARD=20 -Dbuild_tests=OFF \
+    cmake --fresh -S "$audit/sources/lapackpp" -B "$audit/dependencies/lapackpp-sycl" \
+        -DCMAKE_CXX_FLAGS="$sycl_flags -DLAPACK_FORTRAN_ADD_ -qmkl" \
+    -DCMAKE_CXX_STANDARD=20 -Dbuild_tests=OFF -Dgpu_backend=sycl \
     -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON -DCMAKE_INSTALL_PREFIX="$prefix/lapackpp" \
     -DCMAKE_EXE_LINKER_FLAGS=-qmkl
 cmake --build "$audit/dependencies/lapackpp-sycl" --target install --parallel 16

@@ -84,6 +84,9 @@ def main():
         continuum[component] = (field, mask)
     # Reject mixing grids, physical inputs or solver methods in one ensemble.
     for case in cases:
+        for key in ["ranks", "backend", "revision"]:
+            if case[key] != reference[key]:
+                raise ValueError(f"Incompatible {key}: {case['path']}")
         for key in [
             "radial_sigmas",
             "longitudinal_sigmas",
@@ -107,6 +110,8 @@ def main():
             "no_self_fields",
             "subcycles",
             "source_resolution",
+            "electron_ppc",
+            "temperature",
         ]:
             if case["parameters"][key] != settings[key]:
                 raise ValueError(f"Incompatible {key}: {case['path']}")
@@ -133,6 +138,15 @@ def main():
         row["fluid_density_bytes"] = interval(
             [sum(case["fluid_density_bytes"].values()) for case in members]
         )
+        for key in ["particle_payload_bytes", "fluid_density_bytes"]:
+            row[key + "_by_species"] = {
+                species: interval([case[key][species] for case in members])
+                for species in members[0][key]
+            }
+        for key in ["checkpoint_step_s", "checkpoint_bytes", "device_reserved_bytes"]:
+            values = [case[key] for case in members]
+            if all(value is not None for value in values):
+                row[key] = interval(values)
         if not settings["no_self_fields"]:
             for component, (exact, mask) in continuum.items():
                 scale = weighted_norm(exact * mask, settings["cells"])
@@ -234,6 +248,7 @@ def main():
         "settings": settings,
         "revision": sorted({case["revision"] for case in cases}),
         "backend": sorted({case["backend"] for case in cases}),
+        "ranks": sorted({case["ranks"] for case in cases}),
         "groups": rows,
     }
     (args.directory / "summary.json").write_text(json.dumps(output, indent=2) + "\n")

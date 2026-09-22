@@ -54,6 +54,8 @@ def main():
                 "python-library-sha256.txt",
                 "physics-build.txt",
                 "physics-executable-sha256.txt",
+                "library-sha256.txt",
+                "compiler.txt",
                 "runtime.txt",
                 "modules.txt",
             ]:
@@ -73,7 +75,7 @@ def main():
                 selected = {}
                 for line in cache.read_text().splitlines():
                     if re.match(
-                        r"(?:WarpX_|AMReX_|CMAKE_(?:BUILD_TYPE|CXX_COMPILER|CUDA_ARCHITECTURES)|MPIEXEC_)",
+                        r"(?:WarpX_|AMReX_|MKL_|CMAKE_(?:BUILD_TYPE|CXX_COMPILER|CUDA_ARCHITECTURES)|MPIEXEC_)",
                         line,
                     ):
                         key, _, value = line.partition("=")

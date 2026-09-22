@@ -1,10 +1,12 @@
 # Perlmutter coupled-physics re-audit
 
-This record covers the re-audit requested after the upstream merge at
-`97078e27b`. The stock comparison is the merged upstream revision
-`cb5672fae0b9099d2c7631e93ffff3404a553821`, not the older feature-branch base.
+This record covers the re-audit requested after the upstream merges. The final
+stock comparator is `66f380f98e44b0cce493a435305009693d0e261e`, with AMReX
+`d6d1aa11f38c`. Earlier measurements explicitly identified below use stock
+`cb5672fae0b9099d2c7631e93ffff3404a553821` and AMReX `66028f892b7d`.
 All new compilation, physics tests, regression tests and timing measurements
-run on Perlmutter. Results remain pending until their logs are recorded below.
+run on Perlmutter. The matrix gives current acceptance; the chronological
+investigations below retain unsuccessful runs and intermediate findings.
 
 ## Previously committed records
 
@@ -30,16 +32,16 @@ remain in the authorized Perlmutter validation directory.
 
 | Area | Independent check and regression coverage | Status |
 | --- | --- | --- |
-| Stock build | Current stock Perlmutter profile, documented CMake and dependency recipes, matching branch/stock configurations | Pending |
-| Rigid beam | Gaussian normalization, exact space-time yield, continuity, self-fields, axis/walls, pulse overlap, shape orders | Pending |
-| Immobile ions | Identical-event frozen-particle footprints, signed charge transfer, nonnegativity, no repeated synchronization/filtering | Pending |
-| Proton impact | PJG N2/O2 spectra/totals, IAA angular closure, bare-ion scaling, tail precision, caps/remainders | Pending |
-| Electron MCC | Elastic/excitation IAA DCS, RBEQ SDCS and IAA ionization angles, two-/three-body attachment, recoil and null events | Pending |
-| Coupled operation | All channels together, both particle/fluid representations, subcycling and all four solver configurations | Pending |
-| Diagnostics/restart | Native/plotfile/openPMD/reduced outputs, new upstream per-species particle counts, immediate restored state and continuation | Pending |
-| GPU ownership | One/two/four GPUs on one node, eight GPUs on two nodes, CUDA-aware MPI and changed restart decomposition | Pending |
-| Performance/noise | Synchronized strong/weak scaling, matched electron work, particle references and repeat-seed statistics | Pending |
-| Stock regressions | Collision, fluid, implicit, diagnostics and restart; reproduce failures on the merged upstream revision | Pending |
+| Stock build | Current stock Perlmutter profile, documented CMake and dependency recipes, matching branch/stock configurations | CUDA builds pass; supplementary SYCL compilation passes |
+| Rigid beam | Gaussian normalization, exact space-time yield, continuity, self-fields, axis/walls, pulse overlap, shape orders | Physics checks pass; strict PSATD redistribution differences below |
+| Immobile ions | Identical-event frozen-particle footprints, signed charge transfer, nonnegativity, no repeated synchronization/filtering | Selected regressions and two-node footprint checks pass |
+| Proton impact | PJG N2/O2 spectra/totals, IAA angular closure, bare-ion scaling, tail precision, caps/remainders | Double/native-float and regression checks pass |
+| Electron MCC | Elastic/excitation IAA DCS, RBEQ SDCS and IAA ionization angles, two-/three-body attachment, recoil and null events | Analytical, measured-DCS and selected regression checks pass |
+| Coupled operation | All channels together, both particle/fluid representations, subcycling and all four solver configurations | Yee, PSATD and semi-implicit pass; mass-matrix ensemble running |
+| Diagnostics/restart | Native/plotfile/openPMD/reduced outputs, new upstream per-species particle counts, immediate restored state and continuation | Selected regressions pass; final all-channel two-node ensemble queued |
+| GPU ownership | One/two/four GPUs on one node, eight GPUs on two nodes, CUDA-aware MPI and changed restart decomposition | Topology/communication pass; 7/8 source/attachment cases pass, PSATD continuation fails strict roundoff criterion |
+| Performance/noise | Synchronized strong/weak scaling, matched electron work, particle references and repeat-seed statistics | Earlier results recorded; final dependency-version studies queued |
+| Stock regressions | Collision, fluid, implicit, diagnostics and restart; reproduce failures on the merged upstream revision | 250/254 branch stages pass; three acceleration failures reproduced on stock |
 
 The previous coupled timing driver included ionization and attachment but did
 not include elastic or excitation. The new combined fixture must include both.
@@ -409,7 +411,10 @@ the existing developer-field reference: Doxygen does not expose the
 macro-generated `warpx::fields::FieldType` enum. PICMI autodoc and the added
 fluid/collision parameter and theory pages render without Sphinx warnings.
 
-The supplementary SYCL build is still pending. Its initial failures were
+The supplementary SYCL build `58725479` completes successfully, including the
+RZ WarpX library/executable, ten standalone physics checks and the strided
+complex-FFT test executable. This establishes compilation, not execution, of
+those tests. Its initial failures were
 dependency configuration issues: the stock BLAS++ release includes `sycl.hpp`
 from the compiler's legacy include location, and oneAPI's `-fsycl -qmkl` link
 uses ILP64 while BLAS++ initially autodetected LP64. The isolated recipe now
@@ -417,3 +422,39 @@ provides the installed SYCL include directory and consistent ILP64 settings.
 Neither a failed configure nor a successful compilation is counted as SYCL
 runtime acceptance. No HIP toolchain or AMD GPU runtime is available in this
 Perlmutter validation environment.
+
+### Final dependency-version physics studies
+
+`58725147` repeats all ten standalone C++ checks with native float particles,
+all 64 Python tests and the Gaussian reference, then repeats measured N2/O2 DCS
+acceptance. Both phases pass. `58723759`, `58723762` and `58724325` each pass
+72 all-channel coupled comparisons for Yee, PSATD and semi-implicit evolution,
+respectively: four beam/ion representation combinations, six seeds, and
+collision subcycling factors 1, 2 and 4. These use the existing population,
+energy, spectrum and charge criteria.
+
+The complete two-node source/attachment matrix `58724323` passes seven of its
+eight cases. The PSATD source continuation repeats the five-cell axial-current
+comparison failure described above; its immediately restored state passes.
+The independent remaining solver cases run to completion despite this failure.
+The current stock regression `58723025` passes 79/87 stages using its original
+analysis. Reanalysis `58726131` retains the upstream moving-window domain checks
+and matches particle IDs: five of those eight failures disappear, while the
+three acceleration failures remain. Representative stock errors are
+`1.08e-12`, `1.34e-12`, and `3.18e-9` against the unchanged `1e-12` criterion.
+
+The 78-run source study `58723763` preserves the independent primary-yield error
+of approximately `1.515e-4`. At fixed mesh, reducing product weight from 400 to
+100 to 25 reduces pending N2 fractions from 2.37% to 0.603% to 0.146%, and O2
+fractions from 7.38% to 2.16% to 0.539%. Refining cells at fixed weight instead
+increases the pending fraction. This is an emission-resolution effect and must
+be checked separately from mesh convergence. Neither a smaller timestep nor
+more MCC subcycles eliminates the per-cell fractional-yield threshold.
+
+Compact records, including failures, are committed in
+[the initial archive](results/perlmutter-reaudit-initial.json) and
+[the latest-dependency archive](results/perlmutter-reaudit-latest.json).
+The approved raw-output root is
+`/pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build/reaudit-2026-09-21`.
+Library hashes and CMake configurations distinguish builds even when the remote
+working tree contains explicitly uploaded, not-yet-committed driver changes.
