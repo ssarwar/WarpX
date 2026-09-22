@@ -13,6 +13,11 @@ import yt
 parser = argparse.ArgumentParser()
 parser.add_argument("--openpmd", action="store_true")
 parser.add_argument("--cells-z", type=int, default=64)
+parser.add_argument(
+    "--solver",
+    choices=["Yee", "PSATD", "semi_implicit_em", "semi_implicit_mm"],
+    default="Yee",
+)
 args = parser.parse_args()
 qe = 1.602176634e-19
 
@@ -71,7 +76,7 @@ for path in outputs:
         ion_charge + electron_charge, 0, atol=3e-14 * np.max(np.abs(ion_charge))
     )
     # On Yee, native charge is unfiltered and can also be compared directly.
-    if "PSATD" not in Path.cwd().name:
+    if args.solver != "PSATD":
         np.testing.assert_allclose(
             ion_charge, qe * grid["boxlib", "fluid_density_i_N2_immobile"].v, rtol=3e-14
         )

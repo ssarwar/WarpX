@@ -12,6 +12,9 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--energy-keV", type=float, default=50.0)
 parser.add_argument("--mixed", action="store_true")
 parser.add_argument("--steps", type=int, default=1)
+parser.add_argument("--product-weight", type=float)
+parser.add_argument("--max-products", type=int)
+parser.add_argument("--seed", type=int, default=42)
 parser.add_argument("--cold", action="store_true")
 parser.add_argument("--alias-product", action="store_true")
 parser.add_argument("--bad-density", action="store_true")
@@ -28,7 +31,16 @@ PROJECTILE_ENERGY = args.energy_keV * 1e3
 BACKGROUND_DENSITY = 2.0e20
 TIME_STEP = 1.0e-9
 FIXED_PRODUCT_WEIGHT = 15.0 if args.energy_keV < 10 else 200.0
-MAX_PRODUCTS_PER_CELL = 30000
+if args.mixed:
+    # GPU bin order affects which incident energy receives each quiet quantile.
+    # The six-seed Perlmutter convergence study needs this resolution for the
+    # existing two-percent mixture-tail check, without widening its tolerance.
+    FIXED_PRODUCT_WEIGHT = 12.5
+if args.product_weight is not None:
+    FIXED_PRODUCT_WEIGHT = args.product_weight
+MAX_PRODUCTS_PER_CELL = 500000 if args.mixed else 30000
+if args.max_products is not None:
+    MAX_PRODUCTS_PER_CELL = args.max_products
 
 C = picmi.constants.c
 M_E = picmi.constants.m_e
@@ -139,7 +151,7 @@ sim = picmi.Simulation(
     time_step_size=TIME_STEP,
     max_steps=args.steps,
     warpx_collisions=collisions,
-    warpx_random_seed=42,
+    warpx_random_seed=args.seed,
     warpx_serialize_initial_conditions=True,
     verbose=1,
 )

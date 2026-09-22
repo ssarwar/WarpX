@@ -22,10 +22,12 @@ parser.add_argument(
 parser.add_argument("--walls", action="store_true")
 parser.add_argument("--restart")
 parser.add_argument("--small-tiles", action="store_true")
+parser.add_argument("--max-grid-size", type=int, default=16)
+parser.add_argument("--cells-z", type=int, default=32)
 args = parser.parse_args()
 
 grid = picmi.CylindricalGrid(
-    number_of_cells=[16, 32],
+    number_of_cells=[16, args.cells_z],
     lower_bound=[0.0, 0.0],
     upper_bound=[1.0, 2.0],
     lower_boundary_conditions=["none", "none" if args.walls else "periodic"],
@@ -38,7 +40,7 @@ grid = picmi.CylindricalGrid(
         "absorbing",
         "absorbing" if args.walls else "periodic",
     ],
-    warpx_max_grid_size=16,
+    warpx_max_grid_size=args.max_grid_size,
     warpx_blocking_factor=8,
     n_azimuthal_modes=1,
 )

@@ -8,18 +8,18 @@ foreach(solver IN ITEMS Yee PSATD semi_implicit_em semi_implicit_mm)
     add_warpx_test(
         test_rz_rigid_source_${solver}_picmi RZ 2
         "inputs_test_rz_rigid_source_picmi.py --solver ${solver} --subcycles 2"
-        analysis_rz_prescribed_outputs.py OFF OFF
+        "analysis_rz_prescribed_outputs.py --solver ${solver}" OFF OFF
     )
     add_warpx_test(
         test_rz_rigid_source_${solver}_restart_picmi RZ 1
         "inputs_test_rz_rigid_source_picmi.py --solver ${solver} --subcycles 2 --restart ../test_rz_rigid_source_${solver}_picmi/diags/chk000002"
-        analysis_rz_prescribed_outputs.py OFF "test_rz_rigid_source_${solver}_picmi"
+        "analysis_rz_prescribed_outputs.py --solver ${solver}" OFF "test_rz_rigid_source_${solver}_picmi"
     )
     if(solver STREQUAL "Yee" OR solver STREQUAL "PSATD")
         add_warpx_test(
             test_rz_rigid_source_${solver}_load_balance_picmi RZ 2
             "inputs_test_rz_rigid_source_picmi.py --solver ${solver} --subcycles 2 --load-balance"
-            analysis_rz_prescribed_outputs.py OFF "test_rz_rigid_source_${solver}_picmi"
+            "analysis_rz_prescribed_outputs.py --solver ${solver}" OFF "test_rz_rigid_source_${solver}_picmi"
         )
     endif()
 endforeach()

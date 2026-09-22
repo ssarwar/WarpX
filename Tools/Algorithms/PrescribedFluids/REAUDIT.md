@@ -300,3 +300,36 @@ repeat-sample speedup claim. The distributed footprint and restart checks above
 verify conservation after the optimization. AMReX's `tilebox()` removes nodal
 tile overlap before `growntilebox()` expands only the outer tiles, so the fused
 update does not write a shared nodal value twice within a CPU FAB.
+
+### Reference-test investigations
+
+The public `warpx-data` and `openPMD-example-datasets` repositories are now
+installed at the paths used by stock CI inputs, with their revisions recorded.
+`58718189` passes all 20 repeated external-field, PSATD-source and helium-MCC
+stages. The helium discharge retains its upstream physics tolerance.
+
+`58717683` varies product weight independently of the mixed projectile energies
+over six seeds. At weights 200, 50 and 12.5, respectively, 3/6, 5/6 and 6/6
+complete spectrum analyses pass. The failures are percentile sampling errors;
+conditional 50/500 keV spectra and total yields remain consistent with the
+independent PJG quadrature. The mixed-energy regression now uses weight 12.5
+and a cap of 500,000 (about 340,000 products per target), retaining all previous
+assertion tolerances. Monoenergetic fixtures retain their prior resolution.
+The archived coarse failures remain available; the convergence study is not
+reported as an all-pass test run.
+
+The default restart comparison now matches particle records by their persistent
+creation-CPU/ID pair, verifies that those identities are unique and unchanged,
+and compares every physical attribute at the original tolerance. This resolves
+five of the eight failures on both branch and stock. Three acceleration cases
+still exceed `1e-12`: representative failing errors are about `2e-12` for
+ordinary/PSATD restart and `2e-9` for time-averaged PSATD, in both builds.
+These boosted, moving-window 3D cases are outside the new fluid model's scope,
+but remain reported as unsuccessful stock regressions, not silently excluded.
+
+The remote received another upstream merge during the audit. It was integrated
+as `d8340a34e`, preserving the audit changes and the upstream AMReX update from
+`66028f892b7d` to `d6d1aa11f38c`. The earlier measurements above use the former
+dependency revision. Final validation will use a separate build against the
+new stock comparator `66f380f98e44b0cce493a435305009693d0e261e`; it will not
+overwrite libraries used by an active measurement.
