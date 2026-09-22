@@ -1,0 +1,1711 @@
+{
+  "schema_version": 1,
+  "assembled": "2026-09-14",
+  "baseline_commit": "967f48efa1a1f473916c9019118901d75b97b228",
+  "branch": "codex/proton-impact-ionization-development-sync",
+  "scope": "Recoverable saved PJG research; the archive does not change the calibrated model.",
+  "preproduction_backup": {
+    "name": "pjg-preproduction-research-20260910.tar.gz",
+    "sha256": "015feec500f67582d4743819c2b01478793b657eddde877425615c2cbc0d4202"
+  },
+  "notes": [
+    "Paths are relative to Research; origins identify recovery locations, not build prerequisites.",
+    "Archive members preserve original bytes; gzip/tar metadata is normalized deterministically.",
+    "Readable historical reports add a status banner; original bytes are retained in source archives.",
+    "Authored archive guides and this manifest are versioned by Git, not self-hashed.",
+    "Duplicate final figures/results have origin aliases rather than duplicate payloads.",
+    "Browser state, credentials, caches, compiled executables, paper scans/OCR, redundant downloads, and full checkpoint state are excluded; saved diagnostic arrays and used inputs are retained.",
+    "Overwritten or never-saved exploratory runs cannot be recovered from these files.",
+    "AppleDouble resource-fork records from the original macOS backup are metadata, not source, and are omitted."
+  ],
+  "artifacts": [
+    {
+      "path": "final/figures/n2_sdcs.png",
+      "bytes": 328862,
+      "sha256": "a73dad7b22af56cb24c2c1bc51fa8d5a34fe8b0dc309e81f5fc403a2d01350f0",
+      "stage": "canonical frozen-model figure",
+      "origins": [
+        "build/pjg-frozen-figures/n2_sdcs.png",
+        "Docs/source/theory/multiphysics/pjg_figures/n2_sdcs.png",
+        "build/pjg-archive-recomputed-figures/n2_sdcs.png"
+      ]
+    },
+    {
+      "path": "final/figures/o2_sdcs.png",
+      "bytes": 178795,
+      "sha256": "5545075974cac9fb88211ad14a879445e0473a9f08fccf06b58215384f60ec50",
+      "stage": "canonical frozen-model figure",
+      "origins": [
+        "build/pjg-frozen-figures/o2_sdcs.png",
+        "Docs/source/theory/multiphysics/pjg_figures/o2_sdcs.png",
+        "build/pjg-archive-recomputed-figures/o2_sdcs.png"
+      ]
+    },
+    {
+      "path": "final/figures/physics_validation.png",
+      "bytes": 164366,
+      "sha256": "f0bc9f87596ed6499fc1680f6dfcc540f47ede000a8d5a02d6fe7a666a775eee",
+      "stage": "canonical frozen-model figure",
+      "origins": [
+        "build/pjg-frozen-figures/physics_validation.png",
+        "Docs/source/theory/multiphysics/pjg_figures/physics_validation.png",
+        "output/pjg-final/figures/physics_validation.png",
+        "tmp/pjg-final/figures/physics_validation.png",
+        "preproduction-backup:output/pjg-final/figures/physics_validation.png",
+        "build/pjg-archive-recomputed-figures/physics_validation.png"
+      ]
+    },
+    {
+      "path": "final/figures/total_cross_sections.png",
+      "bytes": 272666,
+      "sha256": "fe9e166afff62f5b8c306d84824e77ca1fa3d5ba843a84755b01e9193963e2e1",
+      "stage": "canonical frozen-model figure",
+      "origins": [
+        "build/pjg-frozen-figures/total_cross_sections.png",
+        "Docs/source/theory/multiphysics/pjg_figures/total_cross_sections.png",
+        "build/pjg-archive-recomputed-figures/total_cross_sections.png"
+      ]
+    },
+    {
+      "path": "final/fit-results.json",
+      "bytes": 270564,
+      "sha256": "5f51d31c09833c3871480f161df0f823fd6d9bcf122c8786d035e73972b9ea90",
+      "stage": "canonical final selection",
+      "origins": [
+        "output/pjg-final/fit-results.json",
+        "tmp/pjg-final/fit-results.json",
+        "preproduction-backup:output/pjg-final/fit-results.json"
+      ]
+    },
+    {
+      "path": "final/frozen-validation.json",
+      "bytes": 182744,
+      "sha256": "918bca24f2eafe8da28cd93ccba9003cf86e9ec527540d7f89c7fbb765c44f93",
+      "stage": "frozen canonical evaluation",
+      "origins": [
+        "build/pjg-frozen-validation.json",
+        "build/pjg-archive-recomputed.json"
+      ]
+    },
+    {
+      "path": "final/production-refit-figures/n2_sdcs.png",
+      "bytes": 328858,
+      "sha256": "b5ab6346f623b1ade9db595f1e60f225e554f26ecf315beb713bb75af41acb2f",
+      "stage": "optimizer reproduction figure",
+      "origins": [
+        "output/pjg-production-refit-figures/n2_sdcs.png"
+      ]
+    },
+    {
+      "path": "final/production-refit-figures/o2_sdcs.png",
+      "bytes": 178797,
+      "sha256": "ffdcea26e3b72a7c4930efc8d916c44e2067c9e659309afce53e27902d171604",
+      "stage": "optimizer reproduction figure",
+      "origins": [
+        "output/pjg-production-refit-figures/o2_sdcs.png"
+      ]
+    },
+    {
+      "path": "final/production-refit-figures/physics_validation.png",
+      "bytes": 164354,
+      "sha256": "dfd91141bb18bd9d591047c55ffe1a1a108b689c1a2a773277f7ef2cb0f8eebf",
+      "stage": "optimizer reproduction figure",
+      "origins": [
+        "output/pjg-production-refit-figures/physics_validation.png"
+      ]
+    },
+    {
+      "path": "final/production-refit-figures/total_cross_sections.png",
+      "bytes": 272664,
+      "sha256": "b401f920ece51f86bd8b0cc97ab7473050a85228b4fb10abb5e2ff6cadc89f60",
+      "stage": "optimizer reproduction figure",
+      "origins": [
+        "output/pjg-production-refit-figures/total_cross_sections.png"
+      ]
+    },
+    {
+      "path": "final/production-refit.json",
+      "bytes": 270386,
+      "sha256": "a38eeef8ec4ec2a94d8c523cf698bcab0d31b4460e6a7f656ba61bb152db2ba1",
+      "stage": "optimizer reproduction, not canonical coefficients",
+      "origins": [
+        "output/pjg-production-refit.json"
+      ]
+    },
+    {
+      "path": "history/exploratory-source.tar.gz",
+      "bytes": 28263,
+      "sha256": "8796f8b20e124295481fa422d0b355b04498826d2551fffe1d3dac6eaad7d44f",
+      "stage": "superseded scratch studies",
+      "origins": [
+        "tmp/PJG-limit-and-consistency-audit-2026-09-06.md",
+        "tmp/build_pjg_table_audit.py",
+        "tmp/check_smoke.py",
+        "tmp/inputs_pjg_smoke",
+        "tmp/pjg_audit_extras.py",
+        "tmp/pjg_consistency_audit.py",
+        "tmp/pjg_difference_fit.py",
+        "tmp/pjg_gos_experiment.py",
+        "tmp/pjg_limit_audit.py",
+        "tmp/pjg_minimal_experiment.py",
+        "tmp/pjg_rebuild_experiment.py",
+        "tmp/pjg_reference.py",
+        "tmp/pjg_table_audit.cpp",
+        "tmp/pjg_table_design.py"
+      ],
+      "members": [
+        {
+          "path": "tmp/PJG-limit-and-consistency-audit-2026-09-06.md",
+          "bytes": 25979,
+          "sha256": "bfa2d8749c7ee2bfab91eba410aba7028e5a4a4be61bfa24826dc8b5daefffbe",
+          "origin": "tmp/PJG-limit-and-consistency-audit-2026-09-06.md"
+        },
+        {
+          "path": "tmp/build_pjg_table_audit.py",
+          "bytes": 1035,
+          "sha256": "fabb88a119d398d53865991e4a507a5084e847c82ef792c83916555e2ff609cb",
+          "origin": "tmp/build_pjg_table_audit.py"
+        },
+        {
+          "path": "tmp/check_smoke.py",
+          "bytes": 1111,
+          "sha256": "084f1237b0123c159799fcf07091d5a8d041fa46421224a469862fec0efc0839",
+          "origin": "tmp/check_smoke.py"
+        },
+        {
+          "path": "tmp/inputs_pjg_smoke",
+          "bytes": 1610,
+          "sha256": "ddd5931146037283687f0874f901f6d85dd376217f096a1640ab29978e77b6b9",
+          "origin": "tmp/inputs_pjg_smoke"
+        },
+        {
+          "path": "tmp/pjg_audit_extras.py",
+          "bytes": 3818,
+          "sha256": "5b96be67a81afe6eaa2867d2464fe246cc3219640bd0f5c5cd76379607060a86",
+          "origin": "tmp/pjg_audit_extras.py"
+        },
+        {
+          "path": "tmp/pjg_consistency_audit.py",
+          "bytes": 10182,
+          "sha256": "6f584c77e89ce90201ca4fb8c772da3e4c88c2cb0e327d19d1b735743089adb4",
+          "origin": "tmp/pjg_consistency_audit.py"
+        },
+        {
+          "path": "tmp/pjg_difference_fit.py",
+          "bytes": 4976,
+          "sha256": "0b921a81dd9e0e99f9e6d32cc51983dcdc5283ad2c88bac3224e0920b1ce7546",
+          "origin": "tmp/pjg_difference_fit.py"
+        },
+        {
+          "path": "tmp/pjg_gos_experiment.py",
+          "bytes": 7318,
+          "sha256": "3911e7ded77eabd0e5699a7e122a26be825b4c03235e7127270196901430e2d3",
+          "origin": "tmp/pjg_gos_experiment.py"
+        },
+        {
+          "path": "tmp/pjg_limit_audit.py",
+          "bytes": 7557,
+          "sha256": "5cafb6f41605dd64af9da38f661846b04eea98153eeab406410f3f6e011e39c9",
+          "origin": "tmp/pjg_limit_audit.py"
+        },
+        {
+          "path": "tmp/pjg_minimal_experiment.py",
+          "bytes": 6272,
+          "sha256": "2dc1779bc86695cbd883cf25198ae2a9d6d50311cca55a9784eb139f5a56a0a7",
+          "origin": "tmp/pjg_minimal_experiment.py"
+        },
+        {
+          "path": "tmp/pjg_rebuild_experiment.py",
+          "bytes": 8901,
+          "sha256": "e3a7cc7708b8c682fa3e4c283020b3ef7e8fc703f3275d7e33ec0797716a4ace",
+          "origin": "tmp/pjg_rebuild_experiment.py"
+        },
+        {
+          "path": "tmp/pjg_reference.py",
+          "bytes": 4832,
+          "sha256": "c11523bd5142dd65c66b2ae48656ce2a8264a49e877c64ea906b9867ef012dd2",
+          "origin": "tmp/pjg_reference.py"
+        },
+        {
+          "path": "tmp/pjg_table_audit.cpp",
+          "bytes": 2654,
+          "sha256": "141832b57e82c1d69687505a36ef6e40810a4b75d254620d7023bd67ac338f3e",
+          "origin": "tmp/pjg_table_audit.cpp"
+        },
+        {
+          "path": "tmp/pjg_table_design.py",
+          "bytes": 1828,
+          "sha256": "91f02c3c3571251597d61e50357a6372d8001ab97e66a777c7f048f81670998f",
+          "origin": "tmp/pjg_table_design.py"
+        }
+      ]
+    },
+    {
+      "path": "history/figures/final-original-presentation/n2_sdcs.png",
+      "bytes": 386480,
+      "sha256": "ff95db625951fca00d0561356c9a863b830eb2b13187f78223e95a9f53123d5d",
+      "stage": "same canonical parameters, earlier plot presentation",
+      "origins": [
+        "output/pjg-final/figures/n2_sdcs.png",
+        "tmp/pjg-final/figures/n2_sdcs.png",
+        "preproduction-backup:output/pjg-final/figures/n2_sdcs.png"
+      ]
+    },
+    {
+      "path": "history/figures/final-original-presentation/o2_sdcs.png",
+      "bytes": 204761,
+      "sha256": "0d4e68b7175e1e85209cfb8f83c1307fed188d33aa3312a30659a5cc5e05e36a",
+      "stage": "same canonical parameters, earlier plot presentation",
+      "origins": [
+        "output/pjg-final/figures/o2_sdcs.png",
+        "tmp/pjg-final/figures/o2_sdcs.png",
+        "preproduction-backup:output/pjg-final/figures/o2_sdcs.png"
+      ]
+    },
+    {
+      "path": "history/figures/final-original-presentation/total_cross_sections.png",
+      "bytes": 313554,
+      "sha256": "fcf743c7bafc940cf9b5e3caf7f3dc53bdb180af6e27fb175d856f3d1fec5059",
+      "stage": "same canonical parameters, earlier plot presentation",
+      "origins": [
+        "output/pjg-final/figures/total_cross_sections.png",
+        "tmp/pjg-final/figures/total_cross_sections.png",
+        "preproduction-backup:output/pjg-final/figures/total_cross_sections.png"
+      ]
+    },
+    {
+      "path": "history/figures/pjg-matched-results/pjg_matched_bhabha.png",
+      "bytes": 100460,
+      "sha256": "038866741be8b32333abbee72be31466344a7c1c838f1cf874bb3a250932c988",
+      "stage": "early matched model",
+      "origins": [
+        "tmp/pjg-matched-results/pjg_matched_bhabha.png"
+      ]
+    },
+    {
+      "path": "history/figures/pjg-matched-results/pjg_matched_spectra.png",
+      "bytes": 218457,
+      "sha256": "3f62fd51725ebf0d2bdb81e0a9e87a914301750f085f1a3606b231b964a2f803",
+      "stage": "early matched model",
+      "origins": [
+        "tmp/pjg-matched-results/pjg_matched_spectra.png"
+      ]
+    },
+    {
+      "path": "history/figures/pjg-matched-results/pjg_matched_totals.png",
+      "bytes": 112226,
+      "sha256": "3671d5059b3b403b0d6cb9b1fa3abbc372264cdbf93acb3f9fc8d81381f6fe8d",
+      "stage": "early matched model",
+      "origins": [
+        "tmp/pjg-matched-results/pjg_matched_totals.png"
+      ]
+    },
+    {
+      "path": "history/figures/pjg-properties-figures/n2_mean_weight_sensitivity.png",
+      "bytes": 195693,
+      "sha256": "c8ffe7b83adafb6c842f6e4be6fd4cfc9b5989514ff8ad6e02f92d516263c712",
+      "stage": "pre-final comparison",
+      "origins": [
+        "tmp/pjg-properties-figures/n2_mean_weight_sensitivity.png"
+      ]
+    },
+    {
+      "path": "history/figures/pjg-properties-figures/stopping_decomposition.png",
+      "bytes": 280113,
+      "sha256": "359c16c87d10d42a06e97fa82b6257d30b5bd94c0e7fdcc218ffda2582458575",
+      "stage": "pre-final comparison",
+      "origins": [
+        "tmp/pjg-properties-figures/stopping_decomposition.png"
+      ]
+    },
+    {
+      "path": "history/figures/pjg-properties-figures/totals_and_means.png",
+      "bytes": 261805,
+      "sha256": "9fe308976c5deaed37239b9eefe46206e4685c593c49bbd12e8875c98881a776",
+      "stage": "pre-final comparison",
+      "origins": [
+        "tmp/pjg-properties-figures/totals_and_means.png"
+      ]
+    },
+    {
+      "path": "history/figures/pjg-source-refresh-figures/cheng_1989_sdcs.png",
+      "bytes": 151514,
+      "sha256": "ba89ff5c484bbce324cfe5d73e729d40d7fc414800e45ebe25dac18f95841c4d",
+      "stage": "pre-final comparison",
+      "origins": [
+        "tmp/pjg-source-refresh-figures/cheng_1989_sdcs.png"
+      ]
+    },
+    {
+      "path": "history/figures/pjg-source-refresh-figures/source_optical_stopping.png",
+      "bytes": 243508,
+      "sha256": "cc7cd607d3d4abad823b0ada5299aaffdc4c2738a804e9ff085ba6aee53c7567",
+      "stage": "pre-final comparison",
+      "origins": [
+        "tmp/pjg-source-refresh-figures/source_optical_stopping.png"
+      ]
+    },
+    {
+      "path": "history/figures/pjg-stopping-figures/pjg_optical_tradeoff.png",
+      "bytes": 223653,
+      "sha256": "761bffe0e58e1fbc025195dc3cfde1d81b407def60acf16012c913f890bb3894",
+      "stage": "pre-final comparison",
+      "origins": [
+        "tmp/pjg-stopping-figures/pjg_optical_tradeoff.png"
+      ]
+    },
+    {
+      "path": "history/figures/pjg-stopping-figures/pjg_stopping_nist.png",
+      "bytes": 227519,
+      "sha256": "4826e27043a1829e4669731f65b26e166a065c6657304b6f37fd8416224f8bfc",
+      "stage": "pre-final comparison",
+      "origins": [
+        "tmp/pjg-stopping-figures/pjg_stopping_nist.png"
+      ]
+    },
+    {
+      "path": "history/figures/pjg_hard_tail_audit.png",
+      "bytes": 93281,
+      "sha256": "81acc276af673dd4ef571aeea363b23bead38910fe35bc2fc7cbcf9232d7dc81",
+      "stage": "initial hard-tail audit",
+      "origins": [
+        "tmp/pjg_hard_tail_audit.png"
+      ]
+    },
+    {
+      "path": "history/preproduction-source.tar.gz",
+      "bytes": 129125,
+      "sha256": "f6cf45ddad85227570daf475aba4da3265cbc0697c1848ef4027d7b12ff3415e",
+      "stage": "preproduction source snapshot",
+      "origins": [
+        "preproduction-backup"
+      ],
+      "members": [
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/CMakeLists.txt",
+          "bytes": 1460,
+          "sha256": "49ff38dda332ab4eeaa130502d8438265e1750d53d20d01a873d1b7129d467a6",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/CMakeLists.txt"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/DATASET_AUDIT.md",
+          "bytes": 23996,
+          "sha256": "32dde84aa4232f69e63f131aad302b5cde763553ff78a55e386d50350a486474",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/DATASET_AUDIT.md"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/FINAL_PJG.md",
+          "bytes": 23967,
+          "sha256": "f7ebf3464619ccaf780f013b14a31a267bc6138c03f3ca80a95901057096175a",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/FINAL_PJG.md"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/MATCHED_PJG.md",
+          "bytes": 21452,
+          "sha256": "b65e9ac4123cae32abc69e653af1aa62b7d70f6d9a88fa9cf12d7699d7576974",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/MATCHED_PJG.md"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/OPTICAL_STOPPING_AUDIT.md",
+          "bytes": 18889,
+          "sha256": "aba740abf8ec47ef6edca046272b1bc6ab1a799dc823c447ef5bfa34e730367b",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/OPTICAL_STOPPING_AUDIT.md"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/PJG_REPAIR.md",
+          "bytes": 14501,
+          "sha256": "2ed4d45f1e4994d1bee4ef339b21a7879c0769e47000e5d0db710c1cb92b19b2",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/PJG_REPAIR.md"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/PROPERTIES_AUDIT.md",
+          "bytes": 26461,
+          "sha256": "4c04aa9cd5b66bc963b278c4f2dff1d909057ba8608caa4fe34a5800040a351f",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/PROPERTIES_AUDIT.md"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/README.md",
+          "bytes": 7404,
+          "sha256": "456826e348883fc93616f09f3902550254394c0f4f9f19cab9d72bb877401ec5",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/README.md"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/RECONSTRUCTION.md",
+          "bytes": 13802,
+          "sha256": "d4273de3a80a8feabc9a440c8aee80dbd09498813c5bccfcbde77654b93de0e2",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/RECONSTRUCTION.md"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/audit_pjg_matched.py",
+          "bytes": 13171,
+          "sha256": "5d8f9fb731860fd50c62df010c8e2cce43ab36f9fe63d299978e3da67125835e",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/audit_pjg_matched.py"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/audit_pjg_properties.py",
+          "bytes": 21418,
+          "sha256": "96edc378e6b8655781ea83bd47ea12b5dd00fe38c9bb92f78a9a3d41d919ef5a",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/audit_pjg_properties.py"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/audit_source_refresh.py",
+          "bytes": 9759,
+          "sha256": "dcdbe977c65a56149c8a1a5bf21089b5e4f3db69091173032686fd93e1511683",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/audit_source_refresh.py"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/benchmark_sampling.cpp",
+          "bytes": 2407,
+          "sha256": "192cfd54928569eacc8e8e2190401394aa86ae9ef44f630c02ddce68cc9befd0",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/benchmark_sampling.cpp"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/calibrated_pjg.py",
+          "bytes": 2572,
+          "sha256": "7f45206d455a33adabb341acc5bc5456631e5f6b2663cf750e2e108ff24a31e3",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/calibrated_pjg.py"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/experimental.py",
+          "bytes": 1791,
+          "sha256": "0ce849069c002654ddb01ba56d5677573ce24f8c0de153885adfec81e0ce16f6",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/experimental.py"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/extract_nifs_oscillators.py",
+          "bytes": 6064,
+          "sha256": "0014eaf103b0b6fa282d85865a4b208969701526d1d8ce5eae14cfc151eb69d4",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/extract_nifs_oscillators.py"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/finalize_pjg.py",
+          "bytes": 21995,
+          "sha256": "9160c5e1bc356ab945344495c695e75581ec869a1e0e2ec1fe2bc304fc728588",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/finalize_pjg.py"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/fit_pjg_matched.py",
+          "bytes": 11681,
+          "sha256": "7a7a356e5e8fb891b8059f9d5e7b55f6f82c74a0f19870b0212a85a194a6ee28",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/fit_pjg_matched.py"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/fit_pjg_optical.py",
+          "bytes": 5616,
+          "sha256": "021d69a7ef230147e80f277dadbe682a5891255ba63288c8bf373957b9654796",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/fit_pjg_optical.py"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/fit_pjg_repair.py",
+          "bytes": 5391,
+          "sha256": "26c2751db5478732defc5bf7addb0f0f6a4e1adfca58cc32b79b0a32a987a1aa",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/fit_pjg_repair.py"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/optical_dataset_audit.py",
+          "bytes": 6699,
+          "sha256": "a942a4fd501dd373ca686491d2657bc03b81eaa56a7f650f65fe32518abb9a36",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/optical_dataset_audit.py"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/pjg_matched.py",
+          "bytes": 15803,
+          "sha256": "e338c9e3ab6874fa76066bb69e0866aea393214f45deb78a8e7545670ee50aa6",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/pjg_matched.py"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/pjg_repair.py",
+          "bytes": 9922,
+          "sha256": "a85577e8f31e4aa09c99d882233fcb684df5c57628c32c658f839d25b46f5e62",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/pjg_repair.py"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/pstar_reference.json",
+          "bytes": 15429,
+          "sha256": "003fefb43f6ac5b40beb2e608baa2874faf23b4fef3a26fa95c7fba4ea5fc6ec",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/pstar_reference.json"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/reference.py",
+          "bytes": 6714,
+          "sha256": "69a9fa7be808c28fa25583e16246bb6262699786959c79fc059f1b3b9ce905c9",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/reference.py"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/source_datasets.py",
+          "bytes": 13760,
+          "sha256": "6e68f75b741a7a8aa49215c528d2800684092717f469f6528152e10e96f2e5f6",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/source_datasets.py"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/stopping_pjg_matched.py",
+          "bytes": 13539,
+          "sha256": "2b23b592c76434e633e952c2bbdae6028599064cd9e0b8cbcb24186ea3fbd56e",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/stopping_pjg_matched.py"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/study_mean_energy.py",
+          "bytes": 4419,
+          "sha256": "d00c277c9aaa7a5ed1baafbebf5503eb40f8e336b0d2f1db2c1c2035cf0907ce",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/study_mean_energy.py"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/study_optical_stopping.py",
+          "bytes": 12288,
+          "sha256": "3324779412f85c5a5b81528d5ba5094149683adeeaa055ad9990e4140d550f5f",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/study_optical_stopping.py"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/study_source_refresh.py",
+          "bytes": 12791,
+          "sha256": "39d858f1275a64586ae63cc3f978bb8b4668f52ffa5ac7a6dda180324ed11fca",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/study_source_refresh.py"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/test_calibrated_pjg.py",
+          "bytes": 6225,
+          "sha256": "d61c1c2c35f5a0584de5b8c678dc44218ec5259501b2254d312537a9f8a29460",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/test_calibrated_pjg.py"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/test_experimental.py",
+          "bytes": 1738,
+          "sha256": "2035b7077bd09915a19880b0e6e68d353a84153921eb64d36f9e9c0317a03b8c",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/test_experimental.py"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/test_pjg_matched.py",
+          "bytes": 11369,
+          "sha256": "9220521beaef6288da425876487b0b1c816bb80026c091fe4b1bd03d5fb446e3",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/test_pjg_matched.py"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/test_pjg_properties.py",
+          "bytes": 3966,
+          "sha256": "d21dda1f17db927f7e27bf85ca724beba65d457a6570542979c6801c67a2a2e1",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/test_pjg_properties.py"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/test_pjg_repair.py",
+          "bytes": 9073,
+          "sha256": "641d53de3ed877a17da9ec754ad4a69980cc57d169ece3587038329a677dc62c",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/test_pjg_repair.py"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/test_reference.py",
+          "bytes": 6966,
+          "sha256": "97bbb6b7cdd35779f4957476e3d92f3aae5c5f8e41a2373ce74f0a74903dfe44",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/test_reference.py"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/test_relativistic.cpp",
+          "bytes": 8863,
+          "sha256": "ccf07ec73dd5ffc4a4cab12b2bed28b0731e74642f24f44a34d63a80ec29f300",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/test_relativistic.cpp"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/test_sampling.cpp",
+          "bytes": 3234,
+          "sha256": "f6ce70d1b06eaaca553312b277028d844e2d4cc1851baeb4f0bee42d4285ff8c",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/test_sampling.cpp"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/test_source_datasets.py",
+          "bytes": 5532,
+          "sha256": "e987a38c7d7e0f4142403dfa9fcb8fb5c42ea303ef88fdd62fe6c30ea7a7e8a4",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/test_source_datasets.py"
+        },
+        {
+          "path": "Tools/Algorithms/ProtonImpactIonization/test_stopping_pjg_matched.py",
+          "bytes": 8104,
+          "sha256": "6a55c66f40a95806897a8e7757ae29badf901150ba82037666ea115313f3c2b1",
+          "origin": "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/test_stopping_pjg_matched.py"
+        }
+      ]
+    },
+    {
+      "path": "history/reports/DATASET_AUDIT.md",
+      "bytes": 24281,
+      "sha256": "1e9e4dc98144839b25343df7b8faa8a70983a8663902aa2e34127fd9859e4255",
+      "stage": "historical narrative",
+      "origins": [
+        "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/DATASET_AUDIT.md"
+      ],
+      "original_sha256": "32dde84aa4232f69e63f131aad302b5cde763553ff78a55e386d50350a486474"
+    },
+    {
+      "path": "history/reports/FINAL_PJG.md",
+      "bytes": 24252,
+      "sha256": "749680dc87e978f185ebc250faaf1f76a91d26b10682c5d5c893449c9420ecf2",
+      "stage": "historical narrative",
+      "origins": [
+        "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/FINAL_PJG.md"
+      ],
+      "original_sha256": "f7ebf3464619ccaf780f013b14a31a267bc6138c03f3ca80a95901057096175a"
+    },
+    {
+      "path": "history/reports/MATCHED_PJG.md",
+      "bytes": 21737,
+      "sha256": "a6f217ad1cec1e8d632c567dca3eb8ce5d192d232bab74bd84c0750d653c6689",
+      "stage": "historical narrative",
+      "origins": [
+        "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/MATCHED_PJG.md"
+      ],
+      "original_sha256": "b65e9ac4123cae32abc69e653af1aa62b7d70f6d9a88fa9cf12d7699d7576974"
+    },
+    {
+      "path": "history/reports/OPTICAL_STOPPING_AUDIT.md",
+      "bytes": 19174,
+      "sha256": "b93c23b85111031d7bfdf219b4446c8c3c7562e6e64c1fcba009619a2874faaf",
+      "stage": "historical narrative",
+      "origins": [
+        "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/OPTICAL_STOPPING_AUDIT.md"
+      ],
+      "original_sha256": "aba740abf8ec47ef6edca046272b1bc6ab1a799dc823c447ef5bfa34e730367b"
+    },
+    {
+      "path": "history/reports/PJG-limit-and-consistency-audit-2026-09-06.md",
+      "bytes": 25611,
+      "sha256": "60088b2a9de611f5e81b6998805b10380fa11c136576009178668be7fbe93082",
+      "stage": "initial limit audit",
+      "origins": [
+        "tmp/PJG-limit-and-consistency-audit-2026-09-06.md"
+      ],
+      "original_sha256": "bfa2d8749c7ee2bfab91eba410aba7028e5a4a4be61bfa24826dc8b5daefffbe"
+    },
+    {
+      "path": "history/reports/PJG_REPAIR.md",
+      "bytes": 14786,
+      "sha256": "0207ebdc28c4cef00bfb934d8c7cd303a613c17a9d62e5c00166c8b369892e6d",
+      "stage": "historical narrative",
+      "origins": [
+        "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/PJG_REPAIR.md"
+      ],
+      "original_sha256": "2ed4d45f1e4994d1bee4ef339b21a7879c0769e47000e5d0db710c1cb92b19b2"
+    },
+    {
+      "path": "history/reports/PREPRODUCTION_README.md",
+      "bytes": 7689,
+      "sha256": "45b5b7d0f2c8c6c557c5e5010651d0874114e6d5c3b8ee293c02cc33057eb6f5",
+      "stage": "historical narrative",
+      "origins": [
+        "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/README.md"
+      ],
+      "original_sha256": "456826e348883fc93616f09f3902550254394c0f4f9f19cab9d72bb877401ec5"
+    },
+    {
+      "path": "history/reports/PROPERTIES_AUDIT.md",
+      "bytes": 26746,
+      "sha256": "c986a89294fa80ac06f05e33620f2304a384096b4b3f5d70583b6f6e0980d6e4",
+      "stage": "historical narrative",
+      "origins": [
+        "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/PROPERTIES_AUDIT.md"
+      ],
+      "original_sha256": "4c04aa9cd5b66bc963b278c4f2dff1d909057ba8608caa4fe34a5800040a351f"
+    },
+    {
+      "path": "history/reports/RECONSTRUCTION.md",
+      "bytes": 14087,
+      "sha256": "df3b4d631ef0ebc0fcd057d7b556401d041ee561ddf59d669f3b435a8f1d838d",
+      "stage": "historical narrative",
+      "origins": [
+        "preproduction-backup:Tools/Algorithms/ProtonImpactIonization/RECONSTRUCTION.md"
+      ],
+      "original_sha256": "d4273de3a80a8feabc9a440c8aee80dbd09498813c5bccfcbde77654b93de0e2"
+    },
+    {
+      "path": "history/results/exploratory/difference-fit-N2-1.json",
+      "bytes": 21867,
+      "sha256": "29122984664b36f1c8e5ae5d1617ba967304ddb14190f91ed73502254a95fd51",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/difference-fit-N2-1.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/difference-fit-N2-3.json",
+      "bytes": 21896,
+      "sha256": "b16c48c99356439ae50f886f1b8292834e28043a44a06b8122644d2295dd415f",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/difference-fit-N2-3.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/difference-fit-N2-5.json",
+      "bytes": 21957,
+      "sha256": "f34a151edaf7aa11e02ae41e672eb065beda17d3c868695e5fb133c13974fc0c",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/difference-fit-N2-5.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/difference-fit-N2-8.json",
+      "bytes": 21992,
+      "sha256": "2493b186ec05320b09141127a77733a4488e4b12cb85f2c8d87f27b8cc394933",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/difference-fit-N2-8.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/difference-fit-O2-1.json",
+      "bytes": 19436,
+      "sha256": "7fa351369b9c7774f9f09fc60e4c3f2efe34ec7a2ebafd5cc091f8b8c90628e5",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/difference-fit-O2-1.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/difference-fit-O2-3.json",
+      "bytes": 19491,
+      "sha256": "3e96be6c51b12b56f3e155a9ee93b81c84ac73d1da830d0444f1a9fe32b8382f",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/difference-fit-O2-3.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/difference-fit-O2-5.json",
+      "bytes": 19533,
+      "sha256": "e5e5d353128a525f80c2afb96b10dfdcbf9bbd7fb674897fabe97736a14ed7f8",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/difference-fit-O2-5.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/difference-fit-O2-8.json",
+      "bytes": 19605,
+      "sha256": "d6580a527118db3637595fc1b3db5345d21381c1d5a64424b6093bf2c9afe0a2",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/difference-fit-O2-8.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/gos-N2.json",
+      "bytes": 19876,
+      "sha256": "c827872e2a036e95086c08d9e31ed12a5fb92257ec84d8aab0f7e2e24351b9e2",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/gos-N2.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/gos-O2.json",
+      "bytes": 17500,
+      "sha256": "fc79059f8f338a5db1d40f0ff22a4466e67d2ff6ceb9d355586be2151fcae7a6",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/gos-O2.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-N2-none-0.5-1.json",
+      "bytes": 21811,
+      "sha256": "6e1145e96fdacfe618962ffae7f23f3a45c23c584833d654fc99098eb01f232b",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-N2-none-0.5-1.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-N2-none-0.5-2.json",
+      "bytes": 21813,
+      "sha256": "d279649d304b25cefd6695f0cb3630db073710b93a74686e606ff00a8be2bd03",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-N2-none-0.5-2.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-N2-none-0.5-3.json",
+      "bytes": 21835,
+      "sha256": "3a48be0b2369f71bd775c8dd099b02a90531470187b1ccb08f6b0820b0a27b9b",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-N2-none-0.5-3.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-N2-none-0.5-4.json",
+      "bytes": 21864,
+      "sha256": "9f87d0543f737e5a6fef0e4c603ac45ecee843458d9f8b7619aed55f4b14f985",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-N2-none-0.5-4.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-N2-none-1-1.json",
+      "bytes": 21836,
+      "sha256": "73c71546ba9f35cb1472346fe7ca1d61bae0ed4a86692a4b00ecc5fd3084f0ba",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-N2-none-1-1.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-N2-none-1-2.json",
+      "bytes": 21860,
+      "sha256": "5a329e8a89797cd54213397edd937fec222ec50583d447efecbefaf2233f24dc",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-N2-none-1-2.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-N2-none-1-3.json",
+      "bytes": 21867,
+      "sha256": "7e06db8f19a21e6409346c0678334f9d39c428b57c97618c8256da079b142a94",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-N2-none-1-3.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-N2-none-1-4.json",
+      "bytes": 21863,
+      "sha256": "e6f181a8397e029315aeb5311e1459364943305ff84016df4bf52567600ab274",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-N2-none-1-4.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-N2-rudd-1-1.json",
+      "bytes": 21870,
+      "sha256": "eaf3f2b69d48c3309d281ca8f8ca9a2079ecee3635d6760a5298c6060b378b7f",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-N2-rudd-1-1.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-N2-rudd-1-2.json",
+      "bytes": 21865,
+      "sha256": "3c32b6928f532b3d5aad2078ddc6a1e835924cbed2cbb7c2d41ca2f5d622796f",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-N2-rudd-1-2.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-N2-rudd-1-3.json",
+      "bytes": 21895,
+      "sha256": "b613af33793d11cf8b71f659c0983b2e11afc3786ad0b3fbc2fc3645332334a4",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-N2-rudd-1-3.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-N2-rudd-1-4.json",
+      "bytes": 21865,
+      "sha256": "e5437deed6dc341af4c38e3860cd6784bbd3874de372291195c78424693476dd",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-N2-rudd-1-4.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-O2-none-0.5-1.json",
+      "bytes": 19419,
+      "sha256": "b5f569f5bdd2421cfa5ee7886dbce468ca71fb0818d0519dac7ebce7c22082a3",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-O2-none-0.5-1.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-O2-none-0.5-2.json",
+      "bytes": 19416,
+      "sha256": "6a9151473900679501b9216127c1cbccaa5c51ddf0996c945cdeeaa1c6e44152",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-O2-none-0.5-2.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-O2-none-0.5-3.json",
+      "bytes": 19423,
+      "sha256": "c9a8c9ee07e6a3c3ee56ad8fbe2d173e6ae6d694840884f295af9c75e63f1372",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-O2-none-0.5-3.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-O2-none-0.5-4.json",
+      "bytes": 19459,
+      "sha256": "e5b2de363d1a5d7f5c4b82f9133c3ec412abde74ae04d3610466d55b8c775812",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-O2-none-0.5-4.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-O2-none-1-1.json",
+      "bytes": 19426,
+      "sha256": "f383de07e4c1cb389ad2a9d68e223f704eb50e0fc4b24dd48071f76378235652",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-O2-none-1-1.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-O2-none-1-2.json",
+      "bytes": 19438,
+      "sha256": "4b81e18e47027452e7acd2680195a9f914198987032b719196cb216e7a21937c",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-O2-none-1-2.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-O2-none-1-3.json",
+      "bytes": 19476,
+      "sha256": "cbfe4d3975347916c8e2f9a1819110bb303c902bd829de864468ac06c0e3be4d",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-O2-none-1-3.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-O2-none-1-4.json",
+      "bytes": 19471,
+      "sha256": "a1d7242bce9a56d6474a8434665a0ef49e8d87e10405abe4fb2b793dae2fe9fc",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-O2-none-1-4.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-O2-rudd-1-1.json",
+      "bytes": 19449,
+      "sha256": "05bbb95985bade9533de93718110af7bcc6994781bec7fa977128d9f65dbef81",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-O2-rudd-1-1.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-O2-rudd-1-2.json",
+      "bytes": 19470,
+      "sha256": "aba52a654893c3a384ee75db724feb7307c557af29533042a8a40baf980fe34e",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-O2-rudd-1-2.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-O2-rudd-1-3.json",
+      "bytes": 19504,
+      "sha256": "f13b0a0b40fab7d5d9238efa77d996cddb14b86eab74e69678a26653f077d621",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-O2-rudd-1-3.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-O2-rudd-1-4.json",
+      "bytes": 19475,
+      "sha256": "5c5bd3e1bf29c44bc5a8ff3e8b6e1e2712ad77cc2d4443b0cd55c949655a9890",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-O2-rudd-1-4.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-difference-N2-none-1-1.json",
+      "bytes": 21841,
+      "sha256": "f9c485caa83f7170d3f34a962d3267884b3c327ad2749bd0518fb7db258dd491",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-difference-N2-none-1-1.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-difference-N2-none-1-2.json",
+      "bytes": 21815,
+      "sha256": "e5402575fb951c81dc713d748ab74812035c0878edf657f712efc89ddc2bca91",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-difference-N2-none-1-2.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-difference-N2-none-1-3.json",
+      "bytes": 21846,
+      "sha256": "b0066c9f330548e2df4e79d81b09a9d7191e962ede3fba41babfc16d5456c6bf",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-difference-N2-none-1-3.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-difference-N2-none-1-4.json",
+      "bytes": 21856,
+      "sha256": "32b7df32c04de490ec0729f30e46fa4268a8efc3db6a612707c0f46e2aea1c9b",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-difference-N2-none-1-4.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-difference-N2-rudd-1-1.json",
+      "bytes": 21839,
+      "sha256": "e017bbe5d136de9f1d76b6c8e62f3a478952292d65016441008dcd6a97262b66",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-difference-N2-rudd-1-1.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-difference-N2-rudd-1-2.json",
+      "bytes": 21837,
+      "sha256": "6902b73fdd783265289d0356ba1ef35734a9429c9b070b37bf9baf31d4b46139",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-difference-N2-rudd-1-2.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-difference-N2-rudd-1-3.json",
+      "bytes": 21861,
+      "sha256": "853054751cdc6b725bc94fb581155d4c827d618f185fd03aa7d20381f6bcc2f2",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-difference-N2-rudd-1-3.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-difference-N2-rudd-1-4.json",
+      "bytes": 21869,
+      "sha256": "7136626f774db7b6ae94313e5b30ca68b0024158d494e98abeacac1d615dcfc6",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-difference-N2-rudd-1-4.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-difference-O2-none-1-1.json",
+      "bytes": 19395,
+      "sha256": "91bc6956b563280e01efda36d7470a3b6e685708573d23582914b11310e89496",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-difference-O2-none-1-1.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-difference-O2-none-1-2.json",
+      "bytes": 19421,
+      "sha256": "d7e7d94649db96d75c21d17b3d4b77753c0f7ccccbcc4dd621e82e4f731da0b9",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-difference-O2-none-1-2.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-difference-O2-none-1-3.json",
+      "bytes": 19424,
+      "sha256": "d8b3c476fc8ee6e359c288cad3852f4563918c658c3fa02a296922ebc34643b8",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-difference-O2-none-1-3.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-difference-O2-none-1-4.json",
+      "bytes": 19440,
+      "sha256": "c9836595965d7cae8ead488868a793ac4a843c7042d93cd162a9b75e440745c1",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-difference-O2-none-1-4.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-difference-O2-rudd-1-1.json",
+      "bytes": 19411,
+      "sha256": "079c8fd2ecb946c43b7993b3a84e86ecb00e960213e0dee95e27f508ae190610",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-difference-O2-rudd-1-1.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-difference-O2-rudd-1-2.json",
+      "bytes": 19446,
+      "sha256": "5789b323348bbbc7768e447b9420472863a62624e9fccef39397999f373bdc75",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-difference-O2-rudd-1-2.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-difference-O2-rudd-1-3.json",
+      "bytes": 19455,
+      "sha256": "7d34913440002330febe9bc12f6f5d8e286eb58542e3714dbc92bfdecd570282",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-difference-O2-rudd-1-3.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/minimal-difference-O2-rudd-1-4.json",
+      "bytes": 19464,
+      "sha256": "4ad29fa922b35d82a36d66d938108207754994eb4d62d804736a4ae13b894027",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/minimal-difference-O2-rudd-1-4.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/pjg-optical-stopping-trials.json",
+      "bytes": 11614,
+      "sha256": "b90e05fdb880dfd070eeaa33b7d933428a78122b67851b67e25306e97e91a38e",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/pjg-optical-stopping-trials.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/pjg_audit_extras_results.json",
+      "bytes": 797,
+      "sha256": "fe551cbb45f80f4c9feb08861dbded9e01035d2704a9f56a8b2408011761cc08",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/pjg_audit_extras_results.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/pjg_consistency_audit_results.json",
+      "bytes": 38401,
+      "sha256": "abbfd8ecbcc6b05437c73de57cedecb7501e202fe2bb048098a116acdcbd7c7d",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/pjg_consistency_audit_results.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/rebuild-N2-GlowDipole.json",
+      "bytes": 2547,
+      "sha256": "7f03dce4b40543e5003be91f603902802e3b185729c64c72dd86c5d5623bc3c1",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/rebuild-N2-GlowDipole.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/rebuild-N2-KimDipole.json",
+      "bytes": 2549,
+      "sha256": "fa05c26658114e126f65e54e092db389f8171fe3ff642981e675cee0be6ce6ae",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/rebuild-N2-KimDipole.json"
+      ]
+    },
+    {
+      "path": "history/results/exploratory/rebuild-O2-GlowDipole.json",
+      "bytes": 2555,
+      "sha256": "54ccae897074aa84df6309a38f3e909afacacce3d4788e580f96ee9e9924481e",
+      "stage": "superseded exploratory result",
+      "origins": [
+        "tmp/rebuild-O2-GlowDipole.json"
+      ]
+    },
+    {
+      "path": "history/results/source-refresh/mean-sensitivity.json",
+      "bytes": 60598,
+      "sha256": "518c5d7864139d04e8dd624ac08ba468f0125fa855b76c141df1f5ff3e8482f5",
+      "stage": "source-aware pre-final study",
+      "origins": [
+        "tmp/pdfs/dataset-refresh-20260909/mean-sensitivity.json"
+      ]
+    },
+    {
+      "path": "history/results/source-refresh/optical-moments.json",
+      "bytes": 4478,
+      "sha256": "c5aab3c5e156c10593faa42b003b8ab1fd68d3367e41b0a076a41d80918f7b70",
+      "stage": "source-aware pre-final study",
+      "origins": [
+        "tmp/pdfs/dataset-refresh-20260909/optical-moments.json"
+      ]
+    },
+    {
+      "path": "history/results/source-refresh/properties.json",
+      "bytes": 1099547,
+      "sha256": "f4fb1c468939bfa15a47e266a4389a82a8478d0f4286153391ec771648c182b1",
+      "stage": "source-aware pre-final study",
+      "origins": [
+        "tmp/pdfs/dataset-refresh-20260909/properties.json"
+      ]
+    },
+    {
+      "path": "history/results/source-refresh/source-checks.json",
+      "bytes": 2694,
+      "sha256": "bd9a9f9fb6705376e3d2aae30a9b86581ce64da55d8ca5957d44a6a9f333e653",
+      "stage": "source-aware pre-final study",
+      "origins": [
+        "tmp/pdfs/dataset-refresh-20260909/source-checks.json"
+      ]
+    },
+    {
+      "path": "history/results/source-refresh/source-refits.json",
+      "bytes": 154001,
+      "sha256": "c67d7c8156c627379e6cea87021487e947b7ce5d22c60f11ef45f037fb49c015",
+      "stage": "source-aware pre-final study",
+      "origins": [
+        "tmp/pdfs/dataset-refresh-20260909/source-refits.json"
+      ]
+    },
+    {
+      "path": "inputs/external-source-inventory.json",
+      "bytes": 6759,
+      "sha256": "2b842176e7a6c0fbb7e26b652d4f3695e9acc9ca97d99f2fac3133f101bf8018",
+      "stage": "identification only; full publications and restricted inputs not redistributed",
+      "origins": []
+    },
+    {
+      "path": "inputs/leiden-n2-0.1nm.txt",
+      "bytes": 46865,
+      "sha256": "075651a0beeb895f3492f7ad2ff0d2d2fdebafac5480e924c11358ab1c349e44",
+      "stage": "source-refresh numerical input",
+      "origins": [
+        "tmp/pdfs/dataset-refresh-20260909/leiden-n2-0.1nm.txt"
+      ]
+    },
+    {
+      "path": "inputs/leiden-o2.txt",
+      "bytes": 7018794,
+      "sha256": "3787a1dd6f474f6c0bc691dfb7dfbb3a76901afdde892826c36b4b098a15d72c",
+      "stage": "source-refresh numerical input",
+      "origins": [
+        "tmp/pdfs/dataset-refresh-20260909/leiden-o2.txt"
+      ]
+    },
+    {
+      "path": "inputs/mahla-o2-o3-supplement.zip",
+      "bytes": 94138,
+      "sha256": "14555867f779ca461c01d141cab000b4fbdf6997f9f3c38afe94c90ccc8d7310",
+      "stage": "source-refresh numerical input",
+      "origins": [
+        "tmp/pdfs/dataset-refresh-20260909/mahla-o2-o3-supplement.zip"
+      ]
+    },
+    {
+      "path": "inputs/mahla-supplement-list.json",
+      "bytes": 885,
+      "sha256": "a2c6b1a090df714b19194158377a7b05e057c68ab985c7ddb81caf0ec74682d5",
+      "stage": "source-refresh numerical input",
+      "origins": [
+        "tmp/pdfs/dataset-refresh-20260909/mahla-supplement-list.json"
+      ]
+    },
+    {
+      "path": "inputs/mahla-supplement-metadata.json",
+      "bytes": 2863,
+      "sha256": "ea7f403d9f493f9c9e3cb7c840d16fb4e933f0d9c6a497aa516b323e03d5dd07",
+      "stage": "source-refresh numerical input",
+      "origins": [
+        "tmp/pdfs/dataset-refresh-20260909/mahla-supplement-metadata.json"
+      ]
+    },
+    {
+      "path": "inputs/nifs-optical.json",
+      "bytes": 101552,
+      "sha256": "46da92de977acbd605a0ba6faf3296e685b1140686c67b2898f6323a0571b87a",
+      "stage": "source-refresh numerical input",
+      "origins": [
+        "tmp/pdfs/dataset-refresh-20260909/nifs-optical.json"
+      ]
+    },
+    {
+      "path": "inputs/pstar_reference.json",
+      "bytes": 15429,
+      "sha256": "003fefb43f6ac5b40beb2e608baa2874faf23b4fef3a26fa95c7fba4ea5fc6ec",
+      "stage": "frozen NIST comparison input",
+      "origins": [
+        "Tools/Algorithms/ProtonImpactIonization/pstar_reference.json"
+      ]
+    },
+    {
+      "path": "validation/archive-sphinx-warnings.txt",
+      "stage": "archival documentation build warnings",
+      "origins": [
+        "build/pjg-archive-sphinx-warnings.log"
+      ],
+      "bytes": 10031,
+      "sha256": "d3999b69b846a4372c32a2383de9268384b758625bd7802e9a4acc81de0e825a"
+    },
+    {
+      "path": "validation/archive-validation.json",
+      "stage": "archival validation, 2026-09-14",
+      "origins": [],
+      "bytes": 3589,
+      "sha256": "b2ede5662a788d6859dda9ff24f0ce99e800a8ac3fdaf2e7abe3c3b900cb1993"
+    },
+    {
+      "path": "validation/historical-logs.tar.gz",
+      "bytes": 7053,
+      "sha256": "7397691da4ae6e6f987436cadf55c6c9082f70552dda29e664ba6e4a746a8949",
+      "stage": "historical CPU and documentation logs; includes failed setup attempts",
+      "origins": [
+        "build/collision-audit-sphinx-warnings.log",
+        "build/development-sync-2d.log",
+        "build/development-sync-collisions.log",
+        "build/development-sync-final-tests.log",
+        "build/development-sync-helium.log",
+        "build/development-sync-sphinx-warnings.log",
+        "build/pjg-sphinx-final-warnings.log",
+        "build/pjg-sphinx-warnings.log",
+        "build/proton-impact-apple-sanitizers/Testing/Temporary/LastTest.log",
+        "build/proton-impact-physics/Testing/Temporary/LastTest.log",
+        "build/proton-impact-sanitizers/Testing/Temporary/LastTest.log",
+        "build/proton-particle-float/Testing/Temporary/LastTest.log"
+      ],
+      "members": [
+        {
+          "path": "build/collision-audit-sphinx-warnings.log",
+          "bytes": 10031,
+          "sha256": "d3999b69b846a4372c32a2383de9268384b758625bd7802e9a4acc81de0e825a",
+          "origin": "build/collision-audit-sphinx-warnings.log"
+        },
+        {
+          "path": "build/development-sync-2d.log",
+          "bytes": 5048,
+          "sha256": "f90e419bb83adfc90e4856b47cf9fad3ec5fc58090ae098511390165d419bf0e",
+          "origin": "build/development-sync-2d.log"
+        },
+        {
+          "path": "build/development-sync-collisions.log",
+          "bytes": 8538,
+          "sha256": "fbd14f3dc0698c6b1decc6770af489667817a04f436ed533e9c43cd6379d27d1",
+          "origin": "build/development-sync-collisions.log"
+        },
+        {
+          "path": "build/development-sync-final-tests.log",
+          "bytes": 13735,
+          "sha256": "f9dee2c9f45adde895910e0c7453467632015007d5c1fabcf0942b556bad4a65",
+          "origin": "build/development-sync-final-tests.log"
+        },
+        {
+          "path": "build/development-sync-helium.log",
+          "bytes": 391,
+          "sha256": "6c7d482bfd1b9561e649c3eea714d877a7a6851c87a869d6f777f69ce412b4d7",
+          "origin": "build/development-sync-helium.log"
+        },
+        {
+          "path": "build/development-sync-sphinx-warnings.log",
+          "bytes": 10267,
+          "sha256": "e1071d7c44488c13a08b5167a58cb53da47864e231bc8cab959402186358f87f",
+          "origin": "build/development-sync-sphinx-warnings.log"
+        },
+        {
+          "path": "build/pjg-sphinx-final-warnings.log",
+          "bytes": 10031,
+          "sha256": "6c6373457b3c8fd600622781af52ec17ad4a68b66688751133eafa6a7f73edcb",
+          "origin": "build/pjg-sphinx-final-warnings.log"
+        },
+        {
+          "path": "build/pjg-sphinx-warnings.log",
+          "bytes": 15473,
+          "sha256": "fb1df2a81ec4d39548c14c483a4fd4f2e3660ba8ea89c9c20f0333375702e272",
+          "origin": "build/pjg-sphinx-warnings.log"
+        },
+        {
+          "path": "build/proton-impact-apple-sanitizers/Testing/Temporary/LastTest.log",
+          "bytes": 5032,
+          "sha256": "a08b3151b30169423c57a31c44301bb930cde5ec823af7d1d781108245dfd736",
+          "origin": "build/proton-impact-apple-sanitizers/Testing/Temporary/LastTest.log"
+        },
+        {
+          "path": "build/proton-impact-physics/Testing/Temporary/LastTest.log",
+          "bytes": 4968,
+          "sha256": "a6f44e2bc811874fa510b942574ae4adc1d7523dcb23bf420e8b2f6057bc35d6",
+          "origin": "build/proton-impact-physics/Testing/Temporary/LastTest.log"
+        },
+        {
+          "path": "build/proton-impact-sanitizers/Testing/Temporary/LastTest.log",
+          "bytes": 2218,
+          "sha256": "de720a8e88f68980cece31f1ac2f3138324180fab2e6680f98e23437b5a5d5ab",
+          "origin": "build/proton-impact-sanitizers/Testing/Temporary/LastTest.log"
+        },
+        {
+          "path": "build/proton-particle-float/Testing/Temporary/LastTest.log",
+          "bytes": 3936,
+          "sha256": "16597c52df4f4389a5f84e398dca1fb4c2e70ef5f04f04b2c91d04cf79340226",
+          "origin": "build/proton-particle-float/Testing/Temporary/LastTest.log"
+        }
+      ]
+    },
+    {
+      "path": "validation/legacy-numerical-data.tar.gz",
+      "bytes": 13656584,
+      "sha256": "4397639239ed2a6eeb45bfc3839e48e98c33272384aeacb56edb7a5f6e47da60",
+      "stage": "superseded implementation diagnostics",
+      "origins": [
+        "tmp/pjg_performance_test_run/proton_impact_ionization_performance_results.npz",
+        "tmp/pjg_performance_test_run/warpx_used_inputs",
+        "tmp/pjg_physics_test_run/proton_impact_ionization_results.npz",
+        "tmp/pjg_physics_test_run/warpx_used_inputs",
+        "tmp/pjg_smoke_800_run/diags/diag1/openpmd_000000.h5",
+        "tmp/pjg_smoke_800_run/diags/diag1/openpmd_000001.h5",
+        "tmp/pjg_smoke_800_run/diags/diag1/paraview.pmd",
+        "tmp/pjg_smoke_800_run/warpx_used_inputs",
+        "tmp/pjg_smoke_800_tail_run/diags/diag1/openpmd_000000.h5",
+        "tmp/pjg_smoke_800_tail_run/diags/diag1/openpmd_000001.h5",
+        "tmp/pjg_smoke_800_tail_run/diags/diag1/paraview.pmd",
+        "tmp/pjg_smoke_800_tail_run/warpx_used_inputs",
+        "tmp/pjg_smoke_run/diags/diag1/openpmd_000000.h5",
+        "tmp/pjg_smoke_run/diags/diag1/openpmd_000001.h5",
+        "tmp/pjg_smoke_run/diags/diag1/paraview.pmd",
+        "tmp/pjg_smoke_run/warpx_used_inputs",
+        "tmp/pjg_table_audit.bin"
+      ],
+      "members": [
+        {
+          "path": "tmp/pjg_performance_test_run/proton_impact_ionization_performance_results.npz",
+          "bytes": 3288,
+          "sha256": "d81f0ef914a7547bf500b51edfbdeef929153e61dd14f9d8582e58b4c6f7b72f",
+          "origin": "tmp/pjg_performance_test_run/proton_impact_ionization_performance_results.npz"
+        },
+        {
+          "path": "tmp/pjg_performance_test_run/warpx_used_inputs",
+          "bytes": 4683,
+          "sha256": "a453e47c548c9fd8988255c53e9f4da85c2c95576cab4f4df6dabdcf516c1562",
+          "origin": "tmp/pjg_performance_test_run/warpx_used_inputs"
+        },
+        {
+          "path": "tmp/pjg_physics_test_run/proton_impact_ionization_results.npz",
+          "bytes": 4823298,
+          "sha256": "57852bfd8b8a9a3a43342f37b409bd735a90551f177158d1c35b351e87df7a12",
+          "origin": "tmp/pjg_physics_test_run/proton_impact_ionization_results.npz"
+        },
+        {
+          "path": "tmp/pjg_physics_test_run/warpx_used_inputs",
+          "bytes": 6146,
+          "sha256": "e86f147bef1b5ed39592d407dec62c9155e61dad29a53b0f16b50bec657b6e03",
+          "origin": "tmp/pjg_physics_test_run/warpx_used_inputs"
+        },
+        {
+          "path": "tmp/pjg_smoke_800_run/diags/diag1/openpmd_000000.h5",
+          "bytes": 301395,
+          "sha256": "36b417cceb6f0d464b59c1d97a9083cc22620236dcee38737b9160e012a9fb9c",
+          "origin": "tmp/pjg_smoke_800_run/diags/diag1/openpmd_000000.h5"
+        },
+        {
+          "path": "tmp/pjg_smoke_800_run/diags/diag1/openpmd_000001.h5",
+          "bytes": 3481071,
+          "sha256": "894cfc19ada1277360d6ce5dc2769700160e8356372014fc1cc729c1780d4976",
+          "origin": "tmp/pjg_smoke_800_run/diags/diag1/openpmd_000001.h5"
+        },
+        {
+          "path": "tmp/pjg_smoke_800_run/diags/diag1/paraview.pmd",
+          "bytes": 16,
+          "sha256": "70cdbee5690cb452b621ef5a3129fa9237410b4f93d41ec84ec2887b3f64e6cc",
+          "origin": "tmp/pjg_smoke_800_run/diags/diag1/paraview.pmd"
+        },
+        {
+          "path": "tmp/pjg_smoke_800_run/warpx_used_inputs",
+          "bytes": 4784,
+          "sha256": "76ae6b2a5a0fbdf386c05c7e88007b4c5212f43732059fa817e701e283b5446b",
+          "origin": "tmp/pjg_smoke_800_run/warpx_used_inputs"
+        },
+        {
+          "path": "tmp/pjg_smoke_800_tail_run/diags/diag1/openpmd_000000.h5",
+          "bytes": 301395,
+          "sha256": "a3ee8c441f5b59334e5dc8acf93c62efd6f60eca74109b0db9099253fef3d171",
+          "origin": "tmp/pjg_smoke_800_tail_run/diags/diag1/openpmd_000000.h5"
+        },
+        {
+          "path": "tmp/pjg_smoke_800_tail_run/diags/diag1/openpmd_000001.h5",
+          "bytes": 3481071,
+          "sha256": "a4db426971bdaf37db25290b8325271106446eb67d79a67ce789adf5e7a5df3a",
+          "origin": "tmp/pjg_smoke_800_tail_run/diags/diag1/openpmd_000001.h5"
+        },
+        {
+          "path": "tmp/pjg_smoke_800_tail_run/diags/diag1/paraview.pmd",
+          "bytes": 16,
+          "sha256": "70cdbee5690cb452b621ef5a3129fa9237410b4f93d41ec84ec2887b3f64e6cc",
+          "origin": "tmp/pjg_smoke_800_tail_run/diags/diag1/paraview.pmd"
+        },
+        {
+          "path": "tmp/pjg_smoke_800_tail_run/warpx_used_inputs",
+          "bytes": 4784,
+          "sha256": "76ae6b2a5a0fbdf386c05c7e88007b4c5212f43732059fa817e701e283b5446b",
+          "origin": "tmp/pjg_smoke_800_tail_run/warpx_used_inputs"
+        },
+        {
+          "path": "tmp/pjg_smoke_run/diags/diag1/openpmd_000000.h5",
+          "bytes": 301395,
+          "sha256": "cac407112a91cfe5a0b00a6be835634d082e6e39d1dd4873a97909cbb20d4c06",
+          "origin": "tmp/pjg_smoke_run/diags/diag1/openpmd_000000.h5"
+        },
+        {
+          "path": "tmp/pjg_smoke_run/diags/diag1/openpmd_000001.h5",
+          "bytes": 2432495,
+          "sha256": "8183b162cfc15a4c806facd43fb9bd850794a6b89f01c7374a56f164799fe9ed",
+          "origin": "tmp/pjg_smoke_run/diags/diag1/openpmd_000001.h5"
+        },
+        {
+          "path": "tmp/pjg_smoke_run/diags/diag1/paraview.pmd",
+          "bytes": 16,
+          "sha256": "70cdbee5690cb452b621ef5a3129fa9237410b4f93d41ec84ec2887b3f64e6cc",
+          "origin": "tmp/pjg_smoke_run/diags/diag1/paraview.pmd"
+        },
+        {
+          "path": "tmp/pjg_smoke_run/warpx_used_inputs",
+          "bytes": 4787,
+          "sha256": "56d8b6c4b9d696f2ebeccd6d69ae5dfcdcbeffd494a4c277f28a26cbfe9dacf0",
+          "origin": "tmp/pjg_smoke_run/warpx_used_inputs"
+        },
+        {
+          "path": "tmp/pjg_table_audit.bin",
+          "bytes": 24260160,
+          "sha256": "563989a8ff7ddca1e96c99bed3e014792dde5cf5ea6c948addcf4ea06041524d",
+          "origin": "tmp/pjg_table_audit.bin"
+        }
+      ]
+    },
+    {
+      "path": "validation/production-pic-results.tar.gz",
+      "bytes": 10398186,
+      "sha256": "fb0e3623f615e51b31a46d3bfedf7617220c3684f2418bb67bf7f0decc428e15",
+      "stage": "saved production CPU diagnostics",
+      "origins": [
+        "build/bin/test_3d_proton_impact_ionization_budget_picmi/proton_impact_ionization_budget_results.npz",
+        "build/bin/test_3d_proton_impact_ionization_budget_picmi/warpx_used_inputs",
+        "build/bin/test_3d_proton_impact_ionization_checkpoint_picmi/proton_impact_ionization_budget_results.npz",
+        "build/bin/test_3d_proton_impact_ionization_checkpoint_picmi/warpx_used_inputs",
+        "build/bin/test_3d_proton_impact_ionization_cold_picmi/proton_impact_ionization_results.npz",
+        "build/bin/test_3d_proton_impact_ionization_cold_picmi/warpx_used_inputs",
+        "build/bin/test_3d_proton_impact_ionization_low_energy_picmi/proton_impact_ionization_results.npz",
+        "build/bin/test_3d_proton_impact_ionization_low_energy_picmi/warpx_used_inputs",
+        "build/bin/test_3d_proton_impact_ionization_mixed_picmi/proton_impact_ionization_results.npz",
+        "build/bin/test_3d_proton_impact_ionization_mixed_picmi/warpx_used_inputs",
+        "build/bin/test_3d_proton_impact_ionization_o2_performance_picmi/proton_impact_ionization_performance_results.npz",
+        "build/bin/test_3d_proton_impact_ionization_o2_performance_picmi/warpx_used_inputs",
+        "build/bin/test_3d_proton_impact_ionization_performance_picmi/proton_impact_ionization_performance_results.npz",
+        "build/bin/test_3d_proton_impact_ionization_performance_picmi/warpx_used_inputs",
+        "build/bin/test_3d_proton_impact_ionization_picmi/proton_impact_ionization_results.npz",
+        "build/bin/test_3d_proton_impact_ionization_picmi/warpx_used_inputs",
+        "build/bin/test_3d_proton_impact_ionization_restart_picmi/proton_impact_ionization_budget_results.npz",
+        "build/bin/test_3d_proton_impact_ionization_restart_picmi/warpx_used_inputs"
+      ],
+      "members": [
+        {
+          "path": "build/bin/test_3d_proton_impact_ionization_budget_picmi/proton_impact_ionization_budget_results.npz",
+          "bytes": 456,
+          "sha256": "1701da750e7e31f3d9a04e479919badce71560dc15f7942331218f31793ec218",
+          "origin": "build/bin/test_3d_proton_impact_ionization_budget_picmi/proton_impact_ionization_budget_results.npz"
+        },
+        {
+          "path": "build/bin/test_3d_proton_impact_ionization_budget_picmi/warpx_used_inputs",
+          "bytes": 16073,
+          "sha256": "c97aa362a87ea1812e8e2c7782b302b4766b1eadb5273adfce73649f0b37fe29",
+          "origin": "build/bin/test_3d_proton_impact_ionization_budget_picmi/warpx_used_inputs"
+        },
+        {
+          "path": "build/bin/test_3d_proton_impact_ionization_checkpoint_picmi/proton_impact_ionization_budget_results.npz",
+          "bytes": 456,
+          "sha256": "1701da750e7e31f3d9a04e479919badce71560dc15f7942331218f31793ec218",
+          "origin": "build/bin/test_3d_proton_impact_ionization_checkpoint_picmi/proton_impact_ionization_budget_results.npz"
+        },
+        {
+          "path": "build/bin/test_3d_proton_impact_ionization_checkpoint_picmi/warpx_used_inputs",
+          "bytes": 16200,
+          "sha256": "fe7b17cfa299252e45257c7333ecd80d14dbd382a92feee312fcb8318515582f",
+          "origin": "build/bin/test_3d_proton_impact_ionization_checkpoint_picmi/warpx_used_inputs"
+        },
+        {
+          "path": "build/bin/test_3d_proton_impact_ionization_cold_picmi/proton_impact_ionization_results.npz",
+          "bytes": 6053526,
+          "sha256": "aeb23dad9b1f0cfc4f8f2dfdd8eff6841c6e7018747310493a16dca70b71f60e",
+          "origin": "build/bin/test_3d_proton_impact_ionization_cold_picmi/proton_impact_ionization_results.npz"
+        },
+        {
+          "path": "build/bin/test_3d_proton_impact_ionization_cold_picmi/warpx_used_inputs",
+          "bytes": 6153,
+          "sha256": "b8b79b4295912934aab67b7b4af23697895838892c12766ca871ce0af7c35baa",
+          "origin": "build/bin/test_3d_proton_impact_ionization_cold_picmi/warpx_used_inputs"
+        },
+        {
+          "path": "build/bin/test_3d_proton_impact_ionization_low_energy_picmi/proton_impact_ionization_results.npz",
+          "bytes": 12075670,
+          "sha256": "bd3013959bfe48b3f5400daa5364aaf9cb9d166fa3df01d46e23652980ccab4b",
+          "origin": "build/bin/test_3d_proton_impact_ionization_low_energy_picmi/proton_impact_ionization_results.npz"
+        },
+        {
+          "path": "build/bin/test_3d_proton_impact_ionization_low_energy_picmi/warpx_used_inputs",
+          "bytes": 6150,
+          "sha256": "e188fbb7577a4aad38bdbcd56fbdd8003b000afa914dde5a2a08098c7a607fb4",
+          "origin": "build/bin/test_3d_proton_impact_ionization_low_energy_picmi/warpx_used_inputs"
+        },
+        {
+          "path": "build/bin/test_3d_proton_impact_ionization_mixed_picmi/proton_impact_ionization_results.npz",
+          "bytes": 6500374,
+          "sha256": "3fd3fde09b02f35eb13e65bfe98c9a232dcaaccfa854239baa73a518a09ad70c",
+          "origin": "build/bin/test_3d_proton_impact_ionization_mixed_picmi/proton_impact_ionization_results.npz"
+        },
+        {
+          "path": "build/bin/test_3d_proton_impact_ionization_mixed_picmi/warpx_used_inputs",
+          "bytes": 6150,
+          "sha256": "17d53ebe1309c01e8b18166414cf37f9db4c52856b7aa610265a68e04e8b3e8c",
+          "origin": "build/bin/test_3d_proton_impact_ionization_mixed_picmi/warpx_used_inputs"
+        },
+        {
+          "path": "build/bin/test_3d_proton_impact_ionization_o2_performance_picmi/proton_impact_ionization_performance_results.npz",
+          "bytes": 3288,
+          "sha256": "d49ab386febf7ce6dabfc4411a98a0811589c463a9299f79f13692b2d7971637",
+          "origin": "build/bin/test_3d_proton_impact_ionization_o2_performance_picmi/proton_impact_ionization_performance_results.npz"
+        },
+        {
+          "path": "build/bin/test_3d_proton_impact_ionization_o2_performance_picmi/warpx_used_inputs",
+          "bytes": 4683,
+          "sha256": "a19dbb0dd47970a7c9c8f34653ed9f98246ab5d620a7c610e6aca9c0c419c313",
+          "origin": "build/bin/test_3d_proton_impact_ionization_o2_performance_picmi/warpx_used_inputs"
+        },
+        {
+          "path": "build/bin/test_3d_proton_impact_ionization_performance_picmi/proton_impact_ionization_performance_results.npz",
+          "bytes": 3288,
+          "sha256": "ccf4a3c4796b33b5ffc10928cbf9264c39f40e0240a69f239f1b0d3b8acf34bb",
+          "origin": "build/bin/test_3d_proton_impact_ionization_performance_picmi/proton_impact_ionization_performance_results.npz"
+        },
+        {
+          "path": "build/bin/test_3d_proton_impact_ionization_performance_picmi/warpx_used_inputs",
+          "bytes": 4683,
+          "sha256": "1ba8fe61976a1b87031b12d3c45d595a9edc6a634ec0f84cba75859ccf24fe77",
+          "origin": "build/bin/test_3d_proton_impact_ionization_performance_picmi/warpx_used_inputs"
+        },
+        {
+          "path": "build/bin/test_3d_proton_impact_ionization_picmi/proton_impact_ionization_results.npz",
+          "bytes": 6053526,
+          "sha256": "eccf7db649bb809a5138b8a563787a761055c9c6dbe77fb4befe8a833f3220cf",
+          "origin": "build/bin/test_3d_proton_impact_ionization_picmi/proton_impact_ionization_results.npz"
+        },
+        {
+          "path": "build/bin/test_3d_proton_impact_ionization_picmi/warpx_used_inputs",
+          "bytes": 6150,
+          "sha256": "17d53ebe1309c01e8b18166414cf37f9db4c52856b7aa610265a68e04e8b3e8c",
+          "origin": "build/bin/test_3d_proton_impact_ionization_picmi/warpx_used_inputs"
+        },
+        {
+          "path": "build/bin/test_3d_proton_impact_ionization_restart_picmi/proton_impact_ionization_budget_results.npz",
+          "bytes": 456,
+          "sha256": "1701da750e7e31f3d9a04e479919badce71560dc15f7942331218f31793ec218",
+          "origin": "build/bin/test_3d_proton_impact_ionization_restart_picmi/proton_impact_ionization_budget_results.npz"
+        },
+        {
+          "path": "build/bin/test_3d_proton_impact_ionization_restart_picmi/warpx_used_inputs",
+          "bytes": 16158,
+          "sha256": "cf602eb426e9d981bda8d9f3ff86b49c1de270577986eabebe39f18e834e2243",
+          "origin": "build/bin/test_3d_proton_impact_ionization_restart_picmi/warpx_used_inputs"
+        }
+      ]
+    }
+  ]
+}

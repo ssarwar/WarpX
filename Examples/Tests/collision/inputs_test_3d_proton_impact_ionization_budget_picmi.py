@@ -1,0 +1,200 @@
+#!/usr/bin/env python3
+"""Check N2/O2 source budgets, sub-particle remainders, caps and bare-ion scaling."""
+
+import argparse
+import sys
+from pathlib import Path
+
+import numpy as np
+
+from pywarpx import picmi
+
+sys.path.insert(
+    0,
+    str(
+        Path(__file__).resolve().parents[3] / "Tools/Algorithms/ProtonImpactIonization"
+    ),
+)
+from calibrated_pjg import total_cross_section
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--checkpoint", action="store_true")
+parser.add_argument("--restart")
+parser.add_argument("--reference")
+parser.add_argument("--rz", action="store_true")
+args = parser.parse_args()
+
+DT = 1.0e-9
+ENERGY = 50.0e3
+C = picmi.constants.c
+ME = picmi.constants.m_e
+MP = picmi.constants.m_p
+QE = picmi.constants.q_e
+MU = 1.66053906660e-27
+REST = MP * C**2 / QE
+PROPER_SPEED = C * np.sqrt(ENERGY * (ENERGY + 2 * REST)) / REST
+SPEED = PROPER_SPEED / (1 + ENERGY / REST)
+BEAM_DENSITY = 1.0e8
+STEPS = 7
+
+grid_class = picmi.CylindricalGrid if args.rz else picmi.Cartesian3DGrid
+grid_dims = 2 if args.rz else 3
+lower_bc = ["none", "periodic"] if args.rz else ["periodic"] * 3
+upper_bc = ["dirichlet", "periodic"] if args.rz else ["periodic"] * 3
+lower_particle_bc = ["none", "periodic"] if args.rz else ["periodic"] * 3
+upper_particle_bc = ["reflecting", "periodic"] if args.rz else ["periodic"] * 3
+grid = grid_class(
+    number_of_cells=[1] * grid_dims,
+    lower_bound=[0.0] * grid_dims,
+    upper_bound=[1.0] * grid_dims,
+    lower_boundary_conditions=lower_bc,
+    upper_boundary_conditions=upper_bc,
+    lower_boundary_conditions_particles=lower_particle_bc,
+    upper_boundary_conditions_particles=upper_particle_bc,
+    warpx_max_grid_size=1,
+    warpx_blocking_factor=1,
+)
+solver = picmi.ElectromagneticSolver(grid=grid, method="Yee")
+cases = {}
+collisions = []
+options = dict(
+    warpx_do_not_push=True, warpx_do_not_deposit=True, warpx_do_not_gather=True
+)
+for target, mass_number in (("N2", 28.0134), ("O2", 31.9988)):
+    sigma = float(total_cross_section(target, ENERGY)) * 1e-4
+    density = 0.37 / (BEAM_DENSITY * sigma * SPEED * DT)
+    for mode in ("coarse", "fine", "pulse", "alpha"):
+        name = f"{target}_{mode}"
+        alpha = mode == "alpha"
+        beam = picmi.Species(
+            name=f"beam_{name}",
+            charge=(2 if alpha else 1) * QE,
+            mass=(4 if alpha else 1) * MP,
+            initial_distribution=picmi.UniformDistribution(
+                # Match the Cartesian source count in a unit-radius cylinder.
+                density=BEAM_DENSITY / (np.pi if args.rz else 1.0),
+                directed_velocity=[0.0, 0.0, PROPER_SPEED],
+            ),
+            **options,
+        )
+        electrons = picmi.Species(
+            name=f"electrons_{name}", particle_type="electron", **options
+        )
+        ions = picmi.Species(
+            name=f"ions_{name}", charge=QE, mass=mass_number * MU - ME, **options
+        )
+        weight = 0.125 if mode == "fine" else 1.0
+        cap = 1 if alpha else 8
+        collision = picmi.ProtonImpactIonizationCollisions(
+            name=name,
+            species=beam,
+            product_species=[electrons, ions],
+            ionization_target=target,
+            background_density=f"{density:.17g}*(t < 1.5e-9)"
+            if mode == "pulse"
+            else density,
+            background_temperature=0.0,
+            fixed_product_weight=weight,
+            max_products_per_cell=cap,
+        )
+        collisions.append(collision)
+        cases[name] = dict(
+            beam=beam, electrons=electrons, ions=ions, mode=mode, weight=weight, cap=cap
+        )
+
+sim = picmi.Simulation(
+    solver=solver,
+    time_step_size=DT,
+    max_steps=STEPS,
+    warpx_collisions=collisions,
+    warpx_random_seed=42,
+    warpx_amr_restart=args.restart,
+    verbose=0,
+)
+for case in cases.values():
+    for key in ("beam", "electrons", "ions"):
+        sim.add_species(
+            case[key],
+            layout=picmi.GriddedLayout(
+                n_macroparticle_per_cell=[2 if key == "beam" else 0] * 3, grid=grid
+            ),
+        )
+if args.checkpoint:
+    sim.add_diagnostic(picmi.Checkpoint(name="chk", period=2, write_dir="diags"))
+sim.initialize_inputs()
+sim.initialize_warpx()
+
+
+def host(values):
+    return values.get() if hasattr(values, "get") else np.asarray(values)
+
+
+def weights(name):
+    arrays = [host(tile["w"]) for tile in sim.particles.get(name).iterator(level=0)]
+    return np.concatenate(arrays) if arrays else np.empty(0)
+
+
+def state(name):
+    ew = weights(f"electrons_{name}")
+    remainder = float(
+        host(sim.fields.get(f"{name}_product_weight_remainder", level=0)[...]).sum()
+    )
+    return float(ew.sum()), remainder, len(ew)
+
+
+start_step = sim.extension.warpx.getistep(lev=0)
+previous = {name: state(name) for name in cases}
+if args.restart:
+    assert start_step == 2
+    # The checkpoint contains positive fractional weights before the first
+    # coarse pair. Verify restoration before any new source call can hide it.
+    for target in ("N2", "O2"):
+        emitted, remainder, count = previous[f"{target}_coarse"]
+        assert emitted == count == 0
+        assert np.isclose(remainder, 0.74, rtol=2e-3)
+for step in range(start_step + 1, STEPS + 1):
+    sim.step(1)
+    for name, case in cases.items():
+        ew = weights(f"electrons_{name}")
+        iw = weights(f"ions_{name}")
+        np.testing.assert_array_equal(ew, iw)
+        remainder = float(
+            host(sim.fields.get(f"{name}_product_weight_remainder", level=0)[...]).sum()
+        )
+        budget = float(ew.sum()) + remainder
+        active_steps = min(step, 2) if case["mode"] == "pulse" else step
+        expected = 0.37 * active_steps * (4 if case["mode"] == "alpha" else 1)
+        # Alpha/proton rates at fixed speed differ slightly beyond Z^2 through
+        # the exact finite-projectile-mass endpoints and Bhabha factor.
+        assert np.isclose(budget, expected, rtol=2e-3), (name, step, budget, expected)
+        assert 0 <= remainder < case["weight"]
+        assert len(ew) - previous[name][2] <= case["cap"]
+        if case["mode"] == "alpha":
+            assert len(ew) == step and np.all(ew > case["weight"]) and remainder == 0
+        else:
+            assert np.all(ew == case["weight"])
+        if case["mode"] == "pulse" and step > 2:
+            assert (float(ew.sum()), remainder, len(ew)) == previous[name]
+        previous[name] = (float(ew.sum()), remainder, len(ew))
+        # The background is cold and the beam remains rigid.
+        for tile in sim.particles.get(f"ions_{name}").iterator(level=0):
+            for component in ("ux", "uy", "uz"):
+                assert np.all(host(tile[component]) == 0)
+        for tile in sim.particles.get(f"beam_{name}").iterator(level=0):
+            assert np.all(host(tile["uz"]) == PROPER_SPEED)
+
+for target in ("N2", "O2"):
+    coarse = sum(previous[f"{target}_coarse"][:2])
+    fine = sum(previous[f"{target}_fine"][:2])
+    assert np.isclose(coarse, fine, rtol=2e-14)
+final_state = np.array([previous[name] for name in cases])
+if args.reference:
+    with np.load(args.reference) as reference:
+        # Source budgets/counts, not future random angles, must agree with the
+        # uninterrupted run. This remains meaningful on every compute backend.
+        np.testing.assert_allclose(final_state, reference["state"], rtol=2e-14, atol=0)
+np.savez("proton_impact_ionization_budget_results.npz", state=final_state)
+print(
+    "PASS: both-gas source budgets, fractional carry, zero-density pause, weight/cap independence and Z^2 scaling"
+)
+sim.finalize()

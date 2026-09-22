@@ -1,5 +1,6 @@
 #include "ImplicitSolver.H"
 #include "Fields.H"
+#include "Fluids/MultiFluidContainer.H"
 #include "WarpX.H"
 #include "Particles/MultiParticleContainer.H"
 #include "Utils/WarpXAlgorithmSelection.H"
@@ -19,6 +20,9 @@ void ImplicitSolver::FinishImplicitParticleUpdate (
     int const step)
 {
     m_WarpX->FinishImplicitParticleUpdate(time);
+    if (m_WarpX->DoFluidSpecies()) {
+        m_WarpX->GetFluidContainer().UpdatePrescribedDensities(m_WarpX->m_fields, time);
+    }
 
     std::map<std::string, amrex::Long> local_suborbit_counts;
     for (auto const& pc : m_WarpX->GetPartContainer()) {
@@ -990,8 +994,17 @@ void ImplicitSolver::PreRHSOp ( const amrex::Real  a_cur_time,
     }
 #endif
 
-    // Apply BCs to J and communicate
-    m_WarpX->SyncCurrentAndRho();
+    bool const charge_was_reset = !(m_use_mass_matrices_jacobian && a_from_jacobian) ||
+        options.evolve_suborbit_particles_only;
+    if (m_WarpX->DoFluidSpecies()) {
+        // The prescribed current is independent of E. Add it only after kinetic
+        // current accumulation/scaling, so neither J0 nor any mass matrix contains it.
+        m_WarpX->GetFluidContainer().DepositPrescribedSources(
+            m_WarpX->m_fields, a_cur_time-0.5*m_dt, m_dt, charge_was_reset);
+    }
+    // A mass-matrix-only evaluation has not deposited fresh charge. Re-summing
+    // or filtering the previous charge would accumulate shared nodes repeatedly.
+    m_WarpX->SyncCurrentAndRho(charge_was_reset);
 
     if (m_nlsolver_type == NonlinearSolverType::petsc_snes && !a_from_jacobian) {
         // The native Newton solver calls this routine immediately before the linear solve,

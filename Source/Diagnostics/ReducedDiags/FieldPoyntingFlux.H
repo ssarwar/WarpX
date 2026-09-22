@@ -17,6 +17,7 @@
 #include <AMReX_Reduce.H>
 
 #include <string>
+#include <type_traits>
 
 struct PoyntingStaggered {
     // This requires the arrays to have Yee centering
@@ -57,7 +58,9 @@ struct PoyntingStaggered {
         const amrex::Real ExBy_dn = Ex_arr(i,j,k,comp)*0.5_rt*(By_arr(i,j,k-1,comp) + By_arr(i,j,k,comp));
         const amrex::Real ExBy_up = Ex_arr(i,j+1,k,comp)*0.5_rt*(By_arr(i,j+1,k-1,comp) + By_arr(i,j+1,k,comp));
         return 0.5_rt*(ExBy_dn + ExBy_up);
-#elif defined(WARPX_DIM_XZ) || defined(WARPX_DIM_RZ) || defined(WARPX_DIM_1D_Z)
+#elif defined(WARPX_DIM_XZ) || defined(WARPX_DIM_RZ)
+        return Ex_arr(i,j,k,comp)*0.5_rt*(By_arr(i,j-1,k,comp) + By_arr(i,j,k,comp));
+#elif defined(WARPX_DIM_1D_Z)
         return Ex_arr(i,j,k,comp)*0.5_rt*(By_arr(i-1,j,k,comp) + By_arr(i,j,k,comp));
 #elif defined(WARPX_DIM_RCYLINDER) || defined(WARPX_DIM_RSPHERE)
         amrex::ignore_unused(i, j, k, comp, Ex_arr, By_arr);
@@ -142,9 +145,15 @@ struct PoyntingCellCentered {
                             amrex::Array4<const amrex::Real> const & Ey_arr,
                             amrex::Array4<const amrex::Real> const & Bx_arr) {
         using namespace amrex::literals;
-#if defined(WARPX_DIM_3D) || defined(WARPX_DIM_XZ) || defined(WARPX_DIM_RZ) || defined(WARPX_DIM_1D_Z)
+#if defined(WARPX_DIM_3D)
         return 0.5_rt*(Ey_arr(i,j,k-1,comp)*Bx_arr(i,j,k-1,comp)
                      + Ey_arr(i,j,k,comp)*Bx_arr(i,j,k,comp));
+#elif defined(WARPX_DIM_XZ) || defined(WARPX_DIM_RZ)
+        return 0.5_rt * (Ey_arr(i, j - 1, k, comp) * Bx_arr(i, j - 1, k, comp) +
+                         Ey_arr(i, j, k, comp) * Bx_arr(i, j, k, comp));
+#elif defined(WARPX_DIM_1D_Z)
+        return 0.5_rt * (Ey_arr(i - 1, j, k, comp) * Bx_arr(i - 1, j, k, comp) +
+                         Ey_arr(i, j, k, comp) * Bx_arr(i, j, k, comp));
 #elif defined(WARPX_DIM_RCYLINDER) || defined(WARPX_DIM_RSPHERE)
         amrex::ignore_unused(i, j, k, comp, Ey_arr, Bx_arr);
         return 0._rt;
@@ -156,9 +165,15 @@ struct PoyntingCellCentered {
                             amrex::Array4<const amrex::Real> const & Ex_arr,
                             amrex::Array4<const amrex::Real> const & By_arr) {
         using namespace amrex::literals;
-#if defined(WARPX_DIM_3D) || defined(WARPX_DIM_XZ) || defined(WARPX_DIM_RZ) || defined(WARPX_DIM_1D_Z)
+#if defined(WARPX_DIM_3D)
         return 0.5_rt*(Ex_arr(i,j,k-1,comp)*By_arr(i,j,k-1,comp)
                      + Ex_arr(i,j,k,comp)*By_arr(i,j,k,comp));
+#elif defined(WARPX_DIM_XZ) || defined(WARPX_DIM_RZ)
+        return 0.5_rt * (Ex_arr(i, j - 1, k, comp) * By_arr(i, j - 1, k, comp) +
+                         Ex_arr(i, j, k, comp) * By_arr(i, j, k, comp));
+#elif defined(WARPX_DIM_1D_Z)
+        return 0.5_rt * (Ex_arr(i - 1, j, k, comp) * By_arr(i - 1, j, k, comp) +
+                         Ex_arr(i, j, k, comp) * By_arr(i, j, k, comp));
 #elif defined(WARPX_DIM_RCYLINDER) || defined(WARPX_DIM_RSPHERE)
         amrex::ignore_unused(i, j, k, comp, Ex_arr, By_arr);
         return 0._rt;
@@ -373,15 +388,23 @@ namespace Poynting {
                 amrex::Real const af = area_factor(i,j,k);
                 if constexpr (normal_dir == 0) {
 #if defined(WARPX_DIM_RZ) || defined(WARPX_DIM_RCYLINDER)
-                    amrex::Real const afup1 = area_factor(i+1,j,k);
-                    amrex::Real const afdn1 = area_factor(i-1,j,k);
-                    amrex::Real const afuphalf = 0.5_rt*(af + afup1);
-                    amrex::Real const afdnhalf = 0.5_rt*(af + afdn1);
-                    return af*T_Algo::EyBz(i,j,k,comp,Ey_arr,Bz_arr)
-                           - (af == 0._rt ? 0.0_rt : Ez_arr(i,j,k,comp)*0.5_rt*(afdnhalf*By_arr(i-1,j,k,comp) + afuphalf*By_arr(i,j,k,comp)));
-#else
-                    return af*(T_Algo::EyBz(i,j,k,comp,Ey_arr,Bz_arr) - T_Algo::EzBy(i,j,k,comp,Ez_arr,By_arr));
+                    if constexpr (std::is_same_v<T_Algo, PoyntingStaggered>) {
+                        amrex::Real const afup1 = area_factor(i + 1, j, k);
+                        amrex::Real const afdn1 = area_factor(i - 1, j, k);
+                        amrex::Real const afuphalf = 0.5_rt * (af + afup1);
+                        amrex::Real const afdnhalf = 0.5_rt * (af + afdn1);
+                        return af *
+                                   T_Algo::EyBz(i, j, k, comp, Ey_arr, Bz_arr) -
+                               (af == 0._rt
+                                    ? 0.0_rt
+                                    : Ez_arr(i, j, k, comp) * 0.5_rt *
+                                          (afdnhalf *
+                                               By_arr(i - 1, j, k, comp) +
+                                           afuphalf * By_arr(i, j, k, comp)));
+                    }
 #endif
+                    return af * (T_Algo::EyBz(i, j, k, comp, Ey_arr, Bz_arr) -
+                                 T_Algo::EzBy(i, j, k, comp, Ez_arr, By_arr));
                 }
 
                 else if constexpr (normal_dir == 1) {
@@ -430,19 +453,22 @@ public:
 
     /**
      * \brief This function computes the electromagnetic Poynting flux,
-     * obtained by integrating the electromagnetic Poynting flux density g = eps0 * (E x B)
-     * on the surface of the domain.
+     * obtained by integrating the electromagnetic Poynting flux density S = (E
+     * x B) / mu0 on the surface of the domain.
+     * \param[in] step zero-based completed step, or -1 for initial output
      */
-    void ComputePoyntingFlux ();
+    void ComputePoyntingFlux (int step);
 
     void WriteCheckpointData (std::string const & dir) final;
 
     void ReadCheckpointData (std::string const & dir) final;
 
 private:
+  //! Keep the midstep sample when end-of-step or restart output repeats a step.
+  int m_last_sample_step = -2;
 
-    bool use_mid_step_value = false;
-
+  //! Initial output has no elapsed physical interval to integrate.
+  int m_last_integrated_step = -1;
 };
 
 #endif

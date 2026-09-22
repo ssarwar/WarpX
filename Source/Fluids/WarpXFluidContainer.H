@@ -7,14 +7,17 @@
 #ifndef WARPX_WarpXFluidContainer_H_
 #define WARPX_WarpXFluidContainer_H_
 
+#include "FluidModel.H"
 #include "Initialization/PlasmaInjector.H"
 #include "MultiFluidContainer.H"
+#include "RigidBeam.H"
 
 #include <AMReX_Geometry.H>
 #include <AMReX_MultiFab.H>
 #include <AMReX_Vector.H>
 #include <AMReX_REAL.H>
 
+#include <array>
 #include <string>
 
 
@@ -143,8 +146,27 @@ public:
 
     [[nodiscard]] amrex::Real getCharge () const {return charge;}
     [[nodiscard]] amrex::Real getMass () const {return mass;}
+    [[nodiscard]] std::string const& getName () const {return species_name;}
+    [[nodiscard]] FluidModel getModel () const {return m_model;}
+    [[nodiscard]] bool isPrescribed () const {return m_model != FluidModel::ColdRelativistic;}
+    [[nodiscard]] RigidBeam* getRigidBeam () const {return m_rigid_beam.get();}
+    [[nodiscard]] bool InitializeSelfFields () const {return m_initialize_self_fields;}
+    /** Physical number, kinetic energy, and Cartesian momentum, summed across MPI. */
+    [[nodiscard]] std::array<amrex::Real, 5> PhysicalTotals () const;
+
+    /** Synchronize a fresh, unscaled collision deposit and accumulate it exactly once. */
+    void CommitDensityIncrement (ablastr::fields::MultiFabRegister& fields, int lev);
+
+    [[nodiscard]] std::string DensityIncrementName () const
+        { return "fluid_density_increment_" + species_name; }
+
+    // NVCC requires a public enclosing function for extended device lambdas.
+    void InitPrescribedDensity (ablastr::fields::MultiFabRegister& fields, int lev);
 
 protected:
+    FluidModel m_model = FluidModel::ColdRelativistic;
+    std::unique_ptr<RigidBeam> m_rigid_beam;
+    bool m_initialize_self_fields = false;
     int species_id;
     std::string species_name;
     amrex::Real charge;

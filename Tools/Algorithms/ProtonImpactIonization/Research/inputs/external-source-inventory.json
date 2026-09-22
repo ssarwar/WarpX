@@ -1,0 +1,158 @@
+[
+  {
+    "origin": "tmp/pdfs/dataset-refresh-20260909/itikawa-oxygen-review-1989.pdf",
+    "bytes": 2395909,
+    "sha256": "6671014fa1b4718219686eff3b1fada9f905d63fda1b7eb17070f3bfa80e40e5",
+    "reason": "Source publication, not an authored research artifact; obtain separately."
+  },
+  {
+    "origin": "tmp/pdfs/dataset-refresh-20260909/lin-o2-gos-2013.pdf",
+    "bytes": 300070,
+    "sha256": "061d37222c8c6cbd1cb88ec45045aa3cc06097aca7b618156076d013bd735d50",
+    "reason": "Source publication, not an authored research artifact; obtain separately."
+  },
+  {
+    "origin": "tmp/pdfs/dataset-refresh-20260909/nifs-data-109.pdf",
+    "bytes": 2410464,
+    "sha256": "432332e8835a00c1e0fcee32d1cc8a85d4a983f8841c799abd832f9e19af76d7",
+    "reason": "Source publication, not an authored research artifact; obtain separately."
+  },
+  {
+    "origin": "tmp/pdfs/dataset-refresh-20260909/oxygen-review-2026.pdf",
+    "bytes": 1777017,
+    "sha256": "32d163a3af584ce48b672a4dd49d3eafa182ae234161773b1e9fa44376d9f88b",
+    "reason": "Source publication, not an authored research artifact; obtain separately."
+  },
+  {
+    "origin": "tmp/pdfs/dataset-refresh-20260909/sun-n2-oos-gos-2005.pdf",
+    "bytes": 258598,
+    "sha256": "352a0807b51f0d2a49d52556ae784c063d23308436a6553bba3264644ea50ebf",
+    "reason": "Source publication, not an authored research artifact; obtain separately."
+  },
+  {
+    "origin": "tmp/pdfs/zammit-o2-2025.pdf",
+    "bytes": 1164846,
+    "sha256": "7f469129589ad11115090f2f1bc921b58b835497a89eca2ec18fb4b3c6719db0",
+    "reason": "Source publication, not an authored research artifact; obtain separately."
+  },
+  {
+    "origin": "resources/O2_photoionization.pdf",
+    "bytes": 5139306,
+    "sha256": "daa5d6be44241ef1aa78f64c14f3ba57728e734787f4f5862b4cb5a7eff4b216",
+    "reason": "Source publication, not an authored research artifact; obtain separately."
+  },
+  {
+    "origin": "resources/PhysRevA.28.3244.pdf",
+    "bytes": 566441,
+    "sha256": "51d89fa39e0583633e8d22ca6d766e94cfa9d9535999ca1d4703cbea4a86d482",
+    "reason": "Source publication, not an authored research artifact; obtain separately."
+  },
+  {
+    "origin": "resources/PhysRevA.40.3599.pdf",
+    "bytes": 285923,
+    "sha256": "9f7850bc3a58a880bf6c0e133b3d8e6555c57f7cb65bb57e015e46c4ff658189",
+    "reason": "Source publication, not an authored research artifact; obtain separately."
+  },
+  {
+    "origin": "resources/Rudd_Electron Production in Proton Collisions_ Total Cross Sections.pdf",
+    "bytes": 1454519,
+    "sha256": "2bdefbbe807dc8e06260c5998bf6f4076d0adc7bffc2c1a679ec7c8c9ede4749",
+    "reason": "Source publication, not an authored research artifact; obtain separately."
+  },
+  {
+    "origin": "resources/bhabha.pdf",
+    "bytes": 4810254,
+    "sha256": "d4aac163aa4aad757d080b2c50fde5707e2c52d54769917a8e5bedb6964893b4",
+    "reason": "Source publication, not an authored research artifact; obtain separately."
+  },
+  {
+    "origin": "resources/crooks_rudd_1971_proton_sdcs.pdf",
+    "bytes": 483295,
+    "sha256": "843c442ad94c05acf2c3d2cc292b5ae3ced94d18e0e3c43321b2d2517c1bdf1f",
+    "reason": "Source publication, not an authored research artifact; obtain separately."
+  },
+  {
+    "origin": "resources/pjg_model.pdf",
+    "bytes": 1473626,
+    "sha256": "79cf4e557b78c019a1fbdcf7d7d3a04dfd338ed2679a10f3ca2a383c1aa7c448",
+    "reason": "Source publication, not an authored research artifact; obtain separately."
+  },
+  {
+    "origin": "resources/relativistic_rudd_sdcs_formula.pdf",
+    "bytes": 418049,
+    "sha256": "33020426d6c8859b2268c325ce87d5611b243e7927908a12e9a78a98bb834c36",
+    "reason": "Source publication, not an authored research artifact; obtain separately."
+  },
+  {
+    "origin": "resources/rudd_1979_nitrogen_hydrogen_sdcs.pdf",
+    "bytes": 731961,
+    "sha256": "e67147178ae3ce85d6d35caa1e4b4113503ed872b4a2f0e8b655421911ebe275",
+    "reason": "Source publication, not an authored research artifact; obtain separately."
+  },
+  {
+    "origin": "resources/rudd_paper.pdf",
+    "bytes": 2447887,
+    "sha256": "071fd5102cf23df7fa2f649309d7796679364c8d9abdd76f58f1dc0d69b21ca1",
+    "reason": "Source publication, not an authored research artifact; obtain separately."
+  },
+  {
+    "origin": "resources/salvat_electromagnetic_interactions.pdf",
+    "bytes": 1631342,
+    "sha256": "a4315f40b79f5d64555d9818425e5192080cd75af5d05b05aedf9b3e277365a5",
+    "reason": "Source publication, not an authored research artifact; obtain separately."
+  },
+  {
+    "origin": "tmp/pdfs/dataset-refresh-20260909/leiden-n2.pi",
+    "bytes": 59883014,
+    "sha256": "3415ad28d0845001693d392f1a33d2e1e14b86bc71d83817b651e6f32f55690d",
+    "reason": "Unused 57-MiB high-resolution download; coarse comparison input is archived."
+  },
+  {
+    "origin": "tmp/n2-optical-lxcat.txt",
+    "bytes": 36133,
+    "sha256": "2d6c118fd27ba90b1a49e7f11781e3ce375c6c2bf36b5ac97dd1f31d2c4794ba",
+    "reason": "UBC/LXCat restricted source; not used as final calibration input."
+  },
+  {
+    "origin": "tmp/o2-optical-lxcat.txt",
+    "bytes": 56523,
+    "sha256": "29552549b12e98b2137f0ba6e38f7818eedfcc9f58835c8ab037352b72c390c9",
+    "reason": "UBC/LXCat restricted source; not used as final calibration input."
+  },
+  {
+    "origin": "tmp/ephoto_xn2.dat",
+    "bytes": 10129,
+    "sha256": "05dc33d5a3123c740319363e08687c3cc83351708d3904fcc9fd04f60c0c16ae",
+    "reason": "GLOW provisional input has redistribution restrictions; not a final input."
+  },
+  {
+    "origin": "tmp/ephoto_xo2.dat",
+    "bytes": 10106,
+    "sha256": "9d803731e45ce7906d60d190681968c21fdb0ae9564c24fe98cfac58cd1b1eb2",
+    "reason": "GLOW provisional input has redistribution restrictions; not a final input."
+  },
+  {
+    "origin": "resources/1977_erratum.pdf",
+    "bytes": 736242,
+    "sha256": "e9b703ae47320685fc94080d385d7efa56152f5daee8eda021078fbece28b9e6",
+    "reason": "Source publication, not an authored research artifact; obtain separately."
+  },
+  {
+    "origin": "resources/9_1_online.pdf",
+    "bytes": 7413746,
+    "sha256": "4bc711dd7636cbd6622dc33a78abd77d51ceb33723144146581b20a85e4fe09a",
+    "reason": "Source publication, not an authored research artifact; obtain separately."
+  },
+  {
+    "origin": "resources/Relativistic Heavy-Particle Collision Theory.pdf",
+    "bytes": 19778797,
+    "sha256": "f427ca0cf0e668663a8f05a4bd645d2b2ad1ebab5d0415c18ca52f0f34c6ad32",
+    "reason": "Source publication, not an authored research artifact; obtain separately."
+  },
+  {
+    "origin": "resources/Relativistic_Collisions_of_Structured_Atomic_Particles.pdf",
+    "bytes": 4645453,
+    "sha256": "e2bb401a5ce7df45b6217c613d5f65f7a3a52137407d59252776e53622d837ee",
+    "reason": "Source publication, not an authored research artifact; obtain separately."
+  }
+]

@@ -22,6 +22,7 @@
 #include "Fields.H"
 #include "FieldIO.H"
 #include "FieldSolver/ImplicitSolvers/ImplicitSolver.H"
+#include "Fluids/MultiFluidContainer.H"
 #include "Particles/MultiParticleContainer.H"
 #include "Particles/WarpXParticleContainer.H"
 #include "Python/callbacks.H"
@@ -407,8 +408,19 @@ WarpX::InitFromCheckpoint ()
         // Read any fields flagged checkpoint_restart in the field register
         // (mirrors FlushFormatCheckpoint's write_checkpoints call). Flagged
         // fields absent from an older checkpoint are skipped, not errors.
+        if (lev == 0) {
+            if (do_fluid_species) { myfl->ValidateRestart(restart_chkfile, m_fields); }
+            else {
+                WARPX_ALWAYS_ASSERT_WITH_MESSAGE(!amrex::FileExists(restart_chkfile+"/FluidModels"),
+                    "The checkpoint's prescribed-fluid species cannot be removed on restart.");
+            }
+            mypc->ValidateCollisionRestart(restart_chkfile);
+        }
         m_fields.read_restarts(lev, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, level_prefix, ""));
     }
+
+    if (do_fluid_species) { myfl->ValidateRestartState(m_fields); }
+    mypc->ValidateCollisionRestartState();
 
     InitPML();
     if (do_pml)

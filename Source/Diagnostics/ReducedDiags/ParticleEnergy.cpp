@@ -8,6 +8,8 @@
 #include "ParticleEnergy.H"
 
 #include "Diagnostics/ReducedDiags/ReducedDiags.H"
+#include "Fluids/MultiFluidContainer.H"
+#include "Fluids/WarpXFluidContainer.H"
 #include "Particles/Algorithms/KineticEnergy.H"
 #include "Particles/MultiParticleContainer.H"
 #include "Particles/SpeciesPhysicalProperties.H"
@@ -44,13 +46,18 @@ ParticleEnergy::ParticleEnergy (const std::string& rd_name)
     const auto & mypc = warpx.GetPartContainer();
 
     // get number of species (int)
-    const auto nSpecies = mypc.nSpecies();
+    const auto nSpecies = mypc.nSpecies() +
+        (warpx.DoFluidSpecies() ? warpx.GetFluidContainer().nSpecies() : 0);
 
     // resize data array
     m_data.resize(2*nSpecies+2, 0.0_rt);
 
     // get species names (std::vector<std::string>)
-    const auto species_names = mypc.GetSpeciesNames();
+    auto species_names = mypc.GetSpeciesNames();
+    if (warpx.DoFluidSpecies()) {
+        auto const& fluids = warpx.GetFluidContainer().GetSpeciesNames();
+        species_names.insert(species_names.end(), fluids.begin(), fluids.end());
+    }
 
     if (ParallelDescriptor::IOProcessor())
     {
@@ -91,20 +98,28 @@ void ParticleEnergy::ComputeDiags (int step)
     if (!m_intervals.contains(step+1)) { return; }
 
     // Get MultiParticleContainer class object
-    const auto & mypc = WarpX::GetInstance().GetPartContainer();
+    auto& warpx = WarpX::GetInstance();
+    const auto & mypc = warpx.GetPartContainer();
 
     // Get number of species
-    const int nSpecies = mypc.nSpecies();
+    const int nSpecies = mypc.nSpecies() +
+        (warpx.DoFluidSpecies() ? warpx.GetFluidContainer().nSpecies() : 0);
 
     amrex::ParticleReal Wtot = 0.0_rt;
 
     // Loop over species
     for (int i_s = 0; i_s < nSpecies; ++i_s)
     {
-        // Get WarpXParticleContainer class object
-        const auto & myspc = mypc.GetParticleContainer(i_s);
-
-        auto [Etot, Ws] = myspc.sumParticleWeightAndEnergy(false);
+        amrex::Real Etot, Ws;
+        if (i_s < mypc.nSpecies()) {
+            auto const totals = mypc.GetParticleContainer(i_s).sumParticleWeightAndEnergy(false);
+            Etot = totals.first;
+            Ws = totals.second;
+        } else {
+            auto const totals = warpx.GetFluidContainer().GetFluidContainer(i_s-mypc.nSpecies()).PhysicalTotals();
+            Ws = totals[0];
+            Etot = totals[1];
+        }
 
         // Accumulate sum of weights over all species (must come after MPI reduction of Ws)
         Wtot += Ws;

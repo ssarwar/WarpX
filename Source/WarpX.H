@@ -695,7 +695,7 @@ public:
      * and apply boundary conditions.
      * Contains separate calls to WarpX::SyncCurrent and WarpX::SyncRho.
      */
-    void SyncCurrentAndRho ();
+    void SyncCurrentAndRho (bool sync_rho = true);
 
     /**
      * \brief Apply filter and sum guard cells across MR levels.

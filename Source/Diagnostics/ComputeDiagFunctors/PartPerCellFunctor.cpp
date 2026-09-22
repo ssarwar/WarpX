@@ -30,6 +30,12 @@ void
 PartPerCellFunctor::operator()(amrex::MultiFab& mf_dst, const int dcomp, const int /*i_buffer*/) const
 {
     auto& warpx = WarpX::GetInstance();
+    if (m_species_index >= warpx.GetPartContainer().nSpecies()) {
+        // Fluid species follow kinetic species in the diagnostic registry.
+        // They carry physical density but no macroparticles.
+        mf_dst.setVal(0._rt, dcomp, nComp(), 0);
+        return;
+    }
     // Guard cell is set to 1 for generality. However, for a cell-centered
     // output Multifab, mf_dst, the guard-cell data is not needed especially considering
     // the operations performend in the CoarsenAndInterpolate function.

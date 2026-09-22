@@ -15,6 +15,7 @@
 #include <AMReX_MultiFab.H>
 #include <AMReX_Vector.H>
 #include <AMReX_REAL.H>
+#include <AMReX_iMultiFab.H>
 
 #include <string>
 
@@ -49,6 +50,18 @@ public:
     [[nodiscard]] WarpXFluidContainer&
     GetFluidContainer (int ispecies) const {return *allcontainers[ispecies];}
 
+    [[nodiscard]] WarpXFluidContainer* FindSpecies (std::string const& name) const;
+    [[nodiscard]] std::vector<std::string> const& GetSpeciesNames () const
+        { return species_names; }
+
+    void CommitDensityIncrements (ablastr::fields::MultiFabRegister& fields);
+
+    void WriteCheckpoint (std::string const& directory) const;
+    void ValidateRestart (std::string const& directory,
+                          ablastr::fields::MultiFabRegister const& fields) const;
+    void ValidateRestartState (ablastr::fields::MultiFabRegister& fields) const;
+    [[nodiscard]] bool InitializeSelfFields () const;
+
 #ifdef WARPX_USE_OPENPMD
     std::unique_ptr<WarpXFluidContainer>& GetUniqueContainer(int ispecies) {
       return  allcontainers[ispecies];
@@ -78,7 +91,24 @@ public:
         amrex::MultiFab& jx, amrex::MultiFab& jy, amrex::MultiFab& jz,
         int lev);
 
+    void UpdatePrescribedDensities (ablastr::fields::MultiFabRegister& fields,
+                                    amrex::Real time);
+    void DepositPrescribedSources (ablastr::fields::MultiFabRegister& fields,
+                                   amrex::Real start, amrex::Real dt, bool deposit_charge);
+
+    /** Snapshot the immobile charge once per step, before nonlinear residual evaluations. */
+    void PrepareImmobileCharge (ablastr::fields::MultiFabRegister const& fields);
+    // NVCC requires a public enclosing function for extended device lambdas.
+    void DepositImmobileCharge (amrex::MultiFab& rho, int component);
+
 private:
+
+    [[nodiscard]] std::string CheckpointConfiguration () const;
+
+    // Derived state, rebuilt after initialization/restart and before every step.
+    std::unique_ptr<amrex::MultiFab> m_immobile_charge;
+    std::unique_ptr<amrex::iMultiFab> m_immobile_charge_owners;
+    amrex::IntVect m_immobile_charge_grow{-1};
 
     std::vector<std::string> species_names;
 

@@ -101,7 +101,8 @@ public:
     [[nodiscard]] bool DoDiags(int step) const { return m_intervals.contains(step+1); }
 
     /**
-     * \brief Write out checkpoint related data
+     * \brief Write out checkpoint related data. Called collectively on all
+     * ranks.
      *
      * \param[in] dir Directory where checkpoint data is written
      */

@@ -7,9 +7,7 @@
 #include "CollisionHandler.H"
 
 #include "Particles/Collision/BackgroundMCC/BackgroundMCCCollision.H"
-#include "Particles/Collision/PulsedDecay/PulsedDecay.H"
 #include "Particles/Collision/BackgroundStopping/BackgroundStopping.H"
-#include "Particles/Collision/HybridResistiveDrag/HybridResistiveDrag.H"
 #include "Particles/Collision/BinaryCollision/BinaryCollision.H"
 #include "Particles/Collision/BinaryCollision/Bremsstrahlung/BremsstrahlungFunc.H"
 #include "Particles/Collision/BinaryCollision/Bremsstrahlung/PhotonCreationFunc.H"
@@ -20,16 +18,68 @@
 #include "Particles/Collision/BinaryCollision/LinearBreitWheeler/LinearBreitWheelerCollisionFunc.H"
 #include "Particles/Collision/BinaryCollision/LinearCompton/LinearComptonCollisionFunc.H"
 #include "Particles/Collision/BinaryCollision/ParticleCreationFunc.H"
-#include "Particles/Collision/InverseBremsstrahlung/InverseBremsstrahlung.H"
-#include "Utils/TextMsg.H"
-
-#include "Particles/ParticleCreation/SmartCopy.H"
 #ifdef WARPX_QED
 #include "Particles/Collision/BinaryCollision/VirtualPhotonCreation.H"
 #endif
-#include <AMReX_ParmParse.H>
+#include "Particles/Collision/HybridResistiveDrag/HybridResistiveDrag.H"
+#include "Particles/Collision/InverseBremsstrahlung/InverseBremsstrahlung.H"
+#include "Particles/Collision/ProtonImpactIonization/ProtonImpactIonization.H"
+#include "Particles/Collision/PulsedDecay/PulsedDecay.H"
+#include "Particles/ParticleCreation/SmartCopy.H"
+#include "Utils/TextMsg.H"
 
+#include <AMReX_ParmParse.H>
+#include <AMReX_ParallelDescriptor.H>
+#include <AMReX_VisMF.H>
+
+#include <filesystem>
+#include <fstream>
 #include <vector>
+
+std::string
+CollisionHandler::CheckpointConfiguration () const
+{
+    std::string configuration;
+    for (auto const& collision : allcollisions) { configuration += collision->CheckpointConfiguration(); }
+    return configuration;
+}
+
+void
+CollisionHandler::WriteCheckpoint (std::string const& directory) const
+{
+    auto const configuration = CheckpointConfiguration();
+    if (configuration.empty() || !amrex::ParallelDescriptor::IOProcessor()) { return; }
+    std::ofstream output(directory+"/PrescribedSources");
+    output << "WarpX prescribed sources 1\n" << configuration;
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(output.good(), "Cannot write prescribed-source checkpoint metadata.");
+}
+
+void
+CollisionHandler::ValidateRestart (std::string const& directory) const
+{
+    auto const configuration = CheckpointConfiguration();
+    auto const path = directory+"/PrescribedSources";
+    if (configuration.empty() && !std::filesystem::exists(path)) { return; }
+    amrex::Vector<char> contents;
+    amrex::ParallelDescriptor::ReadAndBcastFile(path, contents);
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(std::string(contents.data()) ==
+        "WarpX prescribed sources 1\n"+configuration,
+        "Prescribed collision sources or their immutable physics/sampling configuration changed.");
+    auto const& warpx = WarpX::GetInstance();
+    for (auto const& collision : allcollisions) {
+        for (auto const& field : collision->CheckpointFields()) {
+            auto const field_path = directory+"/Level_0/"+warpx.m_fields.mf_name(field, 0);
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(amrex::VisMF::Exist(field_path),
+                "Missing required prescribed-source checkpoint state: "+field_path);
+        }
+    }
+}
+
+void
+CollisionHandler::ValidateRestartState () const
+{
+    for (auto const& collision : allcollisions) { collision->ValidateRestartState(); }
+}
 
 CollisionHandler::CollisionHandler(MultiParticleContainer const * const mypc)
 {
@@ -66,6 +116,10 @@ CollisionHandler::CollisionHandler(MultiParticleContainer const * const mypc)
         }
         else if (type == "pulsed_decay") {
             allcollisions[i] = std::make_unique<PulsedDecay>(collision_names[i], mypc);
+        }
+        else if (type == "proton_impact_ionization") {
+            allcollisions[i] =
+                std::make_unique<ProtonImpactIonizationCollision>(collision_names[i], mypc);
         }
         else if (type == "background_stopping") {
             allcollisions[i] = std::make_unique<BackgroundStopping>(collision_names[i]);
@@ -165,18 +219,20 @@ void CollisionHandler::doCollisions ( int step, amrex::Real cur_time, amrex::Rea
     for (auto& collision : allcollisions) {
         const int ndt = collision->get_ndt();
         const auto collision_stepping_mode = collision->get_collision_stepping_mode();
+        auto const start_time = WarpX::GetInstance().evolve_scheme == EvolveScheme::Explicit
+            ? cur_time : cur_time-dt;
 
         if (collision_stepping_mode == CollisionSteppingMode::Subcycle) {
             // Subcycle: run ndt times per PIC step, each with dt_collision = dt / ndt
             const amrex::Real dt_sub = dt / ndt;
             for (int i_sub = 0; i_sub < ndt; ++i_sub) {
                 const amrex::Real sub_time = cur_time + i_sub * dt_sub;
-                collision->doCollisions(sub_time, dt_sub, mypc);
+                collision->doCollisionsInInterval(sub_time, start_time+i_sub*dt_sub, dt_sub, mypc);
             }
         } else {
             // Supercycle: run once every ndt PIC steps, with dt_collision = dt * ndt
             if ( step % ndt == 0 ) {
-                collision->doCollisions(cur_time, dt*ndt, mypc);
+                collision->doCollisionsInInterval(cur_time, start_time, dt*ndt, mypc);
             }
         }
     }

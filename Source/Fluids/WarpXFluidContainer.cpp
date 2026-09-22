@@ -5,6 +5,7 @@
  * License: BSD-3-Clause-LBNL
  */
 #include "Fields.H"
+#include "EmbeddedBoundary/Enabled.H"
 #include "Particles/Pusher/UpdateMomentumHigueraCary.H"
 
 #include "MusclHancockUtils.H"
@@ -17,6 +18,8 @@
 #include <ablastr/coarsen/sample.H>
 #include <ablastr/profiler/ProfilerWrapper.H>
 #include <ablastr/utils/Communication.H>
+
+#include <cmath>
 
 using namespace ablastr::utils::communication;
 using namespace amrex;
@@ -33,9 +36,13 @@ WarpXFluidContainer::WarpXFluidContainer(int ispecies, const std::string &name):
 
     // Initialize injection objects
     const ParmParse pp_species_name(species_name);
-    SpeciesUtils::parseDensity(species_name, "", h_inj_rho, density_parser, geom);
-    SpeciesUtils::parseMomentum(species_name, "", "none", h_inj_mom,
-        h_mom_temp, h_mom_vel, geom);
+    if (!isPrescribed() || pp_species_name.contains("profile")) {
+        SpeciesUtils::parseDensity(species_name, "", h_inj_rho, density_parser, geom);
+    }
+    if (!isPrescribed()) {
+        SpeciesUtils::parseMomentum(species_name, "", "none", h_inj_mom,
+            h_mom_temp, h_mom_vel, geom);
+    }
     if (h_inj_rho) {
 #ifdef AMREX_USE_GPU
         d_inj_rho = static_cast<InjectorDensity*>
@@ -68,6 +75,56 @@ void WarpXFluidContainer::ReadParameters()
     SpeciesUtils::extractSpeciesProperties(species_name, injection_style, charge, mass, physical_species);
 
     const ParmParse pp_species_name(species_name);
+    std::string model = "cold_relativistic";
+    pp_species_name.query("model", model);
+    if (model == "immobile") {
+        m_model = FluidModel::Immobile;
+    } else if (model == "rigid_beam") {
+        m_model = FluidModel::RigidBeam;
+        m_rigid_beam = std::make_unique<RigidBeam>(species_name, mass, charge);
+        pp_species_name.query("initialize_self_fields", m_initialize_self_fields);
+    } else {
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(model == "cold_relativistic",
+            "Unknown fluid model '" + model + "' for species '" + species_name + "'.");
+    }
+    if (isPrescribed()) {
+        auto const& warpx = WarpX::GetInstance();
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(std::isfinite(mass) && mass > 0.0 &&
+            std::isfinite(charge), "Prescribed fluids require finite mass and charge, with mass > 0.");
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(!EB::enabled(),
+            "Prescribed fluids do not yet support embedded boundaries.");
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(!m_rigid_beam || !pp_species_name.contains("profile"),
+            "A rigid beam uses its prescribed Gaussian profile, not a density initializer.");
+#ifndef WARPX_DIM_RZ
+        WARPX_ABORT_WITH_MESSAGE("Prescribed fluid species require RZ geometry.");
+#endif
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            warpx.maxLevel() == 0 && WarpX::n_rz_azimuthal_modes == 1 &&
+                WarpX::gamma_boost == 1.0 && !WarpX::do_moving_window,
+            "Prescribed fluids require a single-level, laboratory-frame RZ grid with "
+            "one azimuthal mode and no moving window.");
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            (WarpX::electromagnetic_solver_id == ElectromagneticSolverAlgo::Yee ||
+             WarpX::electromagnetic_solver_id == ElectromagneticSolverAlgo::PSATD) &&
+                (warpx.evolve_scheme == EvolveScheme::Explicit ||
+                 warpx.evolve_scheme == EvolveScheme::Semi_Implicit_EM),
+            "Prescribed fluids support explicit Yee, explicit PSATD, and semi_implicit_em.");
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            warpx.evolve_scheme != EvolveScheme::Semi_Implicit_EM ||
+                !warpx.get_load_balance_intervals().isActivated(),
+            "Prescribed fluids with semi_implicit_em require fixed MPI ownership during a run: "
+            "the implicit solver's work arrays do not support runtime load balancing. "
+            "Restarting with a different MPI decomposition is supported.");
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            !m_rigid_beam || WarpX::electromagnetic_solver_id != ElectromagneticSolverAlgo::PSATD ||
+                warpx.current_correction,
+            "A rigid beam with PSATD requires psatd.current_correction = 1.");
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(!warpx.do_current_centering &&
+            (WarpX::electromagnetic_solver_id == ElectromagneticSolverAlgo::PSATD ||
+             WarpX::grid_type == ablastr::utils::enums::GridType::Staggered) &&
+            WarpX::current_deposition_algo != CurrentDepositionAlgo::Vay,
+            "Prescribed fluids require the native solver grid and no current centering.");
+    }
     pp_species_name.query("do_not_deposit", do_not_deposit);
     pp_species_name.query("do_not_gather", do_not_gather);
     pp_species_name.query("do_not_push", do_not_push);
@@ -150,6 +207,22 @@ void WarpXFluidContainer::AllocateLevelMFs(ablastr::fields::MultiFabRegister& fi
     const int ncomps = 1;
     const amrex::IntVect nguards(AMREX_D_DECL(2, 2, 2));
 
+    if (isPrescribed()) {
+        auto const native_ba = amrex::convert(ba, WarpX::GetInstance().m_rho_nodal_flag);
+        auto const guards = amrex::IntVect(WarpX::nox + 1);
+        fields.alloc_init(name_mf_N, lev, native_ba, dm, 1, guards, 0.0_rt,
+                          /*remake=*/true, /*redistribute_on_remake=*/true,
+                          /*checkpoint_restart=*/true);
+        if (m_model == FluidModel::Immobile) {
+            fields.alloc_init(DensityIncrementName(), lev, native_ba, dm, 1, guards, 0.0_rt);
+        } else {
+            auto const& jz = *fields.get(warpx::fields::FieldType::current_fp, Direction{2}, lev);
+            fields.alloc_init("fluid_current_"+species_name, Direction{2}, lev,
+                              jz.boxArray(), dm, 1, jz.nGrowVect(), 0.0_rt);
+        }
+        return;
+    }
+
     fields.alloc_init(
             name_mf_N, lev, amrex::convert(ba, amrex::IntVect::TheNodeVector()), dm,
             ncomps, nguards, 0.0_rt);
@@ -174,6 +247,17 @@ void WarpXFluidContainer::InitData(
 {
     using ablastr::fields::Direction;
     ABLASTR_PROFILE("WarpXFluidContainer::InitData");
+
+    if (isPrescribed()) {
+        if (m_rigid_beam) {
+            m_rigid_beam->UpdateDensity(*fields.get(name_mf_N, lev), geom_lev, cur_time);
+            m_rigid_beam->UpdateCurrentDiagnostic(
+                *fields.get("fluid_current_"+species_name, Direction{2}, lev), geom_lev, cur_time);
+        } else {
+            InitPrescribedDensity(fields, lev);
+        }
+        return;
+    }
 
     // Convert initialization box to nodal box
     init_box.surroundingNodes();
@@ -293,6 +377,37 @@ void WarpXFluidContainer::Evolve(
     using warpx::fields::FieldType;
 
     ABLASTR_PROFILE("WarpXFluidContainer::Evolve");
+
+    if (isPrescribed()) {
+        if (m_rigid_beam) {
+            auto const& warpx = WarpX::GetInstance();
+            auto const dt = warpx.getdt(lev);
+            m_rigid_beam->UpdateDensity(*fields.get(name_mf_N, lev), warpx.Geom(lev), cur_time);
+            if (!skip_deposition && !do_not_deposit && fields.has(FieldType::rho_fp, lev)) {
+                DepositCharge(fields, *fields.get(FieldType::rho_fp, lev), lev, 0);
+            }
+            m_rigid_beam->UpdateDensity(*fields.get(name_mf_N, lev), warpx.Geom(lev), cur_time+dt);
+            if (!skip_deposition && !do_not_deposit) {
+                if (fields.has(FieldType::rho_fp, lev)) {
+                    auto& rho = *fields.get(FieldType::rho_fp, lev);
+                    if (rho.nComp() > 1) { DepositCharge(fields, rho, lev, 1); }
+                }
+                m_rigid_beam->DepositCurrent(*fields.get(current_fp_string, Direction{2}, lev),
+                                             warpx.Geom(lev), cur_time, dt);
+            }
+            m_rigid_beam->UpdateCurrentDiagnostic(
+                *fields.get("fluid_current_"+species_name, Direction{2}, lev),
+                warpx.Geom(lev), cur_time+dt);
+            return;
+        }
+        if (!skip_deposition && !do_not_deposit && fields.has(FieldType::rho_fp, lev)) {
+            auto& rho = *fields.get(FieldType::rho_fp, lev);
+            for (int comp = 0; comp < rho.nComp(); ++comp) {
+                DepositCharge(fields, rho, lev, comp);
+            }
+        }
+        return;
+    }
 
     if (fields.has(FieldType::rho_fp,lev) && ! skip_deposition && ! do_not_deposit) {
         // Deposit charge before particle push, in component 0 of MultiFab rho.
@@ -1407,10 +1522,38 @@ void WarpXFluidContainer::DepositCharge (ablastr::fields::MultiFabRegister& fiel
     const amrex::Geometry &geom = warpx.Geom(lev);
     const amrex::Periodicity &period = geom.periodicity();
     const amrex::Real q = getCharge();
+    if (isPrescribed()) {
+        auto const& density = *fields.get(name_mf_N, lev);
+        auto grow = amrex::min(amrex::min(density.nGrowVect(), rho.nGrowVect()),
+                                     warpx.get_ng_depos_rho());
+        if (m_model == FluidModel::RigidBeam) {
+            // The analytic axial continuation supplies the boundary flux;
+            // radial projection and periodic ownership use the valid mesh.
+            grow[0] = 0;
+#ifdef WARPX_DIM_RZ
+            if (geom.isPeriodic(1)) { grow[1] = 0; }
+#endif
+        }
+        // Persistent density is already synchronized. Ownership across the
+        // deposited footprint prevents duplicate contributions when rho is
+        // summed. Do not assign ownership to farther allocated guard cells:
+        // SyncRho and field diagnostics only sum the deposition guard extent.
+        auto const owner_mask = amrex::OwnerMask(rho, period, grow);
+        for (amrex::MFIter mfi(density, amrex::TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+            auto const number = density.const_array(mfi);
+            auto const output = rho.array(mfi);
+            auto const owner = owner_mask->const_array(mfi);
+            amrex::ParallelFor(mfi.growntilebox(grow),
+                [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                    if (owner(i,j,k)) { output(i,j,k,icomp) += q*number(i,j,k); }
+                });
+        }
+        return;
+    }
     auto const &owner_mask_rho = amrex::OwnerMask(rho, period);
 
     // Assertion, make sure rho is at the same location as N
-    AMREX_ALWAYS_ASSERT(rho.ixType().nodeCentered());
+    AMREX_ALWAYS_ASSERT(rho.ixType() == fields.get(name_mf_N, lev)->ixType());
 
     // Loop over and deposit charge density
 #ifdef AMREX_USE_OMP
@@ -1442,6 +1585,14 @@ void WarpXFluidContainer::DepositCurrent(
 {
     using ablastr::fields::Direction;
     ABLASTR_PROFILE("WarpXFluidContainer::DepositCurrent");
+
+    if (isPrescribed()) {
+        if (m_rigid_beam) {
+            auto const& warpx = WarpX::GetInstance();
+            m_rigid_beam->DepositCurrent(jz, warpx.Geom(lev), warpx.gett_new(lev), 0.0);
+        }
+        return;
+    }
 
     // Temporary nodal currents
     amrex::MultiFab tmp_jx_fluid(fields.get(name_mf_N, lev)->boxArray(), fields.get(name_mf_N, lev)->DistributionMap(), 1, 0);

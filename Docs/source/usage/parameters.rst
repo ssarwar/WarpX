@@ -1659,6 +1659,9 @@ Particle initialization
     Whether to calculate the space-charge fields associated with this species
     at the beginning of the simulation.
     The fields are calculated for the mean gamma of the species.
+    For electromagnetic runs, a ``none`` or ``pml`` field boundary uses zero
+    potential at that boundary during this initial Poisson solve. This does not
+    change the boundary condition used by the subsequent Maxwell evolution.
 
 .. pp:param:: <species_name>.self_fields_required_precision
     :type: ``float``
@@ -2206,16 +2209,212 @@ Particle initialization
 
 .. _running-cpp-parameters-fluids:
 
-Cold Relativistic Fluid initialization
---------------------------------------
+Fluid species
+-------------
 
 .. pp:param:: fluids.species_names
     :type: ``strings``, separated by spaces
 
-    Defines the names of each fluid species. It is a required input to create and evolve fluid species using the cold relativistic fluid equations.
-    Most of the parameters described in the section "Particle initialization" can also be used to initialize fluid properties (e.g. initial density distribution).
-    For fluid-specific inputs we use ``<fluid_species_name>`` as a placeholder. Also see external fields
-    for how to specify these for fluids as the function names differ.
+    Names of the mesh species. Names must be unique across particle and fluid species.
+    Each species specifies its ``model``, and its ``species_type`` or explicit ``mass`` [kg]
+    and ``charge`` [C], using the same physical properties as particle species.
+    No macroparticles are allocated for fluids.
+
+.. pp:param:: <fluid_species_name>.model
+    :type: ``string``
+    :default: ``cold_relativistic``
+
+    ``cold_relativistic`` evolves the existing cold-fluid density and momentum equations.
+    Its density, momentum initialization, and external-field parameters are unchanged.
+    ``rigid_beam`` prescribes a Gaussian beam pulse train translating along z at constant
+    velocity. It deposits charge and current and may cause proton-impact ionization,
+    but neither fields nor collisions change its velocity, density, or energy.
+    ``immobile`` stores a persistent number density with zero current, momentum, and
+    kinetic energy. Its charge contributes to the fields.
+
+    The two prescribed models require a single-level laboratory-frame RZ simulation,
+    one azimuthal mode, no moving window or embedded boundaries, and native solver staggering.
+    Supported solvers are explicit Yee, explicit PSATD with
+    ``psatd.current_correction = 1``, and ``semi_implicit_em`` with or without mass matrices.
+    Beam current is independent of the fields and adds no mass-matrix response.
+    Runtime load balancing is supported with the explicit solvers. With
+    ``semi_implicit_em``, keep ``algo.load_balance_intervals = 0``: the native
+    implicit solver's work arrays retain their original MPI ownership.
+    All supported solvers allow a different MPI decomposition on restart.
+
+    Immobile density defaults to zero. To initialize it, use ``profile = constant``
+    with ``density``, or ``profile = parse_density_function`` with
+    ``density_function(x,y,z)``. In this RZ profile, x is radius and y is zero.
+    Values must be finite and nonnegative.
+
+    Proton-impact and electron-impact ionization can target an immobile positive ion;
+    electron attachment can target an immobile negative ion. Accepted events deposit
+    the emitted or removed electron's stored position, weight, and charge shape into
+    the ion density. Fresh increments are synchronized once before accumulation.
+    Electron finite-mass collision kinematics are preserved; ion motion and its recoil
+    energy are omitted. No recombination, detachment, or neutral depletion is added.
+
+.. pp:param:: <fluid_species_name>.kinetic_energy
+    :type: ``float``
+    :unit: eV
+
+    Rigid-beam kinetic energy per projectile, moving in positive z.
+    Specify exactly one of ``kinetic_energy`` and ``velocity_z``.
+
+.. pp:param:: <fluid_species_name>.velocity_z
+    :type: ``float``
+    :unit: m/s
+
+    Signed physical axial velocity, with :math:`0 < |v_z| < c`.
+    This is physical velocity, not the proper velocity :math:`\gamma v_z` used by
+    particle momentum distributions.
+
+.. pp:param:: <fluid_species_name>.sigma_r
+    :type: ``float``
+    :unit: meters
+
+    Transverse Cartesian RMS width of the untruncated Gaussian
+    :math:`\exp[-r^2/(2\sigma_r^2)]`. It has no default.
+    Specify exactly one of ``sigma_r`` and ``r_rms``.
+
+.. pp:param:: <fluid_species_name>.r_rms
+    :type: ``float``
+    :unit: meters
+
+    Alternative radial RMS width of the untruncated profile,
+    :math:`\sqrt{\langle r^2\rangle}=\sqrt{2}\sigma_r`.
+    A measured hard-edge beam radius does not determine either Gaussian width.
+
+.. pp:param:: <fluid_species_name>.sigma_z
+    :type: ``float``
+    :unit: meters
+
+    Longitudinal Gaussian RMS length. Specify exactly one of ``sigma_z`` and ``sigma_t``.
+
+.. pp:param:: <fluid_species_name>.sigma_t
+    :type: ``float``
+    :unit: seconds
+
+    Pulse RMS duration at a fixed plane; :math:`\sigma_z=|v_z|\sigma_t`.
+
+.. pp:param:: <fluid_species_name>.z_reference
+    :type: ``float``
+    :default: ``0``
+    :unit: meters
+
+    Plane crossed by the pulse centers at their arrival times.
+
+.. pp:param:: <fluid_species_name>.pulse_times
+    :type: list of ``float``
+    :unit: seconds
+
+    Explicit pulse-center arrival times at ``z_reference``. Pulses may overlap.
+    Use either this list or all three finite-train parameters below.
+
+.. pp:param:: <fluid_species_name>.first_pulse_time
+    :type: ``float``
+    :unit: seconds
+
+    Arrival time of the first pulse in a finite train.
+
+.. pp:param:: <fluid_species_name>.pulse_period
+    :type: ``float``
+    :unit: seconds
+
+    Positive time between pulse centers in a finite train.
+
+.. pp:param:: <fluid_species_name>.pulse_count
+    :type: ``int``
+
+    Positive number of pulses. Arrival times are
+    ``first_pulse_time + k*pulse_period``, with ``0 <= k < pulse_count``.
+
+.. pp:param:: <fluid_species_name>.pulse_amplitudes
+    :type: list of ``float``
+    :optional:
+
+    Nonnegative relative amplitude for each pulse, in the supplied order.
+    The default is one for every pulse. Normalizations below apply to unit amplitude.
+
+.. pp:param:: <fluid_species_name>.cutoff_r
+    :type: ``float``
+    :default: ``8``
+
+    Radial support in units of ``sigma_r``; -1 disables truncation.
+
+.. pp:param:: <fluid_species_name>.cutoff_z
+    :type: ``float``
+    :default: ``8``
+
+    Longitudinal support on each side of the pulse center in units of ``sigma_z``;
+    -1 disables truncation. Domain clipping never renormalizes the profile.
+
+.. pp:param:: <fluid_species_name>.peak_current
+    :type: ``float``
+    :unit: amperes
+
+    Positive peak-current magnitude, integrated over the complete truncated transverse
+    profile before domain clipping. Specify exactly one of ``peak_current``,
+    ``bunch_charge``, and ``peak_density``. For cutoffs :math:`R,Z`,
+
+    .. math::
+
+        A_R = 2\pi\sigma_r^2(1-e^{-R^2/2}),\qquad
+        I_0 = |qv_z| n_0 A_R,\qquad
+        Q_0 = I_0\sqrt{2\pi}\sigma_t\,\mathrm{erf}(Z/\sqrt{2}).
+
+    With 0.6 A, 25 ps RMS duration, and eight-sigma support, a pulse contains
+    approximately :math:`3.75994\times10^{-11}` C. Its four-sigma duration is 100 ps.
+
+.. pp:param:: <fluid_species_name>.bunch_charge
+    :type: ``float``
+    :unit: coulombs
+
+    Positive charge magnitude of one complete truncated pulse, before domain clipping.
+
+.. pp:param:: <fluid_species_name>.peak_density
+    :type: ``float``
+    :unit: :math:`\mathrm{m}^{-3}`
+
+    Positive peak number density of a unit-amplitude pulse.
+
+.. pp:param:: <fluid_species_name>.initialize_self_fields
+    :type: ``bool``
+    :default: ``0``
+
+    Initialize a rigid beam's self fields with the existing relativistic Poisson solve,
+    using the prescribed charge and velocity directly. This is not repeated on restart.
+
+Fluid outputs and restart
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Native number density is registered as ``fluid_density_<name>`` [m^-3]. A rigid beam also
+registers the instantaneous, unfiltered ``fluid_current_<name>`` z component [A/m^2];
+request ``fluid_current_<name>z`` in ``fields_to_plot``. The current supplied to the
+Maxwell solver is instead averaged over the physical timestep. ``rho`` includes all
+deposited species, and ``rho_<name>`` selects a particle or fluid species with the
+usual charge filtering. Native field access retains solver centering; plotfiles and
+openPMD diagnostics interpolate to cell centers.
+
+For each rigid-beam proton source ``<collision_name>``, the cell-centered outputs
+``<collision_name>_product_weight_remainder`` and ``<collision_name>_emitted_number``
+are pending and cumulative physical electron counts per cylindrical cell.
+``<collision_name>_electron_energy``, ``<collision_name>_binding_energy``, and
+``<collision_name>_discarded_ion_energy`` are cumulative energies [J] per cell.
+These quantities are extensive, not densities. Pending production contributes no charge.
+The reduced diagnostic ``PrescribedSourceBudget`` sums these fields.
+
+Checkpoints store persistent densities, fractional yields, cumulative budgets, and sampling
+counters. Missing required state and changes to immutable beam/source physics, particle
+shape, or solver configuration are errors. Analytic caches are reconstructed without
+replaying collisions or reinitializing fields. Ordinary restart controls, including
+stop time, output cadence, and supported MPI redistribution, can change.
+
+``ParticleNumber``, ``ParticleCharge``, ``ParticleEnergy``, and ``ParticleMomentum`` include
+fluids in their physical totals and means. Fluid macroparticle counts are zero. Particle
+records, phase-space histograms, beam emittance, and temperature diagnostics require
+kinetic species and reject fluid selections. Existing RZ restrictions still apply to
+``FieldMomentum``, ``FieldReduction``, ``FieldMaximum``, and ``RhoMaximum``.
 
 .. _running-cpp-parameters-laser:
 
@@ -2939,6 +3138,10 @@ Details about the collision models can be found in the :ref:`theory section <mul
     - ``background_mcc`` for collisions between particles and a neutral background.
       This is a relativistic Monte Carlo treatment for particles colliding
       with a neutral background gas. See :ref:`MCC section <multiphysics-collisions-mcc>`.
+    - ``proton_impact_ionization`` for rigid-beam proton or bare-ion impact
+      ionization of a prescribed molecular neutral background. See
+      :ref:`Proton and bare-ion impact ionization
+      <multiphysics-collisions-proton-impact-ionization>`.
     - ``pulsed_decay`` for decay of a parent species into two product species with a user-defined decay rate.
       See :ref:`Pulsed Decay section <multiphysics-collisions-pulseddecay>`.
     - ``background_stopping`` for slowing of ions due to collisions with electrons or ions.
@@ -2994,9 +3197,13 @@ Details about the collision models can be found in the :ref:`theory section <mul
     Wtih ``inverse_bremsstrahlung``, this is the photon species being absorbed and the electron species they are colliding with, in that order.
     If using ``background_mcc`` or ``background_stopping`` type this should be the name of the
     species for which collisions with a background will be included.
+    If using ``proton_impact_ionization``, this must be one positively charged
+    proton or bare-ion projectile species. The charge state must be a positive
+    integer and the projectile must be heavier than an electron.
+    The projectile may be kinetic or a fluid with ``model = rigid_beam``.
     If using ``pulsed_decay`` type this should be the name of the parent species.
     If using ``hybrid_resistive_drag``, this should be the one ion species the drag is applied to.
-    In these four cases, only one species name should be given.
+    Each of these models takes only one species name.
     If using ``linear_breit_wheeler`` these should be two photon species.
     If using ``linear_compton``, these should be two species: first, a photon species, and second, a lepton species, in this exact order.
     If using two-product ``nuclearfusion`` with ``scattering_angle_model = legendre``, consider the reaction to be ordered as ``A + B -> C + D``.
@@ -3007,7 +3214,8 @@ Details about the collision models can be found in the :ref:`theory section <mul
 .. pp:param:: <collision_name>.product_species
     :type: ``strings``
 
-    Only for ``dsmc``, ``linear_breit_wheeler``, ``nuclearfusion``, and ``bremsstrahlung``.
+    Only for ``dsmc``, ``linear_breit_wheeler``, ``nuclearfusion``,
+    ``bremsstrahlung``, ``pulsed_decay``, and ``proton_impact_ionization``.
     The name(s) of the species in which to add the new macroparticles created by the reaction.
     If using ``dsmc`` with ionization reactions, the first species in this list must be an electron.
     If using ``dsmc`` with ``charge_exchange`` and ``twoproduct_reaction``, the order of the ``product_species`` should match the order of the species in :pp:param:`<collision_name>.species`.
@@ -3018,6 +3226,10 @@ Details about the collision models can be found in the :ref:`theory section <mul
     If using two-product ``nuclearfusion`` with ``scattering_angle_model = legendre``, consider the reaction to be ordered as ``A + B -> C + D``, as described for :pp:param:`<collision_name>.species`.
     The first entry in ``product_species`` must be product ``C``, and the second must be product ``D``.
     For example, T(d,n)He4 corresponds to ``d + T -> n + He4``, so ``product_species`` must list the neutron first and helium4 second.
+    If using ``proton_impact_ionization``, provide exactly two species: first an
+    electron and then a singly charged molecular ion whose mass is consistent
+    with the selected :math:`\mathrm{N}_2` or :math:`\mathrm{O}_2` target.
+    The electron must be kinetic; the ion may be kinetic or an ``immobile`` fluid.
 
 .. pp:param:: <collision_name>.ndt_supercycle
     :type: ``int``
@@ -3026,6 +3238,7 @@ Details about the collision models can be found in the :ref:`theory section <mul
     Execute collision once every ``ndt_supercycle`` PIC time steps.
     The effective collision time step is ``dt_collision = ndt_supercycle * dt_PIC``.
     Must be >= 1. Mutually exclusive with ``ndt_subcycle``. Default is 1.
+    Rigid-fluid proton sources currently reject values above one.
 
 .. pp:param:: <collision_name>.ndt_subcycle
     :type: ``int``
@@ -3172,32 +3385,64 @@ Details about the collision models can be found in the :ref:`theory section <mul
 .. pp:param:: <collision_name>.background_density
     :type: ``float``
 
-    Only for ``background_mcc`` and ``background_stopping``. The density of the background in :math:`m^{-3}`.
+    Only for ``background_mcc``, ``background_stopping``, and
+    ``proton_impact_ionization``. The density of the background in
+    :math:`m^{-3}`.
     Can also provide ``<collision_name>.background_density(x,y,z,t)`` using the parser
     initialization style for spatially and temporally varying density. With ``background_mcc``, if a function
     is used for the background density, the input parameter ``<collision_name>.max_background_density``
-    must also be provided to calculate the maximum collision probability.
+    must also be provided to calculate the automatic maximum collision probability, unless
+    :pp:param:`<collision_name>.nu_max` is supplied.
 
-    The arguments ``x``, ``y`` and ``z`` are the Cartesian coordinates of the macroparticle, in every
-    geometry. In ``RZ``, ``RCYLINDER`` and ``RSPHERE`` geometry this means that the radius must be
+    The arguments ``x``, ``y`` and ``z`` are Cartesian coordinates in every
+    geometry. Background MCC and stopping evaluate them at the macroparticle;
+    proton-impact ionization evaluates them at the cell center. In ``RZ``,
+    ``RCYLINDER`` and ``RSPHERE`` geometry this means that the radius must be
     written as ``sqrt(x**2+y**2)`` (``RZ``, ``RCYLINDER``) or ``sqrt(x**2+y**2+z**2)`` (``RSPHERE``),
     and in 2D (``XZ``) geometry ``y`` is always 0.
 
 .. pp:param:: <collision_name>.background_temperature
     :type: ``float``
 
-    Only for ``background_mcc`` and ``background_stopping``. The temperature of the background in Kelvin.
+    Only for ``background_mcc``, ``background_stopping``, and
+    ``proton_impact_ionization``. The temperature of the background in Kelvin.
+    For ``proton_impact_ionization``, this sets the zero-drift Maxwellian
+    velocity of each molecular-ion product.
     Can also provide ``<collision_name>.background_temperature(x,y,z,t)`` using the parser
     initialization style for spatially and temporally varying temperature. The arguments follow the
     same convention as for :pp:param:`<collision_name>.background_density`.
+
+.. pp:param:: <collision_name>.max_background_density
+    :type: ``float``
+    :optional:
+
+    Only for ``background_mcc``. Upper bound on the background density in
+    :math:`m^{-3}` used to construct the automatic null-collision majorant. It is
+    required when ``background_density(x,y,z,t)`` is used and ``nu_max`` is not
+    supplied. For a scalar background density, that value is used by default.
+
+.. pp:param:: <collision_name>.nu_max
+    :type: ``float``
+    :optional:
+
+    Only for ``background_mcc``. User-supplied null-collision majorant in
+    :math:`s^{-1}`. It must bound the sum of all configured process frequencies
+    for every particle state, thermal-neutral sample and background density
+    encountered by this collision object. If omitted, WarpX constructs a
+    majorant from the union of the cross-section table knots and
+    ``max_background_density``. Each collision object has an independent
+    majorant.
 
 .. pp:param:: <collision_name>.background_mass
     :type: ``float``
     :optional:
 
     Only for ``background_mcc`` and ``background_stopping``. The mass of the background gas in kg.
-    With ``background_mcc``, if not given the mass of the colliding species will be used unless ionization is
-    included in which case the mass of the product species will be used.
+    With ``background_mcc``, this is always the neutral target mass. If omitted
+    for an ionizing electron-neutral collision, it is inferred as the positive-ion
+    product mass plus one electron mass. It is required for attachment-only
+    collision objects. If no product-forming process is present, it defaults to
+    the incident species mass.
     With ``background_stopping``, and ``background_type`` set to ``electrons``, if not given defaults to the electron mass. With
     ``background_type`` set to ``ions``, the mass must be given.
 
@@ -3242,18 +3487,22 @@ Details about the collision models can be found in the :ref:`theory section <mul
     :type: ``strings`` separated by spaces
 
     Only for ``dsmc`` and ``background_mcc``. The scattering processes that should be
-    included. Available options are ``elasticX``, ``excitationX``, ``twoproduct_reaction`` and ``charge_exchange``
-    for ions and ``elasticX``, ``excitationX`` and ``ionization`` for electrons.
-    Multiple elastic and excitation events can be included, corresponding e.g. to
-    excitation to different levels or to several elastic channels (with different
-    cross-sections and/or scattering angle models); the ``X`` above can be changed
-    to a unique identifier for each such process. For each scattering process specified
-    a path to a cross-section data file must also be given. We use
+    included. Available options are ``elasticX``, ``excitationX``,
+    ``twoproduct_reaction`` and ``charge_exchange`` for ions. Electron Background
+    MCC supports ``elasticX``, ``excitationX``, ``ionizationX`` and
+    ``attachmentX``. Multiple channels of each prefix-matched Background MCC
+    process can be included; ``X`` must make each process name unique. For each
+    scattering process specified, a path to a cross-section data file must also
+    be given. Background MCC selects among all listed processes with the common
+    cumulative algorithm described in :ref:`multiphysics-collisions-mcc`; each
+    selected channel retains its own discrete energy loss. We use
     ``<scattering_process>`` as a placeholder going forward.
 
-    For ``elasticX``, ``excitationX``, ``charge_exchange`` and ``twoproduct_reaction``, the
+    For ``elasticX``, ``excitationX``, ``charge_exchange`` and
+    ``twoproduct_reaction``, and for ``ionizationX`` in Background MCC, the
     angular distribution is controlled by the per-process
-    :pp:param:`<collision_name>.<scattering_process>_scattering_angle_model` argument.
+    :pp:param:`<collision_name>.<scattering_process>_scattering_angle_model`
+    argument.
 
 .. pp:param:: <collision_name>.<scattering_process>_cross_section
     :type: ``string``
@@ -3261,40 +3510,133 @@ Details about the collision models can be found in the :ref:`theory section <mul
     Only for ``dsmc`` and ``background_mcc``. Path to the file containing cross-section data
     for the given scattering processes. The cross-section file must have exactly
     2 columns of data, the first containing energies in eV and the
-    second the corresponding cross-section in :math:`m^2`. The energy column should
-    represent the kinetic energy of the center-of-mass frame. The energy values in this column
-    must be in strictly increasing order.
+    second the corresponding cross-section. It is in :math:`m^2` except for an
+    attachment process explicitly configured with
+    ``<scattering_process>_cross_section_units = m5``. The energy column should
+    represent the kinetic energy of the center-of-mass frame, except that
+    electron Background MCC uses the electron kinetic energy in the neutral
+    rest-frame approximation described in :ref:`multiphysics-collisions-mcc`.
+    The energy values in this column must be finite, non-negative and in strictly
+    increasing order. Cross sections must be finite and non-negative.
+    For a process with a positive energy cost, its cross section must be zero
+    at and below that cost. Blank lines and comments starting with ``#`` are
+    accepted. Outside the supplied energy range, the first or last cross
+    section is held constant; supply a physically justified extension when
+    particles can leave that range.
 
 .. pp:param:: <collision_name>.<scattering_process>_energy
     :type: ``float``
 
     Only for ``dsmc`` and ``background_mcc``. The energy cost of the process, in eV. It is
-    required for ``excitationX`` and ``ionization``, optional for ``charge_exchange`` and
+    required for ``excitationX`` and ``ionizationX``, optional for ``charge_exchange`` and
     ``twoproduct_reaction`` (which may impose a fixed energy loss, defaulting to 0), and
-    ignored for ``elasticX`` processes (which have no energy cost).
+    not used for ``elasticX`` and ``attachmentX`` processes. If supplied for a
+    supported process, the value must be finite and non-negative.
+    For an electron incident on a finite-mass background target, WarpX treats
+    a selected event below the recoil-shifted laboratory threshold
+    :math:`Q(1+m_e/M)+Q^2/(2Mc^2)` as a null event.
+    For Background MCC ionization with ``energy_sharing_model = RBEQ``, this
+    threshold must match the selected target's outer-shell binding energy to
+    within 0.05 eV: 15.58 eV for ``N2`` or 12.07 eV for ``O2``.
 
 .. pp:param:: <collision_name>.<scattering_process>_scattering_angle_model
     :type: ``string``
     :optional:
 
-    Only for ``dsmc`` and ``background_mcc``, and only for ``elasticX``, ``excitationX``,
-    ``charge_exchange`` and ``twoproduct_reaction``.
-    The model used to determine the scattering angle of the products
-    in the center-of-mass frame. The possible values are ``isotropic``, ``forward`` and ``backward``.
-    The default is ``isotropic`` for ``elasticX`` and ``excitationX``, and ``forward`` for
-    ``charge_exchange`` and ``twoproduct_reaction``.
+    Only for ``dsmc`` and ``background_mcc``, and only for ``elasticX``,
+    ``excitationX``, ``charge_exchange`` and ``twoproduct_reaction``. Background
+    MCC also supports this parameter for ``ionizationX``.
+    The possible values are ``isotropic``, ``forward`` and ``backward``. The
+    default is ``isotropic`` for ``elasticX``, ``excitationX`` and
+    ``ionizationX``, and ``forward`` for ``charge_exchange`` and
+    ``twoproduct_reaction``.
     With ``isotropic``, the scattering angle is drawn from an isotropic distribution.
     With ``forward``, the scattering angle is set to zero, i.e. the products keep the same direction
     as the incident particle (in the center of mass frame).
     With ``backward``, the scattering angle is set to :math:`\pi`, i.e. the products are emitted in
     the opposite direction of the incident particle (in the center of mass frame).
 
-.. pp:param:: <collision_name>.ionization_species
+    Electron Background MCC additionally accepts ``IAA`` for ``elasticX``,
+    ``excitationX`` and ``ionizationX``. For ionization, this uses the IAA
+    primary- and secondary-electron angle model in the neutral rest frame and
+    does not use a differential-cross-section file. For elastic and excitation
+    scattering, it samples the stationary-target electron angle from the
+    required ``<scattering_process>_differential_cross_section`` table and
+    applies exact relativistic molecular recoil. Excitation also removes the
+    configured ``<scattering_process>_energy`` as a discrete internal-energy
+    loss.
+
+.. pp:param:: <collision_name>.<scattering_process>_differential_cross_section
+    :type: ``string``
+
+    Required for an electron Background MCC ``elasticX`` or ``excitationX``
+    process with ``scattering_angle_model = IAA``. Path to an angular
+    differential cross-section table in the IAA/elmolcs ``DCS.e-N2`` or
+    ``DCS.e-O2`` format. Rows whose first token is not numeric are treated as
+    headers or separators and ignored. Every numeric row must contain a
+    positive, strictly increasing energy in eV followed by at least three
+    finite, non-negative DCS values at angles uniformly spaced from 0 to
+    180 degrees. Every numeric row must contain the same number of angular
+    values and have a positive angular integral. The IAA/elmolcs tables use
+    361 values at 0.5-degree spacing and extend to 1 GeV. The DCS controls only
+    angle sampling; the ordinary ``<scattering_process>_cross_section`` table
+    controls the event rate. Outside the DCS energy range, WarpX uses the
+    nearest endpoint angular distribution. The exception is an elmolcs table
+    whose ``SPECIES:`` metadata identifies ``N2`` or ``O2``: at and above
+    10 keV, WarpX samples the analytic IAA screened-Rutherford continuation
+    through the 1 GeV model range.
+    Non-finite energy tokens and malformed angular values are rejected;
+    a trailing ``#`` comment is allowed after the angular values. Energies
+    must also remain distinct after conversion to logarithms in particle
+    precision.
+
+.. pp:param:: <collision_name>.<scattering_process>_energy_sharing_model
+    :type: ``string``
+    :default: ``equal``
+    :optional:
+
+    Only for an ``ionizationX`` process in electron Background MCC. ``equal``
+    divides the post-threshold electron energy equally. ``RBEQ`` samples a
+    target subshell and the RBEQ singly differential cross section, giving the
+    selected binding-energy loss and the lower-energy outgoing electron. The
+    integral event rate continues to come from the process cross-section table.
+    ``RBEQ`` also requires ``<scattering_process>_rbeq_target``.
+
+.. pp:param:: <collision_name>.<scattering_process>_rbeq_target
+    :type: ``string``
+
+    Required only for an ``ionizationX`` process in electron Background MCC
+    with ``energy_sharing_model = RBEQ``. The supported molecular targets are
+    ``N2`` and ``O2`` (case-insensitive).
+
+.. pp:param:: <collision_name>.<scattering_process>_species
+    :type: ``string``
+
+    Required for each ``ionizationX`` or ``attachmentX`` process in
+    ``background_mcc``. This names the positive-ion or negative-ion destination
+    species, respectively. The incident species must be electrons. The product
+    charge must be exactly ``+q_e`` for ionization or ``-q_e`` for attachment.
+    The destination may be a kinetic species or an ``immobile`` fluid. Fluid updates
+    preserve the emitted/removed electron's charge footprint, including particle
+    shape and boundary treatment; rejected events add no ion density.
+
+.. pp:param:: <collision_name>.<scattering_process>_cross_section_units
+    :type: ``string``
+
+    Required for each ``attachmentX`` process in ``background_mcc``. The allowed
+    values are ``m2`` for an effective two-body cross section in
+    :math:`\mathrm{m}^{2}` and ``m5`` for a raw three-body cross section in
+    :math:`\mathrm{m}^{5}`. The latter also requires
+    ``<scattering_process>_third_body_density``.
+
+.. pp:param:: <collision_name>.<scattering_process>_third_body_density
     :type: ``float``
 
-    Only for ``background_mcc``. If the scattering process is ``ionization`` the
-    produced species must also be given. For example if argon properties is used
-    for the background gas, a species of argon ions should be specified here.
+    Required only when an attachment process uses ``cross_section_units = m5``.
+    This is the third-body density in :math:`\mathrm{m}^{-3}`. WarpX multiplies
+    the raw :math:`\mathrm{m}^{5}` table by this value once to obtain the
+    effective :math:`\mathrm{m}^{2}` cross section. It must be finite and
+    greater than zero and must not be supplied for ``m2`` tables.
 
 .. pp:param:: <collision_name>.ionization_target_species
     :type: ``string``
@@ -3302,16 +3644,102 @@ Details about the collision models can be found in the :ref:`theory section <mul
     Only for ``dsmc`` with impact ionization. This specifies which one of the
     colliding particles is ionized.
 
+.. pp:param:: <collision_name>.ionization_target
+    :type: ``string``
+
+    Required for ``proton_impact_ionization``. The molecular neutral target
+    whose Porter--Jackman--Green ionization model is used. Supported values are
+    ``N2`` and ``O2`` (case-insensitive).
+
+    WarpX constructs the total electron-production cross section by integrating
+    the built-in target SDCS, then interpolates it at the projectile kinetic
+    energy. This applies to both particle projectiles and rigid fluid beams;
+    no user-supplied total proton-impact cross-section table is required.
+    Configure separate collision instances for N2 and O2, each with its own
+    ``background_density``. The IAA secondary-electron angular model does not
+    supply or replace the total cross section. Electron-impact MCC total
+    cross-section tables are configured separately.
+
 .. pp:param:: <collision_name>.decay_rate(x,y,z,t)
     :type: `string`
 
     The parent species decay rate (only for ``pulsed_decay``).
 
 .. pp:param:: <collision_name>.fixed_product_weight
-    :type: `float`
+    :type: ``float``
 
-    Fixed particle weight of product species (only for ``pulsed_decay``).
+    Desired fixed particle weight of product species for ``pulsed_decay`` and
+    ``proton_impact_ionization``.
     Can be estimated as :math:`n_{\text{target}}dV/N_{ppc}`, where :math:`n_{\text{target}}` is the target density of the product species, :math:`dV` is the cell volume, and :math:`N_{ppc}` is the target number of particle per cell for each product species.
+    For ``proton_impact_ionization``, the accumulated fractional weight is
+    checkpointed per cell. When ``max_products_per_cell`` limits creation, the
+    complete physical pair weight is preserved by increasing the equal weight
+    of the pairs created in that cell.
+
+.. pp:param:: <collision_name>.max_products_per_cell
+    :type: ``int``
+    :default: ``64``
+    :optional:
+
+    Only for ``proton_impact_ionization``. Maximum electron--ion pairs created
+    per cell in one collision call. This bounds transient work and particle
+    growth; it does not cap physical ionization weight. Smaller values reduce
+    launch imbalance and memory growth but produce heavier product
+    macroparticles in high-yield cells.
+
+.. pp:param:: <collision_name>.source_sampling_points
+    :type: ``int``
+    :default: ``8``
+
+    Only for a ``rigid_beam`` proton-impact source. Positive number of subintervals
+    per longitudinal cell in the quiet spatial CDF. Increasing this improves the
+    placement of products without changing the integrated physical cell yield.
+    It does not set the number of products; that is controlled by fixed weight and cap.
+
+.. pp:param:: <collision_name>.gas_quadrature_points
+    :type: ``int``
+    :default: ``2``
+
+    Only for a ``rigid_beam`` proton-impact source with a parser background density.
+    Number of subintervals per coordinate (r, z, time), from 1 to 16. The positive
+    composite quadrature samples gas at subinterval midpoints and integrates the
+    beam measure within each subinterval. Resolve gas variation by increasing this
+    parameter, refining the mesh, or subcycling. Constant gas uses the separable
+    beam integral directly and does not require this quadrature.
+
+.. pp:param:: <collision_name>.sampling_seed
+    :type: ``int``
+    :default: ``0``
+
+    Seed of the rigid-source quiet sequence. It is combined with the collision name
+    and global cell index, independent of MPI ownership. Per-cell sequence counters
+    are checkpointed. Energy and angle draws retain the existing PJG spectrum and
+    angular closure. Pending fractional yield creates neither electrons nor ion charge
+    until it is emitted.
+
+.. pp:param:: <collision_name>.projectile_energy_min
+    :type: ``float``
+    :default: ``5.0e3 * projectile_mass / proton_mass``
+    :optional:
+
+    Only for ``proton_impact_ionization``. Lower projectile kinetic-energy
+    bound in eV for the calibrated PJG-type lookup table. The cross section
+    is zero below this value, apart from floating-point boundary slack. The
+    equivalent proton energy must be at least 5 keV. An explicit former
+    1 keV bound is rejected rather than extrapolated below calibration.
+
+.. pp:param:: <collision_name>.projectile_energy_max
+    :type: ``float``
+    :default: ``1.0e10 * projectile_mass / proton_mass``
+    :optional:
+
+    Only for ``proton_impact_ionization``. Upper projectile kinetic-energy
+    bound in eV for the calibrated PJG-type lookup table. The cross section
+    is zero above this value, apart from floating-point boundary slack. The
+    equivalent proton energy cannot exceed the numerically audited 10 GeV
+    limit. Relativistic values are extrapolations, not measured molecular
+    calibration. This must exceed ``projectile_energy_min``; see
+    :ref:`multiphysics-collisions-proton-impact-ionization`.
 
 .. pp:param:: <collision_name>.productA_temperature_eV
     :type: `float array, size 3`
@@ -4614,7 +5042,9 @@ In-situ capabilities can be used by turning on Sensei or Ascent (provided they a
     :optional:
 
     Fields written to output.
-    Possible scalar fields: ``part_per_cell`` ``rho`` ``phi`` ``F`` ``part_per_grid`` ``proc_num`` ``divE`` ``divB`` ``eb_covered`` ``rho_<species_name>``, ``T_<species_name>``, and ``part_per_cell_<species_name>``, where ``<species_name>`` must match the name of one of the available particle species.
+    Possible scalar fields: ``part_per_cell`` ``rho`` ``phi`` ``F`` ``part_per_grid`` ``proc_num`` ``divE`` ``divB`` ``eb_covered`` ``rho_<species_name>``, ``T_<species_name>``, and ``part_per_cell_<species_name>``.
+    Species names must match an available species. Temperature fields require a kinetic species.
+    Fluid species support charge density and have zero macroparticles in ``part_per_cell_<species_name>``.
     ``T_<species_name>`` is the temperature in eV (only valid for non-relativistic plasmas, since the code relies on the equipartition theorem to extract the temperature).
     With the hybrid-PIC solver (:pp:param:`algo.maxwell_solver` = ``hybrid``), the scalar fields ``Te`` (electron temperature in K: implied by the electron-pressure closure, or the evolved state variable when :pp:param:`hybrid_pic_model.solve_electron_energy_equation` is on) and ``Pe`` (electron pressure in Pa, as used in the Ohm's-law E-field solve) are also available.
     ``eb_covered`` is a number between 0 and 1 that indicates the fraction of the cell that is covered by the embedded boundary.
@@ -5064,6 +5494,11 @@ This shifts analysis from post-processing to runtime calculation of reduction op
 
         The output columns are the total energy of all species, the total energy per species, the total mean energy :math:`E_p / \sum_i w_i` of all species, and the total mean energy per species.
 
+        Fluid populations are included. A rigid beam contributes its prescribed kinetic
+        energy times its physical population; immobile ions contribute zero. Mean values
+        use the total physical population, including fluids. The prescribed beam is an
+        external energy source, so its energy is not depleted by collisions or field work.
+
     * ``ParticleMomentum``
         This type computes the total and mean relativistic particle momentum among all species:
 
@@ -5074,6 +5509,10 @@ This shifts analysis from post-processing to runtime calculation of reduction op
         where :math:`\boldsymbol{p}_i` is the relativistic momentum of the :math:`i`-th particle, :math:`N` is the number of particles, and :math:`w_i` is the weight of the :math:`i`-th particle.
 
         The output columns are the components of the total momentum of all species, the total momentum per species, the total mean momentum :math:`\boldsymbol{P}_p / \sum_i w_i` of all species, and the total mean momentum per species.
+
+        Fluids are included. A rigid beam contributes :math:`N\gamma m v_z` in z;
+        immobile ions contribute zero. Axisymmetric fluids have zero net transverse
+        Cartesian momentum. Means use physical populations, including fluids.
 
     * ``FieldEnergy``
         This type computes the electromagnetic field energy
@@ -5125,6 +5564,12 @@ This shifts analysis from post-processing to runtime calculation of reduction op
         This provides the power and total energy loss into or out of the simulation domain.
         The output columns are the flux for each dimension on the lower boundaries, then the higher boundaries,
         then the integrated energy loss for each dimension on the the lower and higher boundaries.
+        The initial integrated loss is zero. Each physical timestep contributes
+        once, using the implicit solver's midstep field sample when available.
+        Checkpoints preserve both the integrated loss and the sampled power;
+        writing diagnostics immediately after restart does not integrate another
+        timestep. Legacy checkpoints retain their saved integrated loss, but
+        their instantaneous power must be reconstructed from the saved fields.
 
     * ``FieldProbe``
         This type computes the value of each component of the electric and magnetic fields
@@ -5167,6 +5612,13 @@ This shifts analysis from post-processing to runtime calculation of reduction op
         0'th azimuthal mode component of the fields.
         Time integrated electric and magnetic field components can instead be obtained by specifying
         ``<reduced_diags_name>.integrate = true``.
+        Integration starts at zero at the initial simulation time, using the elapsed
+        time between samples. Checkpoints preserve the accumulated values and probe
+        positions, including when the MPI decomposition changes. Restart output at
+        the checkpoint time does not add another integration interval. The probe
+        geometry, interpolation order and integration settings must match the
+        checkpoint; output intervals may change. Older checkpoints without probe
+        state cannot restore integrated probes.
         The integration is done every time step even when the data is written out less often.
         In a *moving window* simulation, the FieldProbe can be set to follow the moving frame by specifying ``<reduced_diags_name>.do_moving_window_FP = 1`` (default 0).
 
@@ -5218,6 +5670,23 @@ This shifts analysis from post-processing to runtime calculation of reduction op
         total number of macroparticles of each species,
         sum of the particles' weight summed over all species,
         sum of the particles' weight of each species.
+
+        Fluid physical populations are volume integrals of the native number-density
+        fields with unique mesh ownership and the RZ deposition volume, including
+        persistent ion charge-shape support at physical boundaries. Fluids have zero
+        macroparticles. Fluid columns follow the kinetic-species columns.
+
+    * ``ParticleCharge``
+        Total physical charge [C], followed by charge per kinetic and fluid species.
+        Particle weights and, where applicable, particle ionization levels are included.
+        Fluid charge is its species charge times the volume-integrated number density.
+
+    * ``PrescribedSourceBudget``
+        For each rigid-fluid proton-impact collision, outputs pending physical count,
+        cumulative emitted count, emitted-electron kinetic energy [J], binding energy [J],
+        and discarded ion kinetic energy [J]. Energies account for prescribed-beam
+        production and omitted ion motion; they are not a closed system energy balance.
+        Values and counters continue across checkpoints. Pending production carries no charge.
 
     * ``BeamRelevant``
         This type computes properties of a particle beam relevant for particle accelerators, like position, momentum, emittance, etc.

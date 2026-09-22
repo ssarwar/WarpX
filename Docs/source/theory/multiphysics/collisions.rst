@@ -15,7 +15,8 @@ Background Monte Carlo Collisions (MCC)
 
 Several types of collisions between simulation particles and a neutral
 background gas are supported including elastic scattering, back scattering,
-charge exchange, excitation collisions and impact ionization.
+charge exchange, excitation collisions, impact ionization and electron
+attachment.
 
 The so-called null collision strategy is used in order to minimize the
 computational burden of the MCC module. This strategy is standard in PIC-MCC and
@@ -26,31 +27,626 @@ collision consideration. Only these pre-selected particles are then individually
 considered for a collision based on their energy and the cross-sections of all
 the different collisional processes included.
 
-The MCC implementation assumes that the background neutral particles are **thermal**,
-and are moving at non-relativistic velocities in the lab frame. For each
-simulation particle considered for a collision, a velocity vector for a neutral
-particle is randomly chosen given the user specified neutral temperature. The
-particle velocity is then boosted to the stationary frame of the neutral through
-a Galilean transformation. The energy of the collision is calculated using the
-particle utility function, ``ParticleUtils::getCollisionEnergy()``, as
+The MCC implementation assumes that the background neutral particles are
+**thermal** and move at non-relativistic velocities in the laboratory frame.
+For each simulation particle considered for a collision, a neutral ordinary
+velocity :math:`\boldsymbol{V}_n` is sampled from the user-specified classical
+Maxwellian distribution. WarpX particle momentum components are normalized
+momenta, or proper velocities,
+:math:`\boldsymbol{u}=\gamma\boldsymbol{v}`.
+
+For electron projectiles, Background MCC uses the fast approximate relative
+proper velocity
 
     .. math::
 
-       \begin{aligned}
-        E_{coll} &= \sqrt{(\gamma mc^2 + Mc^2)^2 - (mu)^2} - (mc^2 + Mc^2) \\
-                 &= \frac{2Mmu^2}{M + m + \sqrt{M^2+m^2+2\gamma mM}}\frac{1}{\gamma + 1}
-       \end{aligned}
+       \widetilde{\boldsymbol{u}}
+       = \boldsymbol{u}_e-\boldsymbol{V}_n,
+       \qquad
+       \widetilde{\gamma}
+       = \sqrt{1+\frac{\widetilde{u}^2}{c^2}}.
 
-where :math:`u` is the speed of the particle as tracked in WarpX (i.e.
-:math:`u = \gamma v` with :math:`v` the particle speed), while :math:`m` and
-:math:`M` are the rest masses of the simulation and background species,
-respectively. The Lorentz factor is defined in the usual way,
-:math:`\gamma \equiv \sqrt{1 + u^2/c^2}`. Note that if :math:`\gamma\to1` the above
-expression reduces to the classical equation
-:math:`E_{coll} = \frac{1}{2}\frac{Mm}{M+m} u^2`. The collision cross-sections
-for all scattering processes are evaluated at the energy as calculated above.
+This subtraction is exact to leading order when the electron is
+non-relativistic, because :math:`\boldsymbol{u}_e\simeq\boldsymbol{v}_e`, and
+is exact for a stationary neutral at any electron energy. When the electron is
+relativistic, the neglected correction due to neutral motion has relative size
+of order :math:`V_n/c`, which is negligible for a classical gas. This
+approximation is specific to relativistic electrons colliding with
+non-relativistic neutrals; it is not a general relativistic relative-velocity
+formula.
+
+The cross-section lookup energy and physical collision-rate speed are
+
+    .. math::
+
+       E_{\mathrm{lookup}}
+       = \frac{m_e\widetilde{u}^2}
+              {e(\widetilde{\gamma}+1)},
+       \qquad
+       g_{\mathrm{coll}}
+       = \frac{\lvert\widetilde{\boldsymbol{u}}\rvert}
+              {\widetilde{\gamma}},
+
+where :math:`E_{\mathrm{lookup}}` is in electronvolts. In the
+stationary-neutral limit, :math:`g_{\mathrm{coll}}` is the ordinary electron
+speed, not the stored proper speed :math:`\lvert\boldsymbol{u}_e\rvert`.
+
+The lookup energy approximates the electron kinetic energy in the neutral rest
+frame. For an electron incident on an atomic or molecular neutral, its
+difference from the total center-of-momentum kinetic energy is of relative
+order :math:`m_e/M` until extreme relativistic energies. WarpX therefore does
+not distinguish these two energies for cross-section lookup in this model.
+Using ``ParticleUtils::getCollisionEnergy()`` would evaluate the exact two-body
+center-of-momentum energy and add another square root without a useful increase
+in accuracy. A full three-vector Lorentz transformation is likewise not needed.
+
+Thus, the frequency for process :math:`i` is
+:math:`\nu_i=n_n\sigma_i(E_{\mathrm{lookup}})g_{\mathrm{coll}}`.
+
+All configured processes, including impact ionization and attachment, compete
+in one draw. A particle therefore undergoes at most one accepted process in
+each Background MCC collision substep. In-place elastic and excitation outcomes
+are applied immediately. Product-changing outcomes are recorded and then
+created from one compact event queue. Channels are grouped by process type and
+destination species for allocation, but all groups are populated by one
+particle-creation kernel.
+
+By default, the null-collision majorant is constructed from the union of all
+cross-section table knots. WarpX reuses the total-cross-section row of the
+cumulative process table described below. Between consecutive union knots the
+summed cross section is linear. WarpX evaluates both endpoints and, on a
+decreasing segment, the one possible stationary point of
+:math:`\sigma_{\mathrm{tot}}(E)g_{\mathrm{coll}}(E)`. The electron stationary
+point is analytic; the initialization-only non-electron path uses a fixed
+bisection. This is a tighter bound than multiplying the larger endpoint cross
+section by the upper-endpoint speed. If the cumulative table is disabled by its
+memory limit, a k-way merge constructs the same union intervals without
+materializing the table. Neither path steps through the total energy span using
+the smallest input spacing. For electrons, the constant high-energy table
+extrapolation is also bounded using :math:`g_{\mathrm{coll}}<c`.
+
+A user can bypass automatic construction with a collision-level majorant in
+:math:`\mathrm{s}^{-1}`::
+
+    mcc.nu_max = 1.0e12
+
+or with ``picmi.MCCCollisions(..., nu_max=1.0e12)``. The supplied value must
+bound the sum of all configured process frequencies for every particle state
+and background density encountered by that MCC object; an underestimated value
+biases the collision probabilities. This includes the relative speeds produced
+by thermal-neutral sampling. WarpX checks the bound for sampled collision
+candidates and aborts if it is violated. Each MCC object retains its own
+majorant.
+The candidate probability is recalculated from the current collision timestep
+as :math:`P_{\max}=1-\exp(-\nu_{\max}\Delta t_{\mathrm{coll}})`, so
+collision subcycling and variable timesteps use the appropriate probability.
+
+For a sampled collision state, let
+:math:`\nu=n_n g_{\mathrm{coll}}\sigma_{\mathrm{tot}}(E)`. Conditional on a
+candidate, the acceptance probability is
+
+.. math::
+
+   A(E)=\frac{1-\exp(-\nu\Delta t_{\mathrm{coll}})}{P_{\max}}.
+
+Thus the unconditional one-event probability is
+:math:`P_{\max}A=1-\exp(-\nu\Delta t_{\mathrm{coll}})`, independent of how
+loose the majorant is. After acceptance, process :math:`j` has probability
+:math:`\sigma_j/\sigma_{\mathrm{tot}}`. One uniform draw performs both decisions:
+reject if :math:`u\geq A`, otherwise select the cross-section prefix containing
+:math:`(u/A)\sigma_{\mathrm{tot}}`. ``expm1`` evaluates the small-optical-depth
+limit without cancellation; the exponent uses particle precision on the device.
+
+The former acceptance :math:`\nu/\nu_{\max}` instead gave
+:math:`(1-\exp(-\nu_{\max}\Delta t))\nu/\nu_{\max}`. Its ratio to the
+linearized physical probability :math:`\nu\Delta t` was
+:math:`(1-\exp(-\tau_{\max}))/\tau_{\max}`, which can be arbitrarily small
+for a loose majorant, even when the physical collision rate is well resolved.
+The corrected rule removes that additional finite-step bias. It does **not**
+represent multiple collisions within one call, changes of particle energy
+after an earlier collision in that call, or continuous resampling of a thermal
+target within the step. Subcycling/timestep convergence remains necessary
+when the physical collision frequency times the step is not small. The
+warning based on :math:`\nu_{\max}\Delta t` is a conservative sufficient
+criterion, not evidence that the actual physical rate is that large.
+
+For non-electron projectiles, the existing center-of-momentum collision-energy
+convention from ``ParticleUtils::getCollisionEnergy()`` is retained. Its inverse
+uses both projectile and neutral masses when constructing the automatic
+majorant. The collision rate uses the corresponding ordinary relative speed,
+not proper speed. This distinction is negligible in the intended
+non-relativistic ion regime, but keeps the rate physical and bounded by
+:math:`c`. The automatic non-electron majorant covers both the tabulated range
+and the endpoint-clamped high-energy continuation. It bounds the latter by the
+last total cross section multiplied by :math:`c`; a user ``nu_max`` is not
+needed solely because a non-electron projectile can exceed the last table
+energy.
+
+The configured ``background_mass`` always denotes the neutral target mass and
+is kept separate from the mass of any ionization product species. If it is
+omitted for an ionizing electron-neutral collision, the neutral mass is inferred
+from the positive-ion product mass plus one electron mass. Attachment-only MCC
+objects must specify ``background_mass`` because a dissociative negative-ion
+product does not uniquely determine the original neutral mass.
+Different positive-ion product masses require an explicit neutral mass;
+specifying it bypasses mass inference, not product-charge validation. This
+does not make an effective dissociative channel a resolved fragmentation model.
+
+Ionization and attachment process names may have unique suffixes, for example
+``ionization_N2`` and ``attachment_O2_dissociative``. Each such process names
+its destination species with ``<process>_species``. An ionization event keeps
+the incident electron, creates one additional electron and one singly charged
+positive ion, while an attachment event consumes the incident electron and
+creates one singly charged negative ion. Created macroparticles inherit the
+incident electron weight and receive new particle IDs. Positive and negative
+product species must have charge ``+q_e`` and ``-q_e``, respectively.
+
+Attachment cross-section units are explicit. Set
+``<process>_cross_section_units = m2`` when the table already contains an
+effective two-body cross section. For a raw three-body table, set
+``<process>_cross_section_units = m5`` and provide a positive
+``<process>_third_body_density`` in :math:`\mathrm{m}^{-3}`. WarpX multiplies
+the raw table by this density exactly once before constructing the majorant.
+The unscaled values are retained in double precision so that small
+:math:`\mathrm{m}^{5}` values do not underflow in single-precision builds.
+
+Ionization energy sharing and kinematics
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The user-supplied integral cross-section table always determines the
+ionization event rate. By default, WarpX subtracts the configured threshold
+``<process>_energy`` and shares the remaining energy equally between the two
+outgoing electrons. The per-process ``RBEQ`` energy-sharing model instead uses
+the relativistic binary-encounter Bethe, or RBEQ, singly differential cross
+section described by :cite:t:`b-Schmalzried2023`::
+
+    mcc.ionization_N2_energy_sharing_model = RBEQ
+    mcc.ionization_N2_rbeq_target = N2
+    mcc.ionization_N2_energy = 15.58
+
+``RBEQ`` is available for ``N2`` and ``O2``. WarpX first selects one of five
+:math:`\mathrm{N}_2` or six :math:`\mathrm{O}_2` subshells from its positive
+RBEQ partial cross section. The selected binding energy :math:`B_i`, rather
+than only the outer-shell threshold, is then removed from the incident energy.
+The lower-energy electron is sampled from the conditional RBEQ distribution on
+
+    .. math::
+
+       0 \leq T_s \leq \frac{T-B_i}{2},
+
+and the other electron receives the remainder, apart from molecular-ion recoil.
+The configured process threshold must match the target outer-shell binding
+energy within 0.05 eV: 15.58 eV for :math:`\mathrm{N}_2` and 12.07 eV for
+:math:`\mathrm{O}_2`.
+
+Some unit-oscillator-strength RBEQ partials become slightly negative immediately
+above their subshell thresholds. A negative partial is unphysical and cannot
+define a probability, so WarpX clamps it to zero until the analytic expression
+becomes positive; it is never reflected with an absolute value. WarpX stores
+the analytic zero-crossing coordinate and interpolates the unnormalized,
+non-negative partial cross sections. Consequently, interpolation cannot activate
+a shell below its crossing, and normalization occurs only after interpolation
+at the collision energy.
+
+For several of these shells, the integrated partial becomes positive slightly
+before the published SDCS is non-negative over its complete kinematic interval.
+A non-monotone cumulative function cannot be sampled as a probability. In that
+narrow interval, WarpX uses a uniform conditional energy distribution and
+switches to RBEQ once the complete SDCS is non-negative. This continuation is
+also used within 0.1 percent of every binding threshold, where direct evaluation
+is ill-conditioned. It preserves a finite, symmetric threshold limit without
+turning negative values into artificial positive probability.
+
+The partial cross sections and conditional inverse CDFs are precomputed on
+logarithmic energy grids during initialization. Subshell selection uses 2,049
+energy points, while the much larger inverse-CDF data use 257. The two grids
+cover the same range, so the shell coordinate is obtained from the inverse-CDF
+coordinate by one fixed scale factor rather than another logarithm or search.
+This independently resolves sharp shell onsets without multiplying the
+inverse-CDF memory footprint. The inverse CDF uses 513 samples of the symmetric
+probability map
+
+    .. math::
+
+       q(x) = \frac{x^4}{x^4+(1-x)^4}, \qquad 0 \leq x \leq 1,
+
+The random energy probability has 53 bits, even with float particles.
+Its complement :math:`1-q` is formed before conversion to particle
+precision; otherwise rounding :math:`q` to one can collapse an important
+part of the relativistic hard tail onto the endpoint. The fourth roots and
+table interpolation still use particle precision. Equal sharing requires
+no energy or shell random draw.
+
+This map resolves both high-energy probability tails without linearly
+interpolating from an interior quantile to the physical endpoint. The tables
+cover incident energies through at least 1 GeV. Each accepted event then
+requires one logarithm and fixed-size interpolation, with no device allocation
+or iterative root solve.
+
+The angular model is selected independently from energy sharing. With
+``<process>_scattering_angle_model = IAA``, the collision is evaluated in the
+sampled neutral rest frame. Let :math:`T_a=T-B_i`, and let :math:`T_p` and
+:math:`T_s` be the unrecoiled primary and secondary energies. The primary
+electron follows the relativistic binary-encounter relation
+
+    .. math::
+
+       \cos\theta_p =
+       \sqrt{\frac{T_p(T_a+2m_ec^2)}{T_a(T_p+2m_ec^2)}}.
+
+The bound/free interpolation for the secondary electron follows
+Schmalzried Eq. (11.132) directly:
+
+    .. math::
+
+       \cos\theta_s =
+       \frac{T_s}{T_s+B_i}
+       \frac{T_s+B_i/2}{\sqrt{T_s T}}
+       + \frac{B_i}{T_s+B_i}\xi,
+       \qquad \xi\sim\mathcal{U}[-1,1].
+
+Here :math:`T` is the incident electron energy before the binding loss. The
+sampled result is restricted to the physical cosine interval
+:math:`[-1,1]`; this affects only the upper edge of the crude near-threshold
+square-window model.
+
+The electron azimuths differ by :math:`\pi`; the product ion receives the
+remaining momentum. WarpX solves for the total electron energy after ion recoil
+with three initial Newton updates. The analytic derivative includes both
+outgoing electron momenta, while a stable :math:`pc` representation avoids
+subtracting the ion rest energy. The energy residual is checked explicitly;
+if needed, a bounded safeguarded Newton/bisection fallback takes at most
+48 further iterations. A draw that cannot produce an energy-conserving state
+is a null collision: the incident electron is unchanged and both reserved
+product slots are removed before another collision operator runs. This matters
+near a shell threshold, where prescribed angles/sharing can be inadmissible,
+and at extreme incident energies where three Newton iterations are insufficient.
+Kernel tests extend through 100 GeV, including deliberately adverse backward
+and isotropic events. The accepted products are Lorentz transformed back to
+the simulation frame. This numerical coverage is not a validation of RBEQ
+or its angular closure against data at those energies.
+
+For every electron process with a positive discrete loss :math:`Q`, finite
+target recoil raises the stationary-target laboratory threshold above
+:math:`Q` to
+
+    .. math::
+
+       T_{\mathrm{thr}} = Q\left(1+\frac{m_e}{M}\right)
+       + \frac{Q^2}{2Mc^2}.
+
+An integral cross-section table can rise immediately above :math:`Q`, leaving
+a narrow interval in which interpolation gives a nonzero value but the final
+state is kinematically forbidden. WarpX treats a selection in
+:math:`Q<T<T_{\mathrm{thr}}` as a null event. This guard applies to excitation,
+ionization and any other positive-loss electron channel, independently of its
+angular or energy-sharing model.
+
+IAA/elmolcs differential scattering
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For elastic and excitation electron scattering, ``IAA`` selects an angular
+differential cross-section (DCS) table such as the :math:`\mathrm{N}_2` and
+:math:`\mathrm{O}_2` tables from the
+`elmolcs project <https://codeberg.org/jesenek/elmolcs>`_::
+
+    mcc.elastic_N2_scattering_angle_model = IAA
+    mcc.elastic_N2_differential_cross_section = /path/to/DCS.e-N2
+    mcc.excitation_N2_scattering_angle_model = IAA
+    mcc.excitation_N2_differential_cross_section = /path/to/DCS.e-N2
+    mcc.excitation_N2_energy = 6.17
+
+This DCS table is separate from ``<process>_cross_section``: the latter controls
+the event rate, while the DCS controls only the conditional scattering angle.
+WarpX reads the elmolcs ``DCS.e-N2`` and ``DCS.e-O2`` files directly. It ignores
+header, metadata and separator rows whose first token is not numeric. Each
+numeric row contains a positive, strictly increasing energy in eV followed by
+at least three non-negative angular values. All numeric rows must have the same
+number of values, uniformly spaced from :math:`0` to :math:`\pi`. The elmolcs
+tables contain 361 values at 0.5-degree spacing and extend from their low-energy
+endpoint through 1 GeV. Their DCS units are
+:math:`10^{-20}\,\mathrm{m}^2\,\mathrm{sr}^{-1}`, although a common positive
+scale cancels from angular sampling.
+
+For a DCS :math:`D(E,\theta)`, WarpX constructs the polar-angle density
+
+    .. math::
+
+       p(\theta\mid E) =
+       \frac{D(E,\theta)\sin\theta}
+            {\int_0^\pi D(E,\vartheta)\sin\vartheta\,d\vartheta}.
+
+Below 10 keV, WarpX follows the IAA interpolation variables
+:math:`x=\log E` and :math:`y=\sin(\theta/2)`. It treats each DCS row as
+piecewise linear in :math:`y` and integrates the solid-angle density
+:math:`yD(E,y)` exactly on every angular interval. A tail-resolving inverse CDF
+is precomputed for every table energy on the host and copied to the device. The
+inverse table stores :math:`1-\cos\theta=2y^2` rather than
+:math:`\cos\theta`, retaining small forward deflections in single-precision
+particle builds.
+
+At runtime, the DCS linear in :math:`x` is sampled as an exact mixture of its
+two bracketing row distributions. If :math:`f` is the logarithmic energy
+fraction and :math:`I_0,I_1` are the precomputed row integrals, the row weights
+are :math:`(1-f)I_0` and :math:`fI_1`. One bisection, one logarithm and one
+uniform variate therefore select a row and its conditional quantile. Only two
+adjacent values from that row's inverse CDF are loaded; interpolation does not
+blend inverse angles from different energies.
+
+The 0.5-degree elmolcs grid cannot resolve the increasingly narrow forward
+lobe at relativistic energies. Consequently, increasing only the inverse-CDF
+resolution cannot recover the missing sub-grid probability. For files whose
+``SPECIES:`` metadata identifies :math:`\mathrm{N}_2` or :math:`\mathrm{O}_2`,
+WarpX follows the IAA high-energy prescription at and above 10 keV and samples
+the screened-Rutherford continuation analytically:
+
+    .. math::
+
+       \eta = \frac{1}{(2ak)^2}, \qquad
+       1-\cos\theta = \frac{2\eta\xi}{1-\xi+\eta},
+       \qquad \xi\sim\mathcal{U}[0,1),
+
+where :math:`k=\sqrt{\tau(\tau+2)}/\alpha` in inverse Bohr radii,
+:math:`\tau=T/(m_ec^2)`, and the fitted screening radii are
+:math:`a=0.6052\,a_0` for :math:`\mathrm{N}_2` and
+:math:`a=0.5677\,a_0` for :math:`\mathrm{O}_2`. This path is valid through the
+1 GeV IAA endpoint and avoids an energy bisection and inverse-CDF table reads
+for accepted high-energy events. WarpX retains only the tabulated rows through
+the first row at or above 10 keV, so unused relativistic rows consume neither
+initialization time nor device memory.
+
+The sampled DCS angle is the outgoing-electron angle for a stationary target,
+not a center-of-momentum angle. For elastic scattering, WarpX applies exact
+relativistic two-body recoil in the sampled neutral rest frame. For excitation,
+the target's final rest energy is increased by the configured discrete loss
+:math:`Q`. The outgoing momentum magnitude is the analytic two-body solution of
+
+    .. math::
+
+       T + m_ec^2 + Mc^2 = T' + m_ec^2
+       + \sqrt{(Mc^2+Q)^2 + c^2\lvert\boldsymbol{p}-\boldsymbol{p}'\rvert^2},
+
+for the sampled angle. This conserves energy and momentum, including molecular
+recoil, before transforming the electron back to the simulation frame. The
+model therefore requires an electron projectile and a neutral target heavier
+than the electron. Above the recoil-shifted physical threshold, an angular draw
+outside the allowed two-body laboratory range is projected to its nearest
+kinematically allowed value.
+Near threshold that allowed region is a **forward** cone. The squared energy
+equation also admits a backward cone with negative outgoing momentum; it must
+not be used. WarpX solves for the outgoing momentum directly and evaluates
+kinetic energy as :math:`(p'c)^2/(\sqrt{(m_ec^2)^2+(p'c)^2}+m_ec^2)`.
+The backward-angle momentum root is rationalized separately. These forms
+avoid subtracting the electron rest energy when the outgoing kinetic energy
+approaches zero.
+
+Many-channel selection and DCS reuse
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The cumulative selector covers **all** processes listed in one Background MCC
+object: elastic, excitation, ionization, attachment, charge exchange and
+two-product reactions. It is not an excitation-only table. The original input
+order defines process indices :math:`i=0,\ldots,P-1`. During initialization,
+WarpX constructs the sorted union
+
+    .. math::
+
+       \mathcal{E} = \operatorname{unique}\!\left(
+       \bigcup_{i=0}^{P-1}\mathcal{E}_i\right)
+       = \{E_0,\ldots,E_{U-1}\}
+
+of the knots from every integral cross-section grid, then stores the prefix
+rows
+
+    .. math::
+
+       C_j(E_k) = \sum_{i=0}^{j}\sigma_i(E_k),
+       \qquad j=0,\ldots,P-1.
+
+Each :math:`\sigma_i` is evaluated with the same piecewise-linear interpolation
+and endpoint clamping as an ordinary ``ScatteringProcess`` lookup. Every input
+breakpoint is present in :math:`\mathcal{E}`, so all :math:`\sigma_i` and all
+:math:`C_j` are linear between adjacent union knots. Linear interpolation of a
+prefix row is therefore exact relative to the stored cross-section
+representation, apart from floating-point roundoff; resampling onto the union
+does not smooth a threshold or otherwise approximate a channel.
+
+For each particle that passes the global null-collision preselection, WarpX
+samples one neutral velocity and calculates one collision energy. Process
+selection then consists of:
+
+#. one bisection of :math:`\mathcal{E}` to obtain the bracketing index
+   :math:`k` and interpolation fraction;
+#. one interpolation of the last prefix row
+   :math:`C_{P-1}(E)=\sigma_{\mathrm{tot}}(E)`;
+#. one uniform draw for the physical-event acceptance above, converted to
+   cross-section units only if accepted; and
+#. one binary search over :math:`j` for the first interpolated prefix with
+   :math:`C_j(E)` above that draw.
+
+Thus, yes: when every process was supplied on a common grid, that grid is also
+the union and the cross-section energy interval is found only once per
+candidate particle. The same remains true when the input grids differ, because
+they were combined at initialization. The selector cost is
+:math:`O(\log U+\log P)` rather than :math:`P` separate energy bisections plus a
+linear process scan. For example, 64 processes require at most six prefix
+comparisons after the energy search.
+
+"One energy search" refers specifically to the integral cross sections used
+for event acceptance and process choice. A selected IAA angular DCS has its own
+independent energy grid and performs one additional DCS bisection, but only for
+the chosen process. RBEQ energy sharing likewise uses its own fixed logarithmic
+coordinate. WarpX never searches the angular or RBEQ tables for processes that
+were not selected.
+
+The prefix table contains cumulative cross-section weights only; it does not
+contain or average energy losses. The binary search returns the original
+process index :math:`j`.
+WarpX then reads that process's unchanged discrete ``<process>_energy``, type,
+angular model, ionization model and product-species group. An excitation event
+therefore subtracts exactly the loss configured for its selected channel. An
+ionization or attachment event records the same process index for the grouped
+particle-creation pass, so cumulative selection cannot disconnect a product
+from its channel.
+
+The storage in one host or device copy is
+
+    .. math::
+
+       (P+1)U\,\mathrm{sizeof}(\mathtt{ParticleReal}),
+
+where the extra row is the union energy grid and the :math:`P` other rows are
+the prefixes. WarpX enables the selector only when this total is at most
+64 MiB. Consequently,
+
+    .. math::
+
+       U_{\max} = \left\lfloor
+       \frac{64\,\mathrm{MiB}}
+            {(P+1)\,\mathrm{sizeof}(\mathtt{ParticleReal})}
+       \right\rfloor.
+
+For 64 processes this permits 129,055 union points with double-precision
+particles or 258,111 with single-precision particles. For 128 processes the
+limits are 65,027 and 130,055 points, respectively. Typical cross-section sets
+are far smaller: if 64 channels each use the same 100-point grid, then
+:math:`U=100`, not 6,400. Only completely distinct knots can make :math:`U`
+approach the sum of the individual grid sizes. A GPU build retains one host
+copy and one device copy, each subject to the 64 MiB limit. Original process
+grids, angular DCS tables and RBEQ tables are separate allocations.
+
+If the limit would be exceeded, WarpX does not truncate or coarsen any grid. It
+uses the exact legacy fallback, which evaluates each process cross section and
+scans the cumulative probabilities at runtime. The first-step information
+message reports the active selection path, union point count and bytes per
+copy, making an accidental fallback visible in production logs.
+
+Prefix rows are stored process-major. Particles in a GPU warp begin each
+process binary search at the same middle prefix, while nearby particle energies
+usually address nearby entries within that row. All selector arrays are fixed,
+contiguous device data; selection performs no allocation, virtual dispatch or
+iterative solve in the particle kernel.
+
+Elastic and excitation channels that name the same DCS file share one
+precomputed inverse-CDF table and one device allocation. This avoids duplicating
+initialization work and device memory when many excitation channels use the
+same target DCS. Use the same path string for channels that should share a
+table.
+
+The elmolcs data are distributed separately from WarpX and are not copied into
+the BSD-licensed source tree. Users must obtain the tables separately and comply
+with their license. The construction and intended range of the IAA database are
+documented in :cite:t:`b-Schmalzried2023`.
+
+Product creation and attachment removal
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Ionization and attachment preserve the original selected process index in a
+compact product-event record. The record also contains the source-particle
+index, sampled neutral velocity, collision energy and destination-group offset.
+Consequently, the creation kernel still reads the selected channel's discrete
+energy loss, ionization model and angular model; grouping never averages channel
+physics. Carrying the already calculated collision energy also avoids repeating
+its square root for every accepted ionization event.
+
+On a GPU, the selection kernel reserves one slot in the compact event queue and
+one offset in the destination group for each product-changing event. These are
+device-local atomic increments. At the recommended
+:math:`\nu_{\max}\Delta t_{\mathrm{coll}}\lesssim 0.1`, fewer than about ten
+percent of the source particles can pass even the null-collision preselection,
+and product-changing events are a subset of those candidates. The atomics are
+therefore sparse in the converged operating regime. On a CPU, selection first
+writes independent per-source records; one host pass both compacts those
+records and computes the group offsets, without unsafe updates inside an
+``amrex::ParallelFor``.
+
+The host receives only the small vector of per-group event counts. Each source
+or destination particle tile is then resized once. All destination groups and
+all secondary electrons are populated by one kernel over the number of compact
+events, not by a kernel over every source particle and not by one source scan
+per process or product group. Contiguous particle-ID ranges are reserved before
+that kernel and assigned within it, avoiding separate ID kernels. Immutable
+smart-copy and product-group metadata are constructed once and reused across
+collision substeps.
+
+An attachment marks its incident electron invalid. WarpX compacts only the
+source tile that contained an attachment and only when that tile actually had
+an attachment event. It does not rescan every tile merely because an attachment
+channel is configured. Each MPI rank and GPU performs this creation and removal
+on its local particle tiles; the algorithm introduces no inter-rank collective
+or cross-GPU synchronization. A device-to-host count transfer remains necessary
+before resizing a particle tile, because the new allocation size is a host-side
+container operation.
+
+GPU performance validation
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+CPU timing and accelerator compilation are necessary checks, but neither proves
+a GPU speedup. Validate a performance change with reference and candidate
+builds on the target cluster. Use the same compiler, optimization flags, GPU
+architecture, AMReX options, MPI layout, particle decomposition, input data and
+random seed. Discard a warm-up run, collect at least 20 timed repetitions and
+compare medians together with a confidence interval rather than a single wall
+time.
+
+The ``inputs_test_1d_background_mcc_many_attachment_picmi.py`` test accepts
+``--particle-count``, ``--process-count``, ``--steps``, ``--subcycles``,
+``--cell-count``, ``--max-grid-size`` and ``--target-acceptance`` arguments for
+stand-alone performance runs. ``--particle-count`` is the global source count
+and must be divisible by ``--cell-count``. Multiple cells and a smaller maximum
+grid size create enough boxes to occupy multiple MPI ranks and GPUs. Pass
+``--mpi-timing`` under ``mpiexec`` with a ``WarpX_MPI=ON`` build so only rank
+zero writes the generated table and the reported time is the maximum over
+ranks. The benchmark aborts if the MPI world sizes do not agree. When specified,
+``--target-acceptance`` chooses an explicit conservative majorant and, with one
+step and one subcycle, an optical depth whose expected product-event fraction
+is the requested value. Large values are useful lifecycle stress tests, but are
+not time-converged physical simulations.
+
+Exercise at least the following matrix:
+
+* 1, 8, 32, 64 and 128 processes, using both shared and different energy grids;
+* attachment-only, ionization-only and representative elastic/excitation/product
+  mixtures;
+* approximately 0, 1, 10, 50 and 90 percent product-event fractions;
+* both small and large particle tiles and single- and double-precision particles;
+* one GPU, every GPU on one node and a multi-node weak- and strong-scaling case.
+
+Use the ABLASTR profiler regions
+``BackgroundMCCCollision::selectAndScatter()``,
+``BackgroundMCCCollision::createProducts()``,
+``BackgroundMCCCollision::compactAttachedElectrons()`` and
+``BackgroundMCCCollision::doCollisions()`` to separate selection, creation,
+removal and total MCC time. Also inspect a GPU timeline and kernel metrics with
+an appropriate vendor profiler. In particular, check kernel-launch count,
+device-to-host synchronization, allocation time, atomic contention, achieved
+occupancy, register spills, cache and memory throughput, and MPI idle time.
+
+Accept an optimization only if it preserves particle counts, charge, weights,
+discrete losses and the statistical angle and energy distributions, reduces
+the total MCC median for the intended workload, does not regress the
+low-acceptance production regime and keeps peak device memory bounded. This
+measurement is also what determines the next optimization: for example,
+profiles dominated by per-tile allocation or count synchronization motivate
+reusable scratch storage or batched count transfers, while atomic-dominated
+high-acceptance runs motivate a scan-based event queue. Such changes should not
+be selected from CPU timings alone.
+
+Collision timestep
+^^^^^^^^^^^^^^^^^^
+
+Background MCC permits at most one event per particle per collision substep.
+Use ``ndt_subcycle`` and verify convergence when the collision optical depth is
+not small. This remains important for quantitative air simulations.
 
 Once a particle is selected for a specific collision process, that process determines how the particle is scattered as outlined below.
+
+Proton and bare-ion impact ionization
+-------------------------------------
+
+The rigid-beam proton-impact source uses the calibrated PJG-type N2/O2 SDCS.
+Its formulation, original-model comparison, calibration and validation are
+described in :ref:`multiphysics-collisions-proton-impact-ionization`.
 
 .. _multiphysics-collisions-pulseddecay:
 

@@ -7,6 +7,7 @@
 
 #include "ReducedDiags.H"
 
+#include "Fluids/MultiFluidContainer.H"
 #include "WarpX.H"
 #include "Utils/Parser/ParserUtils.H"
 #include "Utils/TextMsg.H"
@@ -31,6 +32,16 @@ m_rd_name{rd_name}
 
     const ParmParse pp_rd("reduced_diags");
     const ParmParse pp_rd_name(m_rd_name);
+
+    amrex::Vector<std::string> selected_species;
+    pp_rd_name.queryarr("species", selected_species);
+    auto& warpx = WarpX::GetInstance();
+    for (auto const& name : selected_species) {
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(!warpx.DoFluidSpecies() ||
+            !warpx.GetFluidContainer().FindSpecies(name),
+            "The sampled-particle diagnostic '"+m_rd_name+
+            "' requires kinetic species; '"+name+"' is a fluid.");
+    }
 
     // read path
     pp_rd.query("path", m_path);

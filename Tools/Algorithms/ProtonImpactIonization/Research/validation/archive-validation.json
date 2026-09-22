@@ -1,0 +1,71 @@
+{
+  "date": "2026-09-14",
+  "baseline_commit": "967f48efa1a1f473916c9019118901d75b97b228",
+  "scope": "Archival preservation and offline numerical reproduction; no production physics or collision code changed.",
+  "environment": {
+    "python": "3.12.13",
+    "numpy": "2.5.1",
+    "scipy": "1.18.0",
+    "matplotlib": "3.10.9",
+    "host": "macOS arm64, CPU"
+  },
+  "checks": {
+    "archive_verifier_before_adding_this_summary": {
+      "artifacts": 108,
+      "tar_members": 101,
+      "payload_bytes": 39719763,
+      "result": "passed"
+    },
+    "current_python_suite": {
+      "command": "python -m unittest discover -s Tools/Algorithms/ProtonImpactIonization -v",
+      "passed": 63,
+      "failed": 0
+    },
+    "isolated_historical_python_suite": {
+      "command": "python -m unittest discover -s build/pjg-history-replay/Tools/Algorithms/ProtonImpactIonization -v",
+      "passed": 67,
+      "failed": 0
+    },
+    "frozen_recomputation": {
+      "command": "python Tools/Algorithms/ProtonImpactIonization/fit_pjg.py --nifs Tools/Algorithms/ProtonImpactIonization/Research/inputs/nifs-optical.json --o2-leiden Tools/Algorithms/ProtonImpactIonization/Research/inputs/leiden-o2.txt --output build/pjg-archive-recomputed.json --figures build/pjg-archive-recomputed-figures --frozen",
+      "network_required": false,
+      "result_json_byte_identical_to_archive": true,
+      "result_sha256": "918bca24f2eafe8da28cd93ccba9003cf86e9ec527540d7f89c7fbb765c44f93",
+      "figure_byte_identity": {
+        "n2_sdcs.png": true,
+        "o2_sdcs.png": true,
+        "total_cross_sections.png": true,
+        "physics_validation.png": true
+      },
+      "maximum_effective_pair_to_pstar_electronic": {
+        "N2": 0.938497659547766,
+        "O2": 0.9653444397437058
+      },
+      "note": "Exact byte identity is observed on this host, not promised across numerical/renderer versions. The alternate-start fit remains a validation calculation and does not modify the selected coefficients."
+    },
+    "archive_markdown_local_links": {
+      "checked": 89,
+      "broken": 0
+    },
+    "archived_text_credential_pattern_review": {
+      "records_checked": 159,
+      "matches": 0,
+      "note": "Scoped manual/pattern review, not a claim that a general-purpose secret scanner ran. Browser state and credentials were excluded before assembly."
+    },
+    "ruff_new_verifier_and_tests": "check and format --check passed",
+    "sphinx_html": {
+      "command": "MPLCONFIGDIR=build/matplotlib build/docs-env/bin/sphinx-build -q -b html -w build/pjg-archive-sphinx-warnings.log Docs/source build/docs-html",
+      "exit_code": 0,
+      "proton_impact_chapter_warnings": 0,
+      "warnings": "The environment lacks Doxygen, pywarpx in the documentation virtual environment, and network access for optional Doxygen tag files. The saved warning log includes autodoc/toctree warnings; this was not a warning-free full API documentation build.",
+      "warning_log": "validation/archive-sphinx-warnings.txt"
+    },
+    "full_pre_commit": "not run: pre-commit is not installed in the local environment"
+  },
+  "limits": [
+    "Historical CPU/PIC/C++ logs are retained separately and are not represented as rebuilt coverage of the latest dependency revisions.",
+    "No CUDA/HIP/SYCL build or device run was performed for this documentation/data archival update.",
+    "Source papers, restricted provisional input tables and overwritten runs were not reconstructed or republished.",
+    "No model parameters, experimental uncertainty estimates or physical acceptance tolerances were changed."
+  ]
+}

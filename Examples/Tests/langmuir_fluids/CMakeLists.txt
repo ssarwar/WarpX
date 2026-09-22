@@ -2,6 +2,84 @@
 #
 
 add_warpx_test(
+    test_rz_fluid_charge_picmi RZ 2
+    "inputs_test_rz_fluid_charge_picmi.py"
+    OFF OFF OFF
+)
+
+if(WarpX_APP)
+    add_warpx_test(
+        test_rz_fluid_interfaces_picmi RZ 1
+        "inputs_test_rz_fluid_interfaces_picmi.py --executable $<TARGET_FILE:app_rz>"
+        OFF OFF OFF
+    )
+    add_warpx_test(
+        test_rz_fluid_beam_air RZ 1
+        "../../Physics_applications/proton_beam_air/inputs_rz_fluid_beam_air my_constants.sigma_r=0.002 amr.n_cell=16 64 max_step=2"
+        OFF OFF OFF
+    )
+endif()
+
+foreach(solver IN ITEMS Yee PSATD semi_implicit_em semi_implicit_mm)
+    if(solver STREQUAL "PSATD" AND NOT WarpX_FFT)
+        continue()
+    endif()
+    foreach(shape RANGE 1 4)
+        add_warpx_test(
+            test_rz_rigid_beam_${solver}_${shape}_picmi RZ 2
+            "inputs_test_rz_rigid_beam_picmi.py --solver ${solver} --shape ${shape}"
+            OFF OFF OFF
+        )
+    endforeach()
+    add_warpx_test(
+        test_rz_rigid_beam_${solver}_self_fields_picmi RZ 2
+        "inputs_test_rz_rigid_beam_picmi.py --solver ${solver} --negative --self-fields"
+        OFF OFF OFF
+    )
+endforeach()
+
+foreach(solver IN ITEMS Yee semi_implicit_em semi_implicit_mm)
+    foreach(direction IN ITEMS positive negative)
+        set(direction_option "")
+        if(direction STREQUAL "negative")
+            set(direction_option "--negative")
+        endif()
+        foreach(filter IN ITEMS unfiltered filtered)
+            set(filter_option "")
+            if(filter STREQUAL "filtered")
+                set(filter_option "--filter")
+            endif()
+            add_warpx_test(
+                test_rz_rigid_boundary_${solver}_${direction}_${filter}_picmi RZ 2
+                "inputs_test_rz_rigid_boundary_picmi.py --solver ${solver} ${direction_option} ${filter_option}"
+                OFF OFF OFF
+            )
+        endforeach()
+    endforeach()
+endforeach()
+
+foreach(solver IN ITEMS Yee PSATD)
+    if(solver STREQUAL "PSATD" AND NOT WarpX_FFT)
+        continue()
+    endif()
+    add_warpx_test(
+        test_rz_immobile_fluid_${solver}_picmi
+        RZ
+        2
+        "inputs_test_rz_immobile_fluid_picmi.py --solver ${solver}"
+        OFF OFF OFF
+    )
+    add_warpx_test(
+        test_rz_immobile_fluid_${solver}_restart_picmi
+        RZ
+        1
+        "inputs_test_rz_immobile_fluid_picmi.py --solver ${solver} --restart ../test_rz_immobile_fluid_${solver}_picmi/diags/chk000002"
+        OFF OFF
+        "test_rz_immobile_fluid_${solver}_picmi"
+    )
+endforeach()
+
+add_warpx_test(
     test_1d_langmuir_fluid  # name
     1  # dims
     2  # nprocs
@@ -40,3 +118,30 @@ add_warpx_test(
     "analysis_default_regression.py --path diags/diag1000080"  # checksum
     OFF  # dependency
 )
+foreach(solver IN ITEMS Yee PSATD semi_implicit_em semi_implicit_mm)
+    if(solver STREQUAL "PSATD" AND NOT WarpX_FFT)
+        continue()
+    endif()
+    set(reference_name test_rz_beam_reference_${solver})
+    if(solver STREQUAL "PSATD")
+        set(reference_cells "32 64")
+    else()
+        set(reference_cells "16 64")
+    endif()
+    add_warpx_test(
+        ${reference_name}_fluid_picmi RZ 1
+        "../../../Tools/Algorithms/PrescribedFluids/benchmark.py --mode fields --solver ${solver} --beam fluid --cells ${reference_cells} --steps 6"
+        OFF OFF OFF
+    )
+    add_warpx_test(
+        ${reference_name}_coarse_picmi RZ 1
+        "../../../Tools/Algorithms/PrescribedFluids/benchmark.py --mode fields --solver ${solver} --beam quiet --ppc 4 --cells ${reference_cells} --steps 6"
+        OFF OFF ${reference_name}_fluid_picmi
+    )
+    add_warpx_test(
+        ${reference_name}_fine_picmi RZ 1
+        "../../../Tools/Algorithms/PrescribedFluids/benchmark.py --mode fields --solver ${solver} --beam quiet --ppc 256 --cells ${reference_cells} --steps 6"
+        "analysis_rz_beam_reference.py ../${reference_name}_fluid_picmi/result.json ../${reference_name}_coarse_picmi/result.json result.json"
+        OFF ${reference_name}_coarse_picmi
+    )
+endforeach()

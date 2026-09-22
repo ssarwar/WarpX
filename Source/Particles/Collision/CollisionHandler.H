@@ -27,11 +27,15 @@ public:
 
     /* Allocate data needed for collision */
     void AllocData ();
+    void WriteCheckpoint (std::string const& directory) const;
+    void ValidateRestart (std::string const& directory) const;
+    void ValidateRestartState () const;
 
     /* Perform all of the collisions */
     void doCollisions (int step, amrex::Real cur_time, amrex::Real dt, MultiParticleContainer* mypc);
 
 private:
+    [[nodiscard]] std::string CheckpointConfiguration () const;
 
     amrex::Vector<std::string> collision_names;
     amrex::Vector<std::string> collision_types;

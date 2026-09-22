@@ -8,7 +8,22 @@
 #include "MultiFluidContainer.H"
 #include "Fluids/WarpXFluidContainer.H"
 #include "Utils/Parser/ParserUtils.H"
+#include "Utils/TextMsg.H"
+#include "WarpX.H"
 
+#include <ablastr/profiler/ProfilerWrapper.H>
+
+#include <AMReX_GpuLaunch.H>
+#include <AMReX_MFIter.H>
+#include <AMReX_ParallelDescriptor.H>
+#include <AMReX_VisMF.H>
+
+#include <algorithm>
+#include <filesystem>
+#include <fstream>
+#include <iomanip>
+#include <limits>
+#include <sstream>
 #include <string>
 
 using namespace amrex;
@@ -22,7 +37,105 @@ MultiFluidContainer::MultiFluidContainer ()
 
     allcontainers.resize(nspecies);
     for (int i = 0; i < nspecies; ++i) {
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            std::count(species_names.begin(), species_names.end(), species_names[i]) == 1,
+            "Fluid species names must be unique.");
         allcontainers[i] = std::make_unique<WarpXFluidContainer>(i, species_names[i]);
+    }
+}
+
+WarpXFluidContainer*
+MultiFluidContainer::FindSpecies (std::string const& name) const
+{
+    for (auto const& fluid : allcontainers) {
+        if (fluid->getName() == name) { return fluid.get(); }
+    }
+    return nullptr;
+}
+
+std::string
+MultiFluidContainer::CheckpointConfiguration () const
+{
+    std::ostringstream config;
+    config << std::setprecision(std::numeric_limits<amrex::Real>::max_digits10);
+    for (auto const& fluid : allcontainers) {
+        if (fluid->isPrescribed()) {
+            config << fluid->getName() << ' ' << static_cast<int>(fluid->getModel()) << ' '
+                   << fluid->getMass() << ' ' << fluid->getCharge() << ' ' << WarpX::nox << '\n';
+            if (fluid->getRigidBeam()) { config << fluid->getRigidBeam()->configuration() << '\n'; }
+        }
+    }
+    if (!config.str().empty()) {
+        bool correction = true;
+        amrex::ParmParse("boundary").query("verboncoeur_axis_correction", correction);
+        auto const& warpx = WarpX::GetInstance();
+        config << "discretization " << static_cast<int>(WarpX::electromagnetic_solver_id) << ' '
+            << static_cast<int>(warpx.evolve_scheme) << ' ' << correction << '\n';
+    }
+    return config.str();
+}
+
+bool
+MultiFluidContainer::InitializeSelfFields () const
+{
+    return std::any_of(allcontainers.begin(), allcontainers.end(),
+                       [](auto const& fluid) { return fluid->InitializeSelfFields(); });
+}
+
+void
+MultiFluidContainer::WriteCheckpoint (std::string const& directory) const
+{
+    auto const config = CheckpointConfiguration();
+    if (config.empty() || !amrex::ParallelDescriptor::IOProcessor()) { return; }
+    std::ofstream output(directory + "/FluidModels");
+    output << "WarpX prescribed fluids 1\n" << config;
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(output.good(), "Cannot write fluid checkpoint metadata.");
+}
+
+void
+MultiFluidContainer::ValidateRestart (
+    std::string const& directory, ablastr::fields::MultiFabRegister const& fields) const
+{
+    auto const config = CheckpointConfiguration();
+    if (config.empty() && !std::filesystem::exists(directory+"/FluidModels")) { return; }
+    amrex::Vector<char> contents;
+    amrex::ParallelDescriptor::ReadAndBcastFile(directory + "/FluidModels", contents);
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+        std::string(contents.data()) == "WarpX prescribed fluids 1\n" + config,
+        "The checkpoint's prescribed-fluid species, models, masses, charges or shapes or discretization changed.");
+    for (auto const& fluid : allcontainers) {
+        if (!fluid->isPrescribed()) { continue; }
+        auto const path = directory + "/Level_0/" + fields.mf_name(fluid->name_mf_N, 0);
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(amrex::VisMF::Exist(path),
+            "Missing required prescribed-fluid checkpoint density: " + path);
+    }
+}
+
+void
+MultiFluidContainer::ValidateRestartState (ablastr::fields::MultiFabRegister& fields) const
+{
+    for (auto const& fluid : allcontainers) {
+        if (!fluid->isPrescribed()) { continue; }
+        auto const& density = *fields.get(fluid->name_mf_N, 0);
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(density.min(0, density.nGrow()) >= 0.0 &&
+            !density.contains_nan(0, 1, density.nGrow()) &&
+            !density.contains_inf(0, 1, density.nGrow()),
+            "Invalid prescribed-fluid checkpoint density: "+fluid->getName());
+        if (auto* beam = fluid->getRigidBeam()) {
+            auto const& warpx = WarpX::GetInstance();
+            beam->UpdateCurrentDiagnostic(*fields.get("fluid_current_"+fluid->getName(),
+                ablastr::fields::Direction{2}, 0), warpx.Geom(0), warpx.gett_new(0));
+        }
+    }
+}
+
+void
+MultiFluidContainer::CommitDensityIncrements (ablastr::fields::MultiFabRegister& fields)
+{
+    for (auto const& fluid : allcontainers) {
+        if (fluid->getModel() == FluidModel::Immobile) {
+            fluid->CommitDensityIncrement(fields, 0);
+        }
     }
 }
 
@@ -63,13 +176,125 @@ MultiFluidContainer::DepositCurrent (ablastr::fields::MultiFabRegister& m_fields
 }
 
 void
+MultiFluidContainer::UpdatePrescribedDensities (
+    ablastr::fields::MultiFabRegister& fields, amrex::Real time)
+{
+    for (auto& fluid : allcontainers) {
+        if (auto* beam = fluid->getRigidBeam()) {
+            beam->UpdateDensity(*fields.get(fluid->name_mf_N, 0), WarpX::GetInstance().Geom(0), time);
+            beam->UpdateCurrentDiagnostic(*fields.get("fluid_current_"+fluid->getName(),
+                ablastr::fields::Direction{2}, 0), WarpX::GetInstance().Geom(0), time);
+        }
+    }
+}
+
+void
+MultiFluidContainer::DepositPrescribedSources (
+    ablastr::fields::MultiFabRegister& fields, amrex::Real start, amrex::Real dt,
+    bool deposit_charge)
+{
+    using ablastr::fields::Direction;
+    using warpx::fields::FieldType;
+    auto const& geom = WarpX::GetInstance().Geom(0);
+    if (deposit_charge && fields.has(FieldType::rho_fp, 0)) {
+        auto& rho = *fields.get(FieldType::rho_fp, 0);
+        for (int comp = 0; comp < rho.nComp(); ++comp) {
+            DepositImmobileCharge(rho, comp);
+        }
+    }
+    for (auto& fluid : allcontainers) {
+        if (!fluid->getRigidBeam()) { continue; }
+        auto* beam = fluid->getRigidBeam();
+        if (!fluid->do_not_deposit && deposit_charge && fields.has(FieldType::rho_fp, 0)) {
+            auto& rho = *fields.get(FieldType::rho_fp, 0);
+            for (int comp = 0; comp < rho.nComp(); ++comp) {
+                if (beam) {
+                    beam->UpdateDensity(*fields.get(fluid->name_mf_N, 0), geom, start+comp*dt);
+                }
+                fluid->DepositCharge(fields, rho, 0, comp);
+            }
+        }
+        if (beam) {
+            // Mid-step diagnostics see the same physical time as the implicit fields.
+            beam->UpdateDensity(*fields.get(fluid->name_mf_N, 0), geom, start+0.5*dt);
+            if (!fluid->do_not_deposit) {
+                beam->DepositCurrent(*fields.get(FieldType::current_fp, Direction{2}, 0),
+                                     geom, start, dt);
+            }
+        }
+    }
+}
+
+void
 MultiFluidContainer::Evolve (ablastr::fields::MultiFabRegister& fields,
                             int lev,
                             std::string const& current_fp_string,
                             amrex::Real cur_time,
                             bool skip_deposition)
 {
+    PrepareImmobileCharge(fields);
+    if (!skip_deposition && fields.has(warpx::fields::FieldType::rho_fp, lev)) {
+        auto& rho = *fields.get(warpx::fields::FieldType::rho_fp, lev);
+        for (int comp = 0; comp < rho.nComp(); ++comp) {
+            DepositImmobileCharge(rho, comp);
+        }
+    }
     for (auto& fl : allcontainers) {
+        if (fl->getModel() == FluidModel::Immobile) { continue; }
         fl->Evolve(fields, lev, current_fp_string, cur_time, skip_deposition);
+    }
+}
+
+void
+MultiFluidContainer::PrepareImmobileCharge (ablastr::fields::MultiFabRegister const& fields)
+{
+    ABLASTR_PROFILE("MultiFluidContainer::PrepareImmobileCharge");
+    bool first = true;
+    for (auto const& fluid : allcontainers) {
+        if (fluid->getModel() != FluidModel::Immobile || fluid->do_not_deposit) { continue; }
+        auto const& density = *fields.get(fluid->name_mf_N, 0);
+        if (first) {
+            if (!m_immobile_charge || m_immobile_charge->boxArray() != density.boxArray() ||
+                m_immobile_charge->DistributionMap() != density.DistributionMap()) {
+                m_immobile_charge = std::make_unique<amrex::MultiFab>(
+                    density.boxArray(), density.DistributionMap(), 1, density.nGrowVect());
+                m_immobile_charge_owners.reset();
+            }
+            amrex::MultiFab::Copy(*m_immobile_charge, density, 0, 0, 1, density.nGrowVect());
+            m_immobile_charge->mult(fluid->getCharge(), density.nGrow());
+            first = false;
+        } else {
+            amrex::MultiFab::Saxpy(*m_immobile_charge, fluid->getCharge(), density,
+                                 0, 0, 1, density.nGrowVect());
+        }
+    }
+    if (first) {
+        m_immobile_charge.reset();
+        m_immobile_charge_owners.reset();
+    }
+}
+
+void
+MultiFluidContainer::DepositImmobileCharge (amrex::MultiFab& rho, int component)
+{
+    if (!m_immobile_charge) { return; }
+    ABLASTR_PROFILE("MultiFluidContainer::DepositImmobileCharge");
+    auto const& warpx = WarpX::GetInstance();
+    auto const grow = amrex::min(amrex::min(m_immobile_charge->nGrowVect(), rho.nGrowVect()),
+                                 warpx.get_ng_depos_rho());
+    if (!m_immobile_charge_owners || grow != m_immobile_charge_grow) {
+        m_immobile_charge_owners = amrex::OwnerMask(rho, warpx.Geom(0).periodicity(), grow);
+        m_immobile_charge_grow = grow;
+    }
+    // Cache physical charge, not a filtered or previously summed rho deposit.
+    // Each residual receives a fresh owned footprint for the normal SyncRho path.
+    for (amrex::MFIter mfi(rho, amrex::TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+        auto const charge = m_immobile_charge->const_array(mfi);
+        auto const owner = m_immobile_charge_owners->const_array(mfi);
+        auto const output = rho.array(mfi);
+        amrex::ParallelFor(mfi.growntilebox(grow),
+            [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                if (owner(i,j,k)) { output(i,j,k,component) += charge(i,j,k); }
+            });
     }
 }
