@@ -1,9 +1,11 @@
 # Perlmutter coupled-physics re-audit
 
-This record covers the re-audit requested after the upstream merges. The final
-stock comparator is `66f380f98e44b0cce493a435305009693d0e261e`, with AMReX
-`d6d1aa11f38c`. Earlier measurements explicitly identified below use stock
+This record covers the re-audit requested after the upstream merges. The full
+numerical campaign compares with stock `66f380f98e44b0cce493a435305009693d0e261e`,
+with AMReX `d6d1aa11f38c`. Earlier measurements explicitly identified below use stock
 `cb5672fae0b9099d2c7631e93ffff3404a553821` and AMReX `66028f892b7d`.
+The subsequent stock `471191e3f` change affects only a 3D implicit boundary
+mask; its merge, rebuild and follow-up checks are recorded separately below.
 All new compilation, physics tests, regression tests and timing measurements
 run on Perlmutter. The matrix gives current acceptance; the chronological
 investigations below retain unsuccessful runs and intermediate findings.
@@ -24,7 +26,7 @@ investigations below retain unsuccessful runs and intermediate findings.
   and the parameter reference document text/PICMI configuration and limits.
 
 Raw build trees, checkpoints and most runtime logs were not committed. Compact
-results and reproducible drivers were committed. This re-audit will retain
+results and reproducible drivers were committed. This re-audit retains
 machine-readable acceptance summaries and provenance in Git; large raw outputs
 remain in the authorized Perlmutter validation directory.
 
@@ -37,18 +39,23 @@ remain in the authorized Perlmutter validation directory.
 | Immobile ions | Identical-event frozen-particle footprints, signed charge transfer, nonnegativity, no repeated synchronization/filtering | Selected regressions and two-node footprint checks pass |
 | Proton impact | PJG N2/O2 spectra/totals, IAA angular closure, bare-ion scaling, tail precision, caps/remainders | Double/native-float and regression checks pass |
 | Electron MCC | Elastic/excitation IAA DCS, RBEQ SDCS and IAA ionization angles, two-/three-body attachment, recoil and null events | Analytical, measured-DCS and selected regression checks pass |
-| Coupled operation | All channels together, both particle/fluid representations, subcycling and all four solver configurations | Yee, PSATD and semi-implicit pass; mass-matrix ensemble running |
-| Diagnostics/restart | Native/plotfile/openPMD/reduced outputs, new upstream per-species particle counts, immediate restored state and continuation | Selected regressions pass; final all-channel two-node ensemble queued |
+| Coupled operation | All channels together, both particle/fluid representations, subcycling and all four solver configurations | All 288 coupled runs pass the population, energy, spectrum and charge checks |
+| Diagnostics/restart | Native/plotfile/openPMD/reduced outputs, new upstream per-species particle counts, immediate restored state and continuation | Selected regressions and all 24 all-channel eight-to-four-GPU continuations pass; strict PSATD source-only exception below |
 | GPU ownership | One/two/four GPUs on one node, eight GPUs on two nodes, CUDA-aware MPI and changed restart decomposition | Topology/communication pass; 7/8 source/attachment cases pass, PSATD continuation fails strict roundoff criterion |
-| Performance/noise | Synchronized strong/weak scaling, matched electron work, particle references and repeat-seed statistics | Earlier results recorded; final dependency-version studies queued |
+| Performance/noise | Synchronized strong/weak scaling, matched electron work, particle references and repeat-seed statistics | Completed on 1/2/4/8 A100s; 252 noise-study runs and 54 analytical equal-error runs; measured limitations below |
 | Stock regressions | Collision, fluid, implicit, diagnostics and restart; reproduce failures on the merged upstream revision | 250/254 branch stages pass; three acceleration failures reproduced on stock |
 
 The previous coupled timing driver included ionization and attachment but did
-not include elastic or excitation. The new combined fixture must include both.
+not include elastic or excitation. The new combined fixture includes both.
 In the input API, the electron SDCS model is named `RBEQ`; `IAA` names the
 ionization angular closure and the tabulated elastic/excitation DCS option.
 Synthetic tables establish numerical correctness, not experimental air-chemistry
 accuracy. No assertion tolerance will be relaxed to accommodate a failure.
+
+Counts of regression stages include execution and analysis as separate stages;
+ensemble run counts refer to complete independent simulation settings/seeds.
+Historical paragraphs below retain their status at the time of each investigation.
+This matrix and the final-results sections supersede their pending statuses.
 
 ## Equation and lifecycle review
 
@@ -125,6 +132,16 @@ The validation build covers 1D, RZ and 3D, with double fields/particles. QED and
 embedded boundaries are outside this simulation's scope. GPU-aware MPI and
 rank-to-GPU placement follow the stock Perlmutter batch example. The earlier
 single-GPU timings do not establish full-node or multi-node performance.
+
+The final CUDA environment uses GCC 13.2 through the Cray compiler wrappers,
+CUDA 13.2, CMake 3.30.2, Python 3.12.12 and Cray MPICH 9.1.0.794. Release
+builds target A100 architecture 80. The build recipe enables MPI, Python,
+FFT and openPMD, disables QED/embedded boundaries and Python link-time
+optimization, and preserves separate branch/stock build directories. Runtime
+`PYTHONPATH` selects the corresponding built package instead of installing
+both revisions into one shared environment. These scope/path choices are
+recorded alongside the stock module, dependency and CMake recipe; the build
+does not reuse incompatible CUDA/HDF5 binaries from the user's old environment.
 
 ## Review findings and results
 
@@ -427,10 +444,10 @@ Perlmutter validation environment.
 
 `58725147` repeats all ten standalone C++ checks with native float particles,
 all 64 Python tests and the Gaussian reference, then repeats measured N2/O2 DCS
-acceptance. Both phases pass. `58723759`, `58723762` and `58724325` each pass
-72 all-channel coupled comparisons for Yee, PSATD and semi-implicit evolution,
-respectively: four beam/ion representation combinations, six seeds, and
-collision subcycling factors 1, 2 and 4. These use the existing population,
+acceptance. Both phases pass. `58723759`, `58723762`, `58724325` and `58725149`
+each pass 72 all-channel coupled runs for Yee, PSATD, semi-implicit evolution
+and semi-implicit mass matrices, respectively: four beam/ion representation
+combinations, six seeds, and collision subcycling factors 1, 2 and 4. These use the existing population,
 energy, spectrum and charge criteria.
 
 The complete two-node source/attachment matrix `58724323` passes seven of its
@@ -458,6 +475,153 @@ The approved raw-output root is
 `/pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build/reaudit-2026-09-21`.
 Library hashes and CMake configurations distinguish builds even when the remote
 working tree contains explicitly uploaded, not-yet-committed driver changes.
+
+### Completed distributed restart and convergence studies
+
+`58726443` passes all 24 all-channel coupled continuations: six seeds for each
+of the four solver configurations, starting on eight A100s across two nodes
+and restarting on four A100s. Required fields, source remainders/counters,
+particle records and output timestamps are checked immediately after loading,
+before advancing. The later stochastic MCC continuation passes the previously
+specified ensemble bounds. This does not override the stricter source-only
+PSATD current discrepancy in `58724323`.
+
+`58725959` completes the 18-run joint mesh/weight study, 48-run solver/timestep
+study and 18-run semi-implicit deposition study. The independent primary-yield
+assertions pass. Joint refinement from 16 to 32 to 64 radial cells, with
+product weights 100, 12.5 and 1.5625, gives electron populations of
+5.5941, 5.5972 and 5.6017 million; 99% interval half-widths are 17,181, 1,699
+and 3,232. Pending N2 production falls from 0.1460% to 0.07246% to 0.03564%,
+and O2 from 0.5451% to 0.26359% to 0.13035%. These trends quantify emission
+resolution, rather than asserting that populations must be identical at
+different resolutions.
+
+For the quiet 256-particle-per-cell reference, semi-implicit direct deposition
+gives Ez errors relative to the fluid beam of 0.7048%, 0.1783% and 0.04333%
+over that mesh refinement. Villasenor deposition gives 0.003792%, 0.0009326%
+and 0.0002322%. The mass-matrix configuration agrees at roundoff. All four
+solver configurations have overlapping population/energy mean intervals at
+0.5 and 0.25 ps timesteps. The archived metrics retain nonmonotone quantities;
+these finite studies do not establish convergence of every observable.
+
+### Final noise and performance measurements
+
+All timings below use the AMReX `d6d1aa11f38c` CUDA build, synchronized GPU work
+and the slowest MPI rank's wall time. Each run excludes the first two steps
+and reports its median ordinary timestep; checkpoint steps are reported
+separately. Tables aggregate independent runs and give 99% Student interval
+half-widths where shown. They do not include simulation initialization in the
+timestep cost. Initialization, device/particle storage and library hashes are
+retained in the JSON archive. The figure can be regenerated from that archive.
+
+![Measured Perlmutter noise and scaling](results/perlmutter-reaudit-noise-scaling.png)
+
+`58726281` completes 252 runs: 42 fields-only, 42 with identical kinetic
+electron work, 84 primary-source and 84 all-channel coupled cases. The coupled
+population, energy, spectrum and charge comparisons pass. On a 64 by 256 mesh,
+one A100, six seeds and fluid ion products:
+
+| Beam | Beam particles/cell | Coupled step (ms) | Plasma-density seed noise |
+| --- | ---: | ---: | ---: |
+| Fluid | 0 | 5.831 +/- 0.058 | 1.563% |
+| Quiet particles | 16 | 7.390 +/- 0.040 | 2.706% |
+| Quiet particles | 64 | 11.182 +/- 0.060 | 2.746% |
+| Quiet particles | 256 | 26.366 +/- 0.215 | 2.819% |
+| Random particles | 16 | 7.713 | 3.970% |
+| Random particles | 64 | 11.732 | 3.187% |
+| Random particles | 256 | 27.713 | 2.889% |
+
+Seed noise is the cylindrical RMS sample standard deviation across seed
+realizations, normalized to the reference field norm; it is not an error bar
+on the mean or a total physical error. The fields-only beam-density errors
+relative to the same-mesh fluid density are 0.07829%, 0.01929% and 0.004805%
+for the quiet beams, versus 5.507%, 2.761% and 1.405% for random beams.
+The fluid eliminates beam-particle sampling, but emitted-electron and MCC
+sampling remains. Increasing beam particle count does not remove that noise.
+The fluid source has no beam macroparticle loop; its work depends on active
+mesh cells, quadrature and emitted products. Particle-reference cost increases
+with beam population in both the source-only and coupled archived studies.
+
+`58726636` and `58726902` measure strong scaling on 1, 2, 4 and 8 A100s,
+with three runs per setting, 256 by 1024 cells and quiet particle beams at
+64 particles per cell. Four GPUs occupy a full node; eight occupy two nodes.
+The topology records verify distinct A100-SXM4-40GB devices and GPU-aware MPI
+on every rank. These are physics/timing runs, not just topology checks.
+
+| Case, timestep in ms | 1 GPU | 2 GPUs | 4 GPUs | 8 GPUs |
+| --- | ---: | ---: | ---: | ---: |
+| Coupled, fluid beam / fluid ions | 28.733 | 18.065 | 13.302 | 10.779 |
+| Coupled, quiet beam / fluid ions | 91.461 | 50.056 | 36.617 | 22.687 |
+| Coupled, fluid beam / frozen ions | 23.214 | 14.249 | 10.857 | 8.888 |
+| Coupled, quiet beam / frozen ions | 86.440 | 46.111 | 34.319 | 20.705 |
+| Identical electron work, fluid beam | 10.476 | 6.819 | 4.852 | 3.512 |
+| Identical electron work, quiet beam | 31.983 | 18.083 | 12.933 | 7.364 |
+
+The identical-work cases contain 1,048,576 kinetic electrons, disable primary
+production/MCC, and isolate the beam overhead. In the coupled cases the fluid
+beam/fluid ion speedup against quiet beam/fluid ions is 3.18, 2.77, 2.75 and
+2.10, respectively. Strong scaling is sublinear. Sparse frozen ions remain
+faster than dense fluid ions here because fluid updates communicate mesh data.
+
+The separate weak study holds 262,144 kinetic electrons and 64 by 256 cells
+per rank fixed, extending the axial domain while keeping the beam fixed.
+Fluid/quiet-beam steps are 1.935/3.320, 2.800/3.416, 3.139/3.704 and
+3.391/3.747 ms for 1/2/4/8 GPUs. The eight-GPU fluid timing has a wide 99%
+interval of +/- 1.691 ms; the other intervals are in the archive. This is
+limited weak scaling of uniform electron work, not of the Gaussian source.
+
+### Accuracy-matched comparison and storage
+
+The 54-run study `58727721` qualifies vacuum fields against the independent
+translated-Gaussian integral at initialization and after 2 ps. The expanded
+256 by 1024 domain separates finite-wall bias from sampling error. Before
+running this ensemble, the targets were set to 1% core cylindrical RMS error
+in Er/Btheta and 2% in Ez, based on the separate domain-refinement study.
+Qualification requires the upper 99% interval of the worse output to meet
+all three targets. These are new benchmark criteria, not relaxed regression
+assertions.
+
+| Fastest qualifying setting | Step (ms), 99% interval | Mean worst-output errors: Er / Ez / Btheta |
+| --- | ---: | --- |
+| Fluid beam | 4.624 +/- 0.114 | 0.3089% / 1.0993% / 0.3674% |
+| Quiet beam, 4 particles/cell | 3.798 +/- 0.043 | 0.3117% / 1.0865% / 0.3671% |
+| Random beam, 64 particles/cell | 4.991 +/- 0.049 | 0.4371% / 1.3880% / 0.5087% |
+
+The low-resolution quiet beam is about 18% faster than the fluid at these
+vacuum-field targets. The fluid has a 1.08-fold speedup over the fastest
+qualifying random beam. Random beams at 4 and 16 particles per cell fail
+qualification. All settings, including failures and finer quiet beams, are
+retained. This comparison is not a claim of equal nonlinear-plasma accuracy.
+High-particle-count speedups alone would overstate the fluid's advantage.
+
+The storage study in `58726636` uses 64 by 256 cells, all MCC channels and
+three seeds. Four persistent ion number-density fields occupy 682,112 bytes
+at both 20 and 80 steps, including their allocated guard/shared copies. The
+beam density adds 170,528 bytes. Transient increments, aggregate charge and
+other scratch fields are additional mesh-sized allocations. Frozen ion
+particle payload grows from approximately 3.50 MB to 14.97 MB over these
+durations; kinetic electron storage grows in both representations.
+
+| Duration | Fluid-ion checkpoint size | Frozen-ion checkpoint size | Checkpoint step, fluid / frozen |
+| --- | ---: | ---: | --- |
+| 20 steps, 10 ps | 8.21 MB | 11.03 MB | 47.03 +/- 3.80 / 59.69 +/- 13.33 ms |
+| 80 steps, 40 ps | 19.07 MB | 33.36 MB | 65.74 +/- 8.48 / 95.30 +/- 21.03 ms |
+
+Sizes are complete checkpoints in decimal MB; times include the checkpoint
+step's simulation work. Particle payload measures stored particle attributes,
+not allocator reservation. These results establish bounded persistent ion
+storage, not constant total simulation memory or a universal timestep speedup.
+
+### Final upstream follow-up
+
+Remote merge `0afd4bfd8` arrived after the timing jobs finished. Merge
+`30d5b3713` incorporates stock `471191e3f`, whose only production change fixes
+operator precedence in the 3D curl-curl boundary-mask direction. Its code is
+guarded by `AMREX_SPACEDIM == 3`, so the RZ implementation used above is
+unchanged. Stock-recipe rebuild `58728306` passes for branch and stock in
+1D/RZ/3D. The follow-up implicit regressions are `58728532` (branch) and
+`58728533` (stock); their results will be added after completion. This build's
+hashes remain separate from the completed timing studies.
 
 ### Focused review passes
 

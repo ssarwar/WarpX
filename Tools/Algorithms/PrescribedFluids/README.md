@@ -198,6 +198,21 @@ records while retaining failures. `report_state_difference.py` quantifies native
 snapshot discrepancies without altering an acceptance test or its tolerance.
 Large checkpoints and arrays remain in the validation directory.
 
+The committed [re-audit report](REAUDIT.md) separates successive dependency
+versions, preserves failed checks and gives the final one-/two-node results.
+Regenerate its noise/scaling figure from the compact archive on Perlmutter:
+
+```bash
+python3 Tools/Algorithms/PrescribedFluids/plot_reaudit.py \
+    Tools/Algorithms/PrescribedFluids/results/perlmutter-reaudit-latest.json \
+    --noise-job 58726281 --scaling-jobs 58726636 58726902 \
+    --output Tools/Algorithms/PrescribedFluids/results/perlmutter-reaudit-noise-scaling
+```
+
+The plot checks matching library hashes, mesh sizes, rank counts and minimum
+seed counts before combining studies. Timing error bars are 99% confidence
+intervals; plasma-density seed noise is a separate spatial statistic.
+
 The `equal_error` phase compares fluid, quiet and random beams on the expanded
 256 by 1024 mesh (`r_max = 32 sigma_r`, `|z_max| = 48 sigma_z`). It uses six seeds
 and 4, 16, 64 and 256 particles per cell. `analyze_equal_error.py` compares the
