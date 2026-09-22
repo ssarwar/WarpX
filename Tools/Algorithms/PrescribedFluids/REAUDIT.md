@@ -619,9 +619,21 @@ Remote merge `0afd4bfd8` arrived after the timing jobs finished. Merge
 operator precedence in the 3D curl-curl boundary-mask direction. Its code is
 guarded by `AMREX_SPACEDIM == 3`, so the RZ implementation used above is
 unchanged. Stock-recipe rebuild `58728306` passes for branch and stock in
-1D/RZ/3D. The follow-up implicit regressions are `58728532` (branch) and
-`58728533` (stock); their results will be added after completion. This build's
-hashes remain separate from the completed timing studies.
+1D/RZ/3D, with `WARPX_AUDIT_STOCK_REVISION=471191e3f` and
+`WARPX_AUDIT_BUILD_NAME=build_pm_gpu_latest`. The follow-up implicit regressions
+pass all 56 branch stages (`58728532`) and all eight stock stages (`58728533`).
+Those runtime selections cover 1D/RZ; the upstream 3D mask change is covered
+by compilation and source review. This build's hashes remain separate from
+the completed timing studies.
+
+A final byte-content comparison on Perlmutter verifies all 1,601 production,
+Python, CTest and CMake/dependency files against committed revision `b66c5796d`,
+including literal symlink targets. There are no mismatches. The comparison is
+archived with `58728306`. The remote checkout's older Git HEAD therefore does
+not obscure which uploaded source was built; earlier numerical studies retain
+their own manifests and loaded-library hashes. Audit reports, drivers and
+compact results are committed; large logs, checkpoints and native arrays
+remain at the approved Perlmutter path.
 
 ### Focused review passes
 
