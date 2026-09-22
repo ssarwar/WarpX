@@ -367,3 +367,53 @@ transverse scale with a moving-ion reference. Neutral depletion, recombination,
 detachment and chemistry beyond the specified channels remain omitted model
 assumptions. The explicit transverse width and molecular data still determine
 the experimental relevance of a particular run.
+
+### Fresh builds after the second upstream merge
+
+The separate CUDA builds against AMReX `d6d1aa11f38c` completed in `58721685`
+(branch, including standalone physics executables) and `58721687` (stock
+`66f380f98e`). Their first allocations reached about 88% before the debug queue's
+30-minute limit; resumed builds completed without a compiler error. The source
+repairs through `f7568caa3` are included. Each runtime study records the loaded
+library hashes as well as the source manifest, including uncommitted drivers.
+
+`58719054` passes the ten C++ analytical checks, 64 Python model/archive tests,
+and independent Gaussian-field reference. `58721808` repeats the continuum
+domain/mesh study: expanded-domain refinement gives core relative RMS errors
+of 0.3081% (Er), 1.0971% (Ez) and 0.3674% (Btheta), consistent with the earlier
+independent calculation. The default finite-domain Ez bias remains about 21%.
+These are measured discretization errors, not newly adjusted tolerances.
+
+`58719056` passes 250 of 254 selected branch regression stages. The three 3D
+acceleration restart analyses remain outside their existing `1e-12` tolerance.
+The fourth failure is the PSATD source load-balance comparison: the maximum
+radial-current difference is `7.11e-15 A/m^2`, or `6.84e-18` of that component's
+peak, but one small value exceeds the existing `2e-14` pointwise relative
+criterion. Particle coordinates/momenta, sampling counters and primary-source
+budgets agree exactly; ion-density differences are at floating-point roundoff.
+The original assertions remain unchanged, and this stage remains a failure.
+
+The separate eight-to-four-GPU ownership run `58719058` similarly reaches a
+PSATD continuation failure after passing the immediate restored-state checks.
+At step six, the maximum axial-current difference is `1.14e-13 A/m^2`, or
+`4.36e-18` of peak current; five small values fail the pointwise criterion.
+The native-state difference reports preserve all components, including nearly
+zero symmetry components. This is consistent with floating-point ordering
+effects after redistribution, not missing source state. The complete ownership
+matrix is being repeated with independent failures collected rather than
+stopping the remaining solver cases.
+
+The Sphinx build `58722814` succeeds after installing the pure-Python interface
+dependencies in its separate environment. One unresolved warning remains in
+the existing developer-field reference: Doxygen does not expose the
+macro-generated `warpx::fields::FieldType` enum. PICMI autodoc and the added
+fluid/collision parameter and theory pages render without Sphinx warnings.
+
+The supplementary SYCL build is still pending. Its initial failures were
+dependency configuration issues: the stock BLAS++ release includes `sycl.hpp`
+from the compiler's legacy include location, and oneAPI's `-fsycl -qmkl` link
+uses ILP64 while BLAS++ initially autodetected LP64. The isolated recipe now
+provides the installed SYCL include directory and consistent ILP64 settings.
+Neither a failed configure nor a successful compilation is counted as SYCL
+runtime acceptance. No HIP toolchain or AMD GPU runtime is available in this
+Perlmutter validation environment.
