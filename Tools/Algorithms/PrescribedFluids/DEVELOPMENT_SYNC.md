@@ -1,12 +1,14 @@
 # Fork development integration, 2026-09-22
 
-Status on 2026-09-23: the integration is pushed; local regressions, distributed
+Status on 2026-09-23: integration and validation are complete. Local regressions, distributed
 mass-matrix/diagnostic controls, 1/2/4/8-GPU scaling, same-rank restarts,
 the complete noise campaign and targeted CUDA memory checks have completed.
-All four solver/subcycling ensembles also pass. The complete GPU regression,
-discharge refinements and expanded stochastic restart study remain in progress.
-Retained failures and their
-investigations appear below; this is not a blanket acceptance claim. Historical
+All four solver/subcycling ensembles and the expanded 48-pair stochastic
+restart study pass. The complete GPU regression has finished; stock controls,
+execution-condition controls and Coulomb convergence checks are complete.
+All twelve discharge refinements pass the original criterion. Retained
+regression failures and their investigations appear below; this is not a
+blanket all-tests-pass claim. Historical
 checkpoints retain the progress state at which they were written.
 
 ## Source provenance and scope
@@ -636,6 +638,18 @@ The figure explicitly identifies the synthetic MCC regression rates. It is
 performance/noise evidence for these controlled cases, not a full Prabir-beam
 air-discharge prediction.
 
+The allocations include both A100 memory variants. Field-only and equal-electron
+noise jobs use 80 GB GPUs; source-only and coupled noise jobs use 40 GB GPUs.
+The final strong/weak scaling and equal-error/profile jobs use 80 GB GPUs.
+The eight-rank startup reports the total device-memory range as
+`[81151 ... 81151] MB`, confirming both nodes have the same variant; this
+log excerpt and its hash are retained in the follow-up archive.
+Each within-family representation comparison uses the same GPU model and
+allocation. Cross-panel timing differences must not be interpreted as pure
+physics-cost differences. The figure labels the variants from the archived
+device metadata; `gpu_topology.py` now records model and memory for every rank
+as well as checking distinct devices and a CUDA-buffer MPI reduction.
+
 ## Complete solver/subcycling ensembles and checkpoint I/O control
 
 Jobs `58781350`, `58781509`, `58781510` and `58781646` complete all 288
@@ -683,3 +697,190 @@ use `58782042` (timestep), `58782043` (particles) and `58782044` (joint),
 each covering both collision models and both branch/stock libraries.
 The original full-suite/discharge bundles were cancelled while still pending;
 no running scientific case was replaced by this scheduling change.
+
+## Completed GPU regression and failure controls
+
+The four geometry jobs finish all 1,095 CTest stages and four Python unit
+suites. The original outcomes, including checksum differences and skip
+reasons, are retained in
+[the complete GPU regression archive](results/development-sync-gpu-regression.json).
+The 47 QED/embedded-boundary capability exclusions remain explicit in the
+inventory; they are not claimed as tested.
+
+| Geometry | CTest passed | Non-checksum stage failures | Checksum differences | Python unit passed / skipped |
+| --- | ---: | ---: | ---: | ---: |
+| 1D | 140 | 2 | 5 | 15 / 0 |
+| RZ | 214 | 1 | 10 | 2 / 13 |
+| 2D | 317 | 11 | 12 | 15 / 0 |
+| 3D | 365 | 5 | 13 | 9 / 6 |
+| Total | 1,036 | 19 | 40 | 41 / 19 |
+
+All added RZ collision/fluid/diagnostic/restart CTests pass in this full run.
+The unit skips are geometry restrictions: seven Cartesian-volume deposition
+cases in RZ, and six Cartesian mass-matrix fixture cases each in RZ and 3D.
+The inherited skip message about Cartesian-only mass matrices is broader
+than the actual restriction: its adjacent comment says the fixture does not
+construct RZ. Production RZ Jacobian and preconditioner mass matrices are
+enabled in the separate coupled `semi_implicit_mm` campaign. A skip is not
+a failed assertion or a successful physical validation.
+
+Fresh unchanged-development controls `58782465`, `58782878` and `58782800`
+use the same compiler/dependency recipe and preserve the original analyses:
+
+- The 1D Ohm beam growth-rate and RZ Ohm-mode amplitude failures reproduce
+  on stock with the same printed values. The RZ amplitude vector is
+  `[81.83691208, 118.03960954, 51.36346495, 120.26957116]` in both versions.
+- The photon luminosity comparison gives a 2D-versus-1D relative difference
+  of 0.0660679 against 0.06 in both versions. The 3D Galilean current-correction
+  test gives charge error 0.01343033694 against 0.01 in both versions; its
+  energy-stability check passes. These remain physical regression failures,
+  not branch acceptance passes.
+- Two implicit VandB runs and the refined Langmuir PSATD run abort at the
+  configured high-warning threshold: 25 or 29 boxes on two GPUs exceeds
+  eight boxes/GPU. Their three analysis failures are consequences of missing
+  completed output. With the identical mesh on four GPUs, all three runs
+  and their unchanged analyses pass on both branch and stock.
+- The particle-ID reader passes a CuPy array to a binding requiring NumPy.
+  An explicit `to_numpy(copy=True)` fixes the fixture, preserving its exact
+  ID/CPU-sum assertions. The local CPU CTest and both GPU library controls
+  pass. This changes test data access, not checkpoint serialization.
+- The reflection test fixes a particular CPU random realization at 63
+  absorbed particles; both GPU libraries obtain 60. Independent probability
+  zero/one controls pass on both versions, including the exact absorption
+  counts and original scrape-step assertions. The original probability-0.5
+  failure is retained; these controls do not convert it into a pass.
+- PML initial-energy differences are 1.14e-14 (branch) and 1.16e-14 (stock)
+  against 1e-14. PML restart Ex differences are 1.69e-12 and 1.68e-12 against
+  1e-12. The separate acceleration/restart investigation above reproduces
+  all three 3D comparison failures on stock, with exact native field restore.
+- The coarse 1D helium MCC error is 6.77% against 6.5%. Independent timestep
+  and particle-number refinements pass for both MCC and DSMC on both
+  libraries, as recorded below. The original coarse failure is preserved.
+- The Coulomb split-push energy error is 6.016224842689e-5 against 6e-5;
+  the first stock control passes. Further original-input repeats pass on
+  both libraries, while a six-seed ensemble has one branch and two stock
+  coarse failures. All twelve halved-timestep cases pass, as detailed below.
+
+The control driver records every command, input transformation/hash, return
+code and analysis. It skips downstream analysis when a simulation fails,
+preventing stale output from being mistaken for a new result. The exporter
+keeps the first traceback as well as log tails, so lengthy shutdown profiling
+cannot hide the cause. No original assertion or checksum reference is relaxed.
+
+## Expanded restart acceptance
+
+Storage-placement control `58781928` completes in 12 minutes 21 seconds.
+All 48 fixed seeds pass the native-state comparison before the first resumed
+step, including persistent ion density, pending production and sampling state.
+The subsequent eight-to-four-GPU continuations pass charge/source budgets
+and the original stochastic criteria. All 96 full/restart result records,
+48 pre-step success markers and log hashes are preserved in
+[the final control archive](results/development-sync-gpu-final.json).
+For O-minus, the paired mean difference
+is -237.5, standard error 183.2920, within its original five-standard-error
+bound of 916.4601. All other population and energy comparisons pass as well.
+
+The earlier six-pair O-minus discrepancy (-1583.33 with standard error
+258.74) is not reproduced in this larger, predeclared 48-pair sample. That is
+consistent with sampling variation; it is not proof of exact unbiasedness or
+cross-decomposition bitwise identity. The original failed six-pair test and
+timed-out first 48-pair attempt remain in the evidence. Successful execution
+on the alternate nodes/storage placement does not identify or fix the
+transient Lustre cause.
+
+## Coulomb energy convergence
+
+Job `58783122` performs 26 runs on one A100 allocation: an unchanged-input
+repeat and six seeds at each of two timesteps, for both branch and stock.
+The input and analysis hashes match between versions. The physical duration,
+mesh, particle number and original 6e-5 maximum-energy-error bound are fixed;
+halving the timestep doubles the number of steps. Periodic elastic Coulomb
+collisions and the electromagnetic field provide an independent conserved
+total-energy reference. The driver also runs the unmodified equipartition
+analysis, rather than checking conservation alone.
+
+| Library | Timestep | Mean maximum relative energy error | Standard error over six seeds | Original analysis failures |
+| --- | --- | ---: | ---: | ---: |
+| Branch | dt | 5.56047e-5 | 1.01865e-6 | 1 / 6 |
+| Stock | dt | 5.82531e-5 | 1.92866e-6 | 2 / 6 |
+| Branch | dt/2 | 1.36154e-5 | 1.73787e-7 | 0 / 6 |
+| Stock | dt/2 | 1.32638e-5 | 2.57378e-7 | 0 / 6 |
+
+Mean errors fall by factors 4.08 and 4.39, consistent with second-order
+temporal error. The original-input repeats give 5.59870e-5 and 5.49790e-5,
+both passing. These controls demonstrate the coarse failure is sensitive
+to stochastic realization and occurs on unchanged stock as well. They do
+not establish bitwise reproducibility or make the original failed run pass.
+No production Coulomb kernel or assertion tolerance is changed.
+
+The same [final control archive](results/development-sync-gpu-final.json)
+retains all 26 cases, original analyses, commands, library/source fingerprints
+and failures. Its earlier timestep-only and particle-only discharge records
+also retain every density profile used by the original Turner comparison.
+
+The standalone drivers are reproducible within a configured GPU allocation:
+
+```bash
+python3 Tools/Algorithms/PrescribedFluids/gpu_failure_controls.py \
+    "$PWD" "$PWD/build/gpu-failure-controls"
+python3 Tools/Algorithms/PrescribedFluids/split_push_convergence.py \
+    "$PWD" "$PWD/build/split-push-convergence"
+```
+
+They consume the actual branch/stock CTest commands from `build_pm_gpu_sync`
+and `build/stock-warpx/build_pm_gpu_sync`, including launch wrappers and
+environment settings. Output directories must be new. Their commands and
+the exact batch scripts, allocations and subsequent scheduler overrides are
+archived; Slurm success alone is never treated as physics acceptance.
+
+## Independent discharge refinements
+
+The Turner helium comparison retains its original 6.5% RMS density-error
+criterion and published profile. Timestep refinement changes only dt and
+step/averaging counts; particle refinement increases particles/cell fourfold.
+The joint refinement doubles cells and particles/cell and halves dt.
+Physical run duration, averaging duration and the DSMC bath-reset interval
+are preserved by the driver. All cases use seed 1 and two MPI ranks/GPUs.
+
+| Refinement | Branch MCC | Stock MCC | Branch DSMC | Stock DSMC |
+| --- | ---: | ---: | ---: | ---: |
+| Timestep | 4.33549% | 4.18436% | 5.84269% | 4.33634% |
+| Particles | 4.09723% | 3.63958% | 5.00130% | 5.16068% |
+| Joint | 2.68598% | 4.54075% | 3.57907% | 3.28049% |
+
+The original joint allocation `58782044` completes both branch cases and
+stock MCC. Slurm refuses an extension beyond its original 30-minute limit.
+Those three completed cases are retained and verified before cancelling the
+original allocation; its unfinished stock DSMC launch is not an accepted
+result. Separate allocation `58783308` completes that one case with the same
+seed, physics parameters, rank count, reference and assertion. All twelve
+refined analyses pass. This explicit allocation transition is archived
+alongside the numerical results in the final control archive.
+
+These refinements investigate the coarse stochastic discharge failure.
+They do not revise its tolerance or claim the published reference is an
+exact analytical solution. The separate attachment-law, Gaussian,
+charge/conservation, covariance and particle-response checks provide the
+independent exact or quadrature references for the added features.
+
+## Delivery and remaining limits
+
+The merge and follow-up fixes are pushed to
+`codex/rigid-beam-immobile-ions-development-sync`. Both original fork branch
+heads remain unchanged. No PR is opened. After the last scientific comparison,
+the Perlmutter checkout is fast-forwarded to the final documented branch.
+Production C++ and Python sources are unchanged from the frozen CUDA validation
+revision `242559e71`; the only subsequent simulation-test change is the
+validated host copy in the particle-ID reader. Subsequent changes concern
+audit drivers, evidence and documentation, so the recorded physics binaries
+remain the binaries tested by the final campaigns.
+
+The development mass-matrix update passes direct distributed particle-response
+tests and the coupled RZ cases, but does not fix the separate explicit
+acceleration/restart reproducibility failures. Stock Ohm, luminosity and
+Galilean analysis discrepancies and the original coarse stochastic failures
+remain visible above. The transient checkpoint filesystem delay has not been
+assigned a root cause. HIP validation is unavailable in this environment;
+SYCL compilation is validated without an Intel-GPU runtime claim. QED and
+embedded-boundary exclusions are explicit. These limits prevent a claim
+that every stock regression or every backend passes.
