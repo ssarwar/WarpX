@@ -15,6 +15,21 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 
+def read_record(path, directory, errors, *, xml=False):
+    """Retain interrupted output as evidence, without treating it as a pass."""
+    contents = path.read_bytes()
+    try:
+        return ET.fromstring(contents) if xml else json.loads(contents)
+    except (ET.ParseError, json.JSONDecodeError, UnicodeDecodeError) as error:
+        errors[str(path.relative_to(directory))] = dict(
+            error=str(error),
+            sha256=hashlib.sha256(contents).hexdigest(),
+            bytes=len(contents),
+            tail=contents[-3000:].decode(errors="replace"),
+        )
+        return None
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("audit", type=Path)
@@ -46,6 +61,7 @@ def main():
                 "tests": {},
                 "comparisons": {},
                 "log_summaries": {},
+                "unreadable_records": {},
             }
             for name in [
                 "revision.txt",
@@ -71,7 +87,9 @@ def main():
                     ).hexdigest()
             topology = directory / "topology.json"
             if topology.is_file():
-                study["provenance"]["topology"] = json.loads(topology.read_text())
+                parsed = read_record(topology, directory, study["unreadable_records"])
+                if parsed is not None:
+                    study["provenance"]["topology"] = parsed
             for cache in sorted(directory.glob("*CMakeCache.txt")):
                 selected = {}
                 for line in cache.read_text().splitlines():
@@ -83,8 +101,13 @@ def main():
                         selected[key] = value
                 study["provenance"][cache.name] = selected
             for xml in sorted(directory.rglob("*.xml")):
+                parsed = read_record(
+                    xml, directory, study["unreadable_records"], xml=True
+                )
+                if parsed is None:
+                    continue
                 tests = []
-                for test in ET.parse(xml).iter("testcase"):
+                for test in parsed.iter("testcase"):
                     tests.append(
                         dict(
                             name=test.attrib["name"],
@@ -111,9 +134,9 @@ def main():
                 "*load-balance-difference.json",
             ]:
                 for path in sorted(directory.rglob(name)):
-                    study["comparisons"][str(path.relative_to(directory))] = json.loads(
-                        path.read_text()
-                    )
+                    parsed = read_record(path, directory, study["unreadable_records"])
+                    if parsed is not None:
+                        study["comparisons"][str(path.relative_to(directory))] = parsed
             record["studies"].append(study)
         # Build-only jobs can have no study directory.
         suite_status = args.audit / f"suite-{job}.status"

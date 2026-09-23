@@ -1,0 +1,1075 @@
+{
+  "scope": "Follow-up local validation after implicit collision substep timing correction 159139102 and RZ unit allocation correction 242559e71. Original assertion tolerances are retained.",
+  "suites": {
+    "collision-time-fixed.xml": {
+      "sha256": "e8f71188eee3d274afce155da8f7631a29a07f0b0f4cc3d5e331ae54b76b9ab6",
+      "cases": [
+        {
+          "name": "test_1d_background_mcc_time_Yee_1_picmi.run",
+          "seconds": 2.1894,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_time_Yee_4_picmi.run",
+          "seconds": 2.1876,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_time_Yee_early_picmi.run",
+          "seconds": 0.361686,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_time_semi_implicit_em_1_picmi.run",
+          "seconds": 0.365212,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_time_semi_implicit_em_4_picmi.run",
+          "seconds": 0.324086,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_time_semi_implicit_em_early_picmi.run",
+          "seconds": 0.319117,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_time_semi_implicit_mm_1_picmi.run",
+          "seconds": 0.336578,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_time_semi_implicit_mm_4_picmi.run",
+          "seconds": 0.337963,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_time_semi_implicit_mm_early_picmi.run",
+          "seconds": 0.282479,
+          "passed": true
+        }
+      ]
+    },
+    "collision-time-regression.xml": {
+      "sha256": "713cc54970ed337b97483096bbbc51e0a95976b08a324a53fd65bf816c67fa64",
+      "cases": [
+        {
+          "name": "test_1d_background_mcc_time_Yee_1_picmi.run",
+          "seconds": 0.3142,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_time_Yee_4_picmi.run",
+          "seconds": 0.265631,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_time_Yee_early_picmi.run",
+          "seconds": 0.297024,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_time_semi_implicit_em_1_picmi.run",
+          "seconds": 0.2914,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_time_semi_implicit_em_4_picmi.run",
+          "seconds": 0.301912,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_time_semi_implicit_em_early_picmi.run",
+          "seconds": 0.303216,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_time_semi_implicit_mm_1_picmi.run",
+          "seconds": 0.319077,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_time_semi_implicit_mm_4_picmi.run",
+          "seconds": 0.3027,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_time_semi_implicit_mm_early_picmi.run",
+          "seconds": 0.293656,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_Yee_picmi.run",
+          "seconds": 3.19853,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_Yee_picmi.analysis",
+          "seconds": 3.44679,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_Yee_restart_picmi.run",
+          "seconds": 1.29411,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_Yee_restart_picmi.analysis",
+          "seconds": 1.70846,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_Yee_load_balance_picmi.run",
+          "seconds": 1.49466,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_Yee_load_balance_picmi.analysis",
+          "seconds": 1.85232,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_PSATD_picmi.run",
+          "seconds": 1.64434,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_PSATD_picmi.analysis",
+          "seconds": 3.44199,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_PSATD_restart_picmi.run",
+          "seconds": 1.26221,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_PSATD_restart_picmi.analysis",
+          "seconds": 1.80959,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_PSATD_load_balance_picmi.run",
+          "seconds": 1.52162,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_PSATD_load_balance_picmi.analysis",
+          "seconds": 1.83411,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_semi_implicit_em_picmi.run",
+          "seconds": 1.68345,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_semi_implicit_em_picmi.analysis",
+          "seconds": 2.0054,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_semi_implicit_em_restart_picmi.run",
+          "seconds": 1.29315,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_semi_implicit_em_restart_picmi.analysis",
+          "seconds": 1.65753,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_semi_implicit_mm_picmi.run",
+          "seconds": 3.23068,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_semi_implicit_mm_picmi.analysis",
+          "seconds": 2.00289,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_semi_implicit_mm_restart_picmi.run",
+          "seconds": 1.33253,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_semi_implicit_mm_restart_picmi.analysis",
+          "seconds": 1.79169,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_proton_1_picmi.run",
+          "seconds": 1.3883,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_proton_2_picmi.run",
+          "seconds": 1.41363,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_proton_3_picmi.run",
+          "seconds": 1.40298,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_proton_4_picmi.run",
+          "seconds": 1.44692,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_proton_psatd_picmi.run",
+          "seconds": 1.42961,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_ionization_1_picmi.run",
+          "seconds": 1.11198,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_ionization_2_picmi.run",
+          "seconds": 1.13454,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_ionization_3_picmi.run",
+          "seconds": 1.15097,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_ionization_4_picmi.run",
+          "seconds": 1.11938,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_ionization_psatd_picmi.run",
+          "seconds": 1.13927,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_attachment_1_picmi.run",
+          "seconds": 0.442827,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_attachment_2_picmi.run",
+          "seconds": 0.454213,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_attachment_3_picmi.run",
+          "seconds": 0.462763,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_attachment_4_picmi.run",
+          "seconds": 0.471851,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_attachment_psatd_picmi.run",
+          "seconds": 0.458153,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_attachment_picmi.run",
+          "seconds": 0.277367,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_attachment_picmi.analysis",
+          "seconds": 0.213187,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_bad_inputs_picmi.run",
+          "seconds": 6.54979,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_iaa_elastic_picmi.run",
+          "seconds": 0.701058,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_iaa_elastic_picmi.analysis",
+          "seconds": 0.431978,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_loose_majorant_picmi.run",
+          "seconds": 0.327794,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_loose_majorant_picmi.analysis",
+          "seconds": 0.115536,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_many_attachment_picmi.run",
+          "seconds": 0.331142,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_many_attachment_picmi.analysis",
+          "seconds": 0.131311,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_many_excitation_picmi.run",
+          "seconds": 0.388209,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_many_excitation_picmi.analysis",
+          "seconds": 0.120125,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_nonrelativistic_majorant_picmi.run",
+          "seconds": 0.395176,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_nonrelativistic_majorant_picmi.analysis",
+          "seconds": 0.119535,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_relativistic.run",
+          "seconds": 0.489528,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_relativistic.analysis",
+          "seconds": 0.114939,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_rbeq_picmi.run",
+          "seconds": 13.0086,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_rbeq_picmi.analysis",
+          "seconds": 0.664811,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_selector_picmi.run",
+          "seconds": 0.338731,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_selector_picmi.analysis",
+          "seconds": 0.115312,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_thermal_attachment_picmi.run",
+          "seconds": 0.342524,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_thermal_attachment_picmi.analysis",
+          "seconds": 0.14994,
+          "passed": true
+        },
+        {
+          "name": "test_3d_collision_iso_subcycle.run",
+          "seconds": 6.48502,
+          "passed": true
+        },
+        {
+          "name": "test_3d_collision_iso_subcycle.analysis",
+          "seconds": 1.91463,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_bad_inputs_picmi.run",
+          "seconds": 1.89417,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_alpha_picmi.run",
+          "seconds": 1.52727,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_fluid_Yee_picmi.run",
+          "seconds": 0.386034,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_fluid_Yee_restart_picmi.run",
+          "seconds": 0.347251,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_fluid_PSATD_picmi.run",
+          "seconds": 0.393665,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_fluid_PSATD_restart_picmi.run",
+          "seconds": 0.367027,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_picmi.run",
+          "seconds": 67.1809,
+          "passed": true
+        },
+        {
+          "name": "test_1d_background_mcc_picmi.analysis",
+          "seconds": 0.799401,
+          "passed": false,
+          "output": "array([1.95837502e+13, 3.52031853e+13, 4.22211348e+13, 4.53126518e+13,\n       4.90057368e+13, 5.26540608e+13, 5.63868864e+13, 6.12046194e+13,\n       6.73191025e+13, 7.49380496e+13, 8.54234426e+13, 1.00138353e+14,\n       1.16897741e+14, 1.30390946e+14, 1.43842301e+14, 1.54071951e+14,\n       1.55251660e+14, 1.52477908e+14, 1.43381512e+14, 1.30125261e+14,\n       1.15654457e+14, 9.93714216e+13, 8.53914293e+13, 7.50064734e+13,\n       6.77662070e+13, 6.19509500e+13, 5.64232609e+13, 5.17709968e+13,\n       4.81370693e+13, 4.49830406e+13, 4.22003750e+13, 3.51023402e+13,\n       1.93545210e+13])\nMax relative error (interior): 15.64 %\nRMS relative error (interior): 9.62 %\nTraceback (most recent call last):\n  File \"/Users/ssarwar/.codex/worktrees/c9ca/warpx-myfork/Examples/Physics_applications/capacitive_discharge/analysis_1d.py\", line 85, in <module>\n    assert rms_rel_err < tolerance, (\n           ^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: RMS relative error 9.62 % exceeds tolerance 6.50 %\n"
+        },
+        {
+          "name": "test_2d_background_mcc.run",
+          "seconds": 7.55917,
+          "passed": true
+        },
+        {
+          "name": "test_2d_background_mcc_picmi.run",
+          "seconds": 7.86864,
+          "passed": true
+        }
+      ]
+    },
+    "collision-time-omp/ctest.xml": {
+      "sha256": "525fcb708be3506838ea8318da11795a35a3176753af974fd75d10ddd5b2c288",
+      "cases": [
+        {
+          "name": "test_rz_rigid_source_Yee_picmi.run",
+          "seconds": 3.70821,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_Yee_picmi.analysis",
+          "seconds": 3.09451,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_Yee_restart_picmi.run",
+          "seconds": 1.25665,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_Yee_restart_picmi.analysis",
+          "seconds": 1.5968,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_Yee_load_balance_picmi.run",
+          "seconds": 1.40302,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_Yee_load_balance_picmi.analysis",
+          "seconds": 1.70488,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_PSATD_picmi.run",
+          "seconds": 1.33782,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_PSATD_picmi.analysis",
+          "seconds": 1.69641,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_PSATD_restart_picmi.run",
+          "seconds": 1.24732,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_PSATD_restart_picmi.analysis",
+          "seconds": 1.65765,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_PSATD_load_balance_picmi.run",
+          "seconds": 1.37861,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_PSATD_load_balance_picmi.analysis",
+          "seconds": 1.68554,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_semi_implicit_em_picmi.run",
+          "seconds": 1.35837,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_semi_implicit_em_picmi.analysis",
+          "seconds": 1.67295,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_semi_implicit_em_restart_picmi.run",
+          "seconds": 1.2477,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_semi_implicit_em_restart_picmi.analysis",
+          "seconds": 1.56248,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_semi_implicit_mm_picmi.run",
+          "seconds": 1.36457,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_semi_implicit_mm_picmi.analysis",
+          "seconds": 1.68486,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_semi_implicit_mm_restart_picmi.run",
+          "seconds": 1.28124,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_semi_implicit_mm_restart_picmi.analysis",
+          "seconds": 1.58501,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_proton_1_picmi.run",
+          "seconds": 1.41226,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_proton_2_picmi.run",
+          "seconds": 1.34076,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_proton_3_picmi.run",
+          "seconds": 1.33813,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_proton_4_picmi.run",
+          "seconds": 1.33974,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_proton_psatd_picmi.run",
+          "seconds": 1.34633,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_proton_threaded_picmi.run",
+          "seconds": 1.36522,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_ionization_1_picmi.run",
+          "seconds": 1.09744,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_ionization_2_picmi.run",
+          "seconds": 1.10715,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_ionization_3_picmi.run",
+          "seconds": 1.10395,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_ionization_4_picmi.run",
+          "seconds": 1.09467,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_ionization_psatd_picmi.run",
+          "seconds": 1.10516,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_ionization_threaded_picmi.run",
+          "seconds": 1.11943,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_attachment_1_picmi.run",
+          "seconds": 0.381468,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_attachment_2_picmi.run",
+          "seconds": 0.38977,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_attachment_3_picmi.run",
+          "seconds": 0.353546,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_attachment_4_picmi.run",
+          "seconds": 0.371681,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_attachment_psatd_picmi.run",
+          "seconds": 0.355044,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_attachment_threaded_picmi.run",
+          "seconds": 0.365862,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_bad_inputs_picmi.run",
+          "seconds": 1.69531,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_train_semi_implicit_em_picmi.run",
+          "seconds": 7.69721,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_train_semi_implicit_em_restart_picmi.run",
+          "seconds": 6.17132,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_train_semi_implicit_mm_picmi.run",
+          "seconds": 7.75619,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_train_semi_implicit_mm_restart_picmi.run",
+          "seconds": 6.33056,
+          "passed": true
+        },
+        {
+          "name": "test_rz_attachment_checkpoint_Yee_picmi.run",
+          "seconds": 0.40437,
+          "passed": true
+        },
+        {
+          "name": "test_rz_attachment_checkpoint_Yee_restart_picmi.run",
+          "seconds": 0.332748,
+          "passed": true
+        },
+        {
+          "name": "test_rz_attachment_checkpoint_PSATD_picmi.run",
+          "seconds": 0.374457,
+          "passed": true
+        },
+        {
+          "name": "test_rz_attachment_checkpoint_PSATD_restart_picmi.run",
+          "seconds": 0.317404,
+          "passed": true
+        },
+        {
+          "name": "test_rz_attachment_checkpoint_semi_implicit_em_picmi.run",
+          "seconds": 0.363585,
+          "passed": true
+        },
+        {
+          "name": "test_rz_attachment_checkpoint_semi_implicit_em_restart_picmi.run",
+          "seconds": 0.326009,
+          "passed": true
+        },
+        {
+          "name": "test_rz_attachment_checkpoint_semi_implicit_mm_picmi.run",
+          "seconds": 0.37577,
+          "passed": true
+        },
+        {
+          "name": "test_rz_attachment_checkpoint_semi_implicit_mm_restart_picmi.run",
+          "seconds": 0.347699,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_source_alpha_picmi.run",
+          "seconds": 1.28377,
+          "passed": true
+        },
+        {
+          "name": "test_2d_theta_implicit_jfnk_vandb.run",
+          "seconds": 18.2711,
+          "passed": true
+        },
+        {
+          "name": "test_2d_theta_implicit_jfnk_vandb.analysis",
+          "seconds": 1.63677,
+          "passed": true
+        },
+        {
+          "name": "test_2d_theta_implicit_jfnk_vandb_cropping.run",
+          "seconds": 0.288653,
+          "passed": true
+        },
+        {
+          "name": "test_2d_theta_implicit_jfnk_vandb_cropping.analysis",
+          "seconds": 1.57993,
+          "passed": true
+        },
+        {
+          "name": "test_2d_theta_implicit_jfnk_vandb_filtered.run",
+          "seconds": 17.2669,
+          "passed": true
+        },
+        {
+          "name": "test_2d_theta_implicit_jfnk_vandb_filtered.analysis",
+          "seconds": 1.62164,
+          "passed": true
+        },
+        {
+          "name": "test_2d_theta_implicit_jfnk_vandb_picmi.run",
+          "seconds": 17.9335,
+          "passed": true
+        },
+        {
+          "name": "test_2d_theta_implicit_jfnk_vandb_picmi.analysis",
+          "seconds": 1.48482,
+          "passed": true
+        },
+        {
+          "name": "test_2d_theta_implicit_symmetry.run",
+          "seconds": 24.1183,
+          "passed": true
+        },
+        {
+          "name": "test_2d_theta_implicit_symmetry.analysis",
+          "seconds": 1.60178,
+          "passed": true
+        },
+        {
+          "name": "test_2d_theta_implicit_strang_psatd.run",
+          "seconds": 13.4124,
+          "passed": true
+        },
+        {
+          "name": "test_2d_theta_implicit_strang_psatd.analysis",
+          "seconds": 0.111007,
+          "passed": true
+        },
+        {
+          "name": "test_rz_fluid_charge_picmi.run",
+          "seconds": 0.342448,
+          "passed": true
+        },
+        {
+          "name": "test_rz_fluid_interfaces_picmi.run",
+          "seconds": 2.71794,
+          "passed": true
+        },
+        {
+          "name": "test_rz_fluid_beam_air.run",
+          "seconds": 0.192922,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_beam_semi_implicit_em_1_picmi.run",
+          "seconds": 0.340093,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_beam_semi_implicit_em_2_picmi.run",
+          "seconds": 0.325776,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_beam_semi_implicit_em_3_picmi.run",
+          "seconds": 0.327003,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_beam_semi_implicit_em_4_picmi.run",
+          "seconds": 0.313228,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_beam_semi_implicit_em_self_fields_picmi.run",
+          "seconds": 0.351033,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_beam_semi_implicit_mm_1_picmi.run",
+          "seconds": 0.319506,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_beam_semi_implicit_mm_2_picmi.run",
+          "seconds": 0.328779,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_beam_semi_implicit_mm_3_picmi.run",
+          "seconds": 0.344287,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_beam_semi_implicit_mm_4_picmi.run",
+          "seconds": 0.376309,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_beam_semi_implicit_mm_self_fields_picmi.run",
+          "seconds": 0.356187,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_boundary_semi_implicit_em_positive_unfiltered_picmi.run",
+          "seconds": 0.687753,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_boundary_semi_implicit_em_positive_filtered_picmi.run",
+          "seconds": 0.687273,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_boundary_semi_implicit_em_negative_unfiltered_picmi.run",
+          "seconds": 0.687854,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_boundary_semi_implicit_em_negative_filtered_picmi.run",
+          "seconds": 0.697206,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_boundary_semi_implicit_mm_positive_unfiltered_picmi.run",
+          "seconds": 0.693572,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_boundary_semi_implicit_mm_positive_filtered_picmi.run",
+          "seconds": 0.696291,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_boundary_semi_implicit_mm_negative_unfiltered_picmi.run",
+          "seconds": 0.708275,
+          "passed": true
+        },
+        {
+          "name": "test_rz_rigid_boundary_semi_implicit_mm_negative_filtered_picmi.run",
+          "seconds": 0.707641,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_fluid_Yee_picmi.run",
+          "seconds": 0.326107,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_fluid_Yee_restart_picmi.run",
+          "seconds": 0.301606,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_fluid_PSATD_picmi.run",
+          "seconds": 0.336648,
+          "passed": true
+        },
+        {
+          "name": "test_rz_immobile_fluid_PSATD_restart_picmi.run",
+          "seconds": 0.307272,
+          "passed": true
+        },
+        {
+          "name": "test_rz_beam_reference_Yee_fluid_picmi.run",
+          "seconds": 0.494186,
+          "passed": true
+        },
+        {
+          "name": "test_rz_beam_reference_PSATD_fluid_picmi.run",
+          "seconds": 0.408168,
+          "passed": true
+        },
+        {
+          "name": "test_rz_beam_reference_semi_implicit_em_fluid_picmi.run",
+          "seconds": 0.41889,
+          "passed": true
+        },
+        {
+          "name": "test_rz_beam_reference_semi_implicit_em_coarse_picmi.run",
+          "seconds": 0.387977,
+          "passed": true
+        },
+        {
+          "name": "test_rz_beam_reference_semi_implicit_em_fine_picmi.run",
+          "seconds": 1.47874,
+          "passed": true
+        },
+        {
+          "name": "test_rz_beam_reference_semi_implicit_em_fine_picmi.analysis",
+          "seconds": 1.16255,
+          "passed": true
+        },
+        {
+          "name": "test_rz_beam_reference_semi_implicit_mm_fluid_picmi.run",
+          "seconds": 0.410507,
+          "passed": true
+        },
+        {
+          "name": "test_rz_beam_reference_semi_implicit_mm_coarse_picmi.run",
+          "seconds": 0.430169,
+          "passed": true
+        },
+        {
+          "name": "test_rz_beam_reference_semi_implicit_mm_fine_picmi.run",
+          "seconds": 2.44622,
+          "passed": true
+        },
+        {
+          "name": "test_rz_beam_reference_semi_implicit_mm_fine_picmi.analysis",
+          "seconds": 0.902244,
+          "passed": true
+        },
+        {
+          "name": "test_2d_laser_injection_implicit.run",
+          "seconds": 11.9245,
+          "passed": true
+        },
+        {
+          "name": "test_2d_laser_injection_implicit.analysis",
+          "seconds": 6.60334,
+          "passed": true
+        },
+        {
+          "name": "test_2d_pec_field_insulator_implicit.run",
+          "seconds": 0.254639,
+          "passed": true
+        },
+        {
+          "name": "test_2d_pec_field_insulator_implicit.analysis",
+          "seconds": 0.49332,
+          "passed": true
+        },
+        {
+          "name": "test_2d_pec_field_insulator_implicit_restart.run",
+          "seconds": 0.202774,
+          "passed": true
+        },
+        {
+          "name": "test_2d_pec_field_insulator_implicit_restart.analysis",
+          "seconds": 0.490029,
+          "passed": true
+        },
+        {
+          "name": "test_rz_fluid_flux_Yee_picmi.run",
+          "seconds": 0.41029,
+          "passed": true
+        },
+        {
+          "name": "test_rz_fluid_flux_Yee_restart_picmi.run",
+          "seconds": 0.298287,
+          "passed": true
+        },
+        {
+          "name": "test_rz_fluid_flux_Yee_restart_picmi.analysis",
+          "seconds": 0.151522,
+          "passed": false,
+          "output": "{\n  \"initial_power_relative\": 0.0,\n  \"initial_integral_scaled\": 0.0,\n  \"continuation_histogram\": 4.975801101667387e-15,\n  \"continuation_instant\": 0.0,\n  \"continuation_ParticleExtrema\": 0.0,\n  \"continuation_Timestep\": 0.0,\n  \"continuation_BeamRelevant\": 1104359264397.05,\n  \"continuation_ParticleNumber\": 0.0,\n  \"continuation_ParticleCharge\": 4.744625125589376e-15,\n  \"continuation_ParticleMomentum\": 3.09760638512913e-15,\n  \"continuation_FieldEnergy\": 0.0,\n  \"continuation_FieldPoyntingFlux\": 0.0,\n  \"continuation_integral\": 0.0,\n  \"continuation_ParticleEnergy\": 3.3449316496753342e-15\n}\nTraceback (most recent call last):\n  File \"/Users/ssarwar/.codex/worktrees/c9ca/warpx-myfork/Examples/Tests/reduced_diags/analysis_rz_fluid_diagnostics.py\", line 63, in <module>\n    assert max(errors.values()) < 2e-13, errors\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: {'initial_power_relative': 0.0, 'initial_integral_scaled': 0.0, 'continuation_histogram': 4.975801101667387e-15, 'continuation_instant': 0.0, 'continuation_ParticleExtrema': 0.0, 'continuation_Timestep': 0.0, 'continuation_BeamRelevant': 1104359264397.05, 'continuation_ParticleNumber': 0.0, 'continuation_ParticleCharge': 4.744625125589376e-15, 'continuation_ParticleMomentum': 3.09760638512913e-15, 'continuation_FieldEnergy': 0.0, 'continuation_FieldPoyntingFlux': 0.0, 'continuation_integral': 0.0, 'continuation_ParticleEnergy': 3.3449316496753342e-15}\n"
+        },
+        {
+          "name": "test_rz_fluid_flux_semi_implicit_em_picmi.run",
+          "seconds": 0.402166,
+          "passed": true
+        },
+        {
+          "name": "test_rz_fluid_flux_semi_implicit_em_restart_picmi.run",
+          "seconds": 0.297685,
+          "passed": true
+        },
+        {
+          "name": "test_rz_fluid_flux_semi_implicit_em_restart_picmi.analysis",
+          "seconds": 0.150242,
+          "passed": false,
+          "output": "{\n  \"initial_power_relative\": 0.0,\n  \"initial_integral_scaled\": 0.0,\n  \"continuation_histogram\": 4.975801101667387e-15,\n  \"continuation_instant\": 0.0,\n  \"continuation_ParticleExtrema\": 0.0,\n  \"continuation_Timestep\": 0.0,\n  \"continuation_BeamRelevant\": 1104359264397.05,\n  \"continuation_ParticleNumber\": 0.0,\n  \"continuation_ParticleCharge\": 4.744625125589376e-15,\n  \"continuation_ParticleMomentum\": 2.8765375942397476e-15,\n  \"continuation_FieldEnergy\": 0.0,\n  \"continuation_FieldPoyntingFlux\": 0.0,\n  \"continuation_integral\": 0.0,\n  \"continuation_ParticleEnergy\": 3.3449316496753342e-15\n}\nTraceback (most recent call last):\n  File \"/Users/ssarwar/.codex/worktrees/c9ca/warpx-myfork/Examples/Tests/reduced_diags/analysis_rz_fluid_diagnostics.py\", line 63, in <module>\n    assert max(errors.values()) < 2e-13, errors\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: {'initial_power_relative': 0.0, 'initial_integral_scaled': 0.0, 'continuation_histogram': 4.975801101667387e-15, 'continuation_instant': 0.0, 'continuation_ParticleExtrema': 0.0, 'continuation_Timestep': 0.0, 'continuation_BeamRelevant': 1104359264397.05, 'continuation_ParticleNumber': 0.0, 'continuation_ParticleCharge': 4.744625125589376e-15, 'continuation_ParticleMomentum': 2.8765375942397476e-15, 'continuation_FieldEnergy': 0.0, 'continuation_FieldPoyntingFlux': 0.0, 'continuation_integral': 0.0, 'continuation_ParticleEnergy': 3.3449316496753342e-15}\n"
+        },
+        {
+          "name": "test_rz_fluid_flux_semi_implicit_mm_picmi.run",
+          "seconds": 0.393125,
+          "passed": true
+        },
+        {
+          "name": "test_rz_fluid_flux_semi_implicit_mm_restart_picmi.run",
+          "seconds": 0.318195,
+          "passed": true
+        },
+        {
+          "name": "test_rz_fluid_flux_semi_implicit_mm_restart_picmi.analysis",
+          "seconds": 0.154412,
+          "passed": false,
+          "output": "{\n  \"initial_power_relative\": 0.0,\n  \"initial_integral_scaled\": 0.0,\n  \"continuation_histogram\": 4.975801101667387e-15,\n  \"continuation_instant\": 0.0,\n  \"continuation_ParticleExtrema\": 0.0,\n  \"continuation_Timestep\": 0.0,\n  \"continuation_BeamRelevant\": 1104359264397.05,\n  \"continuation_ParticleNumber\": 0.0,\n  \"continuation_ParticleCharge\": 4.744625125589376e-15,\n  \"continuation_ParticleMomentum\": 2.8765375942397476e-15,\n  \"continuation_FieldEnergy\": 0.0,\n  \"continuation_FieldPoyntingFlux\": 0.0,\n  \"continuation_integral\": 0.0,\n  \"continuation_ParticleEnergy\": 3.3449316496753342e-15\n}\nTraceback (most recent call last):\n  File \"/Users/ssarwar/.codex/worktrees/c9ca/warpx-myfork/Examples/Tests/reduced_diags/analysis_rz_fluid_diagnostics.py\", line 63, in <module>\n    assert max(errors.values()) < 2e-13, errors\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: {'initial_power_relative': 0.0, 'initial_integral_scaled': 0.0, 'continuation_histogram': 4.975801101667387e-15, 'continuation_instant': 0.0, 'continuation_ParticleExtrema': 0.0, 'continuation_Timestep': 0.0, 'continuation_BeamRelevant': 1104359264397.05, 'continuation_ParticleNumber': 0.0, 'continuation_ParticleCharge': 4.744625125589376e-15, 'continuation_ParticleMomentum': 2.8765375942397476e-15, 'continuation_FieldEnergy': 0.0, 'continuation_FieldPoyntingFlux': 0.0, 'continuation_integral': 0.0, 'continuation_ParticleEnergy': 3.3449316496753342e-15}\n"
+        },
+        {
+          "name": "test_rz_fluid_flux_PSATD_picmi.run",
+          "seconds": 0.378916,
+          "passed": true
+        },
+        {
+          "name": "test_rz_fluid_flux_PSATD_restart_picmi.run",
+          "seconds": 0.304364,
+          "passed": true
+        },
+        {
+          "name": "test_rz_fluid_flux_PSATD_restart_picmi.analysis",
+          "seconds": 0.16472,
+          "passed": false,
+          "output": "{\n  \"initial_power_relative\": 0.0,\n  \"initial_integral_scaled\": 0.0,\n  \"continuation_histogram\": 4.975801101667387e-15,\n  \"continuation_instant\": 0.0,\n  \"continuation_ParticleExtrema\": 0.0,\n  \"continuation_Timestep\": 0.0,\n  \"continuation_BeamRelevant\": 1104359264397.05,\n  \"continuation_ParticleNumber\": 0.0,\n  \"continuation_ParticleCharge\": 4.744625125589376e-15,\n  \"continuation_ParticleMomentum\": 3.09760638512913e-15,\n  \"continuation_FieldEnergy\": 0.0,\n  \"continuation_FieldPoyntingFlux\": 0.0,\n  \"continuation_integral\": 0.0,\n  \"continuation_ParticleEnergy\": 3.3449316103447253e-15\n}\nTraceback (most recent call last):\n  File \"/Users/ssarwar/.codex/worktrees/c9ca/warpx-myfork/Examples/Tests/reduced_diags/analysis_rz_fluid_diagnostics.py\", line 63, in <module>\n    assert max(errors.values()) < 2e-13, errors\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: {'initial_power_relative': 0.0, 'initial_integral_scaled': 0.0, 'continuation_histogram': 4.975801101667387e-15, 'continuation_instant': 0.0, 'continuation_ParticleExtrema': 0.0, 'continuation_Timestep': 0.0, 'continuation_BeamRelevant': 1104359264397.05, 'continuation_ParticleNumber': 0.0, 'continuation_ParticleCharge': 4.744625125589376e-15, 'continuation_ParticleMomentum': 3.09760638512913e-15, 'continuation_FieldEnergy': 0.0, 'continuation_FieldPoyntingFlux': 0.0, 'continuation_integral': 0.0, 'continuation_ParticleEnergy': 3.3449316103447253e-15}\n"
+        },
+        {
+          "name": "test_rz_fluid_diagnostics_picmi.run",
+          "seconds": 0.360195,
+          "passed": true
+        },
+        {
+          "name": "test_rz_fluid_diagnostics_restart_picmi.run",
+          "seconds": 0.348696,
+          "passed": true
+        },
+        {
+          "name": "test_rz_fluid_diagnostics_restart_picmi.analysis",
+          "seconds": 0.154215,
+          "passed": false,
+          "output": "{\n  \"full_energy_relative\": 1.1102230246251565e-15,\n  \"full_instant_scaled\": 0.0,\n  \"full_integral_scaled\": 0.0,\n  \"full_poynting_absolute\": 0.0,\n  \"restart_energy_relative\": 1.1102230246251565e-15,\n  \"restart_instant_scaled\": 0.0,\n  \"restart_integral_scaled\": 0.0,\n  \"restart_poynting_absolute\": 0.0,\n  \"continuation_histogram\": 4.975801101667387e-15,\n  \"continuation_instant\": 0.0,\n  \"continuation_ParticleExtrema\": 0.0,\n  \"continuation_Timestep\": 0.0,\n  \"continuation_BeamRelevant\": 1104359264397.05,\n  \"continuation_ParticleNumber\": 0.0,\n  \"continuation_ParticleCharge\": 4.744625125589376e-15,\n  \"continuation_ParticleMomentum\": 3.09760638512913e-15,\n  \"continuation_FieldEnergy\": 0.0,\n  \"continuation_FieldPoyntingFlux\": 0.0,\n  \"continuation_integral\": 0.0,\n  \"continuation_ParticleEnergy\": 3.3449316496753342e-15\n}\nTraceback (most recent call last):\n  File \"/Users/ssarwar/.codex/worktrees/c9ca/warpx-myfork/Examples/Tests/reduced_diags/analysis_rz_fluid_diagnostics.py\", line 63, in <module>\n    assert max(errors.values()) < 2e-13, errors\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: {'full_energy_relative': 1.1102230246251565e-15, 'full_instant_scaled': 0.0, 'full_integral_scaled': 0.0, 'full_poynting_absolute': 0.0, 'restart_energy_relative': 1.1102230246251565e-15, 'restart_instant_scaled': 0.0, 'restart_integral_scaled': 0.0, 'restart_poynting_absolute': 0.0, 'continuation_histogram': 4.975801101667387e-15, 'continuation_instant': 0.0, 'continuation_ParticleExtrema': 0.0, 'continuation_Timestep': 0.0, 'continuation_BeamRelevant': 1104359264397.05, 'continuation_ParticleNumber': 0.0, 'continuation_ParticleCharge': 4.744625125589376e-15, 'continuation_ParticleMomentum': 3.09760638512913e-15, 'continuation_FieldEnergy': 0.0, 'continuation_FieldPoyntingFlux': 0.0, 'continuation_integral': 0.0, 'continuation_ParticleEnergy': 3.3449316496753342e-15}\n"
+        },
+        {
+          "name": "test_rz_fluid_diagnostics_bad_restart_picmi.run",
+          "seconds": 29.8504,
+          "passed": true
+        }
+      ]
+    }
+  },
+  "controls": {
+    "collision-time-before/implicit-four.log": {
+      "sha256": "aa4bfd9d275910f5445bc9e26a1f11c93db2c17d55b4619a39b422f695e569ab",
+      "tail": "78%\nImplicitSolver::PreRHSOp()                              1  8.587e-05  8.587e-05  8.587e-05   2.37%\nMultiParticleContainer::RedistributeLocal               1  7.292e-05  7.292e-05  7.292e-05   2.01%\nParticleContainer::Redistribute_impl()                  1  7.204e-05  7.204e-05  7.204e-05   1.99%\nFillBoundary_nowait()                                  19  5.254e-05  5.254e-05  5.254e-05   1.45%\nParticleContainer::BuildRedistributeMask                1  5.233e-05  5.233e-05  5.233e-05   1.44%\nWarpX::SyncCurrent()                                    1  3.721e-05  3.721e-05  3.721e-05   1.03%\nablastr::utils::communication::SumBoundary              3  3.492e-05  3.492e-05  3.492e-05   0.96%\nFabArray<FAB>::SumBoundary()                            3  3.329e-05  3.329e-05  3.329e-05   0.92%\nFabArray::FillBoundary()                                1  3.308e-05  3.308e-05  3.308e-05   0.91%\nFabArray<FAB>::SumBoundary_nowait()                     3  2.942e-05  2.942e-05  2.942e-05   0.81%\nPhysicalParticleContainer::Evolve()                     1  1.829e-05  1.829e-05  1.829e-05   0.50%\nFillBoundaryAndSync_nowait(Vector)                      5  1.454e-05  1.454e-05  1.454e-05   0.40%\nFillBoundaryAndSync_nowait()                           15  1.113e-05  1.113e-05  1.113e-05   0.31%\nWarpX::EvolveB()                                        2  9.834e-06  9.834e-06  9.834e-06   0.27%\nFillBoundaryAndSync_finish(Vector)                      5  9.584e-06  9.584e-06  9.584e-06   0.26%\nFabArrayBase::getFB()                                  19  8.876e-06  8.876e-06  8.876e-06   0.24%\nMultiFab::Copy()                                       18  7.961e-06  7.961e-06  7.961e-06   0.22%\nFillBoundaryAndSync_finish()                           15   6.46e-06   6.46e-06   6.46e-06   0.18%\nWarpX::ImplicitComputeRHSE()                            1  4.833e-06  4.833e-06  4.833e-06   0.13%\nParticleCopyPlan::build                                 1  4.625e-06  4.625e-06  4.625e-06   0.13%\nRedistribute_partition                                  1  4.542e-06  4.542e-06  4.542e-06   0.13%\nFabArrayBase::FB::FB()                                  3    4.5e-06    4.5e-06    4.5e-06   0.12%\nOther                                                  87    3.3e-05    3.3e-05    3.3e-05   0.91%\n--------------------------------------------------------------------------------------------------\n\nEND REGION WarpX::Evolve()\nPinned Memory Usage:\n----------------------------------------------------------\nName                            Nalloc    AvgMem    MaxMem\n----------------------------------------------------------\nThe_Pinned_Arena::Initialize()       1   392   B  8192 KiB\nUnprofiled                          47  2334   B  5888   B\n----------------------------------------------------------\n\nCpu Memory Usage:\n--------------------------------------------------------------------\nName                                      Nalloc    AvgMem    MaxMem\n--------------------------------------------------------------------\nPhysicalParticleContainer::AddPlasma()        12    10 KiB    45 KiB\nWarpX::InitData()                             15  1095   B  3840   B\nJacobianFunctionMF::::define()                12   747   B  3072   B\nNewtonSolver::Define()                         9   567   B  2304   B\nSemiImplicitEM::Define()                       9   822   B  2304   B\nOwnerMask()                                    3   205   B   768   B\nFillBoundary_nowait()                          6     0   B   512   B\nParticleContainer::BuildRedistributeMask       1    30   B   256   B\n--------------------------------------------------------------------\n\nAMReX (26.09-160-gd6d1aa11f38c) finalized\nParticles scattered by gas that exists only AFTER simulation end: 512\nTraceback (most recent call last):\n  File \"/Users/ssarwar/.codex/worktrees/c9ca/warpx-myfork/build/development-sync-cee2ca2fd/collision-time-before/probe.py\", line 70, in <module>\n    assert changed == 0, changed\n           ^^^^^^^^^^^^\nAssertionError: 512\n"
+    },
+    "collision-time-before/stock-implicit-four.log": {
+      "sha256": "b34f0ef5f2fa37ff7c0cd3846454a913ab9da53aef25033870750d3138b8969a",
+      "tail": " 0.55%\n--------------------------------------------------------------------------------------------------\n\n--------------------------------------------------------------------------------------------------\nName                                               NCalls  Incl. Min  Incl. Avg  Incl. Max   Max %\n--------------------------------------------------------------------------------------------------\nREG::WarpX::Evolve()                                    1    0.01348    0.01348    0.01348  83.77%\nWarpX::Evolve()                                         1    0.01348    0.01348    0.01348  83.76%\nWarpX::Evolve::step                                     1    0.01347    0.01347    0.01347  83.69%\nMultiParticleContainer::doCollisions()                  1    0.01319    0.01319    0.01319  81.95%\nBackgroundMCCCollision::doCollisions()                  4    0.01318    0.01318    0.01318  81.93%\nWarpX::OneStep()                                        1  0.0001594  0.0001594  0.0001594   0.99%\nSemiImplicitEM::OneStep()                               1  0.0001586  0.0001586  0.0001586   0.99%\nNewtonSolver::Solve()                                   1  8.825e-05  8.825e-05  8.825e-05   0.55%\nNewtonSolver::EvalResidual()                            1  8.121e-05  8.121e-05  8.121e-05   0.50%\nSemiImplicitEM::ComputeRHS()                            1  7.604e-05  7.604e-05  7.604e-05   0.47%\nImplicitSolver::PreRHSOp()                              1  5.925e-05  5.925e-05  5.925e-05   0.37%\nMultiParticleContainer::RedistributeLocal               1  5.867e-05  5.867e-05  5.867e-05   0.36%\nParticleContainer::Redistribute_impl()                  1  5.783e-05  5.783e-05  5.783e-05   0.36%\nParticleContainer::BuildRedistributeMask                1  3.746e-05  3.746e-05  3.746e-05   0.23%\nFillBoundary_nowait()                                  19  3.675e-05  3.675e-05  3.675e-05   0.23%\nFabArray::FillBoundary()                                1  3.121e-05  3.121e-05  3.121e-05   0.19%\nWarpX::SyncCurrent()                                    1  2.342e-05  2.342e-05  2.342e-05   0.15%\nablastr::utils::communication::SumBoundary              3  2.058e-05  2.058e-05  2.058e-05   0.13%\nOther                                                 179  0.0001601  0.0001601  0.0001601   0.99%\n--------------------------------------------------------------------------------------------------\n\nEND REGION WarpX::Evolve()\nPinned Memory Usage:\n----------------------------------------------------------\nName                            Nalloc    AvgMem    MaxMem\n----------------------------------------------------------\nThe_Pinned_Arena::Initialize()       1   184   B  8192 KiB\nUnprofiled                          47  4750   B  5888   B\n----------------------------------------------------------\n\nCpu Memory Usage:\n--------------------------------------------------------------------\nName                                      Nalloc    AvgMem    MaxMem\n--------------------------------------------------------------------\nPhysicalParticleContainer::AddPlasma()        12    34 KiB    45 KiB\nWarpX::InitData()                             15  2973   B  3840   B\nJacobianFunctionMF::::define()                12  2334   B  3072   B\nNewtonSolver::Define()                         9  1753   B  2304   B\nSemiImplicitEM::Define()                       9  1818   B  2304   B\nOwnerMask()                                    3   590   B   768   B\nFillBoundary_nowait()                          6     0   B   512   B\nParticleContainer::BuildRedistributeMask       1   185   B   256   B\n--------------------------------------------------------------------\n\nAMReX (26.09-160-gd6d1aa11f38c) finalized\nParticles scattered by gas that exists only AFTER simulation end: 3\nTraceback (most recent call last):\n  File \"/Users/ssarwar/.codex/worktrees/c9ca/warpx-myfork/build/development-sync-cee2ca2fd/collision-time-before/probe.py\", line 70, in <module>\n    assert changed == 0, changed\n           ^^^^^^^^^^^^\nAssertionError: 3\n"
+    },
+    "beam-moments-rz-arena-local.log": {
+      "sha256": "d9938badfdb4a92a5bb59b6bf8d01485b9e4907401f24731515e06e9357a8ded",
+      "tail": "........                                                                       [100%]                                                                       [100%]                                                                       [100%]                                                                       [100%]\n2 passed in 0.09s\n\n2 passed in 0.09s\n\n2 passed in 0.10s\n\n2 passed in 0.10s\n"
+    }
+  }
+}

@@ -374,3 +374,25 @@ reservation and exception settings as the Cartesian helper. Both populated
 and empty cases pass on four local MPI ranks. No covariance expectation or
 tolerance is changed. The earlier NVML reset failures remain separate
 device-execution incidents, with their logs preserved.
+
+The post-fix OpenMP/MPI selection completes 121 stages with 116 passes and
+the same five near-zero-centroid comparisons described above. The three
+scatter-deposition fixtures explicitly use four OpenMP threads on two MPI
+ranks; ordinary CTests retain the repository's one-thread default. The
+[local follow-up archive](results/development-sync-followups-local.json)
+retains all nine exact timing cases, the 77-stage collision selection, the
+121-stage OpenMP selection, and pre-fix branch/stock timing controls.
+
+CUDA acceptance job `58779585` completes successfully: populated/empty exact
+covariance tests in 1D, 2D, RZ, and 3D on one and four GPUs, all nine timing
+cases, and all ten standalone fluid/PJG/MCC physics tests. CUDA and SYCL
+rebuilds `58779552`/`58779553` also succeed. Subsequent performance studies
+keep checkout `242559e71` and its compiled libraries fixed for their duration.
+
+An interrupted allocation can leave an empty topology JSON or partial XML.
+The evidence exporter now records the filename, parse error, content hash,
+length and final bytes explicitly, while retaining other valid records.
+Such output is never counted as a successful check. Its regression uses a
+mixture of passing, failing and incomplete nested records. Future source
+manifests also include `tests/unit`; earlier manifests identify those tests
+through their Git revision and JUnit results instead of per-file hashes.

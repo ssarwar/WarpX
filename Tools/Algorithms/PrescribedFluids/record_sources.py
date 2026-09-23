@@ -21,6 +21,7 @@ paths = (
             "Python",
             "Examples/Tests",
             "Examples/analysis_default_restart.py",
+            "tests/unit",
             "Tools/Algorithms",
             "Tools/machines",
             "Docs",
