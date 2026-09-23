@@ -116,8 +116,9 @@ local Release build; their tolerances are unchanged.
 `run_full_regression.py BUILD OUTPUT` inventories and runs every configured
 CTest stage, preserving the dependency ordering through checksum stages.
 Checksum failures are reported separately, not hidden by removing those
-stages. The only build-configuration exclusions are the collider diagnostics
-and beam-beam groups that require photon emission when `WarpX_QED=OFF`.
+stages. The build-configuration exclusions include the nonlinear QED tests, collider
+diagnostics, beam-beam, and nodal-electrostatic groups requiring QED diagnostics or photon emission
+when `WarpX_QED=OFF`. Embedded-boundary injection groups require `WarpX_EB=ON`.
 The manifest, raw log, JUnit XML, and classified summary are retained.
 An optional MPI launcher runs the Python unit suites inside an allocated
 GPU step, with their original CTest environment and working directory.
@@ -141,4 +142,25 @@ before GPU execution. Three stock flux-from-embedded-boundary groups are
 registered even in an EB-disabled build; their required capability is absent.
 The initial local failures are retained (the processes additionally hung in
 MPI_Abort). The driver now identifies all nine stages as configuration
-exclusions for `WarpX_EB=OFF`, alongside the five QED-dependent stages.
+exclusions for `WarpX_EB=OFF`, alongside the QED-dependent process and diagnostic stages. The nodal-electrostatic test
+requests QED emission and checks the QED chi diagnostic, so removing its
+zero-valued Schwinger option alone does not make it a non-QED test; its
+original input deck is retained.
+
+
+The three embedded-boundary injection registrations now use the same
+`if(WarpX_EB)` guard as the neighboring EB test directories. The supplemental
+SYCL driver accepts `WARPX_AUDIT_SYCL_BUILD_NAME` so this campaign can use
+`build_pm_sycl_sync` while retaining the earlier build. SYCL compilation
+is distinct from GPU runtime acceptance; Perlmutter has no Intel or AMD GPU.
+
+The QED configuration filter also excludes the nonlinear Breit-Wheeler,
+quantum-synchrotron, and Schwinger groups when QED support is absent. The
+hybrid Maxwell vacuum-polarization test remains enabled: its field solver
+is available independently of the particle-QED build option. The initial
+local run retained the unavailable-feature failures; the corrected driver
+records the explicit excluded-test list before launching the GPU suite.
+The beamsize/virtual-photon groups also request compiled QED functionality
+and are listed with those exclusions. The manifests record exact names;
+none of the rigid-fluid, PJG, MCC, implicit, or fluid diagnostic/restart
+checks is excluded by these capability filters.

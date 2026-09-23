@@ -12,7 +12,7 @@ test -f "$sycl_include/sycl.hpp"
 # either dependency's sources.
 sycl_flags="-fsycl -isystem $sycl_include -DMKL_ILP64"
 export CXXFLAGS="$sycl_flags"
-build="$root/build_pm_sycl"
+build="$root/${WARPX_AUDIT_SYCL_BUILD_NAME:-build_pm_sycl}"
 audit="$root/build/reaudit-2026-09-21"
 prefix="$audit/software/sycl"
 export CMAKE_PREFIX_PATH="$prefix/blaspp:$prefix/lapackpp:${CMAKE_PREFIX_PATH:-}"

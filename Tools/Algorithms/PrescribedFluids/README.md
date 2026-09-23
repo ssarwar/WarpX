@@ -10,6 +10,8 @@ Recorded CPU/A100 results, convergence limits and backend coverage are in
 [VALIDATION.md](VALIDATION.md).
 The subsequent upstream-merge review, all-channel MCC comparisons and
 distributed GPU acceptance are recorded separately in [REAUDIT.md](REAUDIT.md).
+The integration of the fork's newer development commits, conflict resolutions,
+and repeated acceptance results are in [DEVELOPMENT_SYNC.md](DEVELOPMENT_SYNC.md).
 
 `test_profiles.cpp` compares the analytic projection with an independent million
 particle quadrature using WarpX's actual particle shape functions. It also

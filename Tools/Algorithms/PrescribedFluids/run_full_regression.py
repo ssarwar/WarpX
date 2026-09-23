@@ -38,10 +38,21 @@ def main():
     cache = (args.build / "CMakeCache.txt").read_text()
     excluded, launched = {}, {}
     for name, test in tests.items():
-        if re.search(r"^WarpX_QED:BOOL=OFF$", cache, re.MULTILINE) and name.startswith(
-            ("test_3d_collider_diagnostics.", "test_3d_beam_beam_collision.")
+        if re.search(r"^WarpX_QED:BOOL=OFF$", cache, re.MULTILINE) and (
+            re.match(r"test_[23]d_qed_", name)
+            or name.startswith(
+                (
+                    "test_3d_collider_diagnostics.",
+                    "test_3d_beam_beam_collision.",
+                    "test_3d_nodal_electrostatic_solver.",
+                    "test_3d_beamsize_effect.",
+                    "test_3d_virtual_photons.",
+                )
+            )
         ):
-            excluded[name] = "Requires QED photon emission; WarpX_QED=OFF"
+            excluded[name] = (
+                "Requires compiled QED processes/diagnostics; WarpX_QED=OFF"
+            )
         elif re.search(r"^WarpX_EB:BOOL=OFF$", cache, re.MULTILINE) and re.match(
             r"test_(2d|3d|rz)_flux_injection_from_eb\.", name
         ):
@@ -75,7 +86,9 @@ def main():
     cases = ET.parse(args.output / "ctest.xml").getroot().findall(".//testcase")
     assert len(cases) == len(chosen), (len(cases), len(chosen))
     failures = [
-        case.attrib["name"] for case in cases if case.find("failure") is not None
+        case.attrib["name"]
+        for case in cases
+        if case.find("failure") is not None or case.find("error") is not None
     ]
     report["checksum_failures"] = [
         name for name in failures if name.endswith(".checksum")
