@@ -304,3 +304,35 @@ diagnostic continuations from four ranks to two. Initial integrated power is
 exact in both flux cases. Their worst continuation discrepancy is 4.98e-15;
 these GPU runs pass the unchanged diagnostic criterion, unlike the local
 near-zero centroid cases.
+
+## Helium discharge resolution controls
+
+The local ensemble uses two MPI ranks for both MCC and DSMC, four explicit
+WarpX seeds, and the unchanged input and 6.50% analysis bound. Three of four
+branch seeds pass for each method; all four stock seeds pass. RMS errors of
+the mean density profiles are 5.02%/5.00% for branch MCC/DSMC and 3.50%/3.92%
+for stock. These means are descriptive and do not replace individual failures.
+The original DSMC CTest uses one rank and remains a separately recorded case.
+
+| Seed 1 control | Branch MCC | Stock MCC | Branch DSMC | Stock DSMC |
+| --- | ---: | ---: | ---: | ---: |
+| 32 cells, 256 particles/cell | 9.622% | 3.032% | 5.853% | 5.287% |
+| Half timestep | 6.647% | 4.210% | 5.879% | 5.747% |
+| Four times particles/cell | 4.856% | 3.487% | 5.476% | 4.043% |
+| 64 cells, 512 particles/cell, half timestep | 3.741% | 3.876% | 4.070% | 3.648% |
+
+Both versions pass the original density criterion after particle refinement
+and joint refinement. Their jointly refined density profiles differ by
+1.36% (MCC) and 1.82% (DSMC) in 1D RMS relative to stock
+at the interior nodes. This supports sampling/discretization sensitivity in
+the coarse regression, rather than a demonstrated converged density bias.
+It does not prove exact equality of their stochastic trajectories or turn the
+original assertion into a pass. Every attempted and corrected run is retained
+in [the discharge archive](results/development-sync-discharge-local.json).
+
+The equation review also makes an existing profile limitation explicit in
+the input documentation: a finite rigid train is clipped in laboratory z,
+not periodically wrapped. Entry/exit tests use nonperiodic longitudinal
+boundaries. The periodic particle-reference benchmarks require the profile
+to remain inside the domain; their driver rejects beam transit through a
+periodic boundary. No new periodic-beam model is introduced by this merge.

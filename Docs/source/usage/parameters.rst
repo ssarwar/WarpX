@@ -2242,6 +2242,12 @@ Fluid species
     implicit solver's work arrays retain their original MPI ownership.
     All supported solvers allow a different MPI decomposition on restart.
 
+    The rigid profile translates on the laboratory z axis and is clipped by the
+    simulation domain. It is not wrapped or periodically replicated. Use
+    nonperiodic longitudinal boundaries for a finite pulse entering or leaving
+    the domain. Periodic field comparisons require a contained profile (with
+    negligible tails at the boundary) over the simulated interval.
+
     Immobile density defaults to zero. To initialize it, use ``profile = constant``
     with ``density``, or ``profile = parse_density_function`` with
     ``density_function(x,y,z)``. In this RZ profile, x is radius and y is zero.
