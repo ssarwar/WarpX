@@ -166,6 +166,7 @@ def main():
                 "comparison.json",
                 "acceptance.json",
                 "excluded-tests.json",
+                "allocation-transition.json",
                 "*state-difference.json",
                 "*load-balance-difference.json",
             ]:
