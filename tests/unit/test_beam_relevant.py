@@ -38,6 +38,10 @@ def test_beam_relevant_covariance(empty):
     velocities = u0 + b * (h * signs[:, ::2] + k * signs[:, 1::2])
 
     if pywarpx.libwarpx.geometry_dim == "rz":
+        # Match make_sim's on-demand allocation for repeated GPU initialization.
+        pywarpx.amrex.the_arena_init_size = 0
+        pywarpx.amrex.throw_exception = 1
+        pywarpx.amrex.signal_handling = 0
         grid = picmi.CylindricalGrid(
             number_of_cells=[8, 16],
             lower_bound=[0, -0.01],

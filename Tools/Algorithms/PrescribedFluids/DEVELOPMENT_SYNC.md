@@ -364,3 +364,13 @@ sampling every substep at the final endpoint. All nine pass in the rebuilt
 local MPI library. The affected regression selection retains only the known
 coarse helium-MCC assertion failure. GPU acceptance is in progress; the
 pre-fix controls and their logs remain retained.
+
+The repeated four-GPU RZ covariance unit test exposed a separate test setup
+error: its manually constructed RZ simulation omitted the common helper's
+on-demand arena setting. With repeated initialization, it aborted in
+`Arena::Initialize` with an out-of-memory error before the empty-beam case
+(uncaptured reproduction 58779101). It now uses the same zero initial arena
+reservation and exception settings as the Cartesian helper. Both populated
+and empty cases pass on four local MPI ranks. No covariance expectation or
+tolerance is changed. The earlier NVML reset failures remain separate
+device-execution incidents, with their logs preserved.
