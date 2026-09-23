@@ -118,6 +118,10 @@ elif [[ "$phase" == poynting ]]; then
     cmake --build "$validation_build/fluid-tests" --parallel 4 > "$study/build.log" 2>&1
     $launcher ctest --test-dir "$validation_build/fluid-tests" -R poynting \
         --output-on-failure --output-junit "$study/ctest.xml" > "$study/ctest.log" 2>&1
+elif [[ "$phase" == full_regression ]]; then
+    python3 Tools/Algorithms/PrescribedFluids/run_full_regression.py \
+        "$validation_build" "$study/tests" --jobs 1 --timeout 600 \
+        --pytest-launcher "$launcher" > "$study/ctest.log" 2>&1
 elif [[ "$phase" == regression ]]; then
     options=()
     if [[ -n "${3:-}" ]]; then options+=(--include "$3"); fi

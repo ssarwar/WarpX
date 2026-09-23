@@ -8,6 +8,7 @@ audit="$root/build/reaudit-2026-09-21"
 prefix="$audit/software"
 phase=${1:-configure}
 build_name=${WARPX_AUDIT_BUILD_NAME:-build_pm_gpu_py}
+build_dims=${WARPX_AUDIT_DIMS:-1;RZ;3}
 stock_revision=${WARPX_AUDIT_STOCK_REVISION:-66f380f98e44b0cce493a435305009693d0e261e}
 mkdir -p "$audit"
 
@@ -128,11 +129,11 @@ fi
 
 if [[ "$phase" == configure || "$phase" == stock ]]; then
     cmake -S "$checkout" -B "$build" \
-        -DCMAKE_BUILD_TYPE=Release -DWarpX_COMPUTE=CUDA -DWarpX_DIMS='1;RZ;3' \
+        -DCMAKE_BUILD_TYPE=Release -DWarpX_COMPUTE=CUDA -DWarpX_DIMS="$build_dims" \
         -DWarpX_FFT=ON -DWarpX_APP=ON -DWarpX_PYTHON=ON -DWarpX_MPI=ON \
         -DWarpX_OPENPMD=ON -DWarpX_QED=OFF -DWarpX_EB=OFF \
         -DWarpX_PRECISION=DOUBLE -DWarpX_PARTICLE_PRECISION=DOUBLE \
-        -DWarpX_TESTING=ON -DWarpX_TEST_CLEANUP=OFF \
+        -DBUILD_TESTING=ON -DWarpX_TEST_CLEANUP=OFF \
         -DWarpX_PYTHON_IPO=OFF -DpyAMReX_IPO=OFF \
         -DMPIEXEC_EXECUTABLE="$root/Tools/Algorithms/PrescribedFluids/perlmutter_mpiexec.sh" \
         -DMPIEXEC_NUMPROC_FLAG=-n -DMPIEXEC_PREFLAGS= -DMPIEXEC_POSTFLAGS=

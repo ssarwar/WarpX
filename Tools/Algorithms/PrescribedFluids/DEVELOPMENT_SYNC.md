@@ -110,3 +110,21 @@ and IAA/Legendre-without-a-table rejection for fusion and DSMC. The MCC
 invalid-input test also checks the development branch's Legendre rejection
 for both elastic scattering and ionization. Both CTest stages pass in the
 local Release build; their tolerances are unchanged.
+
+## Reproducible complete-suite driver
+
+`run_full_regression.py BUILD OUTPUT` inventories and runs every configured
+CTest stage, preserving the dependency ordering through checksum stages.
+Checksum failures are reported separately, not hidden by removing those
+stages. The only build-configuration exclusions are the collider diagnostics
+and beam-beam groups that require photon emission when `WarpX_QED=OFF`.
+The manifest, raw log, JUnit XML, and classified summary are retained.
+An optional MPI launcher runs the Python unit suites inside an allocated
+GPU step, with their original CTest environment and working directory.
+
+The stock Perlmutter build driver accepts `WARPX_AUDIT_DIMS` (defaulting to
+its previous `1;RZ;3` configuration), and uses CMake's actual `BUILD_TESTING`
+option. This campaign sets `WARPX_AUDIT_DIMS='1;2;RZ;3'` and
+`WARPX_AUDIT_BUILD_NAME=build_pm_gpu_sync`. The restart-failure driver also
+accepts that build-name setting, so the new comparison cannot accidentally
+load an older library. Shell syntax and Python lint/compilation checks pass.

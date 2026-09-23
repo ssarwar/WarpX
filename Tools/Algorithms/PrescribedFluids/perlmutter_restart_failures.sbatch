@@ -18,8 +18,9 @@ source build/reaudit-2026-09-21/perlmutter_gpu_warpx.profile
 export MPICH_GPU_SUPPORT_ENABLED=1
 export MPICH_OFI_NIC_POLICY=GPU
 export AMREX_DEFAULT_INIT='amrex.use_gpu_aware_mpi=1'
-build="$PWD/build_pm_gpu_latest"
-if [[ "${1:-branch}" == stock ]]; then build="$PWD/build/stock-warpx/build_pm_gpu_latest"; fi
+build_name=${WARPX_AUDIT_BUILD_NAME:-build_pm_gpu_latest}
+build="$PWD/$build_name"
+if [[ "${1:-branch}" == stock ]]; then build="$PWD/build/stock-warpx/$build_name"; fi
 export PYTHONPATH="$build/lib/site-packages"
 output="build/failure-audit-2026-09-21/acceleration-${1:-branch}-$SLURM_JOB_ID"
 mkdir -p "$output"
