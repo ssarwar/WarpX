@@ -445,3 +445,117 @@ the actual Slurm-retrieved scripts and job descriptions for the final
 campaign. Its descriptions were captured before those jobs completed and
 are allocation provenance, not test outcomes. Command-line and scheduler
 overrides take precedence over the saved script's default directives.
+
+The same-rank counterpart also passes: exact attachment survival and native
+ion/electron charge-footprint checks run uninterrupted and through checkpoint
+restoration on two local MPI ranks for all four solver configurations. GPU
+job `58779962` repeats the eight runs on four GPUs with unchanged rank count
+and passes. These supplement the rank-redistribution controls; neither
+expects bitwise replay of the stochastic MCC history.
+
+## Focused source review
+
+The equation/time review rechecks Gaussian normalization with the annular
+measure, signed axial velocity/current, the order-p charge versus order-(p-1)
+cumulative current primitive, cylindrical axis normalization, and time
+placement versus source integration. It verifies that the fixed-energy PJG
+source uses the same two neighboring incident-energy rows and interpolation
+as the particle implementation. The total cross section is the code's
+integral of the calibrated N2/O2 PJG spectrum; a user-supplied proton total
+cross-section table is not required. Electron MCC rate tables remain separate
+inputs; `RBEQ` names its energy-sharing model and `IAA` its angular model.
+
+The execution/lifecycle review rechecks that scatter loops use `amrex::For`
+and host/device atomics where necessary, each creation scan owns disjoint
+particle output, and fluid-ion footprints use the electron's stored position
+and weight. Only fresh increments undergo volume scaling and `SumBoundary`.
+Persistent populations, remainders, budgets and quiet counters are mandatory
+restart state; analytic caches rebuild without chemistry or self-field replay.
+The implicit residual adds prescribed current once, after kinetic scaling,
+and never commits chemistry inside a nonlinear/Jacobian evaluation. The
+development stencil-folding helper remains unchanged by conflict resolution.
+The timing and Twiss fixes above are the additional production corrections
+found during these passes; all other findings retain their measured evidence
+and limitations instead of changing assertion thresholds.
+
+## Final-library performance controls
+
+Jobs `58779668` and `58779669` complete strong scaling on 1/2/4/8 A100s with
+the same compiled libraries from checkout `242559e71`. Four GPUs use a full
+node and eight use two nodes; topology records check distinct devices and
+a GPU-buffer MPI reduction. Each number below is the mean of three per-run
+median ordinary timestep times, after two warm-up steps. Timers synchronize
+the device and report the maximum rank duration. The mesh is 256 by 1024;
+quiet particle beams use 64 particles/cell.
+
+| Timestep, milliseconds | 1 GPU | 2 GPUs | 4 GPUs | 8 GPUs |
+| --- | ---: | ---: | ---: | ---: |
+| Coupled, fluid beam / fluid ions | 28.718 | 18.411 | 13.219 | 10.712 |
+| Coupled, quiet beam / fluid ions | 91.802 | 49.955 | 36.468 | 22.650 |
+| Coupled, fluid beam / frozen ions | 23.351 | 14.287 | 10.855 | 8.955 |
+| Coupled, quiet beam / frozen ions | 85.995 | 46.034 | 34.086 | 20.705 |
+| Identical electrons, fluid beam | 10.440 | 6.798 | 4.894 | 3.583 |
+| Identical electrons, quiet beam | 31.430 | 17.782 | 12.679 | 7.636 |
+
+For the coupled cases with fluid ions, changing the beam representation gives
+speedups of 3.20, 2.71, 2.76 and 2.11 respectively. The equal-electron-work
+cases use 1,048,576 identical kinetic electrons with chemistry disabled.
+These are fixed-resolution comparisons, not universal speedup estimates.
+Sparse frozen ions remain faster here because fluid updates communicate mesh
+data; their particle storage instead grows with accumulated ion events.
+
+Independent continuum-error qualification in `58779671` retains the
+predeclared Er/B-theta 1% and Ez 2% targets, checking six seeds and all saved
+outputs on the expanded domain. The fluid case qualifies at 4.554 ms/step.
+Quiet particle beams qualify already at 4 particles/cell and 3.808 ms/step;
+random particle beams first qualify among the tested resolutions at 64
+particles/cell and 4.969 ms/step. Thus the fluid beam removes beam sampling
+noise, but is not the fastest representation for every accuracy requirement.
+The separate all-channel plasma noise ensemble is still being completed;
+beam determinism does not imply zero kinetic-electron sampling noise.
+
+The same-build storage comparison retains 682,112 bytes for four persistent
+ion-density fields at both 20 and 80 steps, including guards. Matched frozen
+ion particle payload grows from 3.504 to 14.975 MB. Complete fluid/frozen-ion
+checkpoints grow from 8.211/11.033 MB to 19.063/33.364 MB because electrons
+remain kinetic in both representations. Inclusive checkpoint-step times are
+46.59/60.46 ms and 66.18/96.35 ms; these include the physical step and variable
+filesystem cost. Density increments and aggregate-charge scratch are excluded
+from the persistent-density figure and also scale with mesh size.
+The numerical results and confidence intervals are preserved in
+[the follow-up GPU archive](results/development-sync-gpu-followups.json).
+
+The final Sphinx build `58780066` succeeds after the timing/boundary input
+documentation changes, retaining the previously observed single Doxygen
+`warpx::fields::FieldType` lookup warning. Ruff lint and format checks pass
+for all ten Python files changed by this integration. No generated stubs or
+checksum reference files are updated.
+
+## CUDA memory-check investigation
+
+The first sanitizer job `58777655` completes its three physics programs but
+returns the requested error status 99 for each (776, 180 and 124 reported
+errors). Printed reports are CUDA API diagnostics: Cray MPI calls
+`cuPointerGetAttribute` on ordinary host addresses, and CUDA's extended
+logging reports internal symbol probes in `libcublasLt`. The initial print
+limit truncates later records, so this run is not memory-check acceptance.
+
+The MPI-only program in `58780012` reproduces the pointer-query reports
+without importing WarpX or CuPy. Its GPU-disabled counterpart completes the
+host collective but the sanitizer returns 255 because no CUDA API was used;
+the follow-up control explicitly allows this intentional host-only case.
+The CUDA driver documents `CUDA_ERROR_INVALID_VALUE` for this query on
+unregistered pointers, and the sanitizer distinguishes returned API errors
+from device memory-access failures. See the
+[CUDA pointer-query reference](https://docs.nvidia.com/cuda/cuda-driver-api/group__CUDA__UNIFIED.html)
+and [sanitizer reporting/suppression reference](https://docs.nvidia.com/compute-sanitizer/ComputeSanitizer/index.html#cuda-api-error-checking).
+
+The next attempt, `58780113`, fails before running physics: its stack-qualified
+suppression does not match, and a test executable named `positive` collides
+with the intended output directory. Both setup issues are retained in the
+archive. The corrected attempt uses a separate executable name and an exact
+API/result-code suppression (`cuPointerGetAttribute`, error 1), with explicit
+API reporting and unrestricted device-memory checks. GPU-aware MPI remains
+enabled. A deliberate out-of-bounds CUDA write must still produce status 99,
+while the suppressed MPI-only control and all three physics programs must
+return zero. This acceptance is pending; no physical tolerance is changed.

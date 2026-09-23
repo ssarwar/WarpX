@@ -1071,5 +1071,55 @@
       "sha256": "d9938badfdb4a92a5bb59b6bf8d01485b9e4907401f24731515e06e9357a8ded",
       "tail": "........                                                                       [100%]                                                                       [100%]                                                                       [100%]                                                                       [100%]\n2 passed in 0.09s\n\n2 passed in 0.09s\n\n2 passed in 0.10s\n\n2 passed in 0.10s\n"
     }
-  }
+  },
+  "same_rank_attachment_exact_survival": [
+    {
+      "solver": "Yee",
+      "restart": false,
+      "ranks": 2,
+      "returncode": 0
+    },
+    {
+      "solver": "Yee",
+      "restart": true,
+      "ranks": 2,
+      "returncode": 0
+    },
+    {
+      "solver": "PSATD",
+      "restart": false,
+      "ranks": 2,
+      "returncode": 0
+    },
+    {
+      "solver": "PSATD",
+      "restart": true,
+      "ranks": 2,
+      "returncode": 0
+    },
+    {
+      "solver": "semi_implicit_em",
+      "restart": false,
+      "ranks": 2,
+      "returncode": 0
+    },
+    {
+      "solver": "semi_implicit_em",
+      "restart": true,
+      "ranks": 2,
+      "returncode": 0
+    },
+    {
+      "solver": "semi_implicit_mm",
+      "restart": false,
+      "ranks": 2,
+      "returncode": 0
+    },
+    {
+      "solver": "semi_implicit_mm",
+      "restart": true,
+      "ranks": 2,
+      "returncode": 0
+    }
+  ]
 }

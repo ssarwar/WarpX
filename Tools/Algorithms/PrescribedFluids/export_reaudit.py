@@ -75,6 +75,8 @@ def main():
                 "device.txt",
                 "runtime.txt",
                 "modules.txt",
+                "sanitizer.txt",
+                "results.txt",
             ]:
                 path = directory / name
                 if path.is_file():
@@ -172,6 +174,7 @@ def main():
                 study["sanitizer_logs"] = {
                     str(path.relative_to(directory)): dict(
                         sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
+                        head=path.read_text()[:12000],
                         tail=path.read_text()[-12000:],
                     )
                     for path in sorted(directory.rglob("run.log"))
