@@ -225,3 +225,28 @@ GitHub pushes from the activated conda shell initially used conda Git's
 credential-cache helper rather than macOS Git's Keychain helper. Using
 `/usr/bin/git` fixes the push path. This is a local tooling difference,
 not a GitHub authorization or source-state change.
+
+The corrected diagnostic compiles in CUDA (58775901) and SYCL (58775908).
+The Perlmutter checkout had a restricted Git fetch refspec: fetching a branch
+updated `FETCH_HEAD` without advancing its tracking ref. An explicit branch
+refspec and a checked `08124f33a` HEAD resolved this before either rebuild ran.
+The subsequent runtime jobs depend on that verified CUDA build.
+
+The first fresh stock acceleration comparison (58773855) timed out on
+`nid008341`; its logs report NVML "GPU requires reset" before the first step.
+This is hardware execution failure, not checkpoint or physics evidence.
+A separate rerun excludes that node and retains the original failed attempt.
+
+The original local helium discharge checks give 9.62% (MCC) and 7.40%
+(DSMC) density RMS error against the unchanged 6.50% Turner-profile bound.
+The fresh stock comparator gives 3.03% and 5.30%. These are not classified as
+stock failures. `discharge_convergence.py` retains the original analysis and
+its assertion, records every seed and input/library hash, and varies particle
+count, mesh, and timestep independently before joint refinement. Physical
+simulation time and averaging time remain fixed. Its results must be assessed
+before attributing the difference to sampling or finite-step collision effects.
+It does not replace failed individual assertions with an ensemble pass.
+
+`export_reaudit.py` now archives nested JUnit files using relative paths,
+including complete-suite and per-rank mass-matrix/diagnostic evidence, without
+silently overwriting identically named XML files from different configurations.

@@ -82,7 +82,7 @@ def main():
                         key, _, value = line.partition("=")
                         selected[key] = value
                 study["provenance"][cache.name] = selected
-            for xml in sorted(directory.glob("*.xml")):
+            for xml in sorted(directory.rglob("*.xml")):
                 tests = []
                 for test in ET.parse(xml).iter("testcase"):
                     tests.append(
@@ -97,7 +97,7 @@ def main():
                             skipped=test.find("skipped") is not None,
                         )
                     )
-                study["tests"][xml.name] = tests
+                study["tests"][str(xml.relative_to(directory))] = tests
             for name in ["python-physics.log", "gaussian.log", "analysis.log"]:
                 path = directory / name
                 if path.is_file():
