@@ -219,14 +219,19 @@ void CollisionHandler::doCollisions ( int step, amrex::Real cur_time, amrex::Rea
     for (auto& collision : allcollisions) {
         const int ndt = collision->get_ndt();
         const auto collision_stepping_mode = collision->get_collision_stepping_mode();
-        auto const start_time = WarpX::GetInstance().evolve_scheme == EvolveScheme::Explicit
-            ? cur_time : cur_time-dt;
+        bool const after_push =
+            WarpX::GetInstance().evolve_scheme != EvolveScheme::Explicit;
+        auto const start_time = after_push ? cur_time-dt : cur_time;
 
         if (collision_stepping_mode == CollisionSteppingMode::Subcycle) {
             // Subcycle: run ndt times per PIC step, each with dt_collision = dt / ndt
             const amrex::Real dt_sub = dt / ndt;
             for (int i_sub = 0; i_sub < ndt; ++i_sub) {
-                const amrex::Real sub_time = cur_time + i_sub * dt_sub;
+                // Explicit collisions precede the push and use left endpoints;
+                // implicit collisions follow it and use right endpoints of the
+                // same physical interval. A single substep retains cur_time.
+                int const offset = after_push ? i_sub + 1 - ndt : i_sub;
+                const amrex::Real sub_time = cur_time + offset * dt_sub;
                 collision->doCollisionsInInterval(sub_time, start_time+i_sub*dt_sub, dt_sub, mypc);
             }
         } else {

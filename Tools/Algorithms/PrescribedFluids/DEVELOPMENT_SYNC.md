@@ -336,3 +336,31 @@ not periodically wrapped. Entry/exit tests use nonperiodic longitudinal
 boundaries. The periodic particle-reference benchmarks require the profile
 to remain inside the domain; their driver rejects beam transit through a
 periodic boundary. No new periodic-beam model is introduced by this merge.
+
+## Implicit collision substep timing
+
+The second temporal audit finds another pre-existing stock error. Implicit
+collisions run after the field/particle push, with `cur_time` already at the
+end of the PIC step. Adding `i_sub*dt_sub` to that time evaluates later
+substeps in the future. An exact control defines zero gas throughout the
+simulated interval [0, 1 ps], with gas appearing only after 1.125 ps.
+Four implicit substeps incorrectly scatter all 512 test particles on the
+branch, and three on untouched development. The different counts reflect
+the collision algorithms; the analytical answer is exactly zero in both.
+
+The handler now samples left endpoints for explicit evolution and right
+endpoints for implicit evolution within the same elapsed physical interval.
+For an implicit step ending at t, the placement is
+`t - (N-1-i)*dt/N`, for i=0,...,N-1; N=1 preserves the original time exactly.
+The rigid-source integration interval remains independently defined, so this
+also corrects time-dependent neutral temperature sampling without changing
+its Gaussian space-time integration. Constant gas/temperature benchmarks
+are unaffected by this change.
+
+Nine short MPI controls cover future gas at one/four substeps and gas present
+only early in the step, for explicit Yee, semi-implicit EM and mass matrices.
+The early-gas control prevents accidentally fixing the future evaluation by
+sampling every substep at the final endpoint. All nine pass in the rebuilt
+local MPI library. The affected regression selection retains only the known
+coarse helium-MCC assertion failure. GPU acceptance is in progress; the
+pre-fix controls and their logs remain retained.

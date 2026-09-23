@@ -1,6 +1,21 @@
 # Add tests (alphabetical order) ##############################################
 #
 
+foreach(solver IN ITEMS Yee semi_implicit_em semi_implicit_mm)
+    foreach(subcycles IN ITEMS 1 4)
+        add_warpx_test(
+            test_1d_background_mcc_time_${solver}_${subcycles}_picmi 1 2
+            "inputs_test_1d_background_mcc_time_picmi.py --solver ${solver} --subcycles ${subcycles}"
+            OFF OFF OFF
+        )
+    endforeach()
+    add_warpx_test(
+        test_1d_background_mcc_time_${solver}_early_picmi 1 2
+        "inputs_test_1d_background_mcc_time_picmi.py --solver ${solver} --subcycles 4 --early"
+        OFF OFF OFF
+    )
+endforeach()
+
 foreach(solver IN ITEMS Yee PSATD semi_implicit_em semi_implicit_mm)
     if(solver STREQUAL "PSATD" AND NOT WarpX_FFT)
         continue()

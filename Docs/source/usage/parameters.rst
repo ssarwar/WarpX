@@ -3253,6 +3253,10 @@ Details about the collision models can be found in the :ref:`theory section <mul
     Execute collision ``ndt_subcycle`` times per PIC time step.
     The effective collision time step is ``dt_collision = dt_PIC / ndt_subcycle``.
     Must be >= 1. Mutually exclusive with ``ndt_supercycle``.
+    Time-dependent collision inputs are evaluated at the left substep endpoints
+    for explicit evolution and the right substep endpoints for implicit evolution,
+    where collisions follow the field/particle push. Both sample the physical PIC
+    interval being advanced; a single substep retains the unsplit placement time.
     Useful when a large PIC time step is desired but collisions require finer time resolution.
 
 .. pp:param:: <collision_name>.cumulative_scattering_angle_model
