@@ -9,7 +9,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib.ticker import NullFormatter, ScalarFormatter
+from matplotlib.ticker import LogLocator, NullFormatter, ScalarFormatter
 
 
 def summaries(report, jobs, phase):
@@ -54,6 +54,7 @@ def main():
     assert noise["fields"]["settings"]["cells"] == [64, 256]
     assert noise["coupled"]["settings"]["mcc_all"]
     fig, axes = plt.subplots(2, 2, figsize=(11.5, 8.3), constrained_layout=True)
+    timing_bounds = {axis: [] for axis in axes[0]}
     for beam, label, color in [
         ("fluid", "Fluid beam", "C0"),
         ("quiet", "Quiet particle beam", "C1"),
@@ -77,10 +78,16 @@ def main():
                 100 * (row[metric]["mean"] if mode == "fields" else row[metric])
                 for row in groups
             ]
+            errors = [1000 * row["timestep_s"]["ci99_half_width"] for row in groups]
+            timing_bounds[axis].extend(
+                value + sign * error
+                for value, error in zip(x, errors)
+                for sign in [-1, 1]
+            )
             axis.errorbar(
                 x,
                 y,
-                xerr=[1000 * row["timestep_s"]["ci99_half_width"] for row in groups],
+                xerr=errors,
                 fmt="o-",
                 color=color,
                 label=label,
@@ -99,12 +106,22 @@ def main():
                     )
             axis.set(xlabel="Timestep wall time (ms)", xscale="log")
             axis.margins(x=0.12, y=0.17)
+    for axis, bounds in timing_bounds.items():
+        assert min(bounds) > 0, "Logarithmic timing intervals must be positive"
+        axis.set_xlim(min(bounds) / 1.25, max(bounds) * 1.15)
+        axis.xaxis.set_major_locator(LogLocator(base=10, subs=[1, 2, 5]))
+        axis.xaxis.set_major_formatter(ScalarFormatter())
+        axis.xaxis.set_minor_formatter(NullFormatter())
     axes[0, 0].set(
         title="Beam sampling error: fields only",
         ylabel="Density RMS error relative to fluid (%)",
     )
     axes[0, 0].set_yscale("symlog", linthresh=0.001)
-    axes[0, 0].set_ylim(bottom=-0.0002)
+    maximum_error = max(
+        100 * row["beam_relative_rms_error"]["mean"]
+        for row in noise["fields"]["groups"]
+    )
+    axes[0, 0].set_ylim(bottom=-0.0002, top=max(2 * maximum_error, 0.01))
     axes[0, 0].legend(fontsize=8)
     axes[0, 1].set(
         title="PJG + all electron MCC channels", ylabel="Plasma-density seed noise (%)"
