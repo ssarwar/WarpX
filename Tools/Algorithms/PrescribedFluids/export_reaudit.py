@@ -77,6 +77,7 @@ def main():
                 "modules.txt",
                 "sanitizer.txt",
                 "results.txt",
+                "regression-driver-sha256.txt",
             ]:
                 path = directory / name
                 if path.is_file():

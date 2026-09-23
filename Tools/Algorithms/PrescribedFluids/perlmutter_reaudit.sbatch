@@ -132,9 +132,13 @@ elif [[ "$phase" == poynting ]]; then
     $launcher ctest --test-dir "$validation_build/fluid-tests" -R poynting \
         --output-on-failure --output-junit "$study/ctest.xml" > "$study/ctest.log" 2>&1
 elif [[ "$phase" == full_regression ]]; then
-    python3 Tools/Algorithms/PrescribedFluids/run_full_regression.py \
+    options=()
+    if [[ -n "${3:-}" ]]; then options+=(--geometry "$3"); fi
+    driver=${WARPX_AUDIT_REGRESSION_DRIVER:-Tools/Algorithms/PrescribedFluids/run_full_regression.py}
+    sha256sum "$driver" > "$study/regression-driver-sha256.txt"
+    python3 "$driver" \
         "$validation_build" "$study/tests" --jobs 1 --timeout 600 \
-        --pytest-launcher "$launcher" > "$study/ctest.log" 2>&1
+        --pytest-launcher "$launcher" "${options[@]}" > "$study/ctest.log" 2>&1
 elif [[ "$phase" == regression ]]; then
     options=()
     if [[ -n "${3:-}" ]]; then options+=(--include "$3"); fi

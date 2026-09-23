@@ -24,6 +24,8 @@ def main():
     parser.add_argument("--jobs", type=int, default=1)
     parser.add_argument("--timeout", type=int, default=600)
     parser.add_argument("--pytest-launcher")
+    parser.add_argument("--geometry", choices=["1d", "2d", "rz", "3d"])
+    parser.add_argument("--inventory-only", action="store_true")
     args = parser.parse_args()
     args.build = args.build.resolve()
     args.output = args.output.resolve()
@@ -39,6 +41,15 @@ def main():
     )
     (args.output / "inventory.json").write_text(json.dumps(inventory, indent=2) + "\n")
     tests = {test["name"]: test for test in inventory["tests"]}
+    unselected = []
+    if args.geometry:
+        unselected = sorted(
+            name
+            for name in tests
+            if not name.startswith(f"test_{args.geometry}_")
+            and name != f"pytest.WarpX.{args.geometry}"
+        )
+        tests = {name: test for name, test in tests.items() if name not in unselected}
     cache = (args.build / "CMakeCache.txt").read_text()
     excluded, launched = {}, {}
     for name, test in tests.items():
@@ -68,9 +79,24 @@ def main():
     assert chosen
     manifest = args.output / "tests.txt"
     manifest.write_text("\n".join(chosen) + "\n")
-    report = dict(excluded=excluded, launched_units={}, ctest_tests=len(chosen))
+    # Geometry allocations must remain self-contained, including restart and
+    # checksum prerequisites. A new cross-geometry dependency needs an explicit
+    # combined allocation rather than silently running an incomplete group.
+    for name in chosen:
+        properties = {item["name"]: item["value"] for item in tests[name]["properties"]}
+        assert not set(properties.get("DEPENDS", [])) & set(unselected), name
+    report = dict(
+        excluded=excluded,
+        unselected=unselected,
+        geometry=args.geometry,
+        launched_units={},
+        selected_units=sorted(launched),
+        ctest_tests=len(chosen),
+    )
     summary = args.output / "summary.json"
     summary.write_text(json.dumps(report, indent=2) + "\n")
+    if args.inventory_only:
+        return
     command = [
         "ctest",
         "--test-dir",

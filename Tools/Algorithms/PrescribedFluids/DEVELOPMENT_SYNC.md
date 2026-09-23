@@ -588,3 +588,11 @@ unchanged, and the remote checkout stays frozen at `242559e71`. The plotting
 tool accepts multiple noise-job identifiers while still rejecting mixed
 compiled libraries and duplicate families. The longer complete regression,
 discharge refinement and expanded restart studies remain queued separately.
+
+The regression driver also supports independent geometry allocations. A
+dry inventory verifies that 148 one-dimensional, 341 two-dimensional, 226 RZ
+and 384 three-dimensional stages (including the four Python unit suites)
+cover all 1,099 currently eligible stages exactly once. The complete
+inventory retains 47 capability exclusions. The driver rejects dependencies
+crossing geometry groups; it does not silently drop restart prerequisites.
+This check validates scheduling coverage, not the pending GPU test outcomes.
