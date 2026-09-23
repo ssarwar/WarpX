@@ -13,6 +13,14 @@ distributed GPU acceptance are recorded separately in [REAUDIT.md](REAUDIT.md).
 The integration of the fork's newer development commits, conflict resolutions,
 and repeated acceptance results are in [DEVELOPMENT_SYNC.md](DEVELOPMENT_SYNC.md).
 
+`discharge_convergence.py BUILD OUTPUT --data PATH_TO_WARPX_DATA` repeats the
+stock helium-discharge input and its unchanged Turner-profile analysis across
+four seeds. `--refinements timestep particles joint --seeds 1` adds independent
+timestep/particle refinements and a joint mesh refinement. Physical simulation,
+averaging and neutral rethermalization intervals remain fixed. Use separate
+outputs and build paths for stock/branch comparisons; the input and loaded
+library hashes are recorded. Failed original assertions remain in each record.
+
 `test_profiles.cpp` compares the analytic projection with an independent million
 particle quadrature using WarpX's actual particle shape functions. It also
 checks normalization and the Yee continuity equation on CPU or GPU.

@@ -64,8 +64,18 @@ not cover RZ; coupled RZ mass-matrix simulations require separate validation.
 
 The previous acceleration/restart reproducibility failures occurred with
 explicit CKC/PSATD solvers. This commit does not modify those paths. It is
-therefore not evidence that those failures are fixed. Fresh stock and branch
-comparisons are pending; the earlier results remain in `FAILURE_AUDIT.md`.
+therefore not evidence that those failures are fixed. Fresh GPU controls
+(`58773853` branch, `58775987` unchanged development) reproduce failures in
+all three C++ full/restart comparisons and in independent uninterrupted
+repeats. All observed native E/B values at checkpoint step 5 are restored
+exactly, before the first resumed step, including averaged fields. For
+time-averaged PSATD, the relative Ez differences are 4.668e-9/3.974e-9 for
+branch restart/repeat and 4.882e-9/2.450e-9 for stock restart/repeat, against
+the original 1e-12 criterion. This is the same class of reproducibility issue
+as before the mass-matrix change. The kernel-level amplification remains
+unisolated; no assertion tolerance is changed. Every component, particle-ID
+comparison and native-state check is retained in
+[the fresh acceleration archive](results/development-sync-acceleration.json).
 
 ## Initial validation and build environment
 
@@ -173,8 +183,8 @@ The 116-stage OpenMP selection completes with 111 passes and five strict
 centroid issue: the uninterrupted run reports exactly zero mean z, while
 MPI redistribution gives approximately -1.10436e-18 m. The comparison divides
 by its 1e-30 floor. A separate run with every fluid feature disabled also
-fails the unchanged centroid comparison. The diagnostic implementation is
-identical to stock development. These failures remain recorded; no assertion
+fails the unchanged centroid comparison. The original diagnostic implementation
+was identical to stock development. These failures remain recorded; no assertion
 or tolerance has been relaxed. Other field, charge, energy, and momentum
 comparisons in these cases agree at roundoff.
 
@@ -258,3 +268,39 @@ neutral rethermalization interval in physical time when reducing the timestep.
 The affected attempts are retained separately and repeated; this was an audit
 driver error, not a change to either simulation's collision implementation.
 MPI launches are bounded and their process groups are terminated on timeout.
+
+## Complete local regression disposition
+
+The original complete run attempted 1,141 CTest stages. After accounting for
+the disabled QED/EB capabilities, 1,090 stages are eligible. Six missing laser
+generator dependencies and the interactive plotting backend were repaired
+and their affected stages repeated. The corrected four-geometry Python unit
+suites pass. The reconciled result retains 16 physics-analysis failures and
+162 platform-dependent checksum failures; the latter are ignored according
+to this repository's instructions, without modifying benchmark files.
+
+| Remaining local analysis failures | Investigation |
+| --- | --- |
+| Two differential-luminosity tests | Untouched stock reproduces the same failures: total luminosity errors 0.2173% and 0.2636%, versus 0.2%. |
+| Three focusing/rotated Gaussian tests | Untouched stock also fails their existing slice-width assertions. |
+| RZ Ohm modes, 1D Ohm ion-beam instability | Untouched stock reproduces the same amplitude/growth-rate reference failures. |
+| Effective-potential electrostatic | Both versions give a maximum density RMS error of 0.07277108%, versus 0.07%. |
+| Time-averaged PSATD acceleration restart | Fresh stock/GPU repeat controls above also fail; saved native fields restore exactly. |
+| Five fluid diagnostic continuations | Only the near-zero BeamRelevant z centroid fails; the corrected 26-stage diagnostic rerun retains those five failures. A no-fluid OpenMP control changes by 1.767e-18 m. |
+| Helium MCC and DSMC discharge | Seed and resolution studies are separate from the failed original assertions; they are not classified as stock failures. |
+
+[The local evidence archive](results/development-sync-local.json) retains all
+original complete-suite outcomes, explicit capability exclusions, follow-up
+provenance, failure text, stock controls, absolute centroid differences and
+the corrected diagnostic/unit runs. The initial stock Python loading failures
+are setup attempts; the subsequent `stock-python-controls.xml` provides the
+valid physical comparison. The legacy collision assertions are not superseded
+by a favorable seed or a differently resolved run.
+
+The first GPU reference batch (58773847) passes all ten standalone C++ tests,
+64 Python model/archive checks, independent Gaussian quadrature, external IAA
+DCS comparisons, invalid-input guards, stationary probes and Yee/PSATD flux
+diagnostic continuations from four ranks to two. Initial integrated power is
+exact in both flux cases. Their worst continuation discrepancy is 4.98e-15;
+these GPU runs pass the unchanged diagnostic criterion, unlike the local
+near-zero centroid cases.

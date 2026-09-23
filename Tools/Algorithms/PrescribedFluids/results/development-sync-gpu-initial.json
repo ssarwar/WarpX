@@ -1,0 +1,1966 @@
+{
+  "58774151": {
+    "job": 58774151,
+    "studies": [
+      {
+        "directory": "mass_matrices-development-sync-branch-58774151",
+        "provenance": {
+          "revision.txt": "9ce49312ed79fc73c8a462ec9551358c688e2fd2\n",
+          "validation-build.txt": "/pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build_pm_gpu_sync\n",
+          "python-library-sha256.txt": "6046f78493b97004c8d4deb3a9160c96647e346cbae54b7a005bf356ce917b96  /pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build_pm_gpu_sync/lib/site-packages/pywarpx/warpx_pybind_1d.cpython-312-x86_64-linux-gnu.so\n48e3dade95352eac7c50d9d506080cc52dae2015c38e0bb100c7d626c2c1f5db  /pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build_pm_gpu_sync/lib/site-packages/pywarpx/warpx_pybind_2d.cpython-312-x86_64-linux-gnu.so\n01bbf15279b90ff169560a056925e246820816f5bd423a6e9e92d8e1dd10df3c  /pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build_pm_gpu_sync/lib/site-packages/pywarpx/warpx_pybind_3d.cpython-312-x86_64-linux-gnu.so\n9f05ae70519a7e0ee3ebba186b68a9955099bd714cb952a2f9544ff3e1bfe14f  /pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build_pm_gpu_sync/lib/site-packages/pywarpx/warpx_pybind_rz.cpython-312-x86_64-linux-gnu.so\n",
+          "device.txt": "Tue Sep 22 17:39:13 2026       \n+-----------------------------------------------------------------------------------------+\n| NVIDIA-SMI 580.178.04             Driver Version: 580.178.04     CUDA Version: 13.2     |\n+-----------------------------------------+------------------------+----------------------+\n| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |\n| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |\n|                                         |                        |               MIG M. |\n|=========================================+========================+======================|\n|   0  NVIDIA A100-SXM4-40GB          On  |   00000000:03:00.0 Off |                    0 |\n| N/A   30C    P0             53W /  400W |       0MiB /  40960MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   1  NVIDIA A100-SXM4-40GB          On  |   00000000:41:00.0 Off |                    0 |\n| N/A   30C    P0             54W /  400W |       0MiB /  40960MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   2  NVIDIA A100-SXM4-40GB          On  |   00000000:82:00.0 Off |                    0 |\n| N/A   30C    P0             56W /  400W |       0MiB /  40960MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   3  NVIDIA A100-SXM4-40GB          On  |   00000000:C1:00.0 Off |                    0 |\n| N/A   29C    P0             55W /  400W |       0MiB /  40960MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n\n+-----------------------------------------------------------------------------------------+\n| Processes:                                                                              |\n|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |\n|        ID   ID                                                               Usage      |\n|=========================================================================================|\n|  No running processes found                                                             |\n+-----------------------------------------------------------------------------------------+\n",
+          "runtime.txt": "AMREX_DEFAULT_INIT=amrex.use_gpu_aware_mpi=1\nCUDA_MODULE_LOADING=unset\nMPICH_GPU_SUPPORT_ENABLED=1\nMPICH_OFI_NIC_POLICY=GPU\nOMP_NUM_THREADS=16\nSLURM_JOB_ID=58774151\nSLURM_JOB_NUM_NODES=1\nSLURM_NTASKS=4\n",
+          "modules.txt": "\nCurrently Loaded Modules:\n  1) libfabric/2.3.1\n  2) craype-network-ofi\n  3) xpmem/2.11.5-1.3_g73ade43320bc\n  4) perftools-base/26.03.0\n  5) cpe/26.03\n  6) sqs/2.0\n  7) darshan/default\n  8) gpu/1.0\n  9) cray-dsmml/0.3.1\n 10) PrgEnv-gnu/8.7.0               (prgenv)\n 11) craype/2.7.36                  (c)\n 12) craype-x86-milan               (cpe)\n 13) craype-accel-nvidia80          (cpe)\n 14) cudatoolkit/13.2               (g)\n 15) gcc-native/13.2                (c)\n 16) cray-mpich/9.1.0               (mpi)\n 17) cray-libsci/26.03.0\n 18) cmake/3.30.2\n 19) cray-hdf5-parallel/1.14.3.9\n 20) cray-python/3.12.12\n\n  Where:\n   c:       Compiler\n   cpe:     Cray Programming Environment Modules\n   g:       built for GPU\n   mpi:     MPI Providers\n   prgenv:  Programming Environment Modules\n\n \n\n",
+          "source.patch.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "source-sha256.json.sha256": "b0de762a469bc449188f4566f580633226e152d06d871e23e7b773fb4f2fe4b3",
+          "python-packages.txt.sha256": "6df83b048965303a1014f3a17abc9425d88fc410c88ae12f55d80123ec28eaed",
+          "topology": {
+            "placement": [
+              {
+                "rank": 0,
+                "host": "nid001857",
+                "visible_devices": "3",
+                "pci_bus_id": "0000:C1:00.0"
+              },
+              {
+                "rank": 1,
+                "host": "nid001857",
+                "visible_devices": "2",
+                "pci_bus_id": "0000:82:00.0"
+              },
+              {
+                "rank": 2,
+                "host": "nid001857",
+                "visible_devices": "1",
+                "pci_bus_id": "0000:41:00.0"
+              },
+              {
+                "rank": 3,
+                "host": "nid001857",
+                "visible_devices": "0",
+                "pci_bus_id": "0000:03:00.0"
+              }
+            ],
+            "device_buffer_allreduce": "PASS"
+          },
+          "CMakeCache.txt": {
+            "AMReX_AMRDATA:BOOL": "OFF",
+            "AMReX_ASSERTIONS:BOOL": "OFF",
+            "AMReX_BASE_PROFILE:BOOL": "OFF",
+            "AMReX_BINARY_DIR:STATIC": "/pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build_pm_gpu_sync/_deps/fetchedamrex-build",
+            "AMReX_BOUND_CHECK:BOOL": "OFF",
+            "AMReX_BUILD_SHARED_LIBS:BOOL": "ON",
+            "AMReX_CLANG_TIDY:BOOL": "OFF",
+            "AMReX_COMPILER_DEFAULT_INLINE:BOOL": "OFF",
+            "AMReX_CONDUIT:BOOL": "OFF",
+            "AMReX_CUDA_BACKTRACE:BOOL": "OFF",
+            "AMReX_CUDA_COMPILATION_TIMER:BOOL": "OFF",
+            "AMReX_CUDA_DEBUG:BOOL": "OFF",
+            "AMReX_CUDA_ERROR_CAPTURE_THIS:BOOL": "OFF",
+            "AMReX_CUDA_ERROR_CROSS_EXECUTION_SPACE_CALL:BOOL": "OFF",
+            "AMReX_CUDA_FASTMATH:BOOL": "ON",
+            "AMReX_CUDA_KEEP_FILES:BOOL": "OFF",
+            "AMReX_CUDA_LTO:BOOL": "OFF",
+            "AMReX_CUDA_MAXREGCOUNT:STRING": "255",
+            "AMReX_CUDA_OBJDIR_AS_TEMPDIR:BOOL": "OFF",
+            "AMReX_CUDA_PTX_VERBOSE:BOOL": "OFF",
+            "AMReX_CUDA_SHOW_CODELINES:BOOL": "OFF",
+            "AMReX_CUDA_SHOW_LINENUMBERS:BOOL": "ON",
+            "AMReX_CUDA_WARN_CAPTURE_THIS:BOOL": "ON",
+            "AMReX_DIFFERENT_COMPILER:BOOL": "OFF",
+            "AMReX_EXPORT_DYNAMIC:BOOL": "OFF",
+            "AMReX_FLATTEN_FOR:BOOL": "OFF",
+            "AMReX_FPE:BOOL": "OFF",
+            "AMReX_GPU_MAX_THREADS:STRING": "256",
+            "AMReX_GPU_RDC:BOOL": "OFF",
+            "AMReX_HDF5:BOOL": "OFF",
+            "AMReX_HYPRE:BOOL": "OFF",
+            "AMReX_INLINE_LIMIT:STRING": "43210",
+            "AMReX_IS_TOP_LEVEL:STATIC": "OFF",
+            "AMReX_LINEAR_SOLVERS:BOOL": "ON",
+            "AMReX_LINEAR_SOLVERS_EM:BOOL": "ON",
+            "AMReX_LINEAR_SOLVERS_INCFLO:BOOL": "ON",
+            "AMReX_MEM_PROFILE:BOOL": "OFF",
+            "AMReX_MPI_THREAD_MULTIPLE:BOOL": "ON",
+            "AMReX_PETSC:BOOL": "OFF",
+            "AMReX_PLOTFILE_TOOLS:BOOL": "OFF",
+            "AMReX_SENSEI:BOOL": "OFF",
+            "AMReX_SOURCE_DIR:STATIC": "/pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build_pm_gpu_sync/_deps/fetchedamrex-src",
+            "AMReX_SUNDIALS:BOOL": "OFF",
+            "AMReX_TEST_TYPE:STRING": "All",
+            "AMReX_TINY_PROFILE:BOOL": "ON",
+            "AMReX_TP_PROFILE:STRING": "IGNORE",
+            "CMAKE_BUILD_TYPE:STRING": "Release",
+            "CMAKE_CUDA_ARCHITECTURES:STRING": "80",
+            "CMAKE_CXX_COMPILER:FILEPATH": "/opt/cray/pe/craype/2.7.36/bin/CC",
+            "CMAKE_CXX_COMPILER_AR:FILEPATH": "/usr/bin/gcc-ar-13",
+            "CMAKE_CXX_COMPILER_RANLIB:FILEPATH": "/usr/bin/gcc-ranlib-13",
+            "MPIEXEC_EXECUTABLE:FILEPATH": "/pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/Tools/Algorithms/PrescribedFluids/perlmutter_mpiexec.sh",
+            "MPIEXEC_MAX_NUMPROCS:STRING": "128",
+            "MPIEXEC_NUMPROC_FLAG:STRING": "-n",
+            "MPIEXEC_POSTFLAGS:STRING": "",
+            "MPIEXEC_PREFLAGS:STRING": "",
+            "WarpX_APP:BOOL": "ON",
+            "WarpX_ASCENT:BOOL": "OFF",
+            "WarpX_BACKTRACE_INFO:BOOL": "OFF",
+            "WarpX_BINARY_DIR:STATIC": "/pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build_pm_gpu_sync",
+            "WarpX_CATALYST:BOOL": "OFF",
+            "WarpX_CCACHE:BOOL": "ON",
+            "WarpX_COMPUTE:STRING": "CUDA",
+            "WarpX_CUSTOM_TARGET_PREFIX:STRING": "",
+            "WarpX_DIMS:STRING": "1;2;RZ;3",
+            "WarpX_EB:BOOL": "OFF",
+            "WarpX_FASTMATH:BOOL": "OFF",
+            "WarpX_FFT:BOOL": "ON",
+            "WarpX_FFTW_IGNORE_OMP:BOOL": "OFF",
+            "WarpX_IPO:BOOL": "OFF",
+            "WarpX_IS_TOP_LEVEL:STATIC": "ON",
+            "WarpX_LIB:STRING": "ON",
+            "WarpX_MPI:BOOL": "ON",
+            "WarpX_MPI_THREAD_MULTIPLE:BOOL": "ON",
+            "WarpX_OPENPMD:BOOL": "ON",
+            "WarpX_PARTICLE_PRECISION:STRING": "DOUBLE",
+            "WarpX_PETSC:BOOL": "OFF",
+            "WarpX_PRECISION:STRING": "DOUBLE",
+            "WarpX_PYTHON:BOOL": "ON",
+            "WarpX_PYTHON_IPO:BOOL": "OFF",
+            "WarpX_QED:BOOL": "OFF",
+            "WarpX_QED_TABLES_GEN_OMP:STRING": "AUTO",
+            "WarpX_QED_TABLE_GEN:BOOL": "OFF",
+            "WarpX_QED_TOOLS:BOOL": "OFF",
+            "WarpX_SENSEI:BOOL": "OFF",
+            "WarpX_SIMD:BOOL": "OFF",
+            "WarpX_SOURCE_DIR:STATIC": "/pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation",
+            "WarpX_TEST_CLEANUP:BOOL": "OFF",
+            "WarpX_TEST_DEBUGGER:BOOL": "OFF",
+            "WarpX_TEST_FPETRAP:BOOL": "OFF",
+            "WarpX_UNITY_BUILD:BOOL": "OFF",
+            "WarpX_amrex_branch:STRING": "d6d1aa11f38cab90fc592ee193ae574cdc001aaf",
+            "WarpX_amrex_internal:BOOL": "ON",
+            "WarpX_amrex_repo:STRING": "https://github.com/AMReX-Codes/amrex.git",
+            "WarpX_amrex_src:PATH": "",
+            "WarpX_openpmd_branch:STRING": "0.17.1",
+            "WarpX_openpmd_internal:BOOL": "ON",
+            "WarpX_openpmd_repo:STRING": "https://github.com/openPMD/openPMD-api.git",
+            "WarpX_openpmd_src:PATH": "",
+            "WarpX_pyamrex_branch:STRING": "26.09",
+            "WarpX_pyamrex_internal:BOOL": "ON",
+            "WarpX_pyamrex_repo:STRING": "https://github.com/AMReX-Codes/pyamrex.git",
+            "WarpX_pyamrex_src:PATH": "",
+            "WarpX_pybind11_branch:STRING": "v3.1.0",
+            "WarpX_pybind11_internal:BOOL": "ON",
+            "WarpX_pybind11_repo:STRING": "https://github.com/pybind/pybind11.git",
+            "WarpX_pybind11_src:PATH": "",
+            "AMReX_AMRDATA-ADVANCED:INTERNAL": "1",
+            "AMReX_AMRLEVEL:INTERNAL": "OFF",
+            "AMReX_BASE_PROFILE-ADVANCED:INTERNAL": "1",
+            "AMReX_BUILD_TUTORIALS:INTERNAL": "OFF",
+            "AMReX_CONDUIT-ADVANCED:INTERNAL": "1",
+            "AMReX_CUDA_COMPILATION_TIMER-ADVANCED:INTERNAL": "1",
+            "AMReX_CUDA_ERROR_CAPTURE_THIS-ADVANCED:INTERNAL": "1",
+            "AMReX_CUDA_ERROR_CROSS_EXECUTION_SPACE_CALL-ADVANCED:INTERNAL": "1",
+            "AMReX_CUDA_FASTMATH-ADVANCED:INTERNAL": "1",
+            "AMReX_CUDA_KEEP_FILES-ADVANCED:INTERNAL": "1",
+            "AMReX_CUDA_LTO-ADVANCED:INTERNAL": "1",
+            "AMReX_CUDA_MAXREGCOUNT-ADVANCED:INTERNAL": "1",
+            "AMReX_CUDA_PTX_VERBOSE-ADVANCED:INTERNAL": "1",
+            "AMReX_CUDA_SHOW_CODELINES-ADVANCED:INTERNAL": "1",
+            "AMReX_CUDA_SHOW_LINENUMBERS-ADVANCED:INTERNAL": "1",
+            "AMReX_CUDA_WARN_CAPTURE_THIS-ADVANCED:INTERNAL": "1",
+            "AMReX_DIFFERENT_COMPILER-ADVANCED:INTERNAL": "1",
+            "AMReX_EB-ADVANCED:INTERNAL": "1",
+            "AMReX_EB:INTERNAL": "OFF",
+            "AMReX_ENABLE_TESTS-ADVANCED:INTERNAL": "1",
+            "AMReX_ENABLE_TESTS:INTERNAL": "OFF",
+            "AMReX_FASTMATH:INTERNAL": "OFF",
+            "AMReX_FFT:INTERNAL": "ON",
+            "AMReX_FORTRAN-ADVANCED:INTERNAL": "1",
+            "AMReX_FORTRAN:INTERNAL": "OFF",
+            "AMReX_FORTRAN_INTERFACES-ADVANCED:INTERNAL": "1",
+            "AMReX_FORTRAN_INTERFACES:INTERNAL": "OFF",
+            "AMReX_FPE-ADVANCED:INTERNAL": "1",
+            "AMReX_GPU_BACKEND-STRINGS:INTERNAL": "NONE;SYCL;CUDA;HIP",
+            "AMReX_GPU_BACKEND:INTERNAL": "CUDA",
+            "AMReX_GPU_RDC-ADVANCED:INTERNAL": "1",
+            "AMReX_HDF5-ADVANCED:INTERNAL": "1",
+            "AMReX_HYPRE-ADVANCED:INTERNAL": "1",
+            "AMReX_INSTALL:INTERNAL": "ON",
+            "AMReX_IPO-ADVANCED:INTERNAL": "1",
+            "AMReX_IPO:INTERNAL": "OFF",
+            "AMReX_LINEAR_SOLVERS-ADVANCED:INTERNAL": "1",
+            "AMReX_LINEAR_SOLVERS_EM-ADVANCED:INTERNAL": "1",
+            "AMReX_LINEAR_SOLVERS_INCFLO-ADVANCED:INTERNAL": "1",
+            "AMReX_MEM_PROFILE-ADVANCED:INTERNAL": "1",
+            "AMReX_MPI-ADVANCED:INTERNAL": "1",
+            "AMReX_MPI:INTERNAL": "ON",
+            "AMReX_MPI_THREAD_MULTIPLE-ADVANCED:INTERNAL": "1",
+            "AMReX_OMP-ADVANCED:INTERNAL": "1",
+            "AMReX_OMP:INTERNAL": "OFF",
+            "AMReX_PARTICLES-ADVANCED:INTERNAL": "1",
+            "AMReX_PARTICLES:INTERNAL": "ON",
+            "AMReX_PARTICLES_PRECISION-ADVANCED:INTERNAL": "1",
+            "AMReX_PARTICLES_PRECISION-STRINGS:INTERNAL": "SINGLE;DOUBLE",
+            "AMReX_PARTICLES_PRECISION:INTERNAL": "DOUBLE",
+            "AMReX_PETSC-ADVANCED:INTERNAL": "1",
+            "AMReX_PIC-ADVANCED:INTERNAL": "1",
+            "AMReX_PIC:INTERNAL": "ON",
+            "AMReX_PRECISION-STRINGS:INTERNAL": "SINGLE;DOUBLE",
+            "AMReX_PRECISION:INTERNAL": "DOUBLE",
+            "AMReX_PROBINIT-ADVANCED:INTERNAL": "1",
+            "AMReX_PROBINIT:INTERNAL": "OFF",
+            "AMReX_SENSEI-ADVANCED:INTERNAL": "1",
+            "AMReX_SIMD-ADVANCED:INTERNAL": "1",
+            "AMReX_SIMD:INTERNAL": "OFF",
+            "AMReX_SPACEDIM-ADVANCED:INTERNAL": "1",
+            "AMReX_SPACEDIM:INTERNAL": "1;2;3",
+            "AMReX_SUNDIALS-ADVANCED:INTERNAL": "1",
+            "AMReX_TEST_TYPE-STRINGS:INTERNAL": "All;Small",
+            "AMReX_TINY_PROFILE-ADVANCED:INTERNAL": "1",
+            "AMReX_TP_PROFILE-ADVANCED:INTERNAL": "1",
+            "AMReX_TP_PROFILE-STRINGS:INTERNAL": "IGNORE;CRAYPAT;FORGE;VTUNE",
+            "CMAKE_CXX_COMPILER-ADVANCED:INTERNAL": "1",
+            "CMAKE_CXX_COMPILER_AR-ADVANCED:INTERNAL": "1",
+            "CMAKE_CXX_COMPILER_RANLIB-ADVANCED:INTERNAL": "1",
+            "MPIEXEC_EXECUTABLE-ADVANCED:INTERNAL": "1",
+            "MPIEXEC_MAX_NUMPROCS-ADVANCED:INTERNAL": "1",
+            "MPIEXEC_NUMPROC_FLAG-ADVANCED:INTERNAL": "1",
+            "MPIEXEC_POSTFLAGS-ADVANCED:INTERNAL": "1",
+            "MPIEXEC_PREFLAGS-ADVANCED:INTERNAL": "1",
+            "WarpX_3d_GIT_VERSION:INTERNAL": "b26d41d104bd",
+            "WarpX_BACKTRACE_INFO-ADVANCED:INTERNAL": "1",
+            "WarpX_COMPUTE-STRINGS:INTERNAL": "NOACC;OMP;CUDA;SYCL;HIP",
+            "WarpX_FFTW_IGNORE_OMP-ADVANCED:INTERNAL": "1",
+            "WarpX_MPI_THREAD_MULTIPLE-ADVANCED:INTERNAL": "1",
+            "WarpX_PARTICLE_PRECISION-STRINGS:INTERNAL": "SINGLE;DOUBLE",
+            "WarpX_PRECISION-STRINGS:INTERNAL": "SINGLE;DOUBLE",
+            "WarpX_QED_TABLES_GEN_OMP-STRINGS:INTERNAL": "AUTO;ON;OFF",
+            "WarpX_TEST_CLEANUP-ADVANCED:INTERNAL": "1",
+            "WarpX_TEST_DEBUGGER-ADVANCED:INTERNAL": "1",
+            "WarpX_TEST_FPETRAP-ADVANCED:INTERNAL": "1"
+          }
+        },
+        "tests": {
+          "dims1-ranks1/rank-0.xml": [
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_massmatrix]",
+              "seconds": 1.113,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_current]",
+              "seconds": 0.029,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_massmatrix]",
+              "seconds": 0.022,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_current]",
+              "seconds": 0.021,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_massmatrix]",
+              "seconds": 0.021,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_current]",
+              "seconds": 0.02,
+              "passed": true,
+              "skipped": false
+            }
+          ],
+          "dims1-ranks2/rank-0.xml": [
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_massmatrix]",
+              "seconds": 0.786,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_current]",
+              "seconds": 0.024,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_massmatrix]",
+              "seconds": 0.022,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_current]",
+              "seconds": 0.021,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_massmatrix]",
+              "seconds": 0.022,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_current]",
+              "seconds": 0.021,
+              "passed": true,
+              "skipped": false
+            }
+          ],
+          "dims1-ranks2/rank-1.xml": [
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_massmatrix]",
+              "seconds": 0.788,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_current]",
+              "seconds": 0.024,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_massmatrix]",
+              "seconds": 0.022,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_current]",
+              "seconds": 0.021,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_massmatrix]",
+              "seconds": 0.022,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_current]",
+              "seconds": 0.021,
+              "passed": true,
+              "skipped": false
+            }
+          ],
+          "dims1-ranks4/rank-0.xml": [
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_massmatrix]",
+              "seconds": 0.995,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_current]",
+              "seconds": 0.028,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_massmatrix]",
+              "seconds": 0.026,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_current]",
+              "seconds": 0.024,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_massmatrix]",
+              "seconds": 0.024,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_current]",
+              "seconds": 0.023,
+              "passed": true,
+              "skipped": false
+            }
+          ],
+          "dims1-ranks4/rank-1.xml": [
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_massmatrix]",
+              "seconds": 0.994,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_current]",
+              "seconds": 0.029,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_massmatrix]",
+              "seconds": 0.026,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_current]",
+              "seconds": 0.024,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_massmatrix]",
+              "seconds": 0.024,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_current]",
+              "seconds": 0.023,
+              "passed": true,
+              "skipped": false
+            }
+          ],
+          "dims1-ranks4/rank-2.xml": [
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_massmatrix]",
+              "seconds": 0.992,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_current]",
+              "seconds": 0.028,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_massmatrix]",
+              "seconds": 0.026,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_current]",
+              "seconds": 0.024,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_massmatrix]",
+              "seconds": 0.024,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_current]",
+              "seconds": 0.023,
+              "passed": true,
+              "skipped": false
+            }
+          ],
+          "dims1-ranks4/rank-3.xml": [
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_massmatrix]",
+              "seconds": 0.993,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_current]",
+              "seconds": 0.028,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_massmatrix]",
+              "seconds": 0.026,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_current]",
+              "seconds": 0.024,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_massmatrix]",
+              "seconds": 0.024,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_current]",
+              "seconds": 0.023,
+              "passed": true,
+              "skipped": false
+            }
+          ],
+          "dims2-ranks1/rank-0.xml": [
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_massmatrix]",
+              "seconds": 0.67,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_current]",
+              "seconds": 0.029,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_massmatrix]",
+              "seconds": 0.047,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_current]",
+              "seconds": 0.057,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_massmatrix]",
+              "seconds": 0.04,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_current]",
+              "seconds": 0.031,
+              "passed": true,
+              "skipped": false
+            }
+          ],
+          "dims2-ranks2/rank-0.xml": [
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_massmatrix]",
+              "seconds": 0.683,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_current]",
+              "seconds": 0.029,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_massmatrix]",
+              "seconds": 0.028,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_current]",
+              "seconds": 0.029,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_massmatrix]",
+              "seconds": 0.029,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_current]",
+              "seconds": 0.027,
+              "passed": true,
+              "skipped": false
+            }
+          ],
+          "dims2-ranks2/rank-1.xml": [
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_massmatrix]",
+              "seconds": 0.683,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_current]",
+              "seconds": 0.028,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_massmatrix]",
+              "seconds": 0.028,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_current]",
+              "seconds": 0.029,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_massmatrix]",
+              "seconds": 0.03,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_current]",
+              "seconds": 0.027,
+              "passed": true,
+              "skipped": false
+            }
+          ],
+          "dims2-ranks4/rank-0.xml": [
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_massmatrix]",
+              "seconds": 1.013,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_current]",
+              "seconds": 0.029,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_massmatrix]",
+              "seconds": 0.028,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_current]",
+              "seconds": 0.025,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_massmatrix]",
+              "seconds": 0.028,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_current]",
+              "seconds": 0.026,
+              "passed": true,
+              "skipped": false
+            }
+          ],
+          "dims2-ranks4/rank-1.xml": [
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_massmatrix]",
+              "seconds": 1.014,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_current]",
+              "seconds": 0.028,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_massmatrix]",
+              "seconds": 0.028,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_current]",
+              "seconds": 0.025,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_massmatrix]",
+              "seconds": 0.028,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_current]",
+              "seconds": 0.026,
+              "passed": true,
+              "skipped": false
+            }
+          ],
+          "dims2-ranks4/rank-2.xml": [
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_massmatrix]",
+              "seconds": 1.012,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_current]",
+              "seconds": 0.029,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_massmatrix]",
+              "seconds": 0.028,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_current]",
+              "seconds": 0.026,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_massmatrix]",
+              "seconds": 0.028,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_current]",
+              "seconds": 0.025,
+              "passed": true,
+              "skipped": false
+            }
+          ],
+          "dims2-ranks4/rank-3.xml": [
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_massmatrix]",
+              "seconds": 1.011,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_current]",
+              "seconds": 0.03,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_massmatrix]",
+              "seconds": 0.028,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_current]",
+              "seconds": 0.025,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_massmatrix]",
+              "seconds": 0.028,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_current]",
+              "seconds": 0.025,
+              "passed": true,
+              "skipped": false
+            }
+          ]
+        },
+        "comparisons": {},
+        "log_summaries": {}
+      }
+    ],
+    "slurm": "58774151|COMPLETED|0:0|00:00:53|1|128|nid001857"
+  },
+  "58774153": {
+    "job": 58774153,
+    "studies": [
+      {
+        "directory": "mass_matrices-development-sync-stock-58774153",
+        "provenance": {
+          "revision.txt": "9ce49312ed79fc73c8a462ec9551358c688e2fd2\n",
+          "stock-revision.txt": "cee2ca2fd5d514dca1c8096571e4b213a7e5a125\n",
+          "validation-build.txt": "/pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build/stock-warpx/build_pm_gpu_sync\n",
+          "python-library-sha256.txt": "5bf5af22ddf624d3543e8a7aa5ef8a30e2142455959989600688c725974d49ba  /pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build/stock-warpx/build_pm_gpu_sync/lib/site-packages/pywarpx/warpx_pybind_1d.cpython-312-x86_64-linux-gnu.so\nb1fc59420e341584af5f6ee6832c171d7fb342c87bda40bd7e3a085328fbfda6  /pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build/stock-warpx/build_pm_gpu_sync/lib/site-packages/pywarpx/warpx_pybind_2d.cpython-312-x86_64-linux-gnu.so\n7da30a17c61ce1bb73f6c7195f95737ad2849ccb042dd58b4f58894e34ade004  /pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build/stock-warpx/build_pm_gpu_sync/lib/site-packages/pywarpx/warpx_pybind_3d.cpython-312-x86_64-linux-gnu.so\n3abac0fb43c5be57703934b5e6a73f8e61f80841a7a478b675874f9911ed4131  /pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build/stock-warpx/build_pm_gpu_sync/lib/site-packages/pywarpx/warpx_pybind_rz.cpython-312-x86_64-linux-gnu.so\n",
+          "device.txt": "Tue Sep 22 17:34:56 2026       \n+-----------------------------------------------------------------------------------------+\n| NVIDIA-SMI 580.178.04             Driver Version: 580.178.04     CUDA Version: 13.2     |\n+-----------------------------------------+------------------------+----------------------+\n| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |\n| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |\n|                                         |                        |               MIG M. |\n|=========================================+========================+======================|\n|   0  NVIDIA A100-SXM4-40GB          On  |   00000000:03:00.0 Off |                    0 |\n| N/A   32C    P0             54W /  400W |       0MiB /  40960MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   1  NVIDIA A100-SXM4-40GB          On  |   00000000:41:00.0 Off |                    0 |\n| N/A   31C    P0             55W /  400W |       0MiB /  40960MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   2  NVIDIA A100-SXM4-40GB          On  |   00000000:82:00.0 Off |                    0 |\n| N/A   31C    P0             54W /  400W |       0MiB /  40960MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   3  NVIDIA A100-SXM4-40GB          On  |   00000000:C1:00.0 Off |                    0 |\n| N/A   30C    P0             55W /  400W |       0MiB /  40960MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n\n+-----------------------------------------------------------------------------------------+\n| Processes:                                                                              |\n|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |\n|        ID   ID                                                               Usage      |\n|=========================================================================================|\n|  No running processes found                                                             |\n+-----------------------------------------------------------------------------------------+\n",
+          "runtime.txt": "AMREX_DEFAULT_INIT=amrex.use_gpu_aware_mpi=1\nCUDA_MODULE_LOADING=unset\nMPICH_GPU_SUPPORT_ENABLED=1\nMPICH_OFI_NIC_POLICY=GPU\nOMP_NUM_THREADS=16\nSLURM_JOB_ID=58774153\nSLURM_JOB_NUM_NODES=1\nSLURM_NTASKS=4\n",
+          "modules.txt": "\nCurrently Loaded Modules:\n  1) libfabric/2.3.1\n  2) craype-network-ofi\n  3) xpmem/2.11.5-1.3_g73ade43320bc\n  4) perftools-base/26.03.0\n  5) cpe/26.03\n  6) sqs/2.0\n  7) darshan/default\n  8) gpu/1.0\n  9) cray-dsmml/0.3.1\n 10) PrgEnv-gnu/8.7.0               (prgenv)\n 11) craype/2.7.36                  (c)\n 12) craype-x86-milan               (cpe)\n 13) craype-accel-nvidia80          (cpe)\n 14) cudatoolkit/13.2               (g)\n 15) gcc-native/13.2                (c)\n 16) cray-mpich/9.1.0               (mpi)\n 17) cray-libsci/26.03.0\n 18) cmake/3.30.2\n 19) cray-hdf5-parallel/1.14.3.9\n 20) cray-python/3.12.12\n\n  Where:\n   c:       Compiler\n   cpe:     Cray Programming Environment Modules\n   g:       built for GPU\n   mpi:     MPI Providers\n   prgenv:  Programming Environment Modules\n\n \n\n",
+          "source.patch.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "source-sha256.json.sha256": "b0de762a469bc449188f4566f580633226e152d06d871e23e7b773fb4f2fe4b3",
+          "python-packages.txt.sha256": "6df83b048965303a1014f3a17abc9425d88fc410c88ae12f55d80123ec28eaed",
+          "topology": {
+            "placement": [
+              {
+                "rank": 0,
+                "host": "nid002584",
+                "visible_devices": "3",
+                "pci_bus_id": "0000:C1:00.0"
+              },
+              {
+                "rank": 1,
+                "host": "nid002584",
+                "visible_devices": "2",
+                "pci_bus_id": "0000:82:00.0"
+              },
+              {
+                "rank": 2,
+                "host": "nid002584",
+                "visible_devices": "1",
+                "pci_bus_id": "0000:41:00.0"
+              },
+              {
+                "rank": 3,
+                "host": "nid002584",
+                "visible_devices": "0",
+                "pci_bus_id": "0000:03:00.0"
+              }
+            ],
+            "device_buffer_allreduce": "PASS"
+          },
+          "CMakeCache.txt": {
+            "AMReX_AMRDATA:BOOL": "OFF",
+            "AMReX_ASSERTIONS:BOOL": "OFF",
+            "AMReX_BASE_PROFILE:BOOL": "OFF",
+            "AMReX_BINARY_DIR:STATIC": "/pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build/stock-warpx/build_pm_gpu_sync/_deps/fetchedamrex-build",
+            "AMReX_BOUND_CHECK:BOOL": "OFF",
+            "AMReX_BUILD_SHARED_LIBS:BOOL": "ON",
+            "AMReX_CLANG_TIDY:BOOL": "OFF",
+            "AMReX_COMPILER_DEFAULT_INLINE:BOOL": "OFF",
+            "AMReX_CONDUIT:BOOL": "OFF",
+            "AMReX_CUDA_BACKTRACE:BOOL": "OFF",
+            "AMReX_CUDA_COMPILATION_TIMER:BOOL": "OFF",
+            "AMReX_CUDA_DEBUG:BOOL": "OFF",
+            "AMReX_CUDA_ERROR_CAPTURE_THIS:BOOL": "OFF",
+            "AMReX_CUDA_ERROR_CROSS_EXECUTION_SPACE_CALL:BOOL": "OFF",
+            "AMReX_CUDA_FASTMATH:BOOL": "ON",
+            "AMReX_CUDA_KEEP_FILES:BOOL": "OFF",
+            "AMReX_CUDA_LTO:BOOL": "OFF",
+            "AMReX_CUDA_MAXREGCOUNT:STRING": "255",
+            "AMReX_CUDA_OBJDIR_AS_TEMPDIR:BOOL": "OFF",
+            "AMReX_CUDA_PTX_VERBOSE:BOOL": "OFF",
+            "AMReX_CUDA_SHOW_CODELINES:BOOL": "OFF",
+            "AMReX_CUDA_SHOW_LINENUMBERS:BOOL": "ON",
+            "AMReX_CUDA_WARN_CAPTURE_THIS:BOOL": "ON",
+            "AMReX_DIFFERENT_COMPILER:BOOL": "OFF",
+            "AMReX_EXPORT_DYNAMIC:BOOL": "OFF",
+            "AMReX_FLATTEN_FOR:BOOL": "OFF",
+            "AMReX_FPE:BOOL": "OFF",
+            "AMReX_GPU_MAX_THREADS:STRING": "256",
+            "AMReX_GPU_RDC:BOOL": "OFF",
+            "AMReX_HDF5:BOOL": "OFF",
+            "AMReX_HYPRE:BOOL": "OFF",
+            "AMReX_INLINE_LIMIT:STRING": "43210",
+            "AMReX_IS_TOP_LEVEL:STATIC": "OFF",
+            "AMReX_LINEAR_SOLVERS:BOOL": "ON",
+            "AMReX_LINEAR_SOLVERS_EM:BOOL": "ON",
+            "AMReX_LINEAR_SOLVERS_INCFLO:BOOL": "ON",
+            "AMReX_MEM_PROFILE:BOOL": "OFF",
+            "AMReX_MPI_THREAD_MULTIPLE:BOOL": "ON",
+            "AMReX_PETSC:BOOL": "OFF",
+            "AMReX_PLOTFILE_TOOLS:BOOL": "OFF",
+            "AMReX_SENSEI:BOOL": "OFF",
+            "AMReX_SOURCE_DIR:STATIC": "/pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build/stock-warpx/build_pm_gpu_sync/_deps/fetchedamrex-src",
+            "AMReX_SUNDIALS:BOOL": "OFF",
+            "AMReX_TEST_TYPE:STRING": "All",
+            "AMReX_TINY_PROFILE:BOOL": "ON",
+            "AMReX_TP_PROFILE:STRING": "IGNORE",
+            "CMAKE_BUILD_TYPE:STRING": "Release",
+            "CMAKE_CUDA_ARCHITECTURES:STRING": "80",
+            "CMAKE_CXX_COMPILER:FILEPATH": "/opt/cray/pe/craype/2.7.36/bin/CC",
+            "CMAKE_CXX_COMPILER_AR:FILEPATH": "/usr/bin/gcc-ar-13",
+            "CMAKE_CXX_COMPILER_RANLIB:FILEPATH": "/usr/bin/gcc-ranlib-13",
+            "MPIEXEC_EXECUTABLE:FILEPATH": "/pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/Tools/Algorithms/PrescribedFluids/perlmutter_mpiexec.sh",
+            "MPIEXEC_MAX_NUMPROCS:STRING": "128",
+            "MPIEXEC_NUMPROC_FLAG:STRING": "-n",
+            "MPIEXEC_POSTFLAGS:STRING": "",
+            "MPIEXEC_PREFLAGS:STRING": "",
+            "WarpX_APP:BOOL": "ON",
+            "WarpX_ASCENT:BOOL": "OFF",
+            "WarpX_BACKTRACE_INFO:BOOL": "OFF",
+            "WarpX_BINARY_DIR:STATIC": "/pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build/stock-warpx/build_pm_gpu_sync",
+            "WarpX_CATALYST:BOOL": "OFF",
+            "WarpX_CCACHE:BOOL": "ON",
+            "WarpX_COMPUTE:STRING": "CUDA",
+            "WarpX_CUSTOM_TARGET_PREFIX:STRING": "",
+            "WarpX_DIMS:STRING": "1;2;RZ;3",
+            "WarpX_EB:BOOL": "OFF",
+            "WarpX_FASTMATH:BOOL": "OFF",
+            "WarpX_FFT:BOOL": "ON",
+            "WarpX_FFTW_IGNORE_OMP:BOOL": "OFF",
+            "WarpX_IPO:BOOL": "OFF",
+            "WarpX_IS_TOP_LEVEL:STATIC": "ON",
+            "WarpX_LIB:STRING": "ON",
+            "WarpX_MPI:BOOL": "ON",
+            "WarpX_MPI_THREAD_MULTIPLE:BOOL": "ON",
+            "WarpX_OPENPMD:BOOL": "ON",
+            "WarpX_PARTICLE_PRECISION:STRING": "DOUBLE",
+            "WarpX_PETSC:BOOL": "OFF",
+            "WarpX_PRECISION:STRING": "DOUBLE",
+            "WarpX_PYTHON:BOOL": "ON",
+            "WarpX_PYTHON_IPO:BOOL": "OFF",
+            "WarpX_QED:BOOL": "OFF",
+            "WarpX_QED_TABLES_GEN_OMP:STRING": "AUTO",
+            "WarpX_QED_TABLE_GEN:BOOL": "OFF",
+            "WarpX_QED_TOOLS:BOOL": "OFF",
+            "WarpX_SENSEI:BOOL": "OFF",
+            "WarpX_SIMD:BOOL": "OFF",
+            "WarpX_SOURCE_DIR:STATIC": "/pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build/stock-warpx",
+            "WarpX_TEST_CLEANUP:BOOL": "OFF",
+            "WarpX_TEST_DEBUGGER:BOOL": "OFF",
+            "WarpX_TEST_FPETRAP:BOOL": "OFF",
+            "WarpX_UNITY_BUILD:BOOL": "OFF",
+            "WarpX_amrex_branch:STRING": "d6d1aa11f38cab90fc592ee193ae574cdc001aaf",
+            "WarpX_amrex_internal:BOOL": "ON",
+            "WarpX_amrex_repo:STRING": "https://github.com/AMReX-Codes/amrex.git",
+            "WarpX_amrex_src:PATH": "",
+            "WarpX_openpmd_branch:STRING": "0.17.1",
+            "WarpX_openpmd_internal:BOOL": "ON",
+            "WarpX_openpmd_repo:STRING": "https://github.com/openPMD/openPMD-api.git",
+            "WarpX_openpmd_src:PATH": "",
+            "WarpX_pyamrex_branch:STRING": "26.09",
+            "WarpX_pyamrex_internal:BOOL": "ON",
+            "WarpX_pyamrex_repo:STRING": "https://github.com/AMReX-Codes/pyamrex.git",
+            "WarpX_pyamrex_src:PATH": "",
+            "WarpX_pybind11_branch:STRING": "v3.1.0",
+            "WarpX_pybind11_internal:BOOL": "ON",
+            "WarpX_pybind11_repo:STRING": "https://github.com/pybind/pybind11.git",
+            "WarpX_pybind11_src:PATH": "",
+            "AMReX_AMRDATA-ADVANCED:INTERNAL": "1",
+            "AMReX_AMRLEVEL:INTERNAL": "OFF",
+            "AMReX_BASE_PROFILE-ADVANCED:INTERNAL": "1",
+            "AMReX_BUILD_TUTORIALS:INTERNAL": "OFF",
+            "AMReX_CONDUIT-ADVANCED:INTERNAL": "1",
+            "AMReX_CUDA_COMPILATION_TIMER-ADVANCED:INTERNAL": "1",
+            "AMReX_CUDA_ERROR_CAPTURE_THIS-ADVANCED:INTERNAL": "1",
+            "AMReX_CUDA_ERROR_CROSS_EXECUTION_SPACE_CALL-ADVANCED:INTERNAL": "1",
+            "AMReX_CUDA_FASTMATH-ADVANCED:INTERNAL": "1",
+            "AMReX_CUDA_KEEP_FILES-ADVANCED:INTERNAL": "1",
+            "AMReX_CUDA_LTO-ADVANCED:INTERNAL": "1",
+            "AMReX_CUDA_MAXREGCOUNT-ADVANCED:INTERNAL": "1",
+            "AMReX_CUDA_PTX_VERBOSE-ADVANCED:INTERNAL": "1",
+            "AMReX_CUDA_SHOW_CODELINES-ADVANCED:INTERNAL": "1",
+            "AMReX_CUDA_SHOW_LINENUMBERS-ADVANCED:INTERNAL": "1",
+            "AMReX_CUDA_WARN_CAPTURE_THIS-ADVANCED:INTERNAL": "1",
+            "AMReX_DIFFERENT_COMPILER-ADVANCED:INTERNAL": "1",
+            "AMReX_EB-ADVANCED:INTERNAL": "1",
+            "AMReX_EB:INTERNAL": "OFF",
+            "AMReX_ENABLE_TESTS-ADVANCED:INTERNAL": "1",
+            "AMReX_ENABLE_TESTS:INTERNAL": "OFF",
+            "AMReX_FASTMATH:INTERNAL": "OFF",
+            "AMReX_FFT:INTERNAL": "ON",
+            "AMReX_FORTRAN-ADVANCED:INTERNAL": "1",
+            "AMReX_FORTRAN:INTERNAL": "OFF",
+            "AMReX_FORTRAN_INTERFACES-ADVANCED:INTERNAL": "1",
+            "AMReX_FORTRAN_INTERFACES:INTERNAL": "OFF",
+            "AMReX_FPE-ADVANCED:INTERNAL": "1",
+            "AMReX_GPU_BACKEND-STRINGS:INTERNAL": "NONE;SYCL;CUDA;HIP",
+            "AMReX_GPU_BACKEND:INTERNAL": "CUDA",
+            "AMReX_GPU_RDC-ADVANCED:INTERNAL": "1",
+            "AMReX_HDF5-ADVANCED:INTERNAL": "1",
+            "AMReX_HYPRE-ADVANCED:INTERNAL": "1",
+            "AMReX_INSTALL:INTERNAL": "ON",
+            "AMReX_IPO-ADVANCED:INTERNAL": "1",
+            "AMReX_IPO:INTERNAL": "OFF",
+            "AMReX_LINEAR_SOLVERS-ADVANCED:INTERNAL": "1",
+            "AMReX_LINEAR_SOLVERS_EM-ADVANCED:INTERNAL": "1",
+            "AMReX_LINEAR_SOLVERS_INCFLO-ADVANCED:INTERNAL": "1",
+            "AMReX_MEM_PROFILE-ADVANCED:INTERNAL": "1",
+            "AMReX_MPI-ADVANCED:INTERNAL": "1",
+            "AMReX_MPI:INTERNAL": "ON",
+            "AMReX_MPI_THREAD_MULTIPLE-ADVANCED:INTERNAL": "1",
+            "AMReX_OMP-ADVANCED:INTERNAL": "1",
+            "AMReX_OMP:INTERNAL": "OFF",
+            "AMReX_PARTICLES-ADVANCED:INTERNAL": "1",
+            "AMReX_PARTICLES:INTERNAL": "ON",
+            "AMReX_PARTICLES_PRECISION-ADVANCED:INTERNAL": "1",
+            "AMReX_PARTICLES_PRECISION-STRINGS:INTERNAL": "SINGLE;DOUBLE",
+            "AMReX_PARTICLES_PRECISION:INTERNAL": "DOUBLE",
+            "AMReX_PETSC-ADVANCED:INTERNAL": "1",
+            "AMReX_PIC-ADVANCED:INTERNAL": "1",
+            "AMReX_PIC:INTERNAL": "ON",
+            "AMReX_PRECISION-STRINGS:INTERNAL": "SINGLE;DOUBLE",
+            "AMReX_PRECISION:INTERNAL": "DOUBLE",
+            "AMReX_PROBINIT-ADVANCED:INTERNAL": "1",
+            "AMReX_PROBINIT:INTERNAL": "OFF",
+            "AMReX_SENSEI-ADVANCED:INTERNAL": "1",
+            "AMReX_SIMD-ADVANCED:INTERNAL": "1",
+            "AMReX_SIMD:INTERNAL": "OFF",
+            "AMReX_SPACEDIM-ADVANCED:INTERNAL": "1",
+            "AMReX_SPACEDIM:INTERNAL": "1;2;3",
+            "AMReX_SUNDIALS-ADVANCED:INTERNAL": "1",
+            "AMReX_TEST_TYPE-STRINGS:INTERNAL": "All;Small",
+            "AMReX_TINY_PROFILE-ADVANCED:INTERNAL": "1",
+            "AMReX_TP_PROFILE-ADVANCED:INTERNAL": "1",
+            "AMReX_TP_PROFILE-STRINGS:INTERNAL": "IGNORE;CRAYPAT;FORGE;VTUNE",
+            "CMAKE_CXX_COMPILER-ADVANCED:INTERNAL": "1",
+            "CMAKE_CXX_COMPILER_AR-ADVANCED:INTERNAL": "1",
+            "CMAKE_CXX_COMPILER_RANLIB-ADVANCED:INTERNAL": "1",
+            "MPIEXEC_EXECUTABLE-ADVANCED:INTERNAL": "1",
+            "MPIEXEC_MAX_NUMPROCS-ADVANCED:INTERNAL": "1",
+            "MPIEXEC_NUMPROC_FLAG-ADVANCED:INTERNAL": "1",
+            "MPIEXEC_POSTFLAGS-ADVANCED:INTERNAL": "1",
+            "MPIEXEC_PREFLAGS-ADVANCED:INTERNAL": "1",
+            "WarpX_3d_GIT_VERSION:INTERNAL": "cee2ca2fd5d5",
+            "WarpX_BACKTRACE_INFO-ADVANCED:INTERNAL": "1",
+            "WarpX_COMPUTE-STRINGS:INTERNAL": "NOACC;OMP;CUDA;SYCL;HIP",
+            "WarpX_FFTW_IGNORE_OMP-ADVANCED:INTERNAL": "1",
+            "WarpX_MPI_THREAD_MULTIPLE-ADVANCED:INTERNAL": "1",
+            "WarpX_PARTICLE_PRECISION-STRINGS:INTERNAL": "SINGLE;DOUBLE",
+            "WarpX_PRECISION-STRINGS:INTERNAL": "SINGLE;DOUBLE",
+            "WarpX_QED_TABLES_GEN_OMP-STRINGS:INTERNAL": "AUTO;ON;OFF",
+            "WarpX_TEST_CLEANUP-ADVANCED:INTERNAL": "1",
+            "WarpX_TEST_DEBUGGER-ADVANCED:INTERNAL": "1",
+            "WarpX_TEST_FPETRAP-ADVANCED:INTERNAL": "1"
+          }
+        },
+        "tests": {
+          "dims1-ranks1/rank-0.xml": [
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_massmatrix]",
+              "seconds": 1.265,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_current]",
+              "seconds": 0.022,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_massmatrix]",
+              "seconds": 0.021,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_current]",
+              "seconds": 0.02,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_massmatrix]",
+              "seconds": 0.021,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_current]",
+              "seconds": 0.02,
+              "passed": true,
+              "skipped": false
+            }
+          ],
+          "dims1-ranks2/rank-0.xml": [
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_massmatrix]",
+              "seconds": 0.776,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_current]",
+              "seconds": 0.025,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_massmatrix]",
+              "seconds": 0.023,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_current]",
+              "seconds": 0.021,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_massmatrix]",
+              "seconds": 0.036,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_current]",
+              "seconds": 0.04,
+              "passed": true,
+              "skipped": false
+            }
+          ],
+          "dims1-ranks2/rank-1.xml": [
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_massmatrix]",
+              "seconds": 0.775,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_current]",
+              "seconds": 0.025,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_massmatrix]",
+              "seconds": 0.023,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_current]",
+              "seconds": 0.021,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_massmatrix]",
+              "seconds": 0.037,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_current]",
+              "seconds": 0.04,
+              "passed": true,
+              "skipped": false
+            }
+          ],
+          "dims1-ranks4/rank-0.xml": [
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_massmatrix]",
+              "seconds": 0.985,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_current]",
+              "seconds": 0.043,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_massmatrix]",
+              "seconds": 0.024,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_current]",
+              "seconds": 0.024,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_massmatrix]",
+              "seconds": 0.024,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_current]",
+              "seconds": 0.024,
+              "passed": true,
+              "skipped": false
+            }
+          ],
+          "dims1-ranks4/rank-1.xml": [
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_massmatrix]",
+              "seconds": 0.972,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_current]",
+              "seconds": 0.055,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_massmatrix]",
+              "seconds": 0.024,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_current]",
+              "seconds": 0.024,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_massmatrix]",
+              "seconds": 0.024,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_current]",
+              "seconds": 0.024,
+              "passed": true,
+              "skipped": false
+            }
+          ],
+          "dims1-ranks4/rank-2.xml": [
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_massmatrix]",
+              "seconds": 1.013,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_current]",
+              "seconds": 0.044,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_massmatrix]",
+              "seconds": 0.024,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_current]",
+              "seconds": 0.024,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_massmatrix]",
+              "seconds": 0.024,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_current]",
+              "seconds": 0.024,
+              "passed": true,
+              "skipped": false
+            }
+          ],
+          "dims1-ranks4/rank-3.xml": [
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_massmatrix]",
+              "seconds": 0.978,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_current]",
+              "seconds": 0.045,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_massmatrix]",
+              "seconds": 0.024,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_current]",
+              "seconds": 0.024,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_massmatrix]",
+              "seconds": 0.024,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_current]",
+              "seconds": 0.024,
+              "passed": true,
+              "skipped": false
+            }
+          ],
+          "dims2-ranks1/rank-0.xml": [
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_massmatrix]",
+              "seconds": 0.902,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_current]",
+              "seconds": 0.029,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_massmatrix]",
+              "seconds": 0.032,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_current]",
+              "seconds": 0.032,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_massmatrix]",
+              "seconds": 0.046,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_current]",
+              "seconds": 0.055,
+              "passed": true,
+              "skipped": false
+            }
+          ],
+          "dims2-ranks2/rank-0.xml": [
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_massmatrix]",
+              "seconds": 0.777,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_current]",
+              "seconds": 0.028,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_massmatrix]",
+              "seconds": 0.03,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_current]",
+              "seconds": 0.027,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_massmatrix]",
+              "seconds": 0.029,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_current]",
+              "seconds": 0.027,
+              "passed": true,
+              "skipped": false
+            }
+          ],
+          "dims2-ranks2/rank-1.xml": [
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_massmatrix]",
+              "seconds": 0.777,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_current]",
+              "seconds": 0.028,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_massmatrix]",
+              "seconds": 0.031,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_current]",
+              "seconds": 0.027,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_massmatrix]",
+              "seconds": 0.029,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_current]",
+              "seconds": 0.027,
+              "passed": true,
+              "skipped": false
+            }
+          ],
+          "dims2-ranks4/rank-0.xml": [
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_massmatrix]",
+              "seconds": 1.057,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_current]",
+              "seconds": 0.028,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_massmatrix]",
+              "seconds": 0.028,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_current]",
+              "seconds": 0.026,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_massmatrix]",
+              "seconds": 0.028,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_current]",
+              "seconds": 0.026,
+              "passed": true,
+              "skipped": false
+            }
+          ],
+          "dims2-ranks4/rank-1.xml": [
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_massmatrix]",
+              "seconds": 1.055,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_current]",
+              "seconds": 0.03,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_massmatrix]",
+              "seconds": 0.028,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_current]",
+              "seconds": 0.025,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_massmatrix]",
+              "seconds": 0.028,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_current]",
+              "seconds": 0.026,
+              "passed": true,
+              "skipped": false
+            }
+          ],
+          "dims2-ranks4/rank-2.xml": [
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_massmatrix]",
+              "seconds": 1.056,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_current]",
+              "seconds": 0.029,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_massmatrix]",
+              "seconds": 0.027,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_current]",
+              "seconds": 0.026,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_massmatrix]",
+              "seconds": 0.028,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_current]",
+              "seconds": 0.026,
+              "passed": true,
+              "skipped": false
+            }
+          ],
+          "dims2-ranks4/rank-3.xml": [
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_massmatrix]",
+              "seconds": 1.055,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[linear-sync_current]",
+              "seconds": 0.029,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_massmatrix]",
+              "seconds": 0.028,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[quadratic-sync_current]",
+              "seconds": 0.026,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_massmatrix]",
+              "seconds": 0.028,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "test_mass_matrices_match_push_and_deposit[cubic-sync_current]",
+              "seconds": 0.026,
+              "passed": true,
+              "skipped": false
+            }
+          ]
+        },
+        "comparisons": {},
+        "log_summaries": {}
+      }
+    ],
+    "slurm": "58774153|COMPLETED|0:0|00:01:56|1|128|nid002584"
+  },
+  "58774663": {
+    "job": 58774663,
+    "studies": [
+      {
+        "directory": "physics-development-sync-58774663",
+        "provenance": {
+          "revision.txt": "9ce49312ed79fc73c8a462ec9551358c688e2fd2\n",
+          "validation-build.txt": "/pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build_pm_gpu_sync\n",
+          "python-library-sha256.txt": "6046f78493b97004c8d4deb3a9160c96647e346cbae54b7a005bf356ce917b96  /pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build_pm_gpu_sync/lib/site-packages/pywarpx/warpx_pybind_1d.cpython-312-x86_64-linux-gnu.so\n48e3dade95352eac7c50d9d506080cc52dae2015c38e0bb100c7d626c2c1f5db  /pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build_pm_gpu_sync/lib/site-packages/pywarpx/warpx_pybind_2d.cpython-312-x86_64-linux-gnu.so\n01bbf15279b90ff169560a056925e246820816f5bd423a6e9e92d8e1dd10df3c  /pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build_pm_gpu_sync/lib/site-packages/pywarpx/warpx_pybind_3d.cpython-312-x86_64-linux-gnu.so\n9f05ae70519a7e0ee3ebba186b68a9955099bd714cb952a2f9544ff3e1bfe14f  /pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build_pm_gpu_sync/lib/site-packages/pywarpx/warpx_pybind_rz.cpython-312-x86_64-linux-gnu.so\n",
+          "physics-build.txt": "/pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build_pm_gpu_sync_float\n",
+          "physics-executable-sha256.txt": "7937486fcec4e64d3edc68647637445ce1c7d7086091e87d0631c033d47c89d6  build_pm_gpu_sync_float/fluid-tests/test_fluid_profiles\n37197f1472e9595c57eb2ffb43494bfb1ffa47531e8ac57d8e2e715cd9560816  build_pm_gpu_sync_float/fluid-tests/test_poynting_1D_Z\n128db82d33f63b6598e5b7ea089fa750af7e7dc9347bd7a6196e92d16a5c715f  build_pm_gpu_sync_float/fluid-tests/test_poynting_3D\n7969fe8fc83d5724f9b30650bd7aa7f49a6f94bac17ae5419c0fea5929c9d92f  build_pm_gpu_sync_float/fluid-tests/test_poynting_RZ\n757257575f9d950021d63e338ba95d33d98b388142f6d1e95638ad621bce8852  build_pm_gpu_sync_float/pjg/test_proton_ionization_angles\n1cf2016e13fbcdc6258f9e1661b5e620a79f8876f811012fccd14ca563c94e67  build_pm_gpu_sync_float/pjg/test_proton_ionization_model\n720653f81a7367b26ea82c9cce0d05c830f9f171a61683d8f9654a282012fdb6  build_pm_gpu_sync_float/pjg/test_proton_ionization_relativistic\n561c30c32e59361d3ecc9f7ea694699695571b4b3e36c0e6be04f90c7fc23dd2  build_pm_gpu_sync_float/pjg/test_proton_ionization_sampling\nd029ef656ef506a502becbbe26e73f641ddbc9b2b469ae8221efaddd4e5835ad  build_pm_gpu_sync_float/mcc-physics/test_mcc_interpolation\nc20b53e1cf7c7e68a1d19caf669437a33832e53b15a326c377168d2db6d7d468  build_pm_gpu_sync_float/mcc-physics/test_mcc_kinematics\n",
+          "device.txt": "Tue Sep 22 17:40:56 2026       \n+-----------------------------------------------------------------------------------------+\n| NVIDIA-SMI 580.178.04             Driver Version: 580.178.04     CUDA Version: 13.2     |\n+-----------------------------------------+------------------------+----------------------+\n| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |\n| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |\n|                                         |                        |               MIG M. |\n|=========================================+========================+======================|\n|   0  NVIDIA A100-SXM4-40GB          On  |   00000000:03:00.0 Off |                    0 |\n| N/A   30C    P0             54W /  400W |       0MiB /  40960MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   1  NVIDIA A100-SXM4-40GB          On  |   00000000:41:00.0 Off |                    0 |\n| N/A   29C    P0             52W /  400W |       0MiB /  40960MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   2  NVIDIA A100-SXM4-40GB          On  |   00000000:82:00.0 Off |                    0 |\n| N/A   29C    P0             52W /  400W |       0MiB /  40960MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   3  NVIDIA A100-SXM4-40GB          On  |   00000000:C1:00.0 Off |                    0 |\n| N/A   28C    P0             53W /  400W |       0MiB /  40960MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n\n+-----------------------------------------------------------------------------------------+\n| Processes:                                                                              |\n|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |\n|        ID   ID                                                               Usage      |\n|=========================================================================================|\n|  No running processes found                                                             |\n+-----------------------------------------------------------------------------------------+\n",
+          "runtime.txt": "AMREX_DEFAULT_INIT=amrex.use_gpu_aware_mpi=1\nCUDA_MODULE_LOADING=unset\nMPICH_GPU_SUPPORT_ENABLED=1\nMPICH_OFI_NIC_POLICY=GPU\nOMP_NUM_THREADS=16\nSLURM_JOB_ID=58774663\nSLURM_JOB_NUM_NODES=1\nSLURM_NTASKS=4\n",
+          "modules.txt": "\nCurrently Loaded Modules:\n  1) libfabric/2.3.1\n  2) craype-network-ofi\n  3) xpmem/2.11.5-1.3_g73ade43320bc\n  4) perftools-base/26.03.0\n  5) cpe/26.03\n  6) sqs/2.0\n  7) darshan/default\n  8) gpu/1.0\n  9) cray-dsmml/0.3.1\n 10) PrgEnv-gnu/8.7.0               (prgenv)\n 11) craype/2.7.36                  (c)\n 12) craype-x86-milan               (cpe)\n 13) craype-accel-nvidia80          (cpe)\n 14) cudatoolkit/13.2               (g)\n 15) gcc-native/13.2                (c)\n 16) cray-mpich/9.1.0               (mpi)\n 17) cray-libsci/26.03.0\n 18) cmake/3.30.2\n 19) cray-hdf5-parallel/1.14.3.9\n 20) cray-python/3.12.12\n\n  Where:\n   c:       Compiler\n   cpe:     Cray Programming Environment Modules\n   g:       built for GPU\n   mpi:     MPI Providers\n   prgenv:  Programming Environment Modules\n\n \n\n",
+          "source.patch.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "source-sha256.json.sha256": "b0de762a469bc449188f4566f580633226e152d06d871e23e7b773fb4f2fe4b3",
+          "python-packages.txt.sha256": "6df83b048965303a1014f3a17abc9425d88fc410c88ae12f55d80123ec28eaed",
+          "topology": {
+            "placement": [
+              {
+                "rank": 0,
+                "host": "nid001885",
+                "visible_devices": "3",
+                "pci_bus_id": "0000:C1:00.0"
+              },
+              {
+                "rank": 1,
+                "host": "nid001885",
+                "visible_devices": "2",
+                "pci_bus_id": "0000:82:00.0"
+              },
+              {
+                "rank": 2,
+                "host": "nid001885",
+                "visible_devices": "1",
+                "pci_bus_id": "0000:41:00.0"
+              },
+              {
+                "rank": 3,
+                "host": "nid001885",
+                "visible_devices": "0",
+                "pci_bus_id": "0000:03:00.0"
+              }
+            ],
+            "device_buffer_allreduce": "PASS"
+          },
+          "CMakeCache.txt": {
+            "AMReX_AMRDATA:BOOL": "OFF",
+            "AMReX_ASSERTIONS:BOOL": "OFF",
+            "AMReX_BASE_PROFILE:BOOL": "OFF",
+            "AMReX_BINARY_DIR:STATIC": "/pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build_pm_gpu_sync/_deps/fetchedamrex-build",
+            "AMReX_BOUND_CHECK:BOOL": "OFF",
+            "AMReX_BUILD_SHARED_LIBS:BOOL": "ON",
+            "AMReX_CLANG_TIDY:BOOL": "OFF",
+            "AMReX_COMPILER_DEFAULT_INLINE:BOOL": "OFF",
+            "AMReX_CONDUIT:BOOL": "OFF",
+            "AMReX_CUDA_BACKTRACE:BOOL": "OFF",
+            "AMReX_CUDA_COMPILATION_TIMER:BOOL": "OFF",
+            "AMReX_CUDA_DEBUG:BOOL": "OFF",
+            "AMReX_CUDA_ERROR_CAPTURE_THIS:BOOL": "OFF",
+            "AMReX_CUDA_ERROR_CROSS_EXECUTION_SPACE_CALL:BOOL": "OFF",
+            "AMReX_CUDA_FASTMATH:BOOL": "ON",
+            "AMReX_CUDA_KEEP_FILES:BOOL": "OFF",
+            "AMReX_CUDA_LTO:BOOL": "OFF",
+            "AMReX_CUDA_MAXREGCOUNT:STRING": "255",
+            "AMReX_CUDA_OBJDIR_AS_TEMPDIR:BOOL": "OFF",
+            "AMReX_CUDA_PTX_VERBOSE:BOOL": "OFF",
+            "AMReX_CUDA_SHOW_CODELINES:BOOL": "OFF",
+            "AMReX_CUDA_SHOW_LINENUMBERS:BOOL": "ON",
+            "AMReX_CUDA_WARN_CAPTURE_THIS:BOOL": "ON",
+            "AMReX_DIFFERENT_COMPILER:BOOL": "OFF",
+            "AMReX_EXPORT_DYNAMIC:BOOL": "OFF",
+            "AMReX_FLATTEN_FOR:BOOL": "OFF",
+            "AMReX_FPE:BOOL": "OFF",
+            "AMReX_GPU_MAX_THREADS:STRING": "256",
+            "AMReX_GPU_RDC:BOOL": "OFF",
+            "AMReX_HDF5:BOOL": "OFF",
+            "AMReX_HYPRE:BOOL": "OFF",
+            "AMReX_INLINE_LIMIT:STRING": "43210",
+            "AMReX_IS_TOP_LEVEL:STATIC": "OFF",
+            "AMReX_LINEAR_SOLVERS:BOOL": "ON",
+            "AMReX_LINEAR_SOLVERS_EM:BOOL": "ON",
+            "AMReX_LINEAR_SOLVERS_INCFLO:BOOL": "ON",
+            "AMReX_MEM_PROFILE:BOOL": "OFF",
+            "AMReX_MPI_THREAD_MULTIPLE:BOOL": "ON",
+            "AMReX_PETSC:BOOL": "OFF",
+            "AMReX_PLOTFILE_TOOLS:BOOL": "OFF",
+            "AMReX_SENSEI:BOOL": "OFF",
+            "AMReX_SOURCE_DIR:STATIC": "/pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build_pm_gpu_sync/_deps/fetchedamrex-src",
+            "AMReX_SUNDIALS:BOOL": "OFF",
+            "AMReX_TEST_TYPE:STRING": "All",
+            "AMReX_TINY_PROFILE:BOOL": "ON",
+            "AMReX_TP_PROFILE:STRING": "IGNORE",
+            "CMAKE_BUILD_TYPE:STRING": "Release",
+            "CMAKE_CUDA_ARCHITECTURES:STRING": "80",
+            "CMAKE_CXX_COMPILER:FILEPATH": "/opt/cray/pe/craype/2.7.36/bin/CC",
+            "CMAKE_CXX_COMPILER_AR:FILEPATH": "/usr/bin/gcc-ar-13",
+            "CMAKE_CXX_COMPILER_RANLIB:FILEPATH": "/usr/bin/gcc-ranlib-13",
+            "MPIEXEC_EXECUTABLE:FILEPATH": "/pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/Tools/Algorithms/PrescribedFluids/perlmutter_mpiexec.sh",
+            "MPIEXEC_MAX_NUMPROCS:STRING": "128",
+            "MPIEXEC_NUMPROC_FLAG:STRING": "-n",
+            "MPIEXEC_POSTFLAGS:STRING": "",
+            "MPIEXEC_PREFLAGS:STRING": "",
+            "WarpX_APP:BOOL": "ON",
+            "WarpX_ASCENT:BOOL": "OFF",
+            "WarpX_BACKTRACE_INFO:BOOL": "OFF",
+            "WarpX_BINARY_DIR:STATIC": "/pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build_pm_gpu_sync",
+            "WarpX_CATALYST:BOOL": "OFF",
+            "WarpX_CCACHE:BOOL": "ON",
+            "WarpX_COMPUTE:STRING": "CUDA",
+            "WarpX_CUSTOM_TARGET_PREFIX:STRING": "",
+            "WarpX_DIMS:STRING": "1;2;RZ;3",
+            "WarpX_EB:BOOL": "OFF",
+            "WarpX_FASTMATH:BOOL": "OFF",
+            "WarpX_FFT:BOOL": "ON",
+            "WarpX_FFTW_IGNORE_OMP:BOOL": "OFF",
+            "WarpX_IPO:BOOL": "OFF",
+            "WarpX_IS_TOP_LEVEL:STATIC": "ON",
+            "WarpX_LIB:STRING": "ON",
+            "WarpX_MPI:BOOL": "ON",
+            "WarpX_MPI_THREAD_MULTIPLE:BOOL": "ON",
+            "WarpX_OPENPMD:BOOL": "ON",
+            "WarpX_PARTICLE_PRECISION:STRING": "DOUBLE",
+            "WarpX_PETSC:BOOL": "OFF",
+            "WarpX_PRECISION:STRING": "DOUBLE",
+            "WarpX_PYTHON:BOOL": "ON",
+            "WarpX_PYTHON_IPO:BOOL": "OFF",
+            "WarpX_QED:BOOL": "OFF",
+            "WarpX_QED_TABLES_GEN_OMP:STRING": "AUTO",
+            "WarpX_QED_TABLE_GEN:BOOL": "OFF",
+            "WarpX_QED_TOOLS:BOOL": "OFF",
+            "WarpX_SENSEI:BOOL": "OFF",
+            "WarpX_SIMD:BOOL": "OFF",
+            "WarpX_SOURCE_DIR:STATIC": "/pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation",
+            "WarpX_TEST_CLEANUP:BOOL": "OFF",
+            "WarpX_TEST_DEBUGGER:BOOL": "OFF",
+            "WarpX_TEST_FPETRAP:BOOL": "OFF",
+            "WarpX_UNITY_BUILD:BOOL": "OFF",
+            "WarpX_amrex_branch:STRING": "d6d1aa11f38cab90fc592ee193ae574cdc001aaf",
+            "WarpX_amrex_internal:BOOL": "ON",
+            "WarpX_amrex_repo:STRING": "https://github.com/AMReX-Codes/amrex.git",
+            "WarpX_amrex_src:PATH": "",
+            "WarpX_openpmd_branch:STRING": "0.17.1",
+            "WarpX_openpmd_internal:BOOL": "ON",
+            "WarpX_openpmd_repo:STRING": "https://github.com/openPMD/openPMD-api.git",
+            "WarpX_openpmd_src:PATH": "",
+            "WarpX_pyamrex_branch:STRING": "26.09",
+            "WarpX_pyamrex_internal:BOOL": "ON",
+            "WarpX_pyamrex_repo:STRING": "https://github.com/AMReX-Codes/pyamrex.git",
+            "WarpX_pyamrex_src:PATH": "",
+            "WarpX_pybind11_branch:STRING": "v3.1.0",
+            "WarpX_pybind11_internal:BOOL": "ON",
+            "WarpX_pybind11_repo:STRING": "https://github.com/pybind/pybind11.git",
+            "WarpX_pybind11_src:PATH": "",
+            "AMReX_AMRDATA-ADVANCED:INTERNAL": "1",
+            "AMReX_AMRLEVEL:INTERNAL": "OFF",
+            "AMReX_BASE_PROFILE-ADVANCED:INTERNAL": "1",
+            "AMReX_BUILD_TUTORIALS:INTERNAL": "OFF",
+            "AMReX_CONDUIT-ADVANCED:INTERNAL": "1",
+            "AMReX_CUDA_COMPILATION_TIMER-ADVANCED:INTERNAL": "1",
+            "AMReX_CUDA_ERROR_CAPTURE_THIS-ADVANCED:INTERNAL": "1",
+            "AMReX_CUDA_ERROR_CROSS_EXECUTION_SPACE_CALL-ADVANCED:INTERNAL": "1",
+            "AMReX_CUDA_FASTMATH-ADVANCED:INTERNAL": "1",
+            "AMReX_CUDA_KEEP_FILES-ADVANCED:INTERNAL": "1",
+            "AMReX_CUDA_LTO-ADVANCED:INTERNAL": "1",
+            "AMReX_CUDA_MAXREGCOUNT-ADVANCED:INTERNAL": "1",
+            "AMReX_CUDA_PTX_VERBOSE-ADVANCED:INTERNAL": "1",
+            "AMReX_CUDA_SHOW_CODELINES-ADVANCED:INTERNAL": "1",
+            "AMReX_CUDA_SHOW_LINENUMBERS-ADVANCED:INTERNAL": "1",
+            "AMReX_CUDA_WARN_CAPTURE_THIS-ADVANCED:INTERNAL": "1",
+            "AMReX_DIFFERENT_COMPILER-ADVANCED:INTERNAL": "1",
+            "AMReX_EB-ADVANCED:INTERNAL": "1",
+            "AMReX_EB:INTERNAL": "OFF",
+            "AMReX_ENABLE_TESTS-ADVANCED:INTERNAL": "1",
+            "AMReX_ENABLE_TESTS:INTERNAL": "OFF",
+            "AMReX_FASTMATH:INTERNAL": "OFF",
+            "AMReX_FFT:INTERNAL": "ON",
+            "AMReX_FORTRAN-ADVANCED:INTERNAL": "1",
+            "AMReX_FORTRAN:INTERNAL": "OFF",
+            "AMReX_FORTRAN_INTERFACES-ADVANCED:INTERNAL": "1",
+            "AMReX_FORTRAN_INTERFACES:INTERNAL": "OFF",
+            "AMReX_FPE-ADVANCED:INTERNAL": "1",
+            "AMReX_GPU_BACKEND-STRINGS:INTERNAL": "NONE;SYCL;CUDA;HIP",
+            "AMReX_GPU_BACKEND:INTERNAL": "CUDA",
+            "AMReX_GPU_RDC-ADVANCED:INTERNAL": "1",
+            "AMReX_HDF5-ADVANCED:INTERNAL": "1",
+            "AMReX_HYPRE-ADVANCED:INTERNAL": "1",
+            "AMReX_INSTALL:INTERNAL": "ON",
+            "AMReX_IPO-ADVANCED:INTERNAL": "1",
+            "AMReX_IPO:INTERNAL": "OFF",
+            "AMReX_LINEAR_SOLVERS-ADVANCED:INTERNAL": "1",
+            "AMReX_LINEAR_SOLVERS_EM-ADVANCED:INTERNAL": "1",
+            "AMReX_LINEAR_SOLVERS_INCFLO-ADVANCED:INTERNAL": "1",
+            "AMReX_MEM_PROFILE-ADVANCED:INTERNAL": "1",
+            "AMReX_MPI-ADVANCED:INTERNAL": "1",
+            "AMReX_MPI:INTERNAL": "ON",
+            "AMReX_MPI_THREAD_MULTIPLE-ADVANCED:INTERNAL": "1",
+            "AMReX_OMP-ADVANCED:INTERNAL": "1",
+            "AMReX_OMP:INTERNAL": "OFF",
+            "AMReX_PARTICLES-ADVANCED:INTERNAL": "1",
+            "AMReX_PARTICLES:INTERNAL": "ON",
+            "AMReX_PARTICLES_PRECISION-ADVANCED:INTERNAL": "1",
+            "AMReX_PARTICLES_PRECISION-STRINGS:INTERNAL": "SINGLE;DOUBLE",
+            "AMReX_PARTICLES_PRECISION:INTERNAL": "DOUBLE",
+            "AMReX_PETSC-ADVANCED:INTERNAL": "1",
+            "AMReX_PIC-ADVANCED:INTERNAL": "1",
+            "AMReX_PIC:INTERNAL": "ON",
+            "AMReX_PRECISION-STRINGS:INTERNAL": "SINGLE;DOUBLE",
+            "AMReX_PRECISION:INTERNAL": "DOUBLE",
+            "AMReX_PROBINIT-ADVANCED:INTERNAL": "1",
+            "AMReX_PROBINIT:INTERNAL": "OFF",
+            "AMReX_SENSEI-ADVANCED:INTERNAL": "1",
+            "AMReX_SIMD-ADVANCED:INTERNAL": "1",
+            "AMReX_SIMD:INTERNAL": "OFF",
+            "AMReX_SPACEDIM-ADVANCED:INTERNAL": "1",
+            "AMReX_SPACEDIM:INTERNAL": "1;2;3",
+            "AMReX_SUNDIALS-ADVANCED:INTERNAL": "1",
+            "AMReX_TEST_TYPE-STRINGS:INTERNAL": "All;Small",
+            "AMReX_TINY_PROFILE-ADVANCED:INTERNAL": "1",
+            "AMReX_TP_PROFILE-ADVANCED:INTERNAL": "1",
+            "AMReX_TP_PROFILE-STRINGS:INTERNAL": "IGNORE;CRAYPAT;FORGE;VTUNE",
+            "CMAKE_CXX_COMPILER-ADVANCED:INTERNAL": "1",
+            "CMAKE_CXX_COMPILER_AR-ADVANCED:INTERNAL": "1",
+            "CMAKE_CXX_COMPILER_RANLIB-ADVANCED:INTERNAL": "1",
+            "MPIEXEC_EXECUTABLE-ADVANCED:INTERNAL": "1",
+            "MPIEXEC_MAX_NUMPROCS-ADVANCED:INTERNAL": "1",
+            "MPIEXEC_NUMPROC_FLAG-ADVANCED:INTERNAL": "1",
+            "MPIEXEC_POSTFLAGS-ADVANCED:INTERNAL": "1",
+            "MPIEXEC_PREFLAGS-ADVANCED:INTERNAL": "1",
+            "WarpX_3d_GIT_VERSION:INTERNAL": "b26d41d104bd",
+            "WarpX_BACKTRACE_INFO-ADVANCED:INTERNAL": "1",
+            "WarpX_COMPUTE-STRINGS:INTERNAL": "NOACC;OMP;CUDA;SYCL;HIP",
+            "WarpX_FFTW_IGNORE_OMP-ADVANCED:INTERNAL": "1",
+            "WarpX_MPI_THREAD_MULTIPLE-ADVANCED:INTERNAL": "1",
+            "WarpX_PARTICLE_PRECISION-STRINGS:INTERNAL": "SINGLE;DOUBLE",
+            "WarpX_PRECISION-STRINGS:INTERNAL": "SINGLE;DOUBLE",
+            "WarpX_QED_TABLES_GEN_OMP-STRINGS:INTERNAL": "AUTO;ON;OFF",
+            "WarpX_TEST_CLEANUP-ADVANCED:INTERNAL": "1",
+            "WarpX_TEST_DEBUGGER-ADVANCED:INTERNAL": "1",
+            "WarpX_TEST_FPETRAP-ADVANCED:INTERNAL": "1"
+          },
+          "physics-AMReX-CMakeCache.txt": {
+            "AMReX_AMRDATA:BOOL": "OFF",
+            "AMReX_AMRLEVEL:BOOL": "OFF",
+            "AMReX_ASSERTIONS:BOOL": "OFF",
+            "AMReX_BASE_PROFILE:BOOL": "OFF",
+            "AMReX_BINARY_DIR:STATIC": "/pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build/reaudit-2026-09-21/amrex-float-build_pm_gpu_sync",
+            "AMReX_BOUND_CHECK:BOOL": "OFF",
+            "AMReX_BUILD_SHARED_LIBS:BOOL": "ON",
+            "AMReX_CLANG_TIDY:BOOL": "OFF",
+            "AMReX_COMPILER_DEFAULT_INLINE:BOOL": "OFF",
+            "AMReX_CONDUIT:BOOL": "OFF",
+            "AMReX_CUDA_BACKTRACE:BOOL": "OFF",
+            "AMReX_CUDA_COMPILATION_TIMER:BOOL": "OFF",
+            "AMReX_CUDA_DEBUG:BOOL": "OFF",
+            "AMReX_CUDA_ERROR_CAPTURE_THIS:BOOL": "OFF",
+            "AMReX_CUDA_ERROR_CROSS_EXECUTION_SPACE_CALL:BOOL": "OFF",
+            "AMReX_CUDA_FASTMATH:BOOL": "ON",
+            "AMReX_CUDA_KEEP_FILES:BOOL": "OFF",
+            "AMReX_CUDA_LTO:BOOL": "OFF",
+            "AMReX_CUDA_MAXREGCOUNT:STRING": "255",
+            "AMReX_CUDA_OBJDIR_AS_TEMPDIR:BOOL": "OFF",
+            "AMReX_CUDA_PTX_VERBOSE:BOOL": "OFF",
+            "AMReX_CUDA_SHOW_CODELINES:BOOL": "OFF",
+            "AMReX_CUDA_SHOW_LINENUMBERS:BOOL": "ON",
+            "AMReX_CUDA_WARN_CAPTURE_THIS:BOOL": "ON",
+            "AMReX_DIFFERENT_COMPILER:BOOL": "OFF",
+            "AMReX_EB:BOOL": "OFF",
+            "AMReX_ENABLE_TESTS:BOOL": "OFF",
+            "AMReX_EXPORT_DYNAMIC:BOOL": "OFF",
+            "AMReX_FASTMATH:BOOL": "OFF",
+            "AMReX_FFT:BOOL": "OFF",
+            "AMReX_FLATTEN_FOR:BOOL": "OFF",
+            "AMReX_FORTRAN:BOOL": "OFF",
+            "AMReX_FPE:BOOL": "OFF",
+            "AMReX_GPU_BACKEND:STRING": "CUDA",
+            "AMReX_GPU_MAX_THREADS:STRING": "256",
+            "AMReX_GPU_RDC:BOOL": "ON",
+            "AMReX_HDF5:BOOL": "OFF",
+            "AMReX_INLINE_LIMIT:STRING": "43210",
+            "AMReX_INSTALL:BOOL": "ON",
+            "AMReX_IPO:BOOL": "OFF",
+            "AMReX_IS_TOP_LEVEL:STATIC": "ON",
+            "AMReX_LINEAR_SOLVERS:BOOL": "OFF",
+            "AMReX_MEM_PROFILE:BOOL": "OFF",
+            "AMReX_MPI:BOOL": "ON",
+            "AMReX_MPI_THREAD_MULTIPLE:BOOL": "OFF",
+            "AMReX_OMP:BOOL": "OFF",
+            "AMReX_PARTICLES:BOOL": "ON",
+            "AMReX_PARTICLES_PRECISION:STRING": "SINGLE",
+            "AMReX_PIC:BOOL": "OFF",
+            "AMReX_PLOTFILE_TOOLS:BOOL": "OFF",
+            "AMReX_PRECISION:STRING": "DOUBLE",
+            "AMReX_SENSEI:BOOL": "OFF",
+            "AMReX_SIMD:BOOL": "OFF",
+            "AMReX_SOURCE_DIR:STATIC": "/pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build_pm_gpu_sync/_deps/fetchedamrex-src",
+            "AMReX_SPACEDIM:STRING": "1",
+            "AMReX_SUNDIALS:BOOL": "OFF",
+            "AMReX_TEST_TYPE:STRING": "All",
+            "AMReX_TINY_PROFILE:BOOL": "OFF",
+            "AMReX_TP_PROFILE:STRING": "IGNORE",
+            "CMAKE_BUILD_TYPE:STRING": "Release",
+            "CMAKE_CUDA_ARCHITECTURES:STRING": "80",
+            "CMAKE_CXX_COMPILER:FILEPATH": "/opt/cray/pe/craype/2.7.36/bin/CC",
+            "CMAKE_CXX_COMPILER_AR:FILEPATH": "/usr/bin/gcc-ar-13",
+            "CMAKE_CXX_COMPILER_RANLIB:FILEPATH": "/usr/bin/gcc-ranlib-13",
+            "MPIEXEC_EXECUTABLE:FILEPATH": "/usr/bin/srun",
+            "MPIEXEC_MAX_NUMPROCS:STRING": "128",
+            "MPIEXEC_NUMPROC_FLAG:STRING": "-n",
+            "MPIEXEC_POSTFLAGS:STRING": "",
+            "MPIEXEC_PREFLAGS:STRING": "",
+            "AMReX_GPU_BACKEND-STRINGS:INTERNAL": "NONE;SYCL;CUDA;HIP",
+            "AMReX_PARTICLES_PRECISION-STRINGS:INTERNAL": "SINGLE;DOUBLE",
+            "AMReX_PRECISION-STRINGS:INTERNAL": "SINGLE;DOUBLE",
+            "AMReX_TEST_TYPE-STRINGS:INTERNAL": "All;Small",
+            "AMReX_TP_PROFILE-STRINGS:INTERNAL": "IGNORE;CRAYPAT;FORGE;VTUNE",
+            "CMAKE_CXX_COMPILER-ADVANCED:INTERNAL": "1",
+            "CMAKE_CXX_COMPILER_AR-ADVANCED:INTERNAL": "1",
+            "CMAKE_CXX_COMPILER_RANLIB-ADVANCED:INTERNAL": "1",
+            "MPIEXEC_EXECUTABLE-ADVANCED:INTERNAL": "1",
+            "MPIEXEC_MAX_NUMPROCS-ADVANCED:INTERNAL": "1",
+            "MPIEXEC_NUMPROC_FLAG-ADVANCED:INTERNAL": "1",
+            "MPIEXEC_POSTFLAGS-ADVANCED:INTERNAL": "1",
+            "MPIEXEC_PREFLAGS-ADVANCED:INTERNAL": "1"
+          }
+        },
+        "tests": {
+          "fluid-tests.xml": [
+            {
+              "name": "fluid_profiles",
+              "seconds": 0.993961,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "poynting_1D_Z",
+              "seconds": 0.943201,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "poynting_RZ",
+              "seconds": 0.99083,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "poynting_3D",
+              "seconds": 0.971871,
+              "passed": true,
+              "skipped": false
+            }
+          ],
+          "mcc-physics.xml": [
+            {
+              "name": "mcc_kinematics",
+              "seconds": 0.620071,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "mcc_interpolation",
+              "seconds": 0.990739,
+              "passed": true,
+              "skipped": false
+            }
+          ],
+          "pjg.xml": [
+            {
+              "name": "proton_ionization_relativistic",
+              "seconds": 0.0244463,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "proton_ionization_sampling",
+              "seconds": 0.025699,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "proton_ionization_angles",
+              "seconds": 0.791318,
+              "passed": true,
+              "skipped": false
+            },
+            {
+              "name": "proton_ionization_model",
+              "seconds": 3.43339,
+              "passed": true,
+              "skipped": false
+            }
+          ]
+        },
+        "comparisons": {},
+        "log_summaries": {
+          "python-physics.log": "eChecks.test_relativistic_dipole_logarithm) ... ok\ntest_rudd_bound_tail (test_reference.ReferenceChecks.test_rudd_bound_tail) ... ok\ntest_transverse_against_independent_q_quadrature (test_reference.ReferenceChecks.test_transverse_against_independent_q_quadrature) ... ok\ntest_transverse_bethe_subtraction (test_reference.ReferenceChecks.test_transverse_bethe_subtraction) ... ok\ntest_json_and_reference_dimensions (test_research_archive.ResearchArchiveTests.test_json_and_reference_dimensions) ... ok\ntest_legacy_table_is_numerical_data (test_research_archive.ResearchArchiveTests.test_legacy_table_is_numerical_data) ... ok\ntest_manifest_and_members (test_research_archive.ResearchArchiveTests.test_manifest_and_members) ... ok\ntest_no_generated_metadata (test_research_archive.ResearchArchiveTests.test_no_generated_metadata) ... ok\ntest_reject_non_regular_and_duplicate_members (test_research_archive.ResearchArchiveTests.test_reject_non_regular_and_duplicate_members) ... ok\ntest_reject_unsafe_paths_and_changed_bytes (test_research_archive.ResearchArchiveTests.test_reject_unsafe_paths_and_changed_bytes) ... ok\ntest_selected_parameters_are_frozen (test_research_archive.ResearchArchiveTests.test_selected_parameters_are_frozen) ... ok\ntest_source_hash_chain (test_research_archive.ResearchArchiveTests.test_source_hash_chain) ... ok\ntest_absorption_and_channel_checks (test_source_datasets.SourceTests.test_absorption_and_channel_checks) ... ok\ntest_band_gap_is_not_bridged_by_interpolation (test_source_datasets.SourceTests.test_band_gap_is_not_bridged_by_interpolation) ... ok\ntest_cheng_digitized_points_cover_three_spectra (test_source_datasets.SourceTests.test_cheng_digitized_points_cover_three_spectra) ... ok\ntest_cross_section_axis_change_has_no_jacobian (test_source_datasets.SourceTests.test_cross_section_axis_change_has_no_jacobian) ... ok\ntest_log_interpolation_power_law (test_source_datasets.SourceTests.test_log_interpolation_power_law) ... ok\ntest_nifs_scientific_tokens_and_column_guard (test_source_datasets.SourceTests.test_nifs_scientific_tokens_and_column_guard) ... ok\ntest_optical_integral_against_analytic_moments (test_source_datasets.SourceTests.test_optical_integral_against_analytic_moments) ... ok\ntest_optical_interpolation_does_not_extrapolate (test_source_datasets.SourceTests.test_optical_interpolation_does_not_extrapolate) ... ok\ntest_oscillator_lines_and_bands_are_not_density_samples (test_source_datasets.SourceTests.test_oscillator_lines_and_bands_are_not_density_samples) ... ok\ntest_photoabsorption_units (test_source_datasets.SourceTests.test_photoabsorption_units) ... ok\ntest_rudd_table_is_in_range_and_not_capture (test_source_datasets.SourceTests.test_rudd_table_is_in_range_and_not_capture) ... ok\ntest_subtraction_roundoff_is_not_physical_negativity (test_source_datasets.SourceTests.test_subtraction_roundoff_is_not_physical_negativity) ... ok\n\n----------------------------------------------------------------------\nRan 64 tests in 7.950s\n\nOK\n",
+          "gaussian.log": "PASS: continuum Gaussian field quadrature and Lorentz transform\n"
+        }
+      }
+    ],
+    "slurm": "58774663|COMPLETED|0:0|00:00:52|1|128|nid001885"
+  }
+}
