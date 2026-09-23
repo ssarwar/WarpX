@@ -11152,7 +11152,17 @@
             "WarpX_TEST_CLEANUP-ADVANCED:INTERNAL": "1",
             "WarpX_TEST_DEBUGGER-ADVANCED:INTERNAL": "1",
             "WarpX_TEST_FPETRAP-ADVANCED:INTERNAL": "1"
-          }
+          },
+          "eight-rank-memory-log": [
+            {
+              "log": "build/reaudit-2026-09-21/scaling-scaling-58779669/coupled-ranks8/fluid-fluid-ppc1-seed41/run.log",
+              "sha256": "d31502d97231805df26d725c7e4589b0001a1cd64beec645433ab2d471e94d9c",
+              "memory_rows": [
+                "Total GPU global memory (MB) spread across MPI: [81151 ... 81151]",
+                "Free  GPU global memory (MB) spread across MPI: [80621 ... 80633]"
+              ]
+            }
+          ]
         },
         "tests": {},
         "comparisons": {

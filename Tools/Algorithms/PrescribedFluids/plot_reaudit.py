@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import re
 from pathlib import Path
 
 import matplotlib
@@ -49,6 +50,28 @@ def main():
     noise = {summary["settings"]["mode"]: summary for summary in noise_summaries}
     assert len(noise) == len(noise_summaries), "Select only one study per noise family"
     scaling = summaries(report, args.scaling_jobs, "scaling")
+
+    def memory_labels(jobs, mode=None):
+        sizes = set()
+        for job in jobs:
+            for study in report[str(job)]["studies"]:
+                if mode is not None and not any(
+                    name.endswith("summary.json")
+                    and data.get("settings", {}).get("mode") == mode
+                    for name, data in study["comparisons"].items()
+                ):
+                    continue
+                provenance = study["provenance"]
+                models = provenance.get("device.txt", "")
+                for rank in provenance.get("topology", {}).get("placement", []):
+                    models += " " + rank.get("model", "")
+                sizes.update(re.findall(r"A100-\S*?-(\d+)GB", models))
+        assert sizes, "Selected studies must identify their A100 memory variants"
+        return "/".join(sorted(sizes, key=int))
+
+    field_memory = memory_labels(args.noise_jobs, "fields")
+    coupled_memory = memory_labels(args.noise_jobs, "coupled")
+    scaling_memory = memory_labels(args.scaling_jobs)
     assert all(len(summary["ranks"]) == 1 for summary in scaling)
     assert noise["fields"]["settings"]["cells"] == noise["coupled"]["settings"]["cells"]
     assert noise["fields"]["settings"]["cells"] == [64, 256]
@@ -177,7 +200,8 @@ def main():
         axis.grid(True, alpha=0.25)
     fig.suptitle(
         "Perlmutter A100, RZ: measured noise and cost\n"
-        "Top: 64 × 256, 6 seeds; bottom: 256 × 1024, 3 seeds, quiet beam 64 particles/cell\n"
+        f"Top: 64 × 256, 6 seeds; left: {field_memory} GB, right: {coupled_memory} GB\n"
+        f"Bottom: 256 × 1024, 3 seeds, {scaling_memory} GB; quiet beam 64 particles/cell\n"
         "Bars: 99% timing intervals; labels: beam particles/cell; synthetic MCC regression rates",
         fontsize=11,
     )
