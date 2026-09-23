@@ -28,6 +28,10 @@ def main():
     args.build = args.build.resolve()
     args.output = args.output.resolve()
     args.output.mkdir(parents=True, exist_ok=False)
+    environment = os.environ.copy()
+    # Some analyses call show() after checking their results. Keep an unattended
+    # run from waiting on an interactive plotting window on desktop machines.
+    environment["MPLBACKEND"] = "Agg"
     inventory = json.loads(
         subprocess.check_output(
             ["ctest", "--test-dir", str(args.build), "--show-only=json-v1"], text=True
@@ -82,7 +86,9 @@ def main():
         str(args.output / "ctest.xml"),
     ]
     with (args.output / "ctest.log").open("w") as stream:
-        result = subprocess.run(command, stdout=stream, stderr=subprocess.STDOUT)
+        result = subprocess.run(
+            command, env=environment, stdout=stream, stderr=subprocess.STDOUT
+        )
     report["ctest_returncode"] = result.returncode
     cases = ET.parse(args.output / "ctest.xml").getroot().findall(".//testcase")
     assert len(cases) == len(chosen), (len(cases), len(chosen))
@@ -103,8 +109,8 @@ def main():
     summary.write_text(json.dumps(report, indent=2) + "\n")
     for name, test in launched.items():
         properties = {item["name"]: item["value"] for item in test["properties"]}
-        environment = os.environ.copy()
-        environment.update(
+        test_environment = environment.copy()
+        test_environment.update(
             item.split("=", 1) for item in properties.get("ENVIRONMENT", [])
         )
         command = [
@@ -115,7 +121,7 @@ def main():
         with (args.output / (name + ".log")).open("w") as stream:
             result = subprocess.run(
                 command,
-                env=environment,
+                env=test_environment,
                 cwd=properties["WORKING_DIRECTORY"],
                 stdout=stream,
                 stderr=subprocess.STDOUT,

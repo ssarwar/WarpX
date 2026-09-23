@@ -203,3 +203,25 @@ Native float-particle physics tests pass on A100 (58774663); the supplemental
 SYCL RZ build and standalone kernels compile (58774662). These portability
 results precede the diagnostic-only correction above; the corrected diagnostic
 is being rebuilt separately before the remaining runtime studies are released.
+
+Two local analysis timeouts were caused by interactive `plt.show()` calls.
+The complete-suite driver now sets `MPLBACKEND=Agg` for its subprocesses.
+The Compton analysis then passes; the effective-potential analysis reaches
+its existing assertion and reports 0.07277108% against a 0.07% bound. The
+unchanged stock comparator reproduces those same effective-potential values.
+Neither analysis assertion was changed. The EB-dependent ion-extraction
+case is also excluded when EB support is not compiled.
+
+For local stock comparisons, a detached checkout at `cee2ca2fd` uses the
+same AppleClang, AMReX, pyAMReX, and openPMD as the branch. Installing the
+full original build into a local prefix exposed an absolute `/usr/local`
+WarpX alias in its install script; the install stopped there and no alias
+was created. The already installed dependency packages are sufficient.
+Their Python modules needed an explicit local library RPATH before they
+could load; those isolated copied modules were adjusted and re-signed.
+Setup failures are retained separately from the subsequent physics controls.
+
+GitHub pushes from the activated conda shell initially used conda Git's
+credential-cache helper rather than macOS Git's Keychain helper. Using
+`/usr/bin/git` fixes the push path. This is a local tooling difference,
+not a GitHub authorization or source-state change.
