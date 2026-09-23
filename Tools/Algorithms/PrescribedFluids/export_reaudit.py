@@ -78,6 +78,7 @@ def main():
                 "sanitizer.txt",
                 "results.txt",
                 "regression-driver-sha256.txt",
+                "checkpoint-filesystem-layout.txt",
             ]:
                 path = directory / name
                 if path.is_file():

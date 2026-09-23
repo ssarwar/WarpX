@@ -3,7 +3,7 @@
 Status on 2026-09-23: the integration is pushed; local regressions, distributed
 mass-matrix/diagnostic controls, 1/2/4/8-GPU scaling, same-rank restarts,
 the complete noise campaign and targeted CUDA memory checks have completed.
-The complete GPU regression, remaining solver/subcycling ensembles,
+All four solver/subcycling ensembles also pass. The complete GPU regression,
 discharge refinements and expanded stochastic restart study remain in progress.
 Retained failures and their
 investigations appear below; this is not a blanket acceptance claim. Historical
@@ -635,3 +635,51 @@ the script checks their compiled-library fingerprints before plotting.
 The figure explicitly identifies the synthetic MCC regression rates. It is
 performance/noise evidence for these controlled cases, not a full Prabir-beam
 air-discharge prediction.
+
+## Complete solver/subcycling ensembles and checkpoint I/O control
+
+Jobs `58781350`, `58781509`, `58781510` and `58781646` complete all 288
+coupled cases: four solver configurations, collision subcycling by 1, 2 and
+4, four beam/ion representation combinations, and six seeds. All 216
+population/energy checks and 36 simultaneous spectrum-band checks pass,
+with unchanged charge-balance criteria. Results are in
+[the coupled archive](results/development-sync-gpu-coupled.json).
+The raw diagonal mass-matrix stencils are folded before cylindrical volume
+scaling; the inverse volume factor is applied to the resulting accumulated
+current, preserving the symmetry used by development's folding helper.
+
+The expanded 48-pair restart job `58777489` times out after 20 minutes.
+It completes only two pairs, both passing the complete native-state check
+before resumed stepping; a third uninterrupted run completes. The first two
+restart initializations take 578.55 and 166.46 seconds, while their subsequent
+ten steps take 0.411 and 12.634 seconds. This is incomplete acceptance, not
+an ensemble pass. The original six-pair O-minus failure remains unresolved.
+
+Captured host backtraces locate a rank in a filesystem `read()` inside
+`amrex::VisMF::readFAB`, with the kernel reporting a Lustre lock wait;
+another rank waits in the corresponding MPI receive. The open descriptor
+identifies a required N2-ion density checkpoint file. Later independent plain
+reads of its 13,448 bytes complete in 0.001--0.002 seconds on both nodes and
+give identical hashes. A bounded restart from the other node also fails to
+finish within 60 seconds. These observations locate the delay in checkpoint
+I/O, without identifying its Lustre/client/server cause. The complete
+[I/O investigation](results/development-sync-checkpoint-io.json) preserves
+backtraces, open files, read controls, partial results and timeout status.
+
+Job `58781928` repeats all 48 fixed seeds with the same library, physics,
+eight-to-four-GPU decomposition and acceptance criteria. Its new output
+directory requests one stripe on OST 137, the storage placement of an
+earlier successful checkpoint, instead of the delayed file's OST 21.
+The two prior nodes are excluded for this control. Individual launches are
+bounded at 180 seconds, and the actual layout is recorded. This is a storage
+placement control, not a WarpX code change or evidence that the delayed
+attempt passed.
+
+The complete GPU suite uses four disjoint geometry jobs:
+`58781685` (1D), `58781794` (RZ), `58781795` (2D) and `58782015` (3D).
+[The CUDA inventory](results/development-sync-gpu-inventory.json) verifies
+all 1,099 eligible stages and 47 capability exclusions. Discharge refinements
+use `58782042` (timestep), `58782043` (particles) and `58782044` (joint),
+each covering both collision models and both branch/stock libraries.
+The original full-suite/discharge bundles were cancelled while still pending;
+no running scientific case was replaced by this scheduling change.
