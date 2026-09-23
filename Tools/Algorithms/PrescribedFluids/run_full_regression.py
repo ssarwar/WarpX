@@ -53,8 +53,9 @@ def main():
             excluded[name] = (
                 "Requires compiled QED processes/diagnostics; WarpX_QED=OFF"
             )
-        elif re.search(r"^WarpX_EB:BOOL=OFF$", cache, re.MULTILINE) and re.match(
-            r"test_(2d|3d|rz)_flux_injection_from_eb\.", name
+        elif re.search(r"^WarpX_EB:BOOL=OFF$", cache, re.MULTILINE) and (
+            re.match(r"test_(2d|3d|rz)_flux_injection_from_eb\.", name)
+            or name.startswith("test_3d_ion_beam_extraction.")
         ):
             excluded[name] = "Requires embedded-boundary injection; WarpX_EB=OFF"
         elif args.pytest_launcher and name.startswith("pytest.WarpX."):
