@@ -250,3 +250,11 @@ It does not replace failed individual assertions with an ensemble pass.
 `export_reaudit.py` now archives nested JUnit files using relative paths,
 including complete-suite and per-rank mass-matrix/diagnostic evidence, without
 silently overwriting identically named XML files from different configurations.
+
+The initial joint-refinement driver enlarged the mesh after allocating its
+ion-density averaging array, producing a 33-versus-65-element callback error.
+The driver now resizes that array consistently and also preserves the DSMC
+neutral rethermalization interval in physical time when reducing the timestep.
+The affected attempts are retained separately and repeated; this was an audit
+driver error, not a change to either simulation's collision implementation.
+MPI launches are bounded and their process groups are terminated on timeout.

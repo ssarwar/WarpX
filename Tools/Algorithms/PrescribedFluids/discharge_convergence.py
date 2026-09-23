@@ -15,6 +15,7 @@ import json
 import os
 import re
 import shlex
+import signal
 import subprocess
 import sys
 import time
@@ -27,6 +28,30 @@ def replace_once(source, old, new):
     if source.count(old) != 1:
         raise ValueError(f"Expected one occurrence of {old!r}")
     return source.replace(old, new)
+
+
+def run_simulation(command, directory, environment, timeout):
+    """Bound a launch and terminate its process group if MPI cannot unwind."""
+    with (directory / "run.log").open("w") as log:
+        with subprocess.Popen(
+            command,
+            cwd=directory,
+            env=environment,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        ) as process:
+            try:
+                return process.wait(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                os.killpg(process.pid, signal.SIGTERM)
+                try:
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    os.killpg(process.pid, signal.SIGKILL)
+                    process.wait()
+                log.write(f"\nAudit launcher timed out after {timeout} seconds.\n")
+                return 124
 
 
 def run_case(args, model, seed, refinement, source, reference):
@@ -48,6 +73,7 @@ def run_case(args, model, seed, refinement, source, reference):
         self.dt /= {timesteps}
         self.max_steps *= {timesteps}
         self.diag_steps *= {timesteps}
+        self.ion_density_array = np.zeros(self.nz + 1)
         self.setup_run()
         self.sim.random_seed = {seed}
         self.sim.verbose = 0""",
@@ -56,6 +82,10 @@ def run_case(args, model, seed, refinement, source, reference):
         adapted,
         '"../../../../warpx-data/MCC_cross_sections/He/"',
         repr(str(args.data / "MCC_cross_sections/He") + "/"),
+    )
+    # The DSMC bath-reset interval is physical time too, not a refinement knob.
+    adapted = replace_once(
+        adapted, "step % 1000 != 10", f"step % {1000 * timesteps} != {10 * timesteps}"
     )
     script = directory / "inputs.py"
     script.write_text(adapted)
@@ -78,13 +108,9 @@ def run_case(args, model, seed, refinement, source, reference):
         adapted_input_sha256=hashlib.sha256(adapted.encode()).hexdigest(),
     )
     started = time.monotonic()
-    with (directory / "run.log").open("w") as log:
-        result = subprocess.run(
-            command, cwd=directory, env=env, stdout=log, stderr=subprocess.STDOUT
-        )
-    record["run_returncode"] = result.returncode
+    record["run_returncode"] = run_simulation(command, directory, env, args.timeout)
     record["seconds"] = time.monotonic() - started
-    if result.returncode == 0:
+    if record["run_returncode"] == 0:
         with (directory / "analysis.log").open("w") as log:
             analysis = subprocess.run(
                 [sys.executable, str(args.example / "analysis_1d.py")],
@@ -130,6 +156,7 @@ def main():
         "--models", nargs="+", choices=["mcc", "dsmc"], default=["mcc", "dsmc"]
     )
     parser.add_argument("--jobs", type=int, default=1)
+    parser.add_argument("--timeout", type=int, default=1800)
     parser.add_argument("--launcher", default="mpiexec -n 1")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[3]
@@ -163,7 +190,9 @@ def main():
         analysis_sha256=hashlib.sha256(analysis.encode()).hexdigest(),
         library_sha256={
             path.name: hashlib.sha256(path.read_bytes()).hexdigest()
-            for path in sorted((args.build / "lib/site-packages/pywarpx").glob("*1d*.so"))
+            for path in sorted(
+                (args.build / "lib/site-packages/pywarpx").glob("*1d*.so")
+            )
         },
         original_tolerance=tolerance,
         interpretation="Individual original assertions retained; inspect convergence and seed distributions separately.",
