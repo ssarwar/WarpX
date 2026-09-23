@@ -396,3 +396,52 @@ Such output is never counted as a successful check. Its regression uses a
 mixture of passing, failing and incomplete nested records. Future source
 manifests also include `tests/unit`; earlier manifests identify those tests
 through their Git revision and JUnit results instead of per-file hashes.
+
+## Distributed studies and retained unsuccessful attempts
+
+The [GPU study archive](results/development-sync-gpu-studies.json) preserves
+completed studies and incomplete attempts separately, with each study's
+own source/library fingerprint. It includes the following earlier controls:
+
+- `58773847`: standalone physics, 64 Python model/archive tests, Gaussian
+  quadrature, measured N2/O2 elastic DCS, input guards, stationary probes and
+  nonzero Yee/PSATD Poynting flux. Four-to-two-GPU diagnostic continuations
+  pass, with maximum reported normalized difference 4.98e-15.
+- `58773852`: 12 particle-deposition comparisons, three joint refinements
+  and eight solver/timestep settings pass their unchanged analyses.
+- `58773849`: two-node/eight-GPU ownership cases cover both source and
+  attachment in all four solver configurations, including four-GPU restarts.
+  Coupled six-pair restarts pass for Yee, PSATD and semi-implicit EM. The
+  mass-matrix continuation fails only its O-minus population criterion:
+  mean resumed-minus-uninterrupted difference -1583.33, standard error 258.74,
+  versus the predeclared five-standard-error bound 1293.68. Immediate saved
+  fields, particles, counters, primary budgets and charge checks pass. A
+  separately scheduled 48-pair follow-up retains this original failure.
+- `58773848`: all ten completed coupled solver/subcycling ensembles pass
+  population/energy and simultaneous spectral-band checks. Yee at two
+  substeps stops because a documentation/tool commit changed the recorded
+  checkout revision during the ensemble; the four-substep Yee case was not
+  run. The same metadata issue stops `58773850` during four-GPU scaling.
+  A fixed-checkout 1/2/4-GPU repeat `58777473` completes successfully.
+- `58773851`: fields and equal-electron-work noise ensembles complete, but
+  the source ensemble is interrupted by the allocation limit; the coupled
+  phase never acquires a usable topology record. This is incomplete
+  evidence, not an accepted noise campaign. A longer allocation repeats it.
+- `58776972`: independent continuum-error qualification and 16 synchronized
+  source/coupled profiles complete. Instrumented timings include profiler
+  synchronization and source startup; they are separate from ordinary
+  timestep timing ensembles.
+
+The four-seed, two-GPU helium control `58776386` retains one coarse MCC
+failure: branch seed 1 has 8.719% RMS error against the original 6.5%
+criterion. Branch seeds 2--4 give 3.913%, 3.684%, 4.957%; untouched stock
+gives 3.712%, 3.954%, 5.007%, 5.386%. All eight DSMC controls pass
+(branch 4.093--5.556%, stock 4.461--6.129%). The planned independent
+timestep, particle and joint refinements are separate from these original
+assertions, as in the local study.
+
+[The submission archive](results/development-sync-submissions.json) stores
+the actual Slurm-retrieved scripts and job descriptions for the final
+campaign. Its descriptions were captured before those jobs completed and
+are allocation provenance, not test outcomes. Command-line and scheduler
+overrides take precedence over the saved script's default directives.

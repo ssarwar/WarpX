@@ -118,6 +118,10 @@ def main():
                                 and test.find("skipped") is None
                             ),
                             skipped=test.find("skipped") is not None,
+                            failure_output=(test.findtext("system-out") or "")[-6000:]
+                            if test.find("failure") is not None
+                            or test.find("error") is not None
+                            else None,
                         )
                     )
                 study["tests"][str(xml.relative_to(directory))] = tests
@@ -137,6 +141,41 @@ def main():
                     parsed = read_record(path, directory, study["unreadable_records"])
                     if parsed is not None:
                         study["comparisons"][str(path.relative_to(directory))] = parsed
+            # Profiling phases intentionally keep synchronized timings separate
+            # from the ordinary, uninstrumented timing ensembles. Preserve the
+            # printed table headings as well as source/MCC/deposition rows so
+            # minimum/average/maximum rank times cannot be mistaken for samples.
+            if directory.name.startswith("profile-"):
+                study["profiles"] = {}
+                for path in sorted(directory.rglob("result.json")):
+                    parsed = read_record(path, directory, study["unreadable_records"])
+                    if parsed is None:
+                        continue
+                    log = path.with_name("run.log")
+                    study["profiles"][str(path.parent.relative_to(directory))] = dict(
+                        result=parsed,
+                        log_sha256=hashlib.sha256(log.read_bytes()).hexdigest(),
+                        timer_rows=[
+                            line
+                            for line in log.read_text().splitlines()
+                            if re.search(
+                                r"^\s*Name\s+|(?:Call|Excl|Incl|Min|Avg|Max).*Time|"
+                                r"ProtonImpactIonizationCollision::|BackgroundMCCCollision::|"
+                                r"WarpXFluidContainer::CommitDensityIncrement|"
+                                r"MultiFluidContainer::PrepareImmobileCharge|"
+                                r"DepositCharge|DepositCurrent",
+                                line,
+                            )
+                        ],
+                    )
+            if directory.name.startswith("memcheck-"):
+                study["sanitizer_logs"] = {
+                    str(path.relative_to(directory)): dict(
+                        sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
+                        tail=path.read_text()[-12000:],
+                    )
+                    for path in sorted(directory.rglob("run.log"))
+                }
             record["studies"].append(study)
         # Build-only jobs can have no study directory.
         suite_status = args.audit / f"suite-{job}.status"

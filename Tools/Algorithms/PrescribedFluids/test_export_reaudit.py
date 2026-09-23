@@ -23,7 +23,8 @@ class TestInterruptedEvidence(unittest.TestCase):
             (nested / "incomplete.xml").write_text("<testsuite>")
             (nested / "valid.xml").write_text(
                 '<testsuite><testcase name="good" time="1"/>'
-                '<testcase name="bad"><failure/></testcase></testsuite>'
+                '<testcase name="bad"><failure/><system-out>failed assertion</system-out>'
+                "</testcase></testsuite>"
             )
             (nested / "summary.json").write_text('{"passed": false}')
             output = root / "archive.json"
@@ -46,6 +47,10 @@ class TestInterruptedEvidence(unittest.TestCase):
             )
             self.assertEqual(
                 record["comparisons"], {"rank-0/summary.json": {"passed": False}}
+            )
+            self.assertEqual(
+                record["tests"]["rank-0/valid.xml"][1]["failure_output"],
+                "failed assertion",
             )
             self.assertEqual(
                 set(record["unreadable_records"]),
