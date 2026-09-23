@@ -30,9 +30,9 @@ def replace_once(source, old, new):
     return source.replace(old, new)
 
 
-def run_simulation(command, directory, environment, timeout):
+def run_simulation(command, directory, environment, timeout, log_name="run.log"):
     """Bound a launch and terminate its process group if MPI cannot unwind."""
-    with (directory / "run.log").open("w") as log:
+    with (directory / log_name).open("w") as log:
         with subprocess.Popen(
             command,
             cwd=directory,

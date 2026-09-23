@@ -15,6 +15,19 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 
+def failure_context(output):
+    """Keep the initial cause when shutdown profiling obscures the log tail."""
+    lines = output.splitlines()
+    selected = set()
+    for index, line in enumerate(lines):
+        if re.search(
+            r"Traceback|!!! WARNING.*\[high\]|Assertion|ValueError|CUDA error|what\(\):",
+            line,
+        ):
+            selected.update(range(max(0, index - 2), min(len(lines), index + 24)))
+    return "\n".join(lines[index] for index in sorted(selected))[:12000]
+
+
 def read_record(path, directory, errors, *, xml=False):
     """Retain interrupted output as evidence, without treating it as a pass."""
     contents = path.read_bytes()
@@ -79,6 +92,8 @@ def main():
                 "results.txt",
                 "regression-driver-sha256.txt",
                 "checkpoint-filesystem-layout.txt",
+                "control-drivers-sha256.txt",
+                "stock-python-library-sha256.txt",
             ]:
                 path = directory / name
                 if path.is_file():
@@ -122,7 +137,20 @@ def main():
                                 and test.find("skipped") is None
                             ),
                             skipped=test.find("skipped") is not None,
+                            skip_reason=(
+                                test.find("skipped").get("message", "")
+                                + "\n"
+                                + (test.findtext("skipped") or "")
+                            ).strip()
+                            if test.find("skipped") is not None
+                            else None,
                             failure_output=(test.findtext("system-out") or "")[-6000:]
+                            if test.find("failure") is not None
+                            or test.find("error") is not None
+                            else None,
+                            failure_context=failure_context(
+                                test.findtext("system-out") or ""
+                            )
                             if test.find("failure") is not None
                             or test.find("error") is not None
                             else None,
@@ -145,6 +173,36 @@ def main():
                     parsed = read_record(path, directory, study["unreadable_records"])
                     if parsed is not None:
                         study["comparisons"][str(path.relative_to(directory))] = parsed
+            if directory.name.startswith(("gpu_failures-", "split_push-")):
+                study["control_logs"] = {}
+                for name in ["run.log", "analysis.log"]:
+                    for path in sorted(directory.rglob(name)):
+                        contents = path.read_bytes()
+                        output = contents.decode(errors="replace")
+                        study["control_logs"][str(path.relative_to(directory))] = dict(
+                            sha256=hashlib.sha256(contents).hexdigest(),
+                            tail=output[-6000:],
+                            failure_context=failure_context(output),
+                        )
+            if directory.name.startswith("restart-"):
+                study["restart_runs"] = {}
+                for path in sorted(directory.rglob("result.json")):
+                    parsed = read_record(path, directory, study["unreadable_records"])
+                    if parsed is None:
+                        continue
+                    log = path.with_name("run.log")
+                    contents = log.read_bytes() if log.is_file() else b""
+                    study["restart_runs"][str(path.parent.relative_to(directory))] = (
+                        dict(
+                            result=parsed,
+                            log_present=log.is_file(),
+                            log_sha256=hashlib.sha256(contents).hexdigest(),
+                            native_state_checked_before_stepping=(
+                                b"PASS: all saved fields, particles and source state restored before stepping"
+                                in contents
+                            ),
+                        )
+                    )
             # Profiling phases intentionally keep synchronized timings separate
             # from the ordinary, uninstrumented timing ensembles. Preserve the
             # printed table headings as well as source/MCC/deposition rows so

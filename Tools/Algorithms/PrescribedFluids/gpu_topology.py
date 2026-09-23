@@ -11,6 +11,7 @@ from mpi4py import MPI
 
 comm = MPI.COMM_WORLD
 device = cp.cuda.Device()
+properties = cp.cuda.runtime.getDeviceProperties(device.id)
 send = cp.array([comm.rank + 1], dtype=cp.float64)
 received = cp.zeros_like(send)
 cp.cuda.get_current_stream().synchronize()
@@ -22,8 +23,12 @@ placement = comm.allgather(
         host=socket.gethostname(),
         visible_devices=os.environ.get("CUDA_VISIBLE_DEVICES"),
         pci_bus_id=device.pci_bus_id,
+        model=properties["name"].decode(),
+        memory_bytes=properties["totalGlobalMem"],
     )
 )
 assert len({(item["host"], item["pci_bus_id"]) for item in placement}) == comm.size
 if comm.rank == 0:
-    print(json.dumps(dict(placement=placement, device_buffer_allreduce="PASS"), indent=2))
+    print(
+        json.dumps(dict(placement=placement, device_buffer_allreduce="PASS"), indent=2)
+    )
