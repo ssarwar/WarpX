@@ -164,3 +164,42 @@ The beamsize/virtual-photon groups also request compiled QED functionality
 and are listed with those exclusions. The manifests record exact names;
 none of the rigid-fluid, PJG, MCC, implicit, or fluid diagnostic/restart
 checks is excluded by these capability filters.
+
+
+## Follow-up diagnostic findings
+
+The 116-stage OpenMP selection completes with 111 passes and five strict
+`BeamRelevant` restart-comparison failures. All five are the same near-zero
+centroid issue: the uninterrupted run reports exactly zero mean z, while
+MPI redistribution gives approximately -1.10436e-18 m. The comparison divides
+by its 1e-30 floor. A separate run with every fluid feature disabled also
+fails the unchanged centroid comparison. The diagnostic implementation is
+identical to stock development. These failures remain recorded; no assertion
+or tolerance has been relaxed. Other field, charge, energy, and momentum
+comparisons in these cases agree at roundoff.
+
+Review of that diagnostic identifies a separate dimensional error predating
+this branch: its dimensionless Twiss alpha contains an extra speed-of-light
+factor. For x=x0+a*s and u=u0+b*(h*s+k*t), with independent equiprobable signs
+s,t, the exact alpha is -h/abs(k). The new 64-particle covariance test expects
+-2/3 and obtains -199861638.666667 from the old implementation, exactly the
+extra factor c. Alpha must be -Cov(x,u)/sqrt(Var(x)Var(u)-Cov(x,u)**2), or
+-Cov(x,p)/(m*c*normalized_emittance). This follows the covariance definition
+of Twiss parameters in the [USPAS ellipse notes](https://uspas.fnal.gov/materials/18ODU/Fund/some-notes-on-ellipses.html).
+
+A correction removes that factor and places the empty-population guard before
+normalizing by total weight. The associated documentation retains normalized
+emittance and beta definitions. Exact populated- and empty-beam tests pass
+in the 2D/RZ OpenMP build and all four NOACC unit suites. The same covariance
+reference fails on untouched development by the factor c, confirming the
+error predates this merge. GPU acceptance of the correction is pending.
+This correction is independent of the centroid reduction-order sensitivity.
+
+
+The documented CUDA build now passes for both the merged source (58773767)
+and unchanged fork development (58773769). Both revisions pass the independent
+1D/2D mass-matrix identities on one, two, and four A100s (58774151/58774153).
+Native float-particle physics tests pass on A100 (58774663); the supplemental
+SYCL RZ build and standalone kernels compile (58774662). These portability
+results precede the diagnostic-only correction above; the corrected diagnostic
+is being rebuilt separately before the remaining runtime studies are released.
