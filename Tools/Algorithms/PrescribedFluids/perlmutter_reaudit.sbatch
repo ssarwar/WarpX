@@ -75,6 +75,19 @@ elif [[ "$phase" == physics ]]; then
     python3 Tools/Algorithms/PrescribedFluids/gaussian_reference.py \
         > "$study/gaussian.log" 2>&1 || status=1
     exit "$status"
+elif [[ "$phase" == mass_matrices ]]; then
+    status=0
+    for dims in 1 2; do
+        export WARPX_TEST_DIMS=$dims
+        for ranks in 1 2 4; do
+            export WARPX_MATRIX_OUTPUT="$study/dims$dims-ranks$ranks"
+            mkdir -p "$WARPX_MATRIX_OUTPUT"
+            srun -N 1 -n "$ranks" -c 32 --cpu-bind=cores bash "$rank" bash -c \
+                'python3 -m pytest tests/unit/test_mass_matrices.py -q --junitxml="$WARPX_MATRIX_OUTPUT/rank-$SLURM_PROCID.xml"' \
+                > "$WARPX_MATRIX_OUTPUT/run.log" 2>&1 || status=1
+        done
+    done
+    exit "$status"
 elif [[ "$phase" == preflight ]]; then
     status=0
     ctest --test-dir "$validation_build" -j 1 --output-on-failure --timeout 180 \

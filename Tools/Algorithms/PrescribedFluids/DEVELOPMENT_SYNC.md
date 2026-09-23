@@ -128,3 +128,17 @@ option. This campaign sets `WARPX_AUDIT_DIMS='1;2;RZ;3'` and
 `WARPX_AUDIT_BUILD_NAME=build_pm_gpu_sync`. The restart-failure driver also
 accepts that build-name setting, so the new comparison cannot accidentally
 load an older library. Shell syntax and Python lint/compilation checks pass.
+
+The same six mass-matrix identities in each Cartesian geometry also pass
+with two local MPI ranks. The GPU driver includes one-, two-, and four-rank
+runs, with separate JUnit files per rank.
+
+The complete local run exposed missing `lasy`, `axiprop`, and `dill` test
+packages. After installing these test-only packages without replacing the
+active MPI/openPMD stack, all six laser-file preparation stages pass.
+Perlmutter's missing generator and pytest dependencies are also installed
+before GPU execution. Three stock flux-from-embedded-boundary groups are
+registered even in an EB-disabled build; their required capability is absent.
+The initial local failures are retained (the processes additionally hung in
+MPI_Abort). The driver now identifies all nine stages as configuration
+exclusions for `WarpX_EB=OFF`, alongside the five QED-dependent stages.

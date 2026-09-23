@@ -42,6 +42,10 @@ def main():
             ("test_3d_collider_diagnostics.", "test_3d_beam_beam_collision.")
         ):
             excluded[name] = "Requires QED photon emission; WarpX_QED=OFF"
+        elif re.search(r"^WarpX_EB:BOOL=OFF$", cache, re.MULTILINE) and re.match(
+            r"test_(2d|3d|rz)_flux_injection_from_eb\.", name
+        ):
+            excluded[name] = "Requires embedded-boundary injection; WarpX_EB=OFF"
         elif args.pytest_launcher and name.startswith("pytest.WarpX."):
             launched[name] = test
     chosen = sorted(set(tests) - set(excluded) - set(launched))
