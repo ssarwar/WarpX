@@ -27,21 +27,27 @@ def summaries(report, jobs, phase):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("report", type=Path)
-    parser.add_argument("--noise-job", type=int, required=True)
+    parser.add_argument(
+        "--noise-job",
+        "--noise-jobs",
+        dest="noise_jobs",
+        type=int,
+        nargs="+",
+        required=True,
+    )
     parser.add_argument("--scaling-jobs", type=int, nargs=2, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     report = json.loads(args.report.read_text())
     libraries = {
         study["provenance"]["python-library-sha256.txt"]
-        for job in [args.noise_job, *args.scaling_jobs]
+        for job in [*args.noise_jobs, *args.scaling_jobs]
         for study in report[str(job)]["studies"]
     }
     assert len(libraries) == 1, "Selected studies must use the same compiled libraries"
-    noise = {
-        summary["settings"]["mode"]: summary
-        for summary in summaries(report, [args.noise_job], "noise")
-    }
+    noise_summaries = summaries(report, args.noise_jobs, "noise")
+    noise = {summary["settings"]["mode"]: summary for summary in noise_summaries}
+    assert len(noise) == len(noise_summaries), "Select only one study per noise family"
     scaling = summaries(report, args.scaling_jobs, "scaling")
     assert all(len(summary["ranks"]) == 1 for summary in scaling)
     assert noise["fields"]["settings"]["cells"] == noise["coupled"]["settings"]["cells"]

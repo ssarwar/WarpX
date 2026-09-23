@@ -575,3 +575,16 @@ mass-matrix physics each return zero. The exact suppression, probe source,
 status records and first/final log segments are archived. This is device-memory
 and explicit-API acceptance with the stated pointer-query suppression; leak
 checking and racecheck are not claimed. No physical tolerance is changed.
+
+## Scheduling the remaining studies
+
+The final noise/coupled bundles `58779667` and `58779670` were cancelled
+while still pending and are replaced by their independent short studies.
+Noise fields/push/source/coupled use `58781343`, `58781344`, `58781345` and
+`58781348`; the Yee/subcycling ensemble uses `58781350`. The other three
+solver allocations will follow within the debug queue's submission limit.
+Meshes, seeds, physics settings, tolerances and compiled libraries are
+unchanged, and the remote checkout stays frozen at `242559e71`. The plotting
+tool accepts multiple noise-job identifiers while still rejecting mixed
+compiled libraries and duplicate families. The longer complete regression,
+discharge refinement and expanded restart studies remain queued separately.
