@@ -1,5 +1,13 @@
 # Fork development integration, 2026-09-22
 
+Status on 2026-09-23: the integration is pushed; local regressions, distributed
+mass-matrix/diagnostic controls, 1/2/4/8-GPU scaling, same-rank restarts and the
+targeted CUDA memory checks have completed. The complete GPU regression,
+final noise/coupled ensembles, discharge refinements and expanded stochastic
+restart study are waiting for Slurm allocations. Retained failures and their
+investigations appear below; this is not a blanket acceptance claim. Historical
+checkpoints retain the progress state at which they were written.
+
 ## Source provenance and scope
 
 The integration branch is
@@ -551,11 +559,19 @@ from device memory-access failures. See the
 and [sanitizer reporting/suppression reference](https://docs.nvidia.com/compute-sanitizer/ComputeSanitizer/index.html#cuda-api-error-checking).
 
 The next attempt, `58780113`, fails before running physics: its stack-qualified
-suppression does not match, and a test executable named `positive` collides
+suppression leaves 50 of the 58 MPI reports, and a test executable named `positive` collides
 with the intended output directory. Both setup issues are retained in the
-archive. The corrected attempt uses a separate executable name and an exact
+archive. All 58 XML records have the same API/error signature, but 50 lack
+a saved stack, which prevents the frame-qualified suppression from matching.
+The corrected attempt uses a separate executable name and an exact
 API/result-code suppression (`cuPointerGetAttribute`, error 1), with explicit
 API reporting and unrestricted device-memory checks. GPU-aware MPI remains
 enabled. A deliberate out-of-bounds CUDA write must still produce status 99,
 while the suppressed MPI-only control and all three physics programs must
-return zero. This acceptance is pending; no physical tolerance is changed.
+return zero. Corrected job `58780214` satisfies all these checks: unfiltered
+MPI returns 99, targeted MPI and host-only MPI return zero, the deliberate
+invalid write is detected with 99, and rigid production, attachment and coupled
+mass-matrix physics each return zero. The exact suppression, probe source,
+status records and first/final log segments are archived. This is device-memory
+and explicit-API acceptance with the stated pointer-query suppression; leak
+checking and racecheck are not claimed. No physical tolerance is changed.

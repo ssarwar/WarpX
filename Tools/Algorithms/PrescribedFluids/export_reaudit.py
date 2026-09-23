@@ -171,6 +171,16 @@ def main():
                         ],
                     )
             if directory.name.startswith("memcheck-"):
+                study["sanitizer_inputs"] = {
+                    name: dict(
+                        sha256=hashlib.sha256(
+                            (directory / name).read_bytes()
+                        ).hexdigest(),
+                        text=(directory / name).read_text(),
+                    )
+                    for name in ["mpi-control.py", "positive.cu", "suppression.xml"]
+                    if (directory / name).is_file()
+                }
                 study["sanitizer_logs"] = {
                     str(path.relative_to(directory)): dict(
                         sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
