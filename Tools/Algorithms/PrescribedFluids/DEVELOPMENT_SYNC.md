@@ -98,3 +98,15 @@ recipe, through `perlmutter_stock_build.sh`, in separate branch/stock
 `build_pm_gpu_sync` directories. Both include the added 2D geometry needed
 for mass-matrix validation. CUDA builds are in progress at this checkpoint;
 this report must not be interpreted as completed GPU acceptance.
+
+## Angular-model compatibility follow-up
+
+The shared enum allowed IAA to be selected for fusion or DSMC even though
+those kernels do not implement the electron-MCC closure. A zero-step fusion
+initialization with IAA returned success before the fix. Explicit guards
+now reject IAA in both constructors, before any scattering can fall through
+to a different model. A new test checks forward/backward/isotropic success
+and IAA/Legendre-without-a-table rejection for fusion and DSMC. The MCC
+invalid-input test also checks the development branch's Legendre rejection
+for both elastic scattering and ionization. Both CTest stages pass in the
+local Release build; their tolerances are unchanged.

@@ -293,6 +293,16 @@ add_warpx_test(
 )
 
 add_warpx_test(
+    test_3d_collision_angles_picmi  # name
+    3  # dims
+    1  # nprocs
+    inputs_test_3d_collision_angles_picmi.py  # inputs
+    OFF  # analysis
+    OFF  # checksum
+    OFF  # dependency
+)
+
+add_warpx_test(
     test_3d_proton_impact_ionization_picmi  # name
     3  # dims
     1  # nprocs

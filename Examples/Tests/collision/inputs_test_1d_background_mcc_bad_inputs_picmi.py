@@ -10,6 +10,16 @@ from pathlib import Path
 from pywarpx import amrex, picmi
 
 CASES = {
+    "legendre_elastic_unsupported": (
+        "legendre is not supported for DSMC/MCC collisions.",
+        "elastic",
+        {"scattering_angle_model": "legendre"},
+    ),
+    "legendre_ionization_unsupported": (
+        "legendre is not supported for DSMC/MCC collisions.",
+        "ionization",
+        {"scattering_angle_model": "legendre"},
+    ),
     "runtime_majorant_elastic": (
         "User-specified Background MCC nu_max is smaller",
         "elastic",
