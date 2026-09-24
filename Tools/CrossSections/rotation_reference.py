@@ -322,3 +322,37 @@ def energy_grid(target, maximum_j, ranks, maximum, count=512):
 
 def write_audit(path, report):
     Path(path).write_text(json.dumps(report, indent=2) + "\n")
+
+
+def refine_grid(energies, moments, tolerance=0.001, relative_floor=1e-4):
+    """Refine rates and absolute first/second transfer moments for linear mixtures.
+
+    ``moments(E)`` returns columns for all validation temperatures. The floor
+    bounds insignificant threshold tails relative to the largest moment in
+    each column. Intervals narrower than four float32 ulps cannot be refined
+    portably and belong to the separately checked threshold uncertainty band.
+    """
+    grid = np.asarray(energies)
+    scale = np.maximum(moments(grid).max(axis=0), np.finfo(float).tiny)
+    fractions = np.array([0.25, 0.5, 0.75])
+    for _ in range(24):
+        values = moments(grid)
+        probes = grid[:-1, None] + np.diff(grid)[:, None] * fractions
+        exact = moments(probes.ravel()).reshape(len(grid) - 1, 3, -1)
+        linear = (
+            values[:-1, None, :] * (1 - fractions[None, :, None])
+            + values[1:, None, :] * fractions[None, :, None]
+        )
+        error = np.abs(linear - exact) > tolerance * np.maximum(
+            np.abs(exact), relative_floor * scale
+        )
+        split = error.any(axis=(1, 2)) & (
+            np.diff(grid) > 4 * np.finfo(np.float32).eps * np.maximum(grid[:-1], 1e-30)
+        )
+        # The first interval uses a sqrt(E) mixture to retain the threshold
+        # law of finite elastic cross sections as E tends to zero.
+        split[0] = False
+        if not split.any():
+            return grid
+        grid = np.sort(np.r_[grid, probes[split, 1]])
+    raise ValueError("Rotational rate/moment grid did not converge")

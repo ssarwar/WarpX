@@ -3634,6 +3634,61 @@ Details about the collision models can be found in the :ref:`theory section <mul
     ``# rbeq_normalization = positive_part`` are checked against the sampler.
     Legacy tables without these comments remain supported.
 
+.. pp:param:: <collision_name>.<scattering_process>_rotation_model
+    :type: ``string``
+    :optional:
+
+    Enables one combined vibrationally elastic and rotational family on an
+    electron Background MCC ``elastic`` process. Requires ``rotation_file``.
+    The identifiers ``iaa_sudden_spectator`` and ``iaa_born`` distinguish the
+    source approximations; ``analytic_test`` is a synthetic verification model.
+    The supplied inclusive elastic rate is checked at the bundle's reference
+    temperature, then replaced by the family's aggregate rate coefficient.
+    Do not add the same rotational transitions as separate processes.
+    The bundle supplies joint COM angles and signed energy changes; omit a
+    separate ``differential_cross_section``. The target and neutral mass are
+    identified by the bundle, and any explicit ``background_mass`` must agree.
+
+.. pp:param:: <collision_name>.<scattering_process>_rotation_file
+    :type: ``string``
+    :optional:
+
+    Path to a ``WARPX_THERMAL_ROTATION_V1`` reference bundle, described in
+    ``Tools/CrossSections/README.md``. Initialization sums Boltzmann populations
+    and builds shared sampling tables for each data/model/temperature pair.
+    The unchanged contribution must be nonnegative, all excitation thresholds
+    must be represented, and the omitted population must be below :math:`10^{-10}`.
+    The bundle must cover zero energy, including any finite de-excitation rate
+    coefficient there. Energies above its validity range cause a runtime error;
+    this model does not silently clamp a high-energy rotational tail.
+    Source arrays and final sampling storage are limited to 512 MiB each.
+    The current IAA audit rejects the supplied N2/O2 production constructions:
+    see :ref:`mcc-iaa-sources`. Synthetic test bundles establish software
+    correctness, not beam-physics validity.
+
+.. pp:param:: <collision_name>.<scattering_process>_rotational_temperature
+    :type: ``float``
+    :optional:
+
+    Fixed rotational temperature in kelvin, defaulting to the constant
+    ``background_temperature``. An explicit value is required when the
+    translational temperature is an expression. Zero uses the ground-state
+    limit, including the lowest allowed odd O2 level. The rotational bath
+    is prescribed; its populations and energy are not evolved.
+
+.. pp:param:: <collision_name>.<scattering_process>_rotation_sampling
+    :type: ``string``
+    :default: ``alias``
+    :optional:
+
+    ``alias`` uses constant-time sparse alias draws for angle and conditional
+    energy change. ``cumulative`` selects the same explicit transition kernel
+    by cumulative bisection for physics and performance comparisons. Both
+    interpolate incident energy by mixtures of rows, preserving discrete loss
+    labels and the unchanged outcome. The ordinary MCC selector remains active
+    for other processes. Collision subcycling is still needed to control the
+    one-event-per-substep approximation, especially in thermal-balance studies.
+
 .. pp:param:: <collision_name>.<scattering_process>_secondary_angle_model
     :type: ``string``
     :default: ``IAA11_132``

@@ -17,7 +17,8 @@
 /** Export a linear-interpolation table using the sampler's host source
  * definition. */
 int
-main (int argc, char** argv) {
+main (int argc, char** argv)
+{
     using namespace BackgroundMCCRBEQ;
     if (argc < 4 || argc > 5) {
         std::cerr << "Usage: export_rbeq N2|O2 "
@@ -43,17 +44,15 @@ main (int argc, char** argv) {
         };
         std::map<double, double> knots;
         for (int i = 0; i <= 128; ++i) {
-            auto const energy =
-                minimum * std::pow(maximum / minimum, i / 128.0);
+            auto const energy = minimum * std::pow(maximum / minimum, i / 128.0);
             knots[energy] = evaluate(energy);
         }
         knots[minimum] = 0;
         knots[maximum] = evaluate(maximum);
         for (auto const& shell : parameters) {
             knots[shell.binding_energy] = evaluate(shell.binding_energy);
-            auto const threshold = findPositiveThreshold(shell, [&] (double e) {
-                return rbeqTerms(e, shell).total > 0;
-            });
+            auto const threshold = findPositiveThreshold(
+                shell, [&] (double e) { return rbeqTerms(e, shell).total > 0; });
             if (threshold > shell.binding_energy * (1 + 1.0e-6)) {
                 knots[threshold] = evaluate(threshold);
             }
@@ -66,14 +65,11 @@ main (int argc, char** argv) {
             auto const right = std::next(left);
             bool split = false;
             for (auto const fraction : {.25, .5, .75}) {
-                auto const energy =
-                    left->first + fraction * (right->first - left->first);
+                auto const energy = left->first + fraction * (right->first - left->first);
                 auto const actual = evaluate(energy);
-                auto const linear =
-                    (1 - fraction) * left->second + fraction * right->second;
+                auto const linear = (1 - fraction) * left->second + fraction * right->second;
                 split = split || std::abs(actual - linear) >
-                                     tolerance * std::max(std::abs(actual),
-                                                          peak * 1.0e-8);
+                                     tolerance * std::max(std::abs(actual), peak * 1.0e-8);
             }
             if (split && right->first - left->first > 2.0e-6 * left->first) {
                 auto const midpoint = .5 * (left->first + right->first);
@@ -87,8 +83,7 @@ main (int argc, char** argv) {
             throw std::runtime_error("Cannot open output");
         }
         output << "# rbeq_model = " << name(model) << '\n'
-               << "# rbeq_normalization = "
-               << (positive ? "positive_part" : "raw_signed") << '\n'
+               << "# rbeq_normalization = " << (positive ? "positive_part" : "raw_signed") << '\n'
                << "# rbeq_target = " << target << '\n'
                << "# E [eV], sigma [m^2]; linear interpolation; maximum source "
                   "energy 1 GeV\n"
@@ -100,8 +95,7 @@ main (int argc, char** argv) {
         if (!output) {
             throw std::runtime_error("Cannot write output");
         }
-        std::cout << target << ' ' << name(model) << ": " << knots.size()
-                  << " knots\n";
+        std::cout << target << ' ' << name(model) << ": " << knots.size() << " knots\n";
     } catch (std::exception const& error) {
         std::cerr << error.what() << '\n';
         return 1;

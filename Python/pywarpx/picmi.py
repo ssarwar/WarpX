@@ -3523,6 +3523,11 @@ class MCCCollisions(picmistandard.base._ClassWithInit):
         ``"elmolcs_b8643810"``. For IAA ionization angles,
         ``secondary_angle_model`` selects ``"IAA11_132"`` (default) or
         ``"relativistic2_66"``.
+        One elastic process can specify ``rotation_model``, ``rotation_file``
+        and a fixed ``rotational_temperature`` (default: constant background
+        temperature). Its bundle supplies the joint angular and signed-energy
+        kernel. ``rotation_sampling="cumulative"`` selects the explicit
+        reference sampler; the default is ``"alias"``.
         The ``"IAA"`` angle model implements IAA ionization kinematics or, for
         elastic electron scattering, samples the required
         ``differential_cross_section`` table.

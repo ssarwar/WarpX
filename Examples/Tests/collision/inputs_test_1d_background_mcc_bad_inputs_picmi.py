@@ -132,6 +132,29 @@ CASES = {
 }
 
 
+for metadata, value in [
+    ("model", "elmolcs_b8643810"),
+    ("target", "O2"),
+    ("normalization", "raw_signed"),
+]:
+    CASES[f"rbeq_metadata_{metadata}"] = (
+        "RBEQ production tables require"
+        if metadata == "normalization"
+        else f"Cross-section rbeq_{metadata} metadata does not match",
+        "ionization",
+        {"energy_sharing_model": "RBEQ", "rbeq_target": "N2"},
+    )
+for name, error in {
+    "rotation_negative": "Negative, nonfinite or sub-threshold thermal-rotation reference rate",
+    "rotation_truncated": "Truncated thermal-rotation bundle",
+    "rotation_population": "Thermal-rotation bundle omits too much Boltzmann population",
+    "rotation_temperature": "Rotational temperature must be finite and nonnegative",
+    "rotation_inclusive": "does not reconstruct the supplied inclusive elastic rate",
+    "runtime_rotation_range": "outside the thermal-rotation bundle's validity range",
+}.items():
+    CASES[name] = (error, "elastic", {"rotation_model": "analytic_test"})
+
+
 def run_invalid_case(case):
     amrex.throw_exception = 1
     amrex.signal_handling = 0
@@ -152,6 +175,42 @@ def run_invalid_case(case):
     elif case == "below_threshold_cross_section":
         cross_section = Path("background_mcc_below_threshold.txt").resolve()
         cross_section.write_text("0 0\n5 1e-22\n10 0\n100 1e-22\n")
+
+    if case.startswith("rbeq_metadata_"):
+        key = case.removeprefix("rbeq_metadata_")
+        value = {
+            "model": "elmolcs_b8643810",
+            "target": "O2",
+            "normalization": "raw_signed",
+        }[key]
+        original = cross_section.read_text()
+        cross_section = Path("rbeq_metadata.txt").resolve()
+        cross_section.write_text(f"# rbeq_{key} = {value}\n" + original)
+    if "rotation" in case:
+        import struct
+
+        from analysis_rotation_reference import analytic_bundle
+
+        bundle = analytic_bundle("N2", count=64)
+        bundle_path = Path("invalid_rotation.rot").resolve()
+        bundle.write(bundle_path)
+        process_options["rotation_file"] = str(bundle_path)
+        process_options["rotational_temperature"] = (
+            1e6
+            if case == "rotation_population"
+            else -1
+            if case == "rotation_temperature"
+            else 300
+        )
+        cross_section = Path("rotation_inclusive.txt").resolve()
+        sigma = 1e-20 if case == "rotation_inclusive" else 2e-20
+        cross_section.write_text(f"0 {sigma}\n10 {sigma}\n")
+        if case == "rotation_negative":
+            payload = bytearray(bundle_path.read_bytes())
+            payload[-8:] = struct.pack("<d", -1.0)
+            bundle_path.write_bytes(payload)
+        elif case == "rotation_truncated":
+            bundle_path.write_bytes(bundle_path.read_bytes()[:-8])
 
     dcs_kind = process_options.pop("differential_cross_section", None)
     if dcs_kind is not None:
@@ -247,7 +306,7 @@ def run_invalid_case(case):
         if case == "runtime_negative_temperature"
         else 0.0,
         background_mass=None
-        if case == "mixed_ion_masses_implicit"
+        if case == "mixed_ion_masses_implicit" or "rotation" in case
         else 32.0 * picmi.constants.m_p,
         scattering_processes=processes,
         nu_max=None if case == "runtime_excess_density" else 1.0e6,

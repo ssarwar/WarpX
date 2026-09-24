@@ -196,6 +196,22 @@ add_warpx_test(
 )
 
 add_warpx_test(
+    test_1d_background_mcc_rotation_picmi
+    1 1
+    inputs_test_1d_background_mcc_rotation_picmi.py
+    "analysis_background_mcc_rotation.py"
+    OFF OFF
+)
+
+add_warpx_test(
+    test_1d_background_mcc_rotation_cumulative_picmi
+    1 1
+    "inputs_test_1d_background_mcc_rotation_picmi.py --cumulative"
+    "analysis_background_mcc_rotation.py"
+    OFF OFF
+)
+
+add_warpx_test(
     test_1d_background_mcc_thermal_attachment_picmi  # name
     1  # dims
     1  # nprocs

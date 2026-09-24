@@ -12,6 +12,7 @@ unresolved coverage are written to JSON; no production bundle is emitted.
 
 import argparse
 import hashlib
+import tarfile
 from pathlib import Path
 
 import numpy as np
@@ -36,6 +37,35 @@ def main():
     digest = hashlib.sha256(args.archive.read_bytes()).hexdigest()
     if digest != "b864381086120fff37eb8c658dfcb0f150b80969cf9add626a38d89bab0a3c38":
         raise ValueError("The archive is not the inspected elmolcs snapshot")
+    # Verify the actual import and data roots too; merely possessing the archive
+    # must not allow an unrelated installed package to generate its namesake data.
+    package = Path(reader.__file__).resolve().parent
+    with tarfile.open(args.archive) as archive:
+        required = {
+            "src/elmolcs/reader.py": package / "reader.py",
+            "src/elmolcs/tablehandler.py": package / "tablehandler.py",
+            **{
+                f"Data/{kind}/{gas}/{name}.e-{gas}": Path(reader.ROOT)
+                / kind
+                / gas
+                / f"{name}.e-{gas}"
+                for gas in ["N2", "O2"]
+                for kind, name in [("cs", "Cross section"), ("dcs", "DCS")]
+            },
+        }
+        for suffix, local in required.items():
+            members = [
+                m
+                for m in archive.getmembers()
+                if m.isfile() and m.name.endswith("/" + suffix)
+            ]
+            if (
+                len(members) != 1
+                or archive.extractfile(members[0]).read() != local.read_bytes()
+            ):
+                raise ValueError(
+                    f"Source file does not match archived snapshot: {local}"
+                )
     args.output.mkdir(parents=True, exist_ok=True)
     # Resolve individual angular-bin integrals using source interpolation in
     # sin(theta/2) and log(E), independently of the WarpX inverse-CDF tables.
@@ -46,11 +76,15 @@ def main():
             for r in data
             if r["kind"] == "ELASTIC" and r["subkind"] == "RESIDUAL"
         )
-        dcs = reader.readDCS(target)[0]["data"]
-        source_energy = np.unique(dcs[:, 0])
-        source_angles = np.unique(dcs[:, 1])
-        source_y = np.sin(source_angles / 2)
-        values = dcs[:, 2].reshape(len(source_energy), len(source_angles))
+        dcs = reader.readDCS(target, format="grid")[0]["data"]
+        if dcs.index.name != "Angle" or dcs.columns.name != "Energy":
+            raise ValueError("Unexpected DCS grid axes")
+        source_energy = np.asarray(dcs.columns, dtype=float)
+        source_angles = np.asarray(dcs.index, dtype=float)
+        if source_angles[0] != 0 or source_angles[-1] != 180:
+            raise ValueError("Expected source DCS angles in degrees, spanning [0,180]")
+        source_y = np.sin(np.deg2rad(source_angles) / 2)
+        values = np.asarray(dcs, dtype=float).T
         edges = np.linspace(-1, 1, 65)
         nodes, weights = np.polynomial.legendre.leggauss(8)
         mu = (edges[1:, None] + edges[:-1, None]) / 2 + np.diff(edges)[
@@ -142,7 +176,11 @@ def main():
         try:
             bundle.validate()
         except ValueError as error:
-            errors.append(str(error))
+            errors.append(
+                "Negative unchanged angular-bin rate in the inclusive decomposition"
+                if np.any(bundle.rates[:, :, 0] < 0)
+                else str(error)
+            )
         # A numerical positivity pass cannot establish the missing physics.
         errors.extend(
             [

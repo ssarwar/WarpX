@@ -10,6 +10,8 @@ The parameters are transcribed from Table 11.12 and the archived fitted blocks.
 This reference does not read the implementation's parameter header or CDF.
 """
 
+from functools import lru_cache
+
 import numpy as np
 from scipy.integrate import quad
 
@@ -46,6 +48,7 @@ SNAPSHOT = {
 }
 
 
+@lru_cache(maxsize=None)
 def dipole(binding, q, snapshot):
     if not snapshot:
         return -(1 + q - (5 - 3 * q) * np.log(2)) / q

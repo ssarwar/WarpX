@@ -183,7 +183,8 @@ BackgroundMCCThermalRotation::BackgroundMCCThermalRotation (std::string const& f
         for (auto value : source) {
             auto const narrowed = static_cast<amrex::ParticleReal>(value);
             WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-                std::isfinite(value) && narrowed > previous,
+                std::isfinite(value) && std::isfinite(static_cast<double>(narrowed)) &&
+                    narrowed > previous,
                 "Thermal-rotation grids must remain finite and increasing in "
                 "particle precision.");
             destination.push_back(narrowed);

@@ -6,6 +6,7 @@
 
 """Independent rigid-rotor identities and finite-mass detailed-balance checks."""
 
+import json
 import sys
 from pathlib import Path
 
@@ -24,13 +25,14 @@ from rotation_reference import (  # noqa: E402
     converged_j,
     energy_grid,
     populations,
+    refine_grid,
     threshold,
 )
 
 
-def analytic_bundle(target="N2", maximum=10, count=768):
-    maximum_j = converged_j(target, 1000)
-    edges = np.linspace(-1, 1, 17)
+def analytic_bundle(target="N2", maximum=10, count=768, maximum_j=None):
+    maximum_j = maximum_j or converged_j(target, 1000)
+    edges = np.linspace(-1, 1, 33)
     integrals = np.diff(edges) / 2 + 0.15 * np.diff(edges**2)
 
     def reduced(energies):
@@ -42,6 +44,44 @@ def analytic_bundle(target="N2", maximum=10, count=768):
         )
 
     energies = energy_grid(target, maximum_j, [2], maximum, count=count)
+    if count >= 768:
+
+        def moments(energies):
+            def scalar_reduced(e):
+                return np.full((len(e), 1), 1e-20)
+
+            def scalar_inclusive(e):
+                return np.full((len(e), 1), 2e-20)
+
+            reference = construct(
+                target,
+                energies,
+                np.array([-1, 1]),
+                {2: scalar_reduced},
+                scalar_inclusive,
+                maximum_j,
+                model="analytic_test",
+            )
+            columns = []
+            for temperature in [0, 100, 300, 1000]:
+                rates = reference.at_temperature(temperature).sum(axis=1)
+                for power in [0, 1, 2]:
+                    columns.append(
+                        (rates * np.abs(reference.losses) ** power).sum(axis=1)
+                    )
+            return np.array(columns).T
+
+        energies = refine_grid(energies, moments)
+        probes = (energies[:-1] + energies[1:]) / 2
+        exact = moments(probes)
+        values = moments(energies)
+        linear = (values[:-1] + values[1:]) / 2
+        error = abs(exact - linear) / np.maximum(abs(exact), 1e-4 * values.max(axis=0))
+        resolved = np.diff(energies) > 4 * np.finfo(np.float32).eps * np.maximum(
+            energies[:-1], 1e-30
+        )
+        resolved[0] = False
+        assert np.max(error[resolved]) < 0.002
     return construct(
         target,
         energies,
@@ -64,7 +104,7 @@ def write_sampler_reference(bundle, folder):
     with (folder / "reference.txt").open("a") as output:
         for temperature in [0, 100, 300, 1000]:
             rates = bundle.at_temperature(temperature)
-            for energy in [0, 1e-5, 0.003, 0.05, 0.5, 5]:
+            for energy in [0, 1e-12, 1e-10, 1e-5, 0.003, 0.05, 0.5, 5]:
                 index = max(
                     0,
                     min(
@@ -75,6 +115,8 @@ def write_sampler_reference(bundle, folder):
                 fraction = (energy - bundle.energies[index]) / np.diff(bundle.energies)[
                     index
                 ]
+                if index == 0:
+                    fraction = np.sqrt(fraction)
                 joint = (1 - fraction) * rates[index] + fraction * rates[index + 1]
                 rate = joint.sum()
                 if rate == 0:
@@ -102,7 +144,7 @@ def write_sampler_reference(bundle, folder):
                 ]
                 moments = [float((distribution * v).sum()) for v in values + squares]
                 output.write(
-                    f"{path.resolve()} {temperature} {energy:.17g} {rate:.17g} "
+                    f"{json.dumps(str(path.resolve()), ensure_ascii=False)} {temperature} {energy:.17g} {rate:.17g} "
                     + " ".join(f"{v:.17g}" for v in moments)
                     + "\n"
                 )
@@ -144,6 +186,19 @@ def main():
                 assert np.all(p[::2] == 0)
         bundle = analytic_bundle(target)
         bundle.validate()
+        extended = analytic_bundle(target, maximum_j=bundle.maximum_j + 16)
+        for temperature in [100, 300, 1000]:
+            rates = bundle.at_temperature(temperature).sum(axis=1)
+            larger = extended.at_temperature(temperature).sum(axis=1)
+            for power in [0, 1, 2]:
+                moments = (rates * np.abs(bundle.losses) ** power).sum(axis=1)
+                reference_moments = (larger * np.abs(extended.losses) ** power).sum(
+                    axis=1
+                )
+                interpolated = np.interp(
+                    bundle.energies, extended.energies, reference_moments
+                )
+                np.testing.assert_allclose(moments, interpolated, rtol=1e-8, atol=1e-30)
         # Deterministic Maxwellian quadrature avoids Monte Carlo cancellation
         # noise in the zero-field power balance. Recoil and moving neutrals
         # are tested separately in the portable kinematics and MCC drivers.

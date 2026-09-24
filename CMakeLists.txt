@@ -850,6 +850,7 @@ endif()
 #
 if(BUILD_TESTING)
     enable_testing()
+    add_subdirectory(Tools/CrossSections)
     if(WarpX_APP OR WarpX_PYTHON)
         add_subdirectory(Examples)
     endif()
