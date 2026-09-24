@@ -20,6 +20,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--particles", type=int, default=65536)
 parser.add_argument("--steps", type=int, default=1)
 parser.add_argument("--cumulative", action="store_true")
+parser.add_argument("--anisotropic", action="store_true")
 parser.add_argument("--seed", type=int, default=42)
 args = parser.parse_args()
 
@@ -48,6 +49,12 @@ for target in ["N2", "O2"]:
     bundle.write(file)
     inclusive = Path(f"{target}_inclusive.txt").resolve()
     np.savetxt(inclusive, [[0, 2e-20], [10, 2e-20]])
+    elastic_dcs = Path(f"{target}_elastic_dcs.txt").resolve()
+    # DCS = 1 + a*sin(theta/2), exactly linear in the source interpolation
+    # coordinate. Its angular moments are available by independent integration.
+    a = 3 if args.anisotropic else 0
+    angular_values = f"1 {1 + a / np.sqrt(2):.17g} {1 + a}"
+    elastic_dcs.write_text(f"1e-10 {angular_values}\n10 {angular_values}\n")
     # An ordinary channel exercises the retained selector alongside the family.
     ordinary = Path(f"{target}_ordinary.txt").resolve()
     np.savetxt(ordinary, [[0, 1e-21], [10, 1e-21]])
@@ -71,6 +78,8 @@ for target in ["N2", "O2"]:
                 "cross_section": str(inclusive),
                 "rotation_file": str(file),
                 "rotation_model": "analytic_test",
+                "scattering_angle_model": "IAA",
+                "differential_cross_section": str(elastic_dcs),
                 "rotational_temperature": temperature,
                 "rotation_sampling": "cumulative" if args.cumulative else "alias",
             }
@@ -151,6 +160,20 @@ for name, target, energy, mean, second, probability in references:
     # the physical electron energy change, without combining distinct neutrals.
     losses = energy - final_energy - (recoil if args.steps == 1 else 0)
     changed = (ux != 0) | (uy != 0) | (np.abs(uz - incoming) > 1e-6 * max(incoming, 1))
+    if args.anisotropic:
+        assert args.steps == 1
+        rotated = np.abs(losses) > 1e-4
+        mu = uz[rotated] / np.sqrt(u2[rotated])
+        assert len(mu) > 0
+        expected_mu = 0 if energy == 0 else -2 / 15
+        expected_mu2 = 1 / 3 if energy == 0 else (2 / 3 + 44 * 3 / 105) / 6
+        for values, expected in [(mu, expected_mu), (mu**2, expected_mu2)]:
+            assert (
+                abs(values.mean() - expected)
+                < 7 * np.sqrt(values.var() / len(values)) + 2e-4
+            )
+        correlation = (mu - expected_mu) * losses[rotated]
+        assert abs(correlation.mean()) < 7 * np.sqrt(correlation.var() / len(mu)) + 2e-7
     output[name] = [
         losses.mean(),
         (losses**2).mean(),

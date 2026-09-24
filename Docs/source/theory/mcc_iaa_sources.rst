@@ -68,14 +68,49 @@ for O2. At 1000 K, the short lists of initial states in the package omit
 approximately 19.5 and 18.6 percent of the respective equilibrium populations.
 A thermal sum must extend the state set, rather than renormalize those lists.
 
-IAA Eq. (11.24) constructs transitions from elementary rates using the sudden
-approximation. Eq. (11.35) supplies a spectator angular shape, which the thesis
-explicitly identifies as inaccurate at low energy. The long-range Born model,
-Eq. (11.21b), is an alternative low-energy approximation, not a validated
-description of the N2 resonance. A production bundle needs a stated validity
-range and a nonnegative inclusive angular decomposition. Failed decompositions
-must be reported, not clipped. Available elementary data alone do not establish
-rotational coverage through 1 GeV.
+IAA Eq. (11.24) constructs transitions from elementary integral rates using
+the sudden approximation. Forward and reverse rates obey integral detailed
+balance before Boltzmann weighting. The runtime draws the angle from the
+existing inclusive elastic DCS, followed by a discrete rotational change.
+Only exact energy/recoil accessibility conditions that second draw. At exactly
+zero relative momentum there is no incident axis, so emitted electrons use
+the isotropic limit.
+
+The spectator relation in Eq. (11.29), :math:`J_R=kR\sin(\theta/2)`, describes a
+high-energy rotational-rainbow scale. It is not a hard quantum selection rule:
+Eq. (11.30) has nonzero probabilities beyond it. The runtime therefore does
+not use this scale to exclude channels. It also does not use the rotational
+DCS shapes from Eqs. (11.21b) or (11.35).
+
+Reference bundles contain integral rates and a nonnegative unchanged residual,
+so there is no subtraction of incompatible angular shapes. The revised N2/O2
+audit passes that integral nonnegativity check over its tested range. It does
+not establish the missing low-energy rate continuations, convergence in
+omitted elementary rotational ranks, or coverage through beam energies.
+O2 still uses an angular-integrated Born rate approximation, whose sub-eV
+validity must be distinguished from the elastic angular sampler.
+
+For incident neutral-rest-frame energy :math:`E`, cosine :math:`\mu`, electron
+rest energy :math:`m` and initial molecular rest energy :math:`M`, define
+:math:`S=M+m+E`, :math:`p^2=E(E+2m)` and
+:math:`s=(M+m)^2+2ME`. The largest accessible internal-energy increase is
+
+.. math::
+
+   Q_{\max}(E,\mu)=
+   \sqrt{s+m^2-2m\sqrt{S^2-p^2\max(\mu,0)^2}}-M.
+
+WarpX evaluates this with rationalized differences. Positive losses must not
+exceed this bound; de-excitation is allowed whenever the final mass is positive.
+Its angular restriction matters close to recoil-shifted excitation thresholds.
+Away from those boundaries, it introduces no angle-dependent rotational weight.
+
+Using the same energy-dependent elastic angular distribution for forward and
+reverse processes does not impose exact differential detailed balance.
+Conditioning at finite-mass accessibility boundaries can also alter the
+integral rotational rates in narrow threshold intervals. These are explicit
+approximations of the selected model; population, integral detailed balance,
+threshold conditioning and thermal power balance are tested separately.
 
 Other table conversion issues
 -----------------------------

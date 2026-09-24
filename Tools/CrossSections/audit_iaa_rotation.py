@@ -24,7 +24,6 @@ from rotation_reference import (
     construct,
     converged_j,
     energy_grid,
-    spectator_bins,
     write_audit,
 )
 
@@ -50,7 +49,7 @@ def main():
                 / gas
                 / f"{name}.e-{gas}"
                 for gas in ["N2", "O2"]
-                for kind, name in [("cs", "Cross section"), ("dcs", "DCS")]
+                for kind, name in [("cs", "Cross section")]
             },
         }
         for suffix, local in required.items():
@@ -67,8 +66,8 @@ def main():
                     f"Source file does not match archived snapshot: {local}"
                 )
     args.output.mkdir(parents=True, exist_ok=True)
-    # Resolve individual angular-bin integrals using source interpolation in
-    # sin(theta/2) and log(E), independently of the WarpX inverse-CDF tables.
+    # Only integral rates enter the rotational bundle. The ordinary elastic
+    # DCS remains the sole angular source in the collision operator.
     for target in ["N2", "O2"]:
         data = reader.readCS(target, db="iaa*", skip=False)
         residual = next(
@@ -76,42 +75,14 @@ def main():
             for r in data
             if r["kind"] == "ELASTIC" and r["subkind"] == "RESIDUAL"
         )
-        dcs = reader.readDCS(target, format="grid")[0]["data"]
-        if dcs.index.name != "Angle" or dcs.columns.name != "Energy":
-            raise ValueError("Unexpected DCS grid axes")
-        source_energy = np.asarray(dcs.columns, dtype=float)
-        source_angles = np.asarray(dcs.index, dtype=float)
-        if source_angles[0] != 0 or source_angles[-1] != 180:
-            raise ValueError("Expected source DCS angles in degrees, spanning [0,180]")
-        source_y = np.sin(np.deg2rad(source_angles) / 2)
-        values = np.asarray(dcs, dtype=float).T
-        edges = np.linspace(-1, 1, 65)
-        nodes, weights = np.polynomial.legendre.leggauss(8)
-        mu = (edges[1:, None] + edges[:-1, None]) / 2 + np.diff(edges)[
-            :, None
-        ] * nodes / 2
-        y = np.sqrt((1 - mu) / 2)
-        angular_rows = np.array([np.interp(y, source_y, row) for row in values])
-        bins = (angular_rows * weights * np.diff(edges)[:, None] / 2).sum(axis=-1)
+        edges = np.array([-1.0, 1.0])
 
         def inclusive(energies):
-            shapes = np.array(
-                [
-                    np.interp(
-                        np.log(np.maximum(energies, source_energy[0])),
-                        np.log(source_energy),
-                        bins[:, a],
-                    )
-                    for a in range(len(edges) - 1)
-                ]
-            ).T
-            shapes /= shapes.sum(axis=1)[:, None]
-            sigma = np.interp(
+            return np.interp(
                 energies,
                 np.asarray(residual.index, float),
                 np.asarray(residual["CS"], float),
-            )
-            return shapes * sigma[:, None]
+            )[:, None]
 
         elementary = {}
         observations = []
@@ -149,24 +120,23 @@ def main():
                             np.log(amplitude),
                         )
                     )
-                    return amplitude_e[:, None] * spectator_bins(
-                        energies, rank, 2.0743, edges
-                    )
+                    return amplitude_e[:, None]
 
                 elementary[rank] = reduced
-            model = "iaa_sudden_spectator"
+            model = "elastic_dcs"
         else:
-            # Eq. 11.21b at J=0, with the outgoing/incoming momentum ratio
-            # removed. The q^2 term and all constants are in atomic units.
-            def born(energies):
-                q2 = 4 * np.asarray(energies)[:, None, None] / HARTREE * (1 - mu)
-                dcs = (4 / 5) * (-0.29 / 3 + 4.93 * np.pi * q2 / 32) ** 2 * A0**2
-                return (dcs * (2 * np.pi) * weights * np.diff(edges)[:, None] / 2).sum(
-                    axis=-1
-                )
+            # Angular integral of Eq. 11.21b at J=0, with the outgoing/incoming
+            # momentum ratio removed. This supplies a Born integral-rate model;
+            # it is not used to sample angles. Its validity remains sub-eV.
+            def born_integral(energies):
+                a = -0.29 / 3
+                b = 4.93 * np.pi * np.asarray(energies) / (8 * HARTREE)
+                return ((16 * np.pi / 5) * A0**2 * (a * a + 2 * a * b + 4 * b * b / 3))[
+                    :, None
+                ]
 
-            elementary[2] = born
-            model = "iaa_born"
+            elementary[2] = born_integral
+            model = "elastic_dcs"
         maximum_j = converged_j(target, 1000)
         energies = energy_grid(target, maximum_j, elementary, 20, count=192)
         bundle = construct(
@@ -177,14 +147,14 @@ def main():
             bundle.validate()
         except ValueError as error:
             errors.append(
-                "Negative unchanged angular-bin rate in the inclusive decomposition"
+                "Negative unchanged integral rate in the inclusive decomposition"
                 if np.any(bundle.rates[:, :, 0] < 0)
                 else str(error)
             )
         # A numerical positivity pass cannot establish the missing physics.
         errors.extend(
             [
-                "Low-energy/resonant angular approximation has no validated unified continuation",
+                "Low-energy/resonant integral-rate continuation requires validation",
                 "No bound on omitted higher-rank rotational energy-transfer moments",
                 "No validated rotational continuation from 20 eV through beam electron energies",
             ]
@@ -205,7 +175,8 @@ def main():
             "gates": errors,
             "minimum_unchanged_rate_m3_s": float(bundle.rates[index[0], index[1], 0]),
             "minimum_at_energy_eV": float(energies[index[0]]),
-            "minimum_at_cosine_interval": edges[index[1] : index[1] + 2].tolist(),
+            "angular_sampling": "existing elastic DCS",
+            "conditional_model": "integral rates conditioned only on exact recoil accessibility",
         }
         write_audit(args.output / f"{target}_rotation_audit.json", report)
         print(target, "production export blocked:", *errors, sep="\n  ")

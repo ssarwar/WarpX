@@ -95,6 +95,7 @@ public:
     std::vector<std::unique_ptr<BackgroundMCCIonizationModel>> m_ionization_models;
     std::unique_ptr<BackgroundMCCProcessSelector> m_process_selector;
     std::shared_ptr<BackgroundMCCThermalRotation> m_thermal_rotation;
+    int m_rotation_process = -1;
     amrex::Vector<ProductGroup> m_product_groups;
     amrex::Gpu::DeviceVector<int> m_process_product_group;
     std::unique_ptr<SmartCopyFactory> m_electron_copy_factory;

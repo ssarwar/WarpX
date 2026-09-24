@@ -3641,20 +3641,23 @@ Details about the collision models can be found in the :ref:`theory section <mul
 
     Enables one combined vibrationally elastic and rotational family on an
     electron Background MCC ``elastic`` process. Requires ``rotation_file``.
-    The identifiers ``iaa_sudden_spectator`` and ``iaa_born`` distinguish the
-    source approximations; ``analytic_test`` is a synthetic verification model.
+    Use ``rotation_model = elastic_dcs`` with ``scattering_angle_model = IAA``
+    and the usual elastic ``differential_cross_section``. ``analytic_test`` is
+    reserved for synthetic verification kernels.
     The supplied inclusive elastic rate is checked at the bundle's reference
     temperature, then replaced by the family's aggregate rate coefficient.
     Do not add the same rotational transitions as separate processes.
-    The bundle supplies joint COM angles and signed energy changes; omit a
-    separate ``differential_cross_section``. The target and neutral mass are
-    identified by the bundle, and any explicit ``background_mass`` must agree.
+    The elastic DCS supplies the neutral-rest-frame angle. Integral rotational
+    probabilities are conditioned only on exact energy/recoil accessibility at
+    that angle. No spectator or Born rotational angular distribution is used.
+    The target and neutral mass are identified by the bundle, and any explicit
+    ``background_mass`` must agree.
 
 .. pp:param:: <collision_name>.<scattering_process>_rotation_file
     :type: ``string``
     :optional:
 
-    Path to a ``WARPX_THERMAL_ROTATION_V1`` reference bundle, described in
+    Path to a ``WARPX_THERMAL_ROTATION_V2`` reference bundle, described in
     ``Tools/CrossSections/README.md``. Initialization sums Boltzmann populations
     and builds shared sampling tables for each data/model/temperature pair.
     The unchanged contribution must be nonnegative, all excitation thresholds
@@ -3682,9 +3685,10 @@ Details about the collision models can be found in the :ref:`theory section <mul
     :default: ``alias``
     :optional:
 
-    ``alias`` uses constant-time sparse alias draws for angle and conditional
-    energy change. ``cumulative`` selects the same explicit transition kernel
-    by cumulative bisection for physics and performance comparisons. Both
+    ``alias`` uses one constant-time draw for the usual unrestricted energy-change
+    distribution. Near kinematic boundaries, bounded prefix-CDF searches select
+    an accessible outcome without rejection. ``cumulative`` always uses the
+    same prefix CDF for physics and performance comparisons. Both
     interpolate incident energy by mixtures of rows, preserving discrete loss
     labels and the unchanged outcome. The ordinary MCC selector remains active
     for other processes. Collision subcycling is still needed to control the

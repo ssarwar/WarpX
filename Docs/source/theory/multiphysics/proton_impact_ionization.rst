@@ -1090,9 +1090,10 @@ an unresolved ion internal state. Its mass defect is included in the event
 construction; a kinetic ion species still has its configured fixed mass.
 
 A molecular endpoint rounded upward by input/table conversion is moved inside
-its exact support only when the excess is within eight input-precision ulps
-scaled by the incident energy. Larger violations are errors. Tests cover this
-representational endpoint in both precisions; no finite tail is clipped.
+its exact support only when the excess is at most :math:`8\epsilon\max(E,T)`,
+where :math:`\epsilon` is the input precision's machine epsilon. Larger
+violations are errors. Tests cover this representational endpoint in both
+precisions; no finite tail is clipped.
 
 The outgoing projectile momentum is discarded for a rigid beam. Kinetic ions
 receive the constructed recoil; immobile ions discard it. Prescribed-source

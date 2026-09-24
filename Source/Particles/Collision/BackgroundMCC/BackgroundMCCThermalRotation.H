@@ -7,6 +7,8 @@
 #ifndef WARPX_PARTICLES_COLLISION_BACKGROUNDMCC_THERMAL_ROTATION_H_
 #define WARPX_PARTICLES_COLLISION_BACKGROUNDMCC_THERMAL_ROTATION_H_
 
+#include "BackgroundMCCElasticKinematics.H"
+
 #include <AMReX_Algorithm.H>
 #include <AMReX_GpuContainers.H>
 #include <AMReX_REAL.H>
@@ -22,9 +24,9 @@ class ScatteringProcess;
 /** One thermal vibrationally elastic family, including signed rotational
  * changes.
  *
- * State populations, angular marginals and sparse conditional alias tables are
- * built on the host. No rotational-state loop or special function is evaluated
- * on the device. The reference data contain angular-bin integrals of v*sigma.
+ * State populations and sparse energy-change alias tables are built on the host.
+ * The elastic DCS supplies the angle. Only exact kinematic accessibility couples
+ * that angle to the rotational draw; no rotational DCS or device state loop is used.
  */
 class BackgroundMCCThermalRotation
 {
@@ -55,6 +57,7 @@ class BackgroundMCCThermalRotation
             int m_index = 0;
             amrex::ParticleReal m_fraction = 0;
             amrex::ParticleReal m_rate = 0;
+            double m_energy = 0;
         };
 
         [[nodiscard]] AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE bool
@@ -87,13 +90,11 @@ class BackgroundMCCThermalRotation
             }
             return {index, fraction,
                     (amrex::ParticleReal(1) - fraction) * m_rates[index] +
-                        fraction * m_rates[index + 1]};
+                        fraction * m_rates[index + 1],
+                    double(energy)};
         }
 
-        /** Sample one alias and recycle its conditional uniform within the
-         * outcome. This supplies the within-bin angular coordinate without
-         * another draw.
-         */
+        /** Sample one alias and retain its conditional uniform in draw. */
         [[nodiscard]] AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE static int
         aliasSample (Alias const* table, Cell cell, double& draw) noexcept
         {
@@ -110,57 +111,90 @@ class BackgroundMCCThermalRotation
             return table[cell.m_offset + entry.m_alternate].m_outcome;
         }
 
-        /** Explicit cumulative reference for physics-equivalent performance
-         * comparisons. */
-        [[nodiscard]] AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE int
-        select (Alias const* table, Cell cell, double& draw) const noexcept
+        struct Accessible
         {
-            draw = amrex::max(0.0, amrex::min(draw, 1.0 - std::numeric_limits<double>::epsilon()));
-            if (!m_cumulative) {
-                return aliasSample(table, cell, draw);
+            int m_count = 0;
+            double m_probability = 0;
+        };
+
+        [[nodiscard]] AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE bool
+        accessible (int outcome, double energy, double cosine) const noexcept
+        {
+            auto const value = m_outcomes[outcome];
+            return value.m_loss <= 0 || energy >= value.m_loss * m_all_angle_factor ||
+                   value.m_loss <= BackgroundMCCElasticKinematics::maximumInternalEnergyChange(
+                                       energy, m_electron_rest_energy,
+                                       m_neutral_rest_energy + value.m_initial_energy, cosine);
+        }
+
+        [[nodiscard]] AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE Accessible
+        allowed (int row, double energy, double cosine) const noexcept
+        {
+            auto const cell = m_cells[row];
+            if (accessible(m_loss_alias[cell.m_offset + cell.m_count - 1].m_outcome, energy,
+                           cosine)) {
+                return {cell.m_count, 1};
             }
-            int lo = 0, hi = cell.m_count - 1;
+            // Outcomes are ordered by increasing loss, then decreasing initial
+            // mass for equal losses. The host verifies the heavy-rotor ordering.
+            int lo = 0, hi = cell.m_count;
             while (lo < hi) {
                 int const mid = lo + (hi - lo) / 2;
-                if (draw < table[cell.m_offset + mid].m_probability) {
+                if (accessible(m_loss_alias[cell.m_offset + mid].m_outcome, energy, cosine)) {
+                    lo = mid + 1;
+                } else {
+                    hi = mid;
+                }
+            }
+            return {lo, lo > 0 ? double(m_cdf[cell.m_offset + lo - 1]) : 0};
+        }
+
+        /** Condition the mixture on accessibility, retaining the elastic angle.
+         *
+         * The usual path uses one alias. Restricted threshold draws use a prefix
+         * CDF with bounded bisections; there is no rejection or rotational loop.
+         */
+        AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE Outcome
+        sample (Interpolation state, double cosine, double row_draw,
+                double loss_draw) const noexcept
+        {
+            auto const lower = allowed(state.m_index, state.m_energy, cosine);
+            auto const upper = allowed(state.m_index + 1, state.m_energy, cosine);
+            double const lo_rate =
+                (1 - double(state.m_fraction)) * m_rates[state.m_index] * lower.m_probability;
+            double const hi_rate =
+                double(state.m_fraction) * m_rates[state.m_index + 1] * upper.m_probability;
+            int const offset = row_draw * (lo_rate + hi_rate) >= lo_rate ? 1 : 0;
+            auto const valid = offset == 0 ? lower : upper;
+            auto const cell = m_cells[state.m_index + offset];
+            if (valid.m_count == cell.m_count && !m_cumulative) {
+                return m_outcomes[aliasSample(m_loss_alias, cell, loss_draw)];
+            }
+            double const target = loss_draw * valid.m_probability;
+            int lo = 0, hi = valid.m_count - 1;
+            while (lo < hi) {
+                int const mid = lo + (hi - lo) / 2;
+                if (target < m_cdf[cell.m_offset + mid]) {
                     hi = mid;
                 } else {
                     lo = mid + 1;
                 }
             }
-            double const left = lo > 0 ? table[cell.m_offset + lo - 1].m_probability : 0;
-            double const right = table[cell.m_offset + lo].m_probability;
-            draw = right > left ? (draw - left) / (right - left) : 0;
-            return table[cell.m_offset + lo].m_outcome;
-        }
-
-        /** Mixtures interpolate probabilities; discrete loss labels remain
-         * exact. */
-        AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE Outcome
-        sample (Interpolation state, double row_draw, double angle_draw, double loss_draw,
-                double& cosine) const noexcept
-        {
-            auto const lower_rate =
-                (amrex::ParticleReal(1) - state.m_fraction) * m_rates[state.m_index];
-            int const row = state.m_index + (row_draw * state.m_rate >= lower_rate ? 1 : 0);
-            int const angle =
-                select(m_angle_alias, {row * m_angle_count, m_angle_count}, angle_draw);
-            cosine = (1 - angle_draw) * m_edges[angle] + angle_draw * m_edges[angle + 1];
-            int const outcome =
-                select(m_loss_alias, m_cells[row * m_angle_count + angle], loss_draw);
-            return m_outcomes[outcome];
+            return m_outcomes[m_loss_alias[cell.m_offset + lo].m_outcome];
         }
 
         amrex::ParticleReal const* m_energies = nullptr;
         amrex::ParticleReal const* m_rates = nullptr;
-        amrex::ParticleReal const* m_edges = nullptr;
-        Alias const* m_angle_alias = nullptr;
+        double const* m_cdf = nullptr;
         Alias const* m_loss_alias = nullptr;
         Cell const* m_cells = nullptr;
         Outcome const* m_outcomes = nullptr;
         int m_energy_count = 0;
-        int m_angle_count = 0;
         amrex::ParticleReal m_maximum_energy = 0;
+        double m_neutral_rest_energy = 0;
+        double m_electron_rest_energy =
+            PhysConst::m_e_v<double> * PhysConst::c2_v<double> / PhysConst::q_e_v<double>;
+        double m_all_angle_factor = std::numeric_limits<double>::infinity();
         bool m_cumulative = false;
     };
 
@@ -196,6 +230,11 @@ class BackgroundMCCThermalRotation
         return m_neutral_mass;
     }
     [[nodiscard]] double
+    maximumLoss () const
+    {
+        return m_maximum_loss;
+    }
+    [[nodiscard]] double
     maximumRate () const
     {
         return m_maximum_rate;
@@ -212,21 +251,24 @@ class BackgroundMCCThermalRotation
     }
 
   private:
-    amrex::Gpu::HostVector<amrex::ParticleReal> m_energies_h, m_rates_h, m_edges_h;
-    amrex::Gpu::HostVector<Alias> m_angle_alias_h, m_loss_alias_h;
+    amrex::Gpu::HostVector<amrex::ParticleReal> m_energies_h, m_rates_h;
+    amrex::Gpu::HostVector<double> m_cdf_h;
+    amrex::Gpu::HostVector<Alias> m_loss_alias_h;
     amrex::Gpu::HostVector<Cell> m_cells_h;
     amrex::Gpu::HostVector<Outcome> m_outcomes_h;
     amrex::Gpu::HostVector<double> m_reference_rates;
     Executor m_executor_h;
 #ifdef AMREX_USE_GPU
-    amrex::Gpu::DeviceVector<amrex::ParticleReal> m_energies_d, m_rates_d, m_edges_d;
-    amrex::Gpu::DeviceVector<Alias> m_angle_alias_d, m_loss_alias_d;
+    amrex::Gpu::DeviceVector<amrex::ParticleReal> m_energies_d, m_rates_d;
+    amrex::Gpu::DeviceVector<double> m_cdf_d;
+    amrex::Gpu::DeviceVector<Alias> m_loss_alias_d;
     amrex::Gpu::DeviceVector<Cell> m_cells_d;
     amrex::Gpu::DeviceVector<Outcome> m_outcomes_d;
     Executor m_executor_d;
 #endif
     double m_neutral_mass = 0;
     double m_maximum_rate = 0;
+    double m_maximum_loss = 0;
     std::size_t m_table_bytes = 0;
 };
 

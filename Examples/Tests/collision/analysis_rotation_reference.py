@@ -32,7 +32,7 @@ from rotation_reference import (  # noqa: E402
 
 def analytic_bundle(target="N2", maximum=10, count=768, maximum_j=None):
     maximum_j = maximum_j or converged_j(target, 1000)
-    edges = np.linspace(-1, 1, 33)
+    edges = np.array([-1.0, 1.0])
     integrals = np.diff(edges) / 2 + 0.15 * np.diff(edges**2)
 
     def reduced(energies):
@@ -209,8 +209,12 @@ def main():
                 [np.interp(grid, bundle.energies, row) for row in thermal.T]
             ).T
             loss = bundle.losses
+            # Both collision partners are Maxwellian at this temperature.
+            # E is electron energy in the neutral frame, so its relative-energy
+            # distribution contains the reduced-mass correction.
+            mass_ratio = REST * QE / C**2 / MASSES[target]
             distribution = np.sqrt(grid) * np.exp(
-                -grid / (8.617333262145e-5 * temperature)
+                -grid / (8.617333262145e-5 * temperature * (1 + mass_ratio))
             )
             cooling = np.trapezoid(
                 distribution * (rates * np.maximum(loss, 0)).sum(axis=1), grid
@@ -224,7 +228,11 @@ def main():
                 (temperature * 2, 1),
             ]:
                 distribution = np.sqrt(grid) * np.exp(
-                    -grid / (8.617333262145e-5 * electron_temperature)
+                    -grid
+                    / (
+                        8.617333262145e-5
+                        * (electron_temperature + mass_ratio * temperature)
+                    )
                 )
                 power = np.trapezoid(distribution * (rates * loss).sum(axis=1), grid)
                 assert sign * power > 0

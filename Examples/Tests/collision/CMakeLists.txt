@@ -202,6 +202,14 @@ add_warpx_test(
 )
 
 add_warpx_test(
+    test_1d_background_mcc_rotation_anisotropic_picmi
+    1 1
+    "inputs_test_1d_background_mcc_rotation_picmi.py --anisotropic --particles 262144"
+    "analysis_background_mcc_rotation.py"
+    OFF OFF
+)
+
+add_warpx_test(
     test_1d_background_mcc_rotation_picmi
     1 1
     inputs_test_1d_background_mcc_rotation_picmi.py

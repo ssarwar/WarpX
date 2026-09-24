@@ -81,11 +81,10 @@ main (int argc, char** argv)
             auto const sample_start = std::chrono::steady_clock::now();
             amrex::ParallelForRNG(count, [=] AMREX_GPU_DEVICE(int i,
                                                               amrex::RandomEngine const& engine) {
-                double cosine;
+                double const cosine = 1 - 2 * amrex::Random(engine);
                 auto const state = executor.interpolate(static_cast<amrex::ParticleReal>(energy));
                 auto const outcome =
-                    executor.sample(state, amrex::Random(engine), amrex::Random(engine),
-                                    amrex::Random(engine), cosine);
+                    executor.sample(state, cosine, amrex::Random(engine), amrex::Random(engine));
                 data[i] = {outcome.m_loss, cosine, 0, 0};
             });
             amrex::Gpu::streamSynchronize();
@@ -115,7 +114,7 @@ main (int argc, char** argv)
                     double const v2 = vx * vx + vy * vy + vz * vz;
                     double const neutral_gamma = 1 / std::sqrt(1 - v2 / c2);
                     auto const change = data[i].loss;
-                    bool const ok = BackgroundMCCElasticKinematics::computeInternalEnergyChange(
+                    bool const ok = BackgroundMCCElasticKinematics::computeInternalEnergyChangeLab(
                         0, 0, u, vx, vy, vz, me, mass, change, data[i].cosine, engine, ex, ey, ez,
                         nx, ny, nz);
                     if (!ok) {

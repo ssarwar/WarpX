@@ -202,6 +202,10 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
             WARPX_ALWAYS_ASSERT_WITH_MESSAGE(rotation_sampling == "alias" ||
                                                  rotation_sampling == "cumulative",
                                              "rotation_sampling must be alias or cumulative.");
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                process.scatteringAngleModel() == ScatteringAngleModel::IAA,
+                "Thermal rotation requires scattering_angle_model = IAA and the elastic DCS.");
+            m_rotation_process = static_cast<int>(m_processes.size());
             m_thermal_rotation = BackgroundMCCThermalRotation::get(
                 rotation_file, rotation_model, rotation_temperature,
                 rotation_sampling == "cumulative");
@@ -290,14 +294,10 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
             if (process_type == ScatteringProcessType::ELASTIC ||
                 process_type == ScatteringProcessType::EXCITATION)
             {
-                WARPX_ALWAYS_ASSERT_WITH_MESSAGE(has_differential_cross_section || has_rotation,
+                WARPX_ALWAYS_ASSERT_WITH_MESSAGE(has_differential_cross_section,
                                                  "IAA elastic or excitation scattering requires a "
                                                  "<process>_differential_cross_section file.");
                 m_has_iaa_differential_processes = true;
-                WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-                    !has_rotation || !has_differential_cross_section,
-                    "The rotational bundle supplies the joint angular kernel; "
-                    "omit the separate DCS.");
             }
             else
             {
@@ -1177,10 +1177,24 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
     auto* processes = m_processes_exe.data();
     auto const process_count = static_cast<int>(m_processes_exe.size());
     auto const process_selector = m_process_selector->executor();
-    auto const rotation = m_thermal_rotation ? m_thermal_rotation->executor()
-                                             : BackgroundMCCThermalRotation::Executor{};
+    auto rotation = m_thermal_rotation ? m_thermal_rotation->executor()
+                                       : BackgroundMCCThermalRotation::Executor{};
+    if (m_thermal_rotation) {
+        // Use the same configured/rounded mass as the subsequent recoil solve.
+        // Shared reference tables retain their canonical source mass.
+        double const target =
+            double(m_background_mass) * PhysConst::c2_v<double> / PhysConst::q_e_v<double>;
+        double const electron =
+            double(m_mass1) * PhysConst::c2_v<double> / PhysConst::q_e_v<double>;
+        rotation.m_neutral_rest_energy = target;
+        rotation.m_electron_rest_energy = electron;
+        rotation.m_all_angle_factor =
+            (target + m_thermal_rotation->maximumLoss() / 2) / (target - electron) +
+            8 * std::numeric_limits<double>::epsilon();
+    }
     auto const* differential_scattering_processes =
         m_differential_scattering_processes_exe.data();
+    int const rotation_process = m_rotation_process;
     auto const* process_product_group = m_process_product_group.data();
     auto const total_collision_prob = m_total_collision_prob;
     auto const nu_max = m_nu_max;
@@ -1274,13 +1288,23 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
 
             amrex::ParticleReal E_coll;
             amrex::ParticleReal v_coll;
-            if (use_relativistic_electron_kinematics)
-            {
+            double rotation_energy = 0;
+            if (rotation.enabled()) {
+                using namespace BackgroundMCCKinematics;
+                Vector3 const velocity{ua_x, ua_y, ua_z};
+                double const gamma =
+                    1 / std::sqrt(1 - dot(velocity, velocity) / PhysConst::c2_v<double>);
+                double const boost = gamma * gamma / ((gamma + 1) * PhysConst::c2_v<double>);
+                auto const relative = boostToRest({ux[ip], uy[ip], uz[ip]}, velocity, gamma, boost);
+                rotation_energy = kineticEnergyFromProperVelocity(relative, m);
+                E_coll = static_cast<amrex::ParticleReal>(rotation_energy);
+                double const u2 = dot(relative, relative);
+                v_coll = static_cast<amrex::ParticleReal>(
+                    std::sqrt(u2 / (1 + u2 / PhysConst::c2_v<double>)));
+            } else if (use_relativistic_electron_kinematics) {
                 BackgroundMCCUtils::getElectronNeutralCollisionParameters(
                     ux[ip], uy[ip], uz[ip], ua_x, ua_y, ua_z, m, E_coll, v_coll);
-            }
-            else
-            {
+            } else {
                 const amrex::ParticleReal vx = ux[ip] - ua_x;
                 const amrex::ParticleReal vy = uy[ip] - ua_y;
                 const amrex::ParticleReal vz = uz[ip] - ua_z;
@@ -1304,7 +1328,8 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
 #endif
                 return;
             }
-            auto const rotational_interpolation = rotation.interpolate(E_coll);
+            auto rotational_interpolation = rotation.interpolate(E_coll);
+            rotational_interpolation.m_energy = rotation_energy;
 
             amrex::ParticleReal total_cross_section = 0.0_prt;
             auto const interpolation = process_selector.interpolate(E_coll);
@@ -1359,16 +1384,30 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
             auto const rate_draw =
                 static_cast<amrex::ParticleReal>((process_draw / acceptance) * total_rate);
             if (rotation.enabled() && rate_draw < rotational_interpolation.m_rate) {
-                double cosine;
-                auto const outcome =
-                    rotation.sample(rotational_interpolation, amrex::Random(engine),
-                                    amrex::Random(engine), amrex::Random(engine), cosine);
+                double const angle_draw = amrex::Random(engine);
+                // A zero relative momentum has no incident axis. Superelastic
+                // emission then uses the rotationally invariant angular limit.
+                double const cosine =
+                    rotation_energy == 0
+                        ? 1 - 2 * angle_draw
+                        : differential_scattering_processes[rotation_process].sampleCosine(
+                              E_coll, angle_draw);
+                auto const outcome = rotation.sample(rotational_interpolation, cosine,
+                                                     amrex::Random(engine), amrex::Random(engine));
                 amrex::ParticleReal ex, ey, ez, nx, ny, nz;
-                bool const physical = BackgroundMCCElasticKinematics::computeInternalEnergyChange(
-                    ux[ip], uy[ip], uz[ip], ua_x, ua_y, ua_z, m,
-                    static_cast<double>(M) + outcome.m_initial_energy * PhysConst::q_e_v<double> /
-                                                 PhysConst::c2_v<double>,
-                    outcome.m_loss, cosine, engine, ex, ey, ez, nx, ny, nz);
+                bool physical = true;
+                if (outcome.m_loss == 0) {
+                    BackgroundMCCElasticKinematics::compute(ux[ip], uy[ip], uz[ip], ua_x, ua_y,
+                                                            ua_z, m, M, cosine, engine, ex, ey, ez,
+                                                            nx, ny, nz);
+                } else {
+                    physical = BackgroundMCCElasticKinematics::computeInternalEnergyChangeLab(
+                        ux[ip], uy[ip], uz[ip], ua_x, ua_y, ua_z, m,
+                        static_cast<double>(M) + outcome.m_initial_energy *
+                                                     PhysConst::q_e_v<double> /
+                                                     PhysConst::c2_v<double>,
+                        outcome.m_loss, cosine, engine, ex, ey, ez, nx, ny, nz);
+                }
                 if (physical) {
                     ux[ip] = ex;
                     uy[ip] = ey;

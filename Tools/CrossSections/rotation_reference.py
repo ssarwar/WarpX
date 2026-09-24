@@ -6,7 +6,7 @@
 
 """Host reference kernels for a thermal rigid rotor.
 
-Rates are angular-bin integrals of v*sigma in m3/s. Positive losses excite
+Rates are integral v*sigma values in m3/s. Positive losses excite
 the molecule. Reverse rates are constructed before thermal averaging. The
 binary bundle stores state-resolved rates; WarpX applies the requested
 Boltzmann populations and builds its sampling tables during initialization.
@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
-from scipy.special import gammaln, spherical_jn
+from scipy.special import gammaln
 
 KB = 8.617333262145e-5
 REST = 510998.95069
@@ -106,22 +106,6 @@ def phase_rate(energy, loss, mass):
     return C * np.sqrt(first * second) / (energy + REST)
 
 
-def spectator_bins(energy, rank, radius, edges):
-    """IAA Eq. 11.35, normalized over cosine bins with Gauss quadrature."""
-    nodes, quadrature = np.polynomial.legendre.leggauss(8)
-    mu = (edges[1:, None] + edges[:-1, None]) / 2 + np.diff(edges)[:, None] * nodes / 2
-    wave = np.sqrt(2 * np.asarray(energy) / HARTREE)[:, None, None]
-    argument = wave * radius * np.sqrt((1 - mu) / 2)
-    shape = spherical_jn(rank, argument) ** 2
-    integrals = (shape * quadrature * np.diff(edges)[:, None] / 2).sum(axis=-1)
-    # Analytic small-k limit, including E=0, avoids a 0/0 normalization.
-    zero = integrals.sum(axis=1) == 0
-    integrals[zero] = (
-        ((1 - mu) / 2) ** rank * quadrature * np.diff(edges)[:, None] / 2
-    ).sum(axis=-1)
-    return integrals / integrals.sum(axis=1)[:, None]
-
-
 def thermal_rates(target, temperature, maximum_j, transitions, rates):
     p, tail = populations(target, temperature, maximum_j)
     if tail > 1e-10:
@@ -159,7 +143,7 @@ class Bundle:
         )
 
     def validate(self):
-        if self.model not in ("iaa_sudden_spectator", "iaa_born", "analytic_test"):
+        if self.model not in ("elastic_dcs", "analytic_test"):
             raise ValueError("Unknown rotational source model")
         if self.energies[0] != 0 or np.any(
             np.diff(self.energies.astype(np.float32)) <= 0
@@ -167,6 +151,8 @@ class Bundle:
             raise ValueError(
                 "Energy knots must start at zero and remain distinct in float32"
             )
+        if len(self.edges) != 2:
+            raise ValueError("Elastic-DCS rotation bundles contain only integral rates")
         if (
             self.edges[0] != -1
             or self.edges[-1] != 1
@@ -208,14 +194,13 @@ class Bundle:
         with Path(path).open("wb") as output:
             output.write(
                 (
-                    "WARPX_THERMAL_ROTATION_V1\n"
+                    "WARPX_THERMAL_ROTATION_V2\n"
                     f"{self.target} {self.model} {self.maximum_j} {self.reference_temperature:.17g}\n"
-                    f"{len(self.energies)} {len(self.edges) - 1} {len(self.transitions)}\n"
+                    f"{len(self.energies)} {len(self.transitions)}\n"
                 ).encode("ascii")
             )
             for array, dtype in [
                 (self.energies, "<f8"),
-                (self.edges, "<f8"),
                 (self.transitions, "<i4"),
                 (self.rates, "<f8"),
             ]:
@@ -230,16 +215,15 @@ def construct(
     inclusive,
     maximum_j,
     reference_temperature=0.0,
-    model="iaa_sudden_spectator",
+    model="elastic_dcs",
 ):
-    """Construct Eq. 11.24 and reverse rates from differential detailed balance.
+    """Construct integral Eq. 11.24 rates and their detailed-balance reverse rates.
 
-    reduced_elementary maps rank to A(E,mu)=sigma_0,rank*p_in/p_out.
-    inclusive(E) returns angular-bin cross sections at reference_temperature.
+    reduced_elementary maps rank to A(E)=sigma_0,rank*p_in/p_out.
+    inclusive(E) returns the integral cross section at reference_temperature.
+    Both have a length-one trailing axis for the reference quadrature helpers.
     Detailed balance uses finite-mass COM momenta at the same invariant energy.
-    Angles are COM angles. Treating the supplied laboratory elementary angular
-    shape as a COM shape is the heavy-target angular approximation (m_e/M),
-    distinct from the exact threshold and signed recoil used here.
+    No rotational angular distribution is generated.
     """
     states = np.arange(maximum_j + 1)
     states = states[weights(target, states) > 0]

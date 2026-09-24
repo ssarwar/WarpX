@@ -19,6 +19,93 @@
 
 namespace BackgroundMCCElasticKinematics
 {
+    /** Largest internal-energy increase accessible at a neutral-rest-frame angle.
+     *
+     * Energies and masses (mc^2) are in eV. Maximizing the outgoing molecular
+     * invariant mass over the outgoing electron energy gives this bound. It is
+     * a kinematic restriction, not the spectator model's rotational-rainbow scale.
+     */
+    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE double
+    maximumInternalEnergyChange (double energy, double electron, double mass,
+                                 double cosine) noexcept
+    {
+        double const total = energy + electron + mass;
+        double const momentum2 = energy * (energy + 2 * electron);
+        double const projected2 = cosine > 0 ? momentum2 * cosine * cosine : 0;
+        double const root = std::sqrt(total * total - projected2);
+        double const shift =
+            (energy * (2 * (electron + mass) + energy) - projected2) / (root + electron + mass);
+        double const difference = 2 * (mass * energy - electron * shift);
+        return difference / (std::sqrt(mass * mass + difference) + mass);
+    }
+
+    /** Signed excitation at the laboratory angle sampled from the elastic DCS.
+     *
+     * The outgoing electron mass-shell quadratic uses its larger-energy branch
+     * when both forward solutions exist in the narrow recoil threshold region.
+     * Exact accessibility is checked before solving; no angle is projected.
+     */
+    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE bool
+    computeInternalEnergyChangeLab (
+        amrex::ParticleReal incident_ux, amrex::ParticleReal incident_uy,
+        amrex::ParticleReal incident_uz, amrex::ParticleReal neutral_vx,
+        amrex::ParticleReal neutral_vy, amrex::ParticleReal neutral_vz, double electron_mass,
+        double initial_mass, double change, double cosine, amrex::RandomEngine const& engine,
+        amrex::ParticleReal& electron_ux, amrex::ParticleReal& electron_uy,
+        amrex::ParticleReal& electron_uz, amrex::ParticleReal& recoil_ux,
+        amrex::ParticleReal& recoil_uy, amrex::ParticleReal& recoil_uz) noexcept
+    {
+        using namespace BackgroundMCCKinematics;
+        constexpr double c = PhysConst::c_v<double>;
+        constexpr double c2 = PhysConst::c2_v<double>;
+        constexpr double qe = PhysConst::q_e_v<double>;
+        Vector3 const velocity{neutral_vx, neutral_vy, neutral_vz};
+        double const gamma = 1 / std::sqrt(1 - dot(velocity, velocity) / c2);
+        double const boost = gamma * gamma / ((gamma + 1) * c2);
+        auto const incoming =
+            boostToRest({incident_ux, incident_uy, incident_uz}, velocity, gamma, boost);
+        double const energy = kineticEnergyFromProperVelocity(incoming, electron_mass);
+        double const m = electron_mass * c2 / qe, mass = initial_mass * c2 / qe;
+        if (mass + change <= 0 || change > maximumInternalEnergyChange(energy, m, mass, cosine)) {
+            return false;
+        }
+        double const p = std::sqrt(energy * (energy + 2 * m));
+        double const total = energy + m + mass;
+        double const projection = p * cosine;
+        double const a = total * total - projection * projection;
+        double const d = mass * (energy - change) - m * energy - change * change / 2;
+        double const discriminant = d * (d + 2 * total * m) + projection * projection * m * m;
+        if (discriminant < 0) {
+            return false;
+        }
+        double const center = total * d + projection * projection * m;
+        double const splitting = projection * std::sqrt(discriminant);
+        double const outgoing =
+            projection < 0 && d >= 0 ? d * d / (center - splitting) : (center + splitting) / a;
+        if (!(outgoing >= 0)) {
+            return false;
+        }
+        double const norm = std::sqrt(dot(incoming, incoming));
+        Vector3 const axis = norm > 0 ? scale(incoming, 1 / norm) : Vector3{0, 0, 1};
+        Vector3 transverse1, transverse2;
+        transverseDirections(axis, transverse1, transverse2);
+        auto const direction =
+            directionFromPolarAngle(axis, transverse1, transverse2, cosine,
+                                    2 * static_cast<double>(MathConst::pi) * amrex::Random(engine));
+        auto const electron_pc = scale(direction, std::sqrt(outgoing * (outgoing + 2 * m)));
+        auto const recoil_pc = subtract(scale(axis, p), electron_pc);
+        auto const electron_lab = boostToLab(scale(electron_pc, c / m), velocity, gamma, boost);
+        auto const recoil_lab =
+            boostToLab(scale(recoil_pc, c / (mass + change)), velocity, gamma, boost);
+        electron_ux = static_cast<amrex::ParticleReal>(electron_lab.x);
+        electron_uy = static_cast<amrex::ParticleReal>(electron_lab.y);
+        electron_uz = static_cast<amrex::ParticleReal>(electron_lab.z);
+        recoil_ux = static_cast<amrex::ParticleReal>(recoil_lab.x);
+        recoil_uy = static_cast<amrex::ParticleReal>(recoil_lab.y);
+        recoil_uz = static_cast<amrex::ParticleReal>(recoil_lab.z);
+        return true;
+    }
+
 /** Scatter at a COM angle with a signed change of molecular internal energy.
  *
  * Positive changes excite the target; negative changes release its stored

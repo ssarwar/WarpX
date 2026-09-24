@@ -200,6 +200,8 @@ def run_invalid_case(case):
         bundle_path = Path("invalid_rotation.rot").resolve()
         bundle.write(bundle_path)
         process_options["rotation_file"] = str(bundle_path)
+        process_options["scattering_angle_model"] = "IAA"
+        process_options["differential_cross_section"] = "valid"
         process_options["rotational_temperature"] = (
             1e6
             if case == "rotation_population"

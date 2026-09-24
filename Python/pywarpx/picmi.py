@@ -3524,9 +3524,11 @@ class MCCCollisions(picmistandard.base._ClassWithInit):
         angular closure of Schmalzried Eq. (2.66) at all energies.
         One elastic process can specify ``rotation_model``, ``rotation_file``
         and a fixed ``rotational_temperature`` (default: constant background
-        temperature). Its bundle supplies the joint angular and signed-energy
-        kernel. ``rotation_sampling="cumulative"`` selects the explicit
-        reference sampler; the default is ``"alias"``.
+        temperature). Use ``rotation_model="elastic_dcs"`` with the ordinary
+        elastic DCS. Integral rotational probabilities are conditioned only on
+        exact energy/recoil accessibility at the sampled angle.
+        ``rotation_sampling="cumulative"`` selects the explicit reference
+        sampler; the default is ``"alias"``.
         The ``"IAA"`` angle model implements IAA ionization kinematics or, for
         elastic electron scattering, samples the required
         ``differential_cross_section`` table.

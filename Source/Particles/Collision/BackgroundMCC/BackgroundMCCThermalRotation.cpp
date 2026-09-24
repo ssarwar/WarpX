@@ -77,7 +77,7 @@ populations (bool nitrogen, double b, int maximum_j, double temperature)
 
 void
 appendAlias (std::vector<double> const& weights, std::vector<int> const& outcomes,
-             amrex::Gpu::HostVector<BackgroundMCCThermalRotation::Alias>& table, bool cumulative)
+             amrex::Gpu::HostVector<BackgroundMCCThermalRotation::Alias>& table)
 {
     using Alias = BackgroundMCCThermalRotation::Alias;
     double const sum = std::accumulate(weights.begin(), weights.end(), 0.0);
@@ -93,16 +93,6 @@ appendAlias (std::vector<double> const& weights, std::vector<int> const& outcome
         row[i].m_outcome = outcomes[i];
         row[i].m_alternate = i;
         (scaled[i] < 1 ? small : large).push_back(i);
-    }
-    if (cumulative) {
-        double prefix = 0;
-        for (int i = 0; i < count; ++i) {
-            prefix += weights[i] / sum;
-            row[i].m_probability = static_cast<amrex::ParticleReal>(std::min(prefix, 1.0));
-        }
-        row.back().m_probability = 1;
-        table.insert(table.end(), row.data(), row.data() + row.size());
-        return;
     }
     while (!small.empty() && !large.empty()) {
         int const low = small.back();
@@ -144,18 +134,16 @@ BackgroundMCCThermalRotation::BackgroundMCCThermalRotation (std::string const& f
 {
     std::ifstream input(file, std::ios::binary);
     std::string magic, target, source_model;
-    int maximum_j = 0, energy_count = 0, angle_count = 0, transition_count = 0;
+    int maximum_j = 0, energy_count = 0, transition_count = 0;
     double reference_temperature = 0;
     input >> magic >> target >> source_model >> maximum_j >> reference_temperature >>
-        energy_count >> angle_count >> transition_count;
+        energy_count >> transition_count;
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-        input && magic == "WARPX_THERMAL_ROTATION_V1" && (target == "N2" || target == "O2") &&
-            source_model == model &&
-            (model == "iaa_sudden_spectator" || model == "iaa_born" || model == "analytic_test"),
+        input && magic == "WARPX_THERMAL_ROTATION_V2" && (target == "N2" || target == "O2") &&
+            source_model == model && (model == "elastic_dcs" || model == "analytic_test"),
         "Invalid thermal-rotation bundle header or model mismatch.");
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(maximum_j >= 8 && maximum_j <= 4096 && energy_count >= 2 &&
-                                         energy_count <= 100000 && angle_count >= 1 &&
-                                         angle_count <= 4096 && transition_count >= 1 &&
+                                         energy_count <= 100000 && transition_count >= 1 &&
                                          transition_count <= 100000,
                                      "Invalid thermal-rotation bundle dimensions.");
     std::uint32_t const endian = 1;
@@ -167,17 +155,14 @@ BackgroundMCCThermalRotation::BackgroundMCCThermalRotation (std::string const& f
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(newline == '\n', "Invalid thermal-rotation payload boundary.");
 
     auto const energies = readArray<double>(input, energy_count);
-    auto const edges = readArray<double>(input, angle_count + 1);
     auto const transitions = readArray<std::int32_t>(input, 2u * transition_count);
     auto const component_count = static_cast<std::size_t>(transition_count) + 1;
-    auto const rates = readArray<double>(input, static_cast<std::size_t>(energy_count) *
-                                                    angle_count * component_count);
+    auto const rates =
+        readArray<double>(input, static_cast<std::size_t>(energy_count) * component_count);
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(input.peek() == std::ifstream::traits_type::eof(),
                                      "Trailing data in thermal-rotation bundle.");
-    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-        energies.front() == 0 && edges.front() == -1 && edges.back() == 1,
-        "Thermal-rotation grids must start at zero energy and span cos(theta) "
-        "in [-1,1].");
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(energies.front() == 0,
+                                     "Thermal-rotation grid must start at zero energy.");
     auto copy_grid = [] (auto const& source, auto& destination) {
         double previous = -std::numeric_limits<double>::infinity();
         for (auto value : source) {
@@ -192,7 +177,6 @@ BackgroundMCCThermalRotation::BackgroundMCCThermalRotation (std::string const& f
         }
     };
     copy_grid(energies, m_energies_h);
-    copy_grid(edges, m_edges_h);
     bool const nitrogen = target == "N2";
     double const b = nitrogen ? 0.0002477204284695341 : 0.00017828927734694198;
     m_neutral_mass = (nitrogen ? 28.0134 : 31.9988) * 1.66053906660e-27;
@@ -226,68 +210,96 @@ BackgroundMCCThermalRotation::BackgroundMCCThermalRotation (std::string const& f
                                              "physical excitation threshold knot.");
         }
     }
+    std::vector<int> order(component_count);
+    std::iota(order.begin(), order.end(), 0);
+    std::sort(order.begin(), order.end(), [&] (int a, int b_index) {
+        auto const av = m_outcomes_h[a], bv = m_outcomes_h[b_index];
+        return av.m_loss == bv.m_loss ? av.m_initial_energy > bv.m_initial_energy
+                                      : av.m_loss < bv.m_loss;
+    });
+    double const neutral_rest = m_neutral_mass * PhysConst::c2_v<double> / PhysConst::q_e_v<double>;
+    double const largest_loss = m_outcomes_h[order.back()].m_loss;
+    m_maximum_loss = largest_loss;
+    double const electron_rest =
+        PhysConst::m_e_v<double> * PhysConst::c2_v<double> / PhysConst::q_e_v<double>;
+    // Backward scattering sets the most restrictive laboratory threshold.
+    // This factor bounds it for every retained loss and initial rotational mass.
+    double const all_angle_factor =
+        (neutral_rest + largest_loss / 2) / (neutral_rest - electron_rest) +
+        8 * std::numeric_limits<double>::epsilon();
+    double const mass_span = b * maximum_j * (maximum_j + 1);
+    // Accessibility changes at E ~ loss. Bound its variation with the initial
+    // rotational mass below every distinct canonical level gap.
+    double const ordering_bound = 16 * mass_span * largest_loss * (510998.95069 + largest_loss) /
+                                  (neutral_rest * neutral_rest);
+    double previous_loss = 0;
+    for (int index : order) {
+        double const loss = m_outcomes_h[index].m_loss;
+        if (loss > previous_loss) {
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                loss - previous_loss > ordering_bound,
+                "Rotational levels do not admit ordered kinematic accessibility.");
+            previous_loss = loss;
+        }
+    }
     m_rates_h.resize(energy_count);
     m_reference_rates.assign(energy_count, 0);
-    m_cells_h.reserve(static_cast<std::size_t>(energy_count) * angle_count);
-    std::vector<int> angle_outcomes(angle_count);
-    std::iota(angle_outcomes.begin(), angle_outcomes.end(), 0);
+    m_cells_h.reserve(energy_count);
     for (int e = 0; e < energy_count; ++e) {
-        std::vector<double> angular_rates(angle_count, 0);
-        for (int a = 0; a < angle_count; ++a) {
-            std::vector<double> weights;
-            std::vector<int> outcomes;
-            for (std::size_t c = 0; c < component_count; ++c) {
-                auto const rate =
-                    rates[(static_cast<std::size_t>(e) * angle_count + a) * component_count + c];
-                WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-                    std::isfinite(rate) && rate >= 0 &&
-                        (thresholds[c] <= 0 ||
-                         energies[e] >
-                             thresholds[c] * (1 - 32 * std::numeric_limits<double>::epsilon()) ||
-                         rate == 0),
-                    "Negative, nonfinite or sub-threshold thermal-rotation "
-                    "reference rate.");
-                m_reference_rates[e] += reference_factors[c] * rate;
-                auto const weighted = factors[c] * rate;
-                angular_rates[a] += weighted;
-                if (weighted > 0) {
-                    weights.push_back(weighted);
-                    outcomes.push_back(static_cast<int>(c));
-                }
+        std::vector<double> weights;
+        std::vector<int> outcomes;
+        for (int index : order) {
+            auto const rate = rates[static_cast<std::size_t>(e) * component_count + index];
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                std::isfinite(rate) && rate >= 0 &&
+                    (thresholds[index] <= 0 ||
+                     energies[e] >
+                         thresholds[index] * (1 - 32 * std::numeric_limits<double>::epsilon()) ||
+                     rate == 0),
+                "Negative, nonfinite or sub-threshold thermal-rotation reference rate.");
+            m_reference_rates[e] += reference_factors[index] * rate;
+            auto const weighted = factors[index] * rate;
+            if (weighted > 0) {
+                weights.push_back(weighted);
+                outcomes.push_back(index);
             }
-            // Empty rows are never selected but retain a finite sentinel alias.
-            if (weights.empty()) {
-                weights.push_back(1);
-                outcomes.push_back(0);
-            }
-            m_cells_h.push_back(
-                {static_cast<int>(m_loss_alias_h.size()), static_cast<int>(weights.size())});
-            appendAlias(weights, outcomes, m_loss_alias_h, cumulative);
         }
-        double const total = std::accumulate(angular_rates.begin(), angular_rates.end(), 0.0);
+        double const total = std::accumulate(weights.begin(), weights.end(), 0.0);
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
             std::isfinite(total) && total <= std::numeric_limits<amrex::ParticleReal>::max(),
             "Invalid aggregate rotational rate.");
         m_rates_h[e] = static_cast<amrex::ParticleReal>(total);
         m_maximum_rate = std::max(m_maximum_rate, total);
-        if (total == 0) {
-            angular_rates.assign(angle_count, 1);
+        if (weights.empty()) {
+            weights.push_back(1);
+            outcomes.push_back(0);
         }
-        appendAlias(angular_rates, angle_outcomes, m_angle_alias_h, cumulative);
-        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(m_loss_alias_h.size() * sizeof(Alias) <= maximum_bytes,
-                                         "Thermal-rotation alias tables exceed 512 MiB; refine the "
-                                         "reference representation.");
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            m_outcomes_h[outcomes.front()].m_loss <= 0,
+            "Every thermal-rotation row needs an unchanged or de-excitation outcome.");
+        m_cells_h.push_back(
+            {static_cast<int>(m_loss_alias_h.size()), static_cast<int>(weights.size())});
+        appendAlias(weights, outcomes, m_loss_alias_h);
+        double prefix = 0;
+        double const normalization = total > 0 ? total : 1;
+        for (double weight : weights) {
+            prefix += weight / normalization;
+            m_cdf_h.push_back(std::min(prefix, 1.0));
+        }
+        m_cdf_h.back() = 1;
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(m_loss_alias_h.size() * (sizeof(Alias) + sizeof(double)) <=
+                                             maximum_bytes,
+                                         "Thermal-rotation sampling tables exceed 512 MiB.");
     }
-    m_table_bytes =
-        (m_energies_h.size() + m_rates_h.size() + m_edges_h.size()) * sizeof(amrex::ParticleReal) +
-        (m_angle_alias_h.size() + m_loss_alias_h.size()) * sizeof(Alias) +
-        m_cells_h.size() * sizeof(Cell) + m_outcomes_h.size() * sizeof(Outcome);
+    m_table_bytes = (m_energies_h.size() + m_rates_h.size()) * sizeof(amrex::ParticleReal) +
+                    m_cdf_h.size() * sizeof(double) + m_loss_alias_h.size() * sizeof(Alias) +
+                    m_cells_h.size() * sizeof(Cell) + m_outcomes_h.size() * sizeof(Outcome);
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(m_table_bytes <= maximum_bytes && m_maximum_rate > 0,
                                      "Empty or oversized thermal-rotation sampling tables.");
-    m_executor_h = {
-        m_energies_h.data(),   m_rates_h.data(),    m_edges_h.data(),    m_angle_alias_h.data(),
-        m_loss_alias_h.data(), m_cells_h.data(),    m_outcomes_h.data(), energy_count,
-        angle_count,           m_energies_h.back(), cumulative};
+    m_executor_h = {m_energies_h.data(),   m_rates_h.data(),    m_cdf_h.data(),
+                    m_loss_alias_h.data(), m_cells_h.data(),    m_outcomes_h.data(),
+                    energy_count,          m_energies_h.back(), neutral_rest,
+                    electron_rest,         all_angle_factor,    cumulative};
 #ifdef AMREX_USE_GPU
     auto upload = [] (auto const& host, auto& device) {
         device.resize(host.size());
@@ -295,15 +307,14 @@ BackgroundMCCThermalRotation::BackgroundMCCThermalRotation (std::string const& f
     };
     upload(m_energies_h, m_energies_d);
     upload(m_rates_h, m_rates_d);
-    upload(m_edges_h, m_edges_d);
-    upload(m_angle_alias_h, m_angle_alias_d);
+    upload(m_cdf_h, m_cdf_d);
     upload(m_loss_alias_h, m_loss_alias_d);
     upload(m_cells_h, m_cells_d);
     upload(m_outcomes_h, m_outcomes_d);
-    m_executor_d = {
-        m_energies_d.data(),   m_rates_d.data(),    m_edges_d.data(),    m_angle_alias_d.data(),
-        m_loss_alias_d.data(), m_cells_d.data(),    m_outcomes_d.data(), energy_count,
-        angle_count,           m_energies_h.back(), cumulative};
+    m_executor_d = {m_energies_d.data(),   m_rates_d.data(),    m_cdf_d.data(),
+                    m_loss_alias_d.data(), m_cells_d.data(),    m_outcomes_d.data(),
+                    energy_count,          m_energies_h.back(), neutral_rest,
+                    electron_rest,         all_angle_factor,    cumulative};
     amrex::Gpu::streamSynchronize();
 #endif
 }
