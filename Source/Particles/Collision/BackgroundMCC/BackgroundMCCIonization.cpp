@@ -23,12 +23,11 @@ namespace
 using namespace BackgroundMCCRBEQ;
 
 void
-findShellThresholds (std::vector<RBEQShell> const& shells,
-                     std::vector<double>& positive_thresholds,
-                     std::vector<double>& uniform_thresholds) {
+findShellThresholds (std::vector<RBEQShell> const& shells, std::vector<double>& positive_thresholds,
+                     std::vector<double>& uniform_thresholds)
+{
     constexpr double uniform_threshold_ratio = 1.0e-3;
-    for (int shell_index = 0; shell_index < static_cast<int>(shells.size());
-         ++shell_index) {
+    for (int shell_index = 0; shell_index < static_cast<int>(shells.size()); ++shell_index) {
         auto const& shell = shells[shell_index];
         positive_thresholds[shell_index] = findPositiveThreshold(
             shell, [&shell] (double const energy) { return rbeqTerms(energy, shell).total > 0.0; });
@@ -42,10 +41,10 @@ findShellThresholds (std::vector<RBEQShell> const& shells,
 }
 
 void
-initializeShellCrossSections (
-    std::vector<RBEQShell> const& shells, double const energy_min,
-    double const shell_log_energy_step,
-    amrex::Gpu::HostVector<amrex::ParticleReal>& shell_cross_sections) {
+initializeShellCrossSections (std::vector<RBEQShell> const& shells, double const energy_min,
+                              double const shell_log_energy_step,
+                              amrex::Gpu::HostVector<amrex::ParticleReal>& shell_cross_sections)
+{
     constexpr int max_shells = BackgroundMCCIonizationModel::max_shell_count;
     constexpr int shell_energy_count =
         BackgroundMCCIonizationModel::shell_energy_grid_size;
@@ -53,8 +52,7 @@ initializeShellCrossSections (
     {
         auto const incident_energy = energy_min *
             std::exp(shell_log_energy_step * static_cast<double>(energy_index));
-        for (int shell_index = 0; shell_index < static_cast<int>(shells.size());
-             ++shell_index) {
+        for (int shell_index = 0; shell_index < static_cast<int>(shells.size()); ++shell_index) {
             // Some Q=1 partial cross sections are negative immediately above
             // their thresholds because the RBEQ dipole correction is too
             // strong. A negative partial cannot be sampled; it enters only once
@@ -68,10 +66,10 @@ initializeShellCrossSections (
 }
 
 void
-initializeInverseCdf (
-    std::vector<RBEQShell> const& shells, double const energy_min,
-    double const log_energy_step, std::vector<double> const& uniform_thresholds,
-    amrex::Gpu::HostVector<amrex::ParticleReal>& inverse_cdf) {
+initializeInverseCdf (std::vector<RBEQShell> const& shells, double const energy_min,
+                      double const log_energy_step, std::vector<double> const& uniform_thresholds,
+                      amrex::Gpu::HostVector<amrex::ParticleReal>& inverse_cdf)
+{
     constexpr int inverse_iterations = 36;
     constexpr int max_shells = BackgroundMCCIonizationModel::max_shell_count;
     constexpr int energy_count = BackgroundMCCIonizationModel::energy_grid_size;
@@ -83,13 +81,11 @@ initializeInverseCdf (
             energy_min * std::exp(log_energy_step * static_cast<double>(energy_index));
 
         std::vector<RBEQTerms> terms(shells.size());
-        for (int shell_index = 0; shell_index < static_cast<int>(shells.size());
-             ++shell_index) {
+        for (int shell_index = 0; shell_index < static_cast<int>(shells.size()); ++shell_index) {
             terms[shell_index] = rbeqTerms(incident_energy, shells[shell_index]);
         }
 
-        for (int shell_index = 0; shell_index < static_cast<int>(shells.size());
-             ++shell_index) {
+        for (int shell_index = 0; shell_index < static_cast<int>(shells.size()); ++shell_index) {
             auto const& shell = shells[shell_index];
             auto const available_energy = std::max(incident_energy - shell.binding_energy, 0.0);
             auto const maximum_secondary_energy = 0.5 * available_energy;
@@ -140,9 +136,9 @@ initializeInverseCdf (
 } // namespace
 
 BackgroundMCCIonizationModel::BackgroundMCCIonizationModel (
-    BackgroundMCCIonizationTarget const target,
-    amrex::ParticleReal const maximum_energy,
-    BackgroundMCCRBEQ::Model const model) {
+    BackgroundMCCIonizationTarget const target, amrex::ParticleReal const maximum_energy,
+    BackgroundMCCRBEQ::Model const model)
+{
     using namespace amrex::literals;
 
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(target == BackgroundMCCIonizationTarget::N2 ||
@@ -175,8 +171,8 @@ BackgroundMCCIonizationModel::BackgroundMCCIonizationModel (
     m_executor_h.m_inverse_log_energy_step =
         static_cast<amrex::ParticleReal>(1.0 / log_energy_step);
 
-    auto const parameters = BackgroundMCCRBEQ::shells(
-        target == BackgroundMCCIonizationTarget::N2, model);
+    auto const parameters =
+        BackgroundMCCRBEQ::shells(target == BackgroundMCCIonizationTarget::N2, model);
     std::vector<double> positive_thresholds(parameters.size());
     std::vector<double> uniform_thresholds(parameters.size());
     findShellThresholds(parameters, positive_thresholds, uniform_thresholds);
@@ -184,18 +180,15 @@ BackgroundMCCIonizationModel::BackgroundMCCIonizationModel (
     for (int i = 0; i < m_executor_h.m_shell_count; ++i) {
         m_executor_h.m_binding_energies[i] =
             static_cast<amrex::ParticleReal>(parameters[i].binding_energy);
-        m_executor_h.m_positive_threshold_coordinates[i] =
-            static_cast<amrex::ParticleReal>(
-                std::log(positive_thresholds[i] / energy_min) /
-                shell_log_energy_step);
-        m_executor_h.m_uniform_threshold_coordinates[i] =
-            static_cast<amrex::ParticleReal>(
-                std::log(uniform_thresholds[i] / energy_min) / log_energy_step);
+        m_executor_h.m_positive_threshold_coordinates[i] = static_cast<amrex::ParticleReal>(
+            std::log(positive_thresholds[i] / energy_min) / shell_log_energy_step);
+        m_executor_h.m_uniform_threshold_coordinates[i] = static_cast<amrex::ParticleReal>(
+            std::log(uniform_thresholds[i] / energy_min) / log_energy_step);
     }
     initializeShellCrossSections(parameters, energy_min, shell_log_energy_step,
                                  m_shell_cross_sections_h);
-    initializeInverseCdf(parameters, energy_min, log_energy_step,
-                         uniform_thresholds, m_inverse_cdf_h);
+    initializeInverseCdf(parameters, energy_min, log_energy_step, uniform_thresholds,
+                         m_inverse_cdf_h);
 
     m_executor_h.m_shell_cross_sections = m_shell_cross_sections_h.data();
     m_executor_h.m_inverse_cdf = m_inverse_cdf_h.data();

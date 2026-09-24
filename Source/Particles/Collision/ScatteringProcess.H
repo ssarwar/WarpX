@@ -146,6 +146,10 @@ public:
      */
     void setCrossSectionMultiplier (double multiplier);
 
+    /** Replace a combined family's ordinary rate by zero on its own energy
+     * knots. */
+    void useZeroRateGrid (amrex::Gpu::HostVector<amrex::ParticleReal> const& energies);
+
     [[nodiscard]] amrex::ParticleReal getEnergyPenalty () const { return m_exe_h.m_energy_penalty; }
     [[nodiscard]] amrex::ParticleReal getMinEnergyInput () const { return m_exe_h.m_energy_lo; }
     [[nodiscard]] amrex::ParticleReal getMaxEnergyInput () const { return m_exe_h.m_energy_hi; }
@@ -163,7 +167,8 @@ public:
 
     /** Read a recognized source identifier from a cross-section comment. */
     [[nodiscard]] std::string
-    metadata (std::string const& key) const {
+    metadata (std::string const& key) const
+    {
         auto const entry = m_metadata.find(key);
         return entry == m_metadata.end() ? std::string{} : entry->second;
     }
@@ -179,10 +184,10 @@ public:
     ScatteringProcessType parseProcessType(const std::string& process);
 
 private:
-  static void readCrossSectionFileRaw (
-      const std::string& cross_section_file,
-      amrex::Vector<amrex::ParticleReal>& energies, std::vector<double>& sigmas,
-      std::map<std::string, std::string>* metadata = nullptr);
+  static void readCrossSectionFileRaw (const std::string& cross_section_file,
+                                       amrex::Vector<amrex::ParticleReal>& energies,
+                                       std::vector<double>& sigmas,
+                                       std::map<std::string, std::string>* metadata = nullptr);
 
   void init (const std::string& scattering_process, amrex::ParticleReal energy,
              ScatteringAngleModel scattering_angle_model);

@@ -19,6 +19,81 @@
 
 namespace BackgroundMCCElasticKinematics
 {
+/** Scatter at a COM angle with a signed change of molecular internal energy.
+ *
+ * Positive changes excite the target; negative changes release its stored
+ * rotational energy. Factored phase space avoids rest-energy cancellation.
+ * Unlike the legacy laboratory-angle excitation closure, this transformation
+ * needs no angular projection. Both products conserve four-momentum.
+ */
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE bool
+computeInternalEnergyChange (amrex::ParticleReal incident_ux, amrex::ParticleReal incident_uy,
+                             amrex::ParticleReal incident_uz, amrex::ParticleReal neutral_vx,
+                             amrex::ParticleReal neutral_vy, amrex::ParticleReal neutral_vz,
+                             double electron_mass, double initial_mass, double change,
+                             double cosine, amrex::RandomEngine const& engine,
+                             amrex::ParticleReal& electron_ux, amrex::ParticleReal& electron_uy,
+                             amrex::ParticleReal& electron_uz, amrex::ParticleReal& recoil_ux,
+                             amrex::ParticleReal& recoil_uy,
+                             amrex::ParticleReal& recoil_uz) noexcept
+{
+    using namespace BackgroundMCCKinematics;
+    constexpr double c = PhysConst::c_v<double>;
+    constexpr double c2 = PhysConst::c2_v<double>;
+    constexpr double qe = PhysConst::q_e_v<double>;
+    Vector3 const velocity{neutral_vx, neutral_vy, neutral_vz};
+    double const beta2 = dot(velocity, velocity) / c2;
+    if (!(beta2 < 1)) {
+        return false;
+    }
+    double const gamma = 1 / std::sqrt(1 - beta2);
+    double const boost_factor = gamma * gamma / ((gamma + 1) * c2);
+    auto const incoming =
+        boostToRest({incident_ux, incident_uy, incident_uz}, velocity, gamma, boost_factor);
+    double const energy = kineticEnergyFromProperVelocity(incoming, electron_mass);
+    double const m = electron_mass * c2 / qe;
+    double const mass = initial_mass * c2 / qe;
+    double const final_mass = initial_mass + change * qe / c2;
+    double const threshold = change * (1 + m / mass) + change * change / (2 * mass);
+    if (!(final_mass > 0) || energy < threshold) {
+        return false;
+    }
+    double const s = (m + mass) * (m + mass) + 2 * mass * energy;
+    double const phase1 = 2 * mass * (energy - threshold);
+    double const phase2 =
+        4 * mass * m + 2 * mass * energy - 2 * change * (mass - m) - change * change;
+    if (phase1 < 0 || phase2 < 0) {
+        return false;
+    }
+    double const pc = std::sqrt(phase1 * phase2 / (4 * s));
+    double const incoming_norm = std::sqrt(dot(incoming, incoming));
+    Vector3 direction{0, 0, 1};
+    if (incoming_norm > 0) {
+        direction = scale(incoming, 1 / incoming_norm);
+    }
+    Vector3 transverse1, transverse2;
+    transverseDirections(direction, transverse1, transverse2);
+    auto const outgoing_direction = directionFromPolarAngle(
+        direction, transverse1, transverse2, amrex::max(-1.0, amrex::min(cosine, 1.0)),
+        2 * static_cast<double>(MathConst::pi) * amrex::Random(engine));
+    auto const electron_com = scale(outgoing_direction, c * pc / m);
+    auto const recoil_com = scale(electron_com, -electron_mass / final_mass);
+    auto const com_velocity = scale(incoming, m / (energy + m + mass));
+    double const com_gamma = (energy + m + mass) / std::sqrt(s);
+    double const com_boost = com_gamma * com_gamma / ((com_gamma + 1) * c2);
+    auto const electron_rest = boostToLab(electron_com, com_velocity, com_gamma, com_boost);
+    auto const recoil_rest = boostToLab(recoil_com, com_velocity, com_gamma, com_boost);
+    auto const electron_lab = boostToLab(electron_rest, velocity, gamma, boost_factor);
+    auto const recoil_lab = boostToLab(recoil_rest, velocity, gamma, boost_factor);
+    electron_ux = static_cast<amrex::ParticleReal>(electron_lab.x);
+    electron_uy = static_cast<amrex::ParticleReal>(electron_lab.y);
+    electron_uz = static_cast<amrex::ParticleReal>(electron_lab.z);
+    recoil_ux = static_cast<amrex::ParticleReal>(recoil_lab.x);
+    recoil_uy = static_cast<amrex::ParticleReal>(recoil_lab.y);
+    recoil_uz = static_cast<amrex::ParticleReal>(recoil_lab.z);
+    return true;
+}
+
     /** Apply an elastic electron-neutral collision in the neutral rest frame.
      *
      * The sampled polar angle is the electron angle represented by the

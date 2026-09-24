@@ -121,23 +121,19 @@ namespace BackgroundMCCIonizationKinematics
      * conserved
      */
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE bool
-    compute (amrex::ParticleReal const incident_ux,
-             amrex::ParticleReal const incident_uy,
-             amrex::ParticleReal const incident_uz,
-             amrex::ParticleReal const neutral_vx,
-             amrex::ParticleReal const neutral_vy,
-             amrex::ParticleReal const neutral_vz, double const electron_mass,
-             double const ion_mass, amrex::ParticleReal const binding_energy,
-             amrex::ParticleReal const secondary_fraction,
-             ScatteringAngleModel const angle_model,
-             amrex::RandomEngine const& engine, amrex::ParticleReal& primary_ux,
-             amrex::ParticleReal& primary_uy, amrex::ParticleReal& primary_uz,
-             amrex::ParticleReal& secondary_ux,
-             amrex::ParticleReal& secondary_uy,
-             amrex::ParticleReal& secondary_uz, amrex::ParticleReal& ion_ux,
-             amrex::ParticleReal& ion_uy, amrex::ParticleReal& ion_uz,
+    compute (amrex::ParticleReal const incident_ux, amrex::ParticleReal const incident_uy,
+             amrex::ParticleReal const incident_uz, amrex::ParticleReal const neutral_vx,
+             amrex::ParticleReal const neutral_vy, amrex::ParticleReal const neutral_vz,
+             double const electron_mass, double const ion_mass,
+             amrex::ParticleReal const binding_energy, amrex::ParticleReal const secondary_fraction,
+             ScatteringAngleModel const angle_model, amrex::RandomEngine const& engine,
+             amrex::ParticleReal& primary_ux, amrex::ParticleReal& primary_uy,
+             amrex::ParticleReal& primary_uz, amrex::ParticleReal& secondary_ux,
+             amrex::ParticleReal& secondary_uy, amrex::ParticleReal& secondary_uz,
+             amrex::ParticleReal& ion_ux, amrex::ParticleReal& ion_uy, amrex::ParticleReal& ion_uz,
              IonizationSecondaryAngle const secondary_angle =
-                 IonizationSecondaryAngle::IAA11_132) noexcept {
+                 IonizationSecondaryAngle::IAA11_132) noexcept
+    {
         constexpr double c2 = PhysConst::c2_v<double>;
         constexpr double inv_c2 = PhysConst::inv_c2_v<double>;
         constexpr double elementary_charge = PhysConst::q_e_v<double>;
@@ -198,23 +194,21 @@ namespace BackgroundMCCIonizationKinematics
             // Schmalzried Eq. (11.132) uses the incident energy before the
             // binding loss. Combine its free-electron factor with its weight
             // to retain the finite zero-secondary-energy limit.
-            auto free_component =
-                denominator > 0.0 && incident_energy > 0.0
-                    ? std::sqrt(unrecoiled_secondary_energy / incident_energy) *
-                          (unrecoiled_secondary_energy + 0.5 * binding) /
-                          denominator
-                    : 0.0;
+            auto free_component = denominator > 0.0 && incident_energy > 0.0
+                                      ? std::sqrt(unrecoiled_secondary_energy / incident_energy) *
+                                            (unrecoiled_secondary_energy + 0.5 * binding) /
+                                            denominator
+                                      : 0.0;
             if (secondary_angle == IonizationSecondaryAngle::Relativistic2_66 &&
                 denominator > 0.0) {
                 // Eq. (2.66): relativistic free-electron angle after binding
                 // loss, weighted by W/(W+B). Keep the same bound-electron
                 // isotropic term.
-                free_component =
-                    unrecoiled_secondary_energy / denominator *
-                    std::sqrt(unrecoiled_secondary_energy *
-                              (available_energy + 2 * electron_rest_energy) /
-                              (available_energy * (unrecoiled_secondary_energy +
-                                                   2 * electron_rest_energy)));
+                free_component = unrecoiled_secondary_energy / denominator *
+                                 std::sqrt(unrecoiled_secondary_energy *
+                                           (available_energy + 2 * electron_rest_energy) /
+                                           (available_energy * (unrecoiled_secondary_energy +
+                                                                2 * electron_rest_energy)));
             }
             auto const bound_weight = denominator > 0.0 ? binding / denominator : 0.0;
             auto const bound_cosine = 1.0 - 2.0 * static_cast<double>(amrex::Random(engine));

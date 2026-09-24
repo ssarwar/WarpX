@@ -176,6 +176,49 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
             "Cannot add an unknown scattering process type."
         );
 
+        std::string rotation_file, rotation_model;
+        bool const has_rotation =
+            pp_collision_name.query(process.name() + "_rotation_file", rotation_file);
+        bool const has_rotation_model =
+            pp_collision_name.query(process.name() + "_rotation_model", rotation_model);
+        double rotation_temperature = m_background_temperature;
+        bool const has_rotation_temperature = utils::parser::queryWithParser(
+            pp_collision_name, (process.name() + "_rotational_temperature").c_str(),
+            rotation_temperature);
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(has_rotation ||
+                                             (!has_rotation_model && !has_rotation_temperature),
+                                         "Rotational options require <process>_rotation_file.");
+        if (has_rotation) {
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(has_rotation_model && !m_thermal_rotation &&
+                                                 process_type == ScatteringProcessType::ELASTIC &&
+                                                 process.getEnergyPenalty() == 0,
+                                             "One elastic process per MCC block may specify a "
+                                             "thermal-rotation model.");
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                has_rotation_temperature || m_background_temperature_is_constant,
+                "A variable translational temperature requires an explicit "
+                "fixed rotational_temperature.");
+            std::string rotation_sampling = "alias";
+            pp_collision_name.query(process.name() + "_rotation_sampling", rotation_sampling);
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(rotation_sampling == "alias" ||
+                                                 rotation_sampling == "cumulative",
+                                             "rotation_sampling must be alias or cumulative.");
+            m_thermal_rotation = BackgroundMCCThermalRotation::get(
+                rotation_file, rotation_model, rotation_temperature,
+                rotation_sampling == "cumulative");
+            m_thermal_rotation->checkInclusiveRate(process);
+            if (m_background_mass < 0) {
+                m_background_mass =
+                    static_cast<amrex::ParticleReal>(m_thermal_rotation->neutralMass());
+            }
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                std::abs(m_background_mass / m_thermal_rotation->neutralMass() - 1) < 1.0e-5,
+                "Thermal-rotation target mass does not match background_mass.");
+            // Its aggregate rate coefficient replaces this inclusive elastic
+            // rate. Keep zero knots in the ordinary union for interval bounds.
+            process.useZeroRateGrid(m_thermal_rotation->energies());
+        }
+
         auto energy_sharing_model = IonizationEnergySharingModel::Equal;
         auto ionization_target = BackgroundMCCIonizationTarget::None;
         std::string rbeq_name = "iaa_thesis_2023";
@@ -183,16 +226,14 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
             pp_collision_name.query(process.name() + "_rbeq_model", rbeq_name);
         auto const rbeq_model = BackgroundMCCRBEQ::parse(rbeq_name);
         auto secondary_angle = IonizationSecondaryAngle::IAA11_132;
-        auto const has_secondary_angle =
-            pp_collision_name.query_enum_case_insensitive(
-                process.name() + "_secondary_angle_model", secondary_angle);
+        auto const has_secondary_angle = pp_collision_name.query_enum_case_insensitive(
+            process.name() + "_secondary_angle_model", secondary_angle);
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
             (!has_rbeq_model && !has_secondary_angle) ||
                 process_type == ScatteringProcessType::IONIZATION,
             "RBEQ and secondary-angle options require an ionization process.");
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-            !has_secondary_angle ||
-                process.scatteringAngleModel() == ScatteringAngleModel::IAA,
+            !has_secondary_angle || process.scatteringAngleModel() == ScatteringAngleModel::IAA,
             "secondary_angle_model requires scattering_angle_model = IAA.");
         if (process_type == ScatteringProcessType::IONIZATION)
         {
@@ -225,26 +266,23 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
                         process.metadata("rbeq_model") == rbeq_name,
                     "Cross-section rbeq_model metadata does not match the "
                     "selected sampler.");
-                WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-                    process.metadata("rbeq_normalization").empty() ||
-                        process.metadata("rbeq_normalization") ==
-                            "positive_part",
-                    "RBEQ production tables require positive_part "
-                    "normalization.");
+                WARPX_ALWAYS_ASSERT_WITH_MESSAGE(process.metadata("rbeq_normalization").empty() ||
+                                                     process.metadata("rbeq_normalization") ==
+                                                         "positive_part",
+                                                 "RBEQ production tables require positive_part "
+                                                 "normalization.");
                 WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
                     process.metadata("rbeq_target").empty() ||
                         BackgroundMCCIonizationModel::parseTarget(
-                            process.metadata("rbeq_target")) ==
-                            ionization_target,
+                            process.metadata("rbeq_target")) == ionization_target,
                     "Cross-section rbeq_target metadata does not match the "
                     "selected target.");
             }
         }
 
-        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-            !has_rbeq_model ||
-                energy_sharing_model == IonizationEnergySharingModel::RBEQ,
-            "rbeq_model requires energy_sharing_model = RBEQ.");
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(!has_rbeq_model || energy_sharing_model ==
+                                                                IonizationEnergySharingModel::RBEQ,
+                                         "rbeq_model requires energy_sharing_model = RBEQ.");
         std::string differential_cross_section;
         auto const has_differential_cross_section = pp_collision_name.query(
             process.name() + "_differential_cross_section", differential_cross_section);
@@ -260,12 +298,14 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
             if (process_type == ScatteringProcessType::ELASTIC ||
                 process_type == ScatteringProcessType::EXCITATION)
             {
-                WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-                    has_differential_cross_section,
-                    "IAA elastic or excitation scattering requires a "
-                    "<process>_differential_cross_section file."
-                );
+                WARPX_ALWAYS_ASSERT_WITH_MESSAGE(has_differential_cross_section || has_rotation,
+                                                 "IAA elastic or excitation scattering requires a "
+                                                 "<process>_differential_cross_section file.");
                 m_has_iaa_differential_processes = true;
+                WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                    !has_rotation || !has_differential_cross_section,
+                    "The rotational bundle supplies the joint angular kernel; "
+                    "omit the separate DCS.");
             }
             else
             {
@@ -411,23 +451,21 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
         BackgroundMCCIonizationModel::Executor executor;
         executor.m_model = ionization_energy_models[i];
         if (ionization_targets[i] != BackgroundMCCIonizationTarget::None) {
-            auto const key =
-                std::to_string(static_cast<int>(ionization_targets[i])) + ":" +
-                BackgroundMCCRBEQ::name(rbeq_models[i]);
+            auto const key = std::to_string(static_cast<int>(ionization_targets[i])) + ":" +
+                             BackgroundMCCRBEQ::name(rbeq_models[i]);
             auto model = ionization_model_indices.find(key);
             if (model == ionization_model_indices.end()) {
                 amrex::ParticleReal maximum_energy = 0;
                 for (int j = 0; j < static_cast<int>(m_processes.size()); ++j) {
                     if (ionization_targets[j] == ionization_targets[i] &&
                         rbeq_models[j] == rbeq_models[i]) {
-                        maximum_energy = std::max(
-                            maximum_energy, m_processes[j].getMaxEnergyInput());
+                        maximum_energy =
+                            std::max(maximum_energy, m_processes[j].getMaxEnergyInput());
                     }
                 }
                 auto const index = m_ionization_models.size();
-                m_ionization_models.push_back(
-                    std::make_unique<BackgroundMCCIonizationModel>(
-                        ionization_targets[i], maximum_energy, rbeq_models[i]));
+                m_ionization_models.push_back(std::make_unique<BackgroundMCCIonizationModel>(
+                    ionization_targets[i], maximum_energy, rbeq_models[i]));
                 model = ionization_model_indices.emplace(key, index).first;
             }
             executor = m_ionization_models[model->second]->executor();
@@ -505,6 +543,9 @@ BackgroundMCCCollision::CheckRuntimeInputs (int error) const
                         "the local total collision frequency."
                       : "Automatic Background MCC nu_max is smaller than "
                         "the local total collision frequency.");
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(error != 4,
+                                     "Electron energy is outside the thermal-rotation bundle's "
+                                     "validity range.");
 }
 
 amrex::ParticleReal
@@ -543,16 +584,28 @@ BackgroundMCCCollision::get_nu_max (
     };
 
     Accumulator max_sigma_v = 0.0L;
-    auto const update_interval_maximum =
-        [this, &collision_speed, &max_sigma_v] (
-            Accumulator const left_energy, Accumulator const left_sigma,
-            Accumulator const right_energy, Accumulator const right_sigma)
-    {
+    auto const update_interval_maximum = [this, &collision_speed,
+                                          &max_sigma_v] (Accumulator const left_energy,
+                                                         Accumulator const left_sigma,
+                                                         Accumulator const right_energy,
+                                                         Accumulator const right_sigma) {
+        Accumulator rotational_bound = 0;
+        if (m_thermal_rotation) {
+            auto const& rotation = m_thermal_rotation->hostExecutor();
+            auto const lo =
+                rotation.interpolate(static_cast<amrex::ParticleReal>(left_energy)).m_rate;
+            auto const hi =
+                rotation.interpolate(static_cast<amrex::ParticleReal>(right_energy)).m_rate;
+            // The ordinary union includes every rotational rate knot. Bound
+            // the sum by the separate interval maxima, including E=0.
+            rotational_bound = std::max(static_cast<Accumulator>(lo), static_cast<Accumulator>(hi));
+        }
         max_sigma_v = std::max(
-            max_sigma_v,
-            std::max(left_sigma * collision_speed(left_energy),
-                     right_sigma * collision_speed(right_energy)));
-        if (right_energy <= left_energy || right_sigma >= left_sigma) { return; }
+            max_sigma_v, rotational_bound + std::max(left_sigma * collision_speed(left_energy),
+                                                     right_sigma * collision_speed(right_energy)));
+        if (right_energy <= left_energy || right_sigma >= left_sigma) {
+            return;
+        }
 
         // sigma(E) is linear on a union-grid interval. Only a decreasing
         // segment can have an interior maximum after multiplication by the
@@ -624,9 +677,9 @@ BackgroundMCCCollision::get_nu_max (
         {
             auto const stationary_sigma =
                 intercept + slope * stationary_energy;
-            max_sigma_v = std::max(
-                max_sigma_v,
-                stationary_sigma * collision_speed(stationary_energy));
+            max_sigma_v =
+                std::max(max_sigma_v,
+                         rotational_bound + stationary_sigma * collision_speed(stationary_energy));
         }
     };
 
@@ -770,7 +823,7 @@ BackgroundMCCCollision::doCollisions (
                 "incident species."
             );
 
-            amrex::ParticleReal inferred_background_mass = -1.0_prt;
+            double inferred_background_mass = -1.0;
             auto const charge_tolerance = 100.0_prt*
                 std::numeric_limits<amrex::ParticleReal>::epsilon()*PhysConst::q_e;
             auto const mass_tolerance = 100.0_prt*
@@ -872,8 +925,7 @@ BackgroundMCCCollision::doCollisions (
                 m_background_mass > 0.0_prt,
             "The background neutral mass must be finite and greater than 0."
         );
-        if (m_has_iaa_differential_processes)
-        {
+        if (m_has_iaa_differential_processes || m_thermal_rotation) {
             WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
                 m_use_relativistic_electron_kinematics,
                 "IAA differential scattering requires an electron incident species."
@@ -1135,6 +1187,8 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
     auto* processes = m_processes_exe.data();
     auto const process_count = static_cast<int>(m_processes_exe.size());
     auto const process_selector = m_process_selector->executor();
+    auto const rotation = m_thermal_rotation ? m_thermal_rotation->executor()
+                                             : BackgroundMCCThermalRotation::Executor{};
     auto const* differential_scattering_processes =
         m_differential_scattering_processes_exe.data();
     auto const* process_product_group = m_process_product_group.data();
@@ -1248,7 +1302,19 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
                 E_coll = static_cast<amrex::ParticleReal>(E_coll_double);
                 v_coll = sqrt(v_coll2) / static_cast<amrex::ParticleReal>(gamma);
             }
-            if (v_coll <= 0.0_prt || nu_max <= 0.0_prt) { return; }
+            if (nu_max <= 0.0_prt || (!rotation.enabled() && v_coll <= 0.0_prt)) {
+                return;
+            }
+            if (rotation.enabled() && !rotation.inRange(E_coll)) {
+#ifdef AMREX_USE_GPU
+                amrex::Gpu::Atomic::Max(runtime_error, 4);
+#else
+                amrex::Abort("Electron energy is outside the thermal-rotation "
+                             "bundle's validity range.");
+#endif
+                return;
+            }
+            auto const rotational_interpolation = rotation.interpolate(E_coll);
 
             amrex::ParticleReal total_cross_section = 0.0_prt;
             auto const interpolation = process_selector.interpolate(E_coll);
@@ -1264,8 +1330,13 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
                 }
             }
 
-            if (total_cross_section <= 0.0_prt) { return; }
-            auto const collision_frequency = (n_a * total_cross_section) * v_coll;
+            auto const ordinary_rate = total_cross_section * v_coll;
+            auto const total_rate = ordinary_rate + rotational_interpolation.m_rate;
+            if (total_rate <= 0.0_prt) {
+                return;
+            }
+            auto const collision_frequency =
+                rotation.enabled() ? n_a * total_rate : (n_a * total_cross_section) * v_coll;
             bool const valid_majorant = collision_frequency <= nu_max * (1.0_prt + tolerance);
 #ifdef AMREX_USE_GPU
             if (!valid_majorant) {
@@ -1295,8 +1366,33 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
             }
             // Conditional on acceptance, this same uniform draw selects a
             // channel. The cached interval avoids a second energy bisection.
+            auto const rate_draw =
+                static_cast<amrex::ParticleReal>((process_draw / acceptance) * total_rate);
+            if (rotation.enabled() && rate_draw < rotational_interpolation.m_rate) {
+                double cosine;
+                auto const outcome =
+                    rotation.sample(rotational_interpolation, amrex::Random(engine),
+                                    amrex::Random(engine), amrex::Random(engine), cosine);
+                amrex::ParticleReal ex, ey, ez, nx, ny, nz;
+                bool const physical = BackgroundMCCElasticKinematics::computeInternalEnergyChange(
+                    ux[ip], uy[ip], uz[ip], ua_x, ua_y, ua_z, m,
+                    static_cast<double>(M) + outcome.m_initial_energy * PhysConst::q_e_v<double> /
+                                                 PhysConst::c2_v<double>,
+                    outcome.m_loss, cosine, engine, ex, ey, ez, nx, ny, nz);
+                if (physical) {
+                    ux[ip] = ex;
+                    uy[ip] = ey;
+                    uz[ip] = ez;
+                }
+                return;
+            }
+            if (v_coll <= 0.0_prt) {
+                return;
+            }
             auto const cross_section_draw =
-                static_cast<amrex::ParticleReal>((process_draw / acceptance) * total_cross_section);
+                rotation.enabled() ? (rate_draw - rotational_interpolation.m_rate) / v_coll
+                                   : static_cast<amrex::ParticleReal>((process_draw / acceptance) *
+                                                                      total_cross_section);
             int chosen_process = -1;
             if (process_selector.enabled()) {
                 chosen_process = process_selector.select(interpolation, cross_section_draw);
