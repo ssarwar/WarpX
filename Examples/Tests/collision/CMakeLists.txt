@@ -1,6 +1,12 @@
 # Add tests (alphabetical order) ##############################################
 #
 
+add_warpx_test(
+    test_rz_rigid_source_recoil_picmi RZ 1
+    "inputs_test_rz_rigid_source_picmi.py --solver Yee --subcycles 2"
+    OFF OFF OFF
+)
+
 foreach(solver IN ITEMS Yee semi_implicit_em semi_implicit_mm)
     foreach(subcycles IN ITEMS 1 4)
         add_warpx_test(

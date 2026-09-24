@@ -5,7 +5,9 @@ import runpy
 import sys
 from pathlib import Path
 
-sys.argv += ["--energy-keV", "5", "--steps", "2"]
+# The calibration boundary is an incident neutral-rest-frame energy. Use a
+# stationary target here; moving-target coverage is exercised inside the range.
+sys.argv += ["--energy-keV", "5", "--steps", "2", "--cold"]
 runpy.run_path(
     str(
         Path(__file__)

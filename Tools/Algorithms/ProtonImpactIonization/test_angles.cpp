@@ -44,6 +44,7 @@ namespace
         constexpr int count = 4096;
         constexpr double m = 510998.95069;
         constexpr double mass = 938272088.16;
+        constexpr double neutral = 28.0134 * 931494103.72;
         constexpr auto tol = 32 * std::numeric_limits<Real>::epsilon();
         amrex::Gpu::DeviceVector<Real> output(4 * count);
         auto* data = output.data();
@@ -56,8 +57,8 @@ namespace
                 for (auto const binding : {Real(0), Real(12.07), Real(15.59), Real(543.5)}) {
                     amrex::ParallelFor(count, [=] AMREX_GPU_DEVICE(int j) noexcept {
                         auto const u = (Real(j) + Real(.5)) / Real(count);
-                        auto const mu =
-                            ProtonImpactIonization::polarCosine(secondary, binding, maximum, u);
+                        auto const mu = ProtonImpactIonization::polarCosine(
+                            secondary, binding, Real(energy), Real(mass), Real(neutral), u);
                         data[4 * j] = mu;
                         using namespace BackgroundMCCKinematics;
                         // Alternate axes exercise both transverse-basis branches.
@@ -79,7 +80,15 @@ namespace
                     auto const mu_free =
                         std::sqrt(t * (maximum + 2 * m) / (double(maximum) * (t + 2 * m)));
                     auto const denom = double(secondary) + binding;
-                    auto const a = denom > 0 ? mu_free * (secondary + .5 * binding) / denom : 0;
+                    // Independent outgoing-projectile mass shell after binding loss.
+                    double const available = energy - binding;
+                    double const incoming = std::sqrt(available * (available + 2 * mass));
+                    double const emitted = std::sqrt(double(secondary) * (secondary + 2 * m));
+                    double const binary = emitted > 0
+                                              ? std::min(1., (available + mass + m) * secondary /
+                                                                 (incoming * emitted))
+                                              : 0;
+                    auto const a = denom > 0 ? binary * secondary / denom : 0;
                     auto const b = denom > 0 ? binding / denom : 1;
                     auto const lo = std::max(-1., a - b);
                     auto const hi = std::min(1., a + b);

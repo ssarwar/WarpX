@@ -435,8 +435,11 @@ namespace ProtonImpactIonization
             WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
                 m_first_row >= 0 && m_first_row < table_energy_points - 1,
                 "Invalid monoenergetic PJG coordinate.");
-            m_monoenergetic_sampling_state.m_energy_index = 0;
-            m_rows = 2;
+            // One neighboring row on either side covers thermal Doppler shifts
+            // across an interpolation boundary without loading the full table.
+            m_first_row = std::max(0, m_first_row - 1);
+            m_monoenergetic_sampling_state.m_energy_index -= m_first_row;
+            m_rows = std::min(4, table_energy_points - m_first_row);
         }
         amrex::Vector<amrex::ParticleReal> cross_section(m_rows);
         amrex::Vector<amrex::ParticleReal> log_secondary(m_rows * table_quantile_points);
@@ -468,7 +471,7 @@ namespace ProtonImpactIonization
                          m_log_secondary_energy.begin());
         amrex::Gpu::copy(amrex::Gpu::hostToDevice, binding.begin(), binding.end(),
                          m_binding_energy.begin());
-        if (m_rows == 2) {
+        if (monoenergetic_energy >= 0.0) {
             m_monoenergetic_cross_section =
                 crossSectionOnDevice(executor(), monoenergetic_energy);
         }

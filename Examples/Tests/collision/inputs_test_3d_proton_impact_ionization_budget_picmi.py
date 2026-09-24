@@ -176,10 +176,14 @@ for step in range(start_step + 1, STEPS + 1):
         if case["mode"] == "pulse" and step > 2:
             assert (float(ew.sum()), remainder, len(ew)) == previous[name]
         previous[name] = (float(ew.sum()), remainder, len(ew))
-        # The background is cold and the beam remains rigid.
+        # Cold neutrals still produce ion recoil; the projectile stays rigid.
         for tile in sim.particles.get(f"ions_{name}").iterator(level=0):
-            for component in ("ux", "uy", "uz"):
-                assert np.all(host(tile[component]) == 0)
+            u2 = sum(host(tile[component]) ** 2 for component in ("ux", "uy", "uz"))
+            assert np.isfinite(u2).all()
+            if len(u2):
+                assert np.any(u2 > 0)
+            kinetic = case["ions"].mass * u2 / (QE * (1 + np.sqrt(1 + u2 / C**2)))
+            assert np.all(kinetic <= ENERGY * (4 if case["mode"] == "alpha" else 1))
         for tile in sim.particles.get(f"beam_{name}").iterator(level=0):
             assert np.all(host(tile["uz"]) == PROPER_SPEED)
 

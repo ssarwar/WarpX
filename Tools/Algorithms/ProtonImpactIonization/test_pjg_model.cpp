@@ -7,6 +7,7 @@
 #include "PJGReferenceData.H"
 #include "PJGTestUtils.H"
 #include "Source/Particles/Collision/ProtonImpactIonization/PJGModel.H"
+#include "Source/Particles/Collision/ProtonImpactIonization/ProtonImpactIonizationKinematics.H"
 
 #include <AMReX.H>
 #include <AMReX_Gpu.H>
@@ -105,6 +106,20 @@ namespace
                     double const energy = host[offset + i];
                     require(std::isfinite(energy) && energy >= 0, "Invalid sampled energy");
                     require(i == 0 || energy >= host[offset + i - 1], "Nonmonotone inverse CDF");
+                    // The energy/binding sampler must admit an angular recoil
+                    // state even in its rare molecular tail. The unit quantile
+                    // is tested separately as a rounded phase-space endpoint.
+                    if (probabilities[i] < 1 - 1e-12) {
+                        auto const interval = ProtonImpactIonization::angularInterval(
+                            energy, host[offset + count + i], e, exec.m_projectile_rest_energy,
+                            exec.m_neutral_rest_energy);
+                        if (!interval.m_valid) {
+                            amrex::Print().SetPrecision(17)
+                                << "Invalid sampled support: E=" << e << " T=" << energy
+                                << " B=" << host[offset + count + i] << '\n';
+                        }
+                        require(interval.m_valid, "PJG sample has no molecular angular support");
+                    }
                     mean += weights[i] * energy;
                     second += weights[i] * energy * energy;
                     binding += weights[i] * host[offset + count + i];
@@ -175,7 +190,8 @@ namespace
             PJGModel const mono(target, proton_mass, 5e3, 1e10, energy);
             auto const sample = mono.executor();
             auto const cached = mono.monoenergeticSamplingState();
-            require(sample.m_rows == 2, "Monoenergetic table constructed unused rows");
+            require(sample.m_rows >= 3 && sample.m_rows <= 4,
+                    "Incorrect monoenergetic thermal halo");
             constexpr int n = 4097;
             amrex::Gpu::DeviceVector<amrex::ParticleReal> output(4*n+2);
             auto* values = output.data();

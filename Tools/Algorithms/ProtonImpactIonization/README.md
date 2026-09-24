@@ -24,7 +24,7 @@ A100 C++ checks also passed before this reference-only correction.
 
 The source emits effective electron/singly charged molecular-ion pairs.
 It does not resolve exclusive single ionization, fragmentation or capture.
-The beam is rigid and ions are neutral-thermal. The proton incident range is
+The beam is rigid; ions receive the reconstructed recoil and neutral thermal motion. The proton incident range is
 5 keV–10 GeV, with no lower cut on secondary-electron energy. The angular
 closure is outside this calibration.
 
@@ -144,10 +144,12 @@ The angular test runs the production closure on the device for float/double,
 5 keV–10 GeV protons, zero/soft/hard/above-free-endpoint secondaries and
 several bindings. It checks the conditional CDF, first/second angular moments,
 unit directions, rotation of the incident axis and the independent free
-projectile mass-shell equation. Conditioning the uniform IAA-inspired interval
-on physical cosines removes the former clipping-induced point mass at the
-forward direction (25% at and above free Tmax for nonzero binding). This
-change does not alter the calibrated SDCS or its parameters.
+projectile mass-shell equation. The closure now uses the heavy-projectile
+extension of Eq. (2.66), followed by the exact molecular recoil support.
+`test_recoil` checks on-shell electron/projectile/ion products, moving neutrals,
+rounded molecular endpoints and the free spectator-ion limit. The recoil
+partition minimizes ion kinetic energy in the neutral frame. This is a
+kinematically consistent model, not a molecular DDCS fit.
 
 The model test initializes AMReX, builds the actual production tables and
 runs the executor through `amrex::ParallelFor`. It compares host SDCS and
@@ -157,9 +159,11 @@ For a monoenergetic rigid beam, row selection, interpolation fraction, support
 endpoint and cached total are evaluated on the execution backend. Host/device
 logarithms can differ at float row boundaries. The test requires exact equality
 with the full device table at four physical energies and the neighboring
-representable energies around five table rows. Both native float and double
+representable energies around five table rows. Earlier native float and double
 particle versions passed on Perlmutter A100s in jobs `58712117` and `58712116`.
-The fixture can be regenerated with:
+Those GPU results predate the current angular/recoil changes and must be repeated.
+The monoenergetic cache now includes a neighboring row on each side for thermal
+Doppler shifts. The fixture can be regenerated with:
 
 ```sh
 python Tools/Algorithms/ProtonImpactIonization/generate_reference.py
@@ -183,7 +187,7 @@ The first command refreshes the build-tree Python package; building only a
 selected C++ or Python-extension target can leave an older PICMI wrapper there.
 
 The tests check represented yield, paired weights/positions, unchanged beams,
-electron-energy distributions, above-free tails, thermal-ion velocities
+electron-energy distributions, above-free tails, recoil-plus-thermal ion velocities
 and bounded product counts. Added cases check 1e-8 K neutrals (constant and
 parser inputs), rejection of projectile/product species aliasing, and the
 emitted-weight-plus-remainder budget over seven steps. The latter compares

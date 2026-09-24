@@ -7,10 +7,9 @@ import sys
 from pathlib import Path
 
 import numpy as np
-from mpi4py import MPI
 from scipy.special import erf
 
-from pywarpx import amrex, picmi, warpx
+from pywarpx import amrex, libwarpx, picmi, warpx
 
 sys.path.insert(
     0,
@@ -215,6 +214,11 @@ elif mutation == "particle_diagnostic":
 elif mutation == "load_balance":
     warpx.get_bucket("algo").load_balance_intervals = 1
 sim.initialize_warpx()
+# The source/recoil checks also run in a serial WarpX build. Initialize mpi4py
+# only when AMReX uses MPI, preserving the same collective checks in MPI runs.
+mpi_enabled = libwarpx.amr.Config.have_mpi
+if mpi_enabled:
+    from mpi4py import MPI
 
 
 def host(value):
@@ -230,7 +234,7 @@ def population(name):
         float(host(tile["w"]).sum())
         for tile in sim.particles.get(name).iterator(level=0)
     )
-    return MPI.COMM_WORLD.allreduce(local)
+    return MPI.COMM_WORLD.allreduce(local) if mpi_enabled else local
 
 
 def particle_state(name):
@@ -242,7 +246,7 @@ def particle_state(name):
             )
         )
     local = np.concatenate(arrays) if arrays else np.empty((0, 7))
-    values = np.concatenate(MPI.COMM_WORLD.allgather(local))
+    values = np.concatenate(MPI.COMM_WORLD.allgather(local)) if mpi_enabled else local
     return values[np.lexsort(values.T[::-1])]
 
 
@@ -408,7 +412,7 @@ for step in range(start + 1, steps + 1):
                 budgets[name + "_" + suffix + "(J)"], totals[comp], rtol=3e-12
             )
     saved_state = state()
-    if MPI.COMM_WORLD.rank == 0:
+    if libwarpx.amr.ParallelDescriptor.MyProc() == 0:
         np.savez(f"state_{step}.npz", **saved_state)
 if args.load_balance:
     assert redistributed, (

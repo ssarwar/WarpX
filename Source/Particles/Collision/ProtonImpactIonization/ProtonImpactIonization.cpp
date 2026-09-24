@@ -587,11 +587,7 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
                 index_type selected_particle = -1;
                 index_type previous_particle = -1;
                 amrex::ParticleReal kinetic_energy = 0.0_prt;
-                amrex::ParticleReal selected_speed = 0.0_prt;
-                amrex::ParticleReal maximum_transfer = 0.0_prt;
-                BackgroundMCCKinematics::Vector3 incident_direction{0.0, 0.0, 1.0};
-                BackgroundMCCKinematics::Vector3 transverse_1;
-                BackgroundMCCKinematics::Vector3 transverse_2;
+                ProtonImpactIonization::NeutralFrame cold_frame;
                 auto const thermal_speed =
                     std::sqrt(PhysConst::kb * temperature_pointer[cell] / neutral_mass);
                 ProtonImpactIonization::PJGModel::Executor::SamplingState sampling_state;
@@ -634,7 +630,6 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
                         if (particle_score > 0.0_prt) {
                             selected_particle = candidate;
                             kinetic_energy = candidate_energy;
-                            selected_speed = proper_speed;
                             cumulative_score += particle_score;
                         }
                     }
@@ -664,42 +659,14 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
                     // All products selected from one parent share this frame
                     // and sampling state. Rebuild them only when the parent changes.
                     if (selected_particle != previous_particle) {
-                        incident_direction = {
-                            static_cast<double>(projectile_ux[selected_particle] / selected_speed),
-                            static_cast<double>(projectile_uy[selected_particle] / selected_speed),
-                            static_cast<double>(projectile_uz[selected_particle] / selected_speed)};
-                        BackgroundMCCKinematics::transverseDirections(incident_direction,
-                                                                      transverse_1, transverse_2);
-                        maximum_transfer = pjg.maximumEnergyTransfer(kinetic_energy);
+                        cold_frame = ProtonImpactIonization::neutralFrame(
+                            {projectile_ux[selected_particle], projectile_uy[selected_particle],
+                             projectile_uz[selected_particle]},
+                            {}, projectile_mass);
                         sampling_state = pjg.prepareSampling(kinetic_energy);
                         previous_particle = selected_particle;
                     }
-                    amrex::ParticleReal secondary_energy;
-                    amrex::ParticleReal binding_energy;
-                    pjg.sample(sampling_state, energy_quantile, secondary_energy, binding_energy);
                     using ProtonImpactIonization::shiftedKronecker;
-                    // Odd fixed-point approximations to the fractional parts
-                    // of sqrt(2), sqrt(3), sqrt(5), sqrt(7), sqrt(11), sqrt(6).
-                    auto const cosine = ProtonImpactIonization::polarCosine(
-                        secondary_energy, binding_energy, maximum_transfer,
-                        shiftedKronecker<amrex::ParticleReal>(product, angle_shift, 0x6a09e667u));
-                    auto const azimuth =
-                        2.0_prt * static_cast<amrex::ParticleReal>(MathConst::pi) *
-                        shiftedKronecker<amrex::ParticleReal>(product, azimuth_shift, 0xbb67ae85u);
-                    auto const electron_direction =
-                        BackgroundMCCKinematics::directionFromPolarAngle(
-                            incident_direction, transverse_1, transverse_2,
-                            static_cast<double>(cosine), static_cast<double>(azimuth));
-                    auto const secondary_proper_speed =
-                        BackgroundMCCKinematics::properSpeedFromKineticEnergy(
-                            static_cast<double>(secondary_energy), PhysConst::m_e_v<double>);
-                    electron_ux[electron_index] = static_cast<amrex::ParticleReal>(
-                        secondary_proper_speed * electron_direction.x);
-                    electron_uy[electron_index] = static_cast<amrex::ParticleReal>(
-                        secondary_proper_speed * electron_direction.y);
-                    electron_uz[electron_index] = static_cast<amrex::ParticleReal>(
-                        secondary_proper_speed * electron_direction.z);
-
                     amrex::ParticleReal normal_x = 0.0_prt;
                     amrex::ParticleReal normal_y = 0.0_prt;
                     amrex::ParticleReal normal_z = 0.0_prt;
@@ -718,10 +685,48 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
                                                                  0x7311c281u),
                             normal_z, unused_normal);
                     }
+                    auto frame = cold_frame;
+                    auto event_sampling = sampling_state;
+                    if (thermal_speed > 0) {
+                        frame = ProtonImpactIonization::neutralFrame(
+                            {projectile_ux[selected_particle], projectile_uy[selected_particle],
+                             projectile_uz[selected_particle]},
+                            {thermal_speed * normal_x, thermal_speed * normal_y,
+                             thermal_speed * normal_z},
+                            projectile_mass);
+                        event_sampling =
+                            pjg.prepareSampling(static_cast<amrex::ParticleReal>(frame.m_energy));
+                    }
+                    if (event_sampling.m_energy_index < 0) {
+                        AMREX_IF_ON_DEVICE(
+                            (amrex::Gpu::Atomic::Max(runtime_error, amrex::Long{2}); return;))
+                        AMREX_IF_ON_HOST((amrex::Abort("Neutral-frame proton energy is outside the "
+                                                       "calibrated PJG range.");))
+                    }
+                    amrex::ParticleReal secondary_energy, binding_energy;
+                    pjg.sample(event_sampling, energy_quantile, secondary_energy, binding_energy);
+                    auto const products = ProtonImpactIonization::compute(
+                        frame, secondary_energy, binding_energy, projectile_mass, neutral_mass,
+                        shiftedKronecker<double>(product, angle_shift, 0x6a09e667u),
+                        2 * static_cast<double>(MathConst::pi) *
+                            shiftedKronecker<double>(product, azimuth_shift, 0xbb67ae85u));
+                    if (!products.m_valid) {
+                        AMREX_IF_ON_DEVICE(
+                            (amrex::Gpu::Atomic::Max(runtime_error, amrex::Long{3}); return;))
+                        AMREX_IF_ON_HOST(
+                            (amrex::Abort(
+                                 "Proton-impact spectrum/angle has no on-shell recoil state.");))
+                    }
+                    electron_ux[electron_index] =
+                        static_cast<amrex::ParticleReal>(products.m_electron.x);
+                    electron_uy[electron_index] =
+                        static_cast<amrex::ParticleReal>(products.m_electron.y);
+                    electron_uz[electron_index] =
+                        static_cast<amrex::ParticleReal>(products.m_electron.z);
                     if (!fluid_ion) {
-                        ion_ux[ion_index] = thermal_speed * normal_x;
-                        ion_uy[ion_index] = thermal_speed * normal_y;
-                        ion_uz[ion_index] = thermal_speed * normal_z;
+                        ion_ux[ion_index] = static_cast<amrex::ParticleReal>(products.m_ion.x);
+                        ion_uy[ion_index] = static_cast<amrex::ParticleReal>(products.m_ion.y);
+                        ion_uz[ion_index] = static_cast<amrex::ParticleReal>(products.m_ion.z);
                     }
 
                     auto const weight = product_weight_pointer[cell];
@@ -730,6 +735,18 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
                 }
             });
 
+#ifdef AMREX_USE_GPU
+            // Device assertions vanish in Release builds. Reuse the tile's
+            // error slot and check it before any product deposition can run.
+            amrex::Long product_error = 0;
+            amrex::Gpu::copy(amrex::Gpu::deviceToHost, runtime_error, runtime_error + 1,
+                             &product_error);
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                product_error != 2,
+                "Neutral-frame proton energy is outside the calibrated PJG range.");
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                product_error != 3, "Proton-impact spectrum/angle has no on-shell recoil state.");
+#endif
             if (total_new > 0) {
                 ParticleCreation::DefaultInitializeRuntimeAttributes(
                     electron_tile, electron, static_cast<int>(old_electron_count),

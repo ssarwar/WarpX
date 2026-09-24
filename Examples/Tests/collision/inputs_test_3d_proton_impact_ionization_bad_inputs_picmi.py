@@ -26,7 +26,11 @@ cases = (
         (
             "--alias-product",
             "Proton-impact product species must differ from the projectile",
-        )
+        ),
+        (
+            "--energy-keV=5",
+            "Neutral-frame proton energy is outside the calibrated PJG range.",
+        ),
     ]
 )
 for quantity in ["density", "temperature"]:

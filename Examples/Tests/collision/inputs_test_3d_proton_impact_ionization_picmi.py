@@ -126,7 +126,7 @@ for name, case in cases.items():
     if args.bad_temperature:
         case["temperature"] = "-(1+t)"
     if args.cold:
-        case["temperature"] = 1.0e-8 if name == "N2" else "1.0e-8+0.0*t"
+        case["temperature"] = 0.0 if name == "N2" else "0.0*t"
     case["beam"] = make_beam(name, case["direction"])
     case["electrons"] = make_electrons(name)
     case["ions"] = make_ions(name, case["neutral_mass"])

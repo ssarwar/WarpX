@@ -131,25 +131,49 @@ for target in ("N2", "O2"):
         binding = SpectrumGrid(target, energies[0], energy).effective_binding(
             PARAMETERS[target]
         )
-        maximum = free_maximum_transfer(energies[0])
+        maximum = free_maximum_transfer(energies[0] - binding)
         free_energy = np.minimum(energy, maximum)
         free_cosine = np.sqrt(
             free_energy
             * (maximum + 2 * 510998.95069)
             / (maximum * (free_energy + 2 * 510998.95069))
         )
-        center = free_cosine * (energy + binding / 2) / (energy + binding)
+        center = free_cosine * energy / (energy + binding)
         width = binding / (energy + binding)
         # Exact moments/CDF of the conditioned uniform closure, not a DDCS fit.
-        lower = np.maximum(-1, center - width)
-        upper = np.minimum(1, center + width)
+        neutral = float(data[f"{target}_neutral_mass"]) * C**2 / Q_E
+        pe = np.sqrt(energy * (energy + 2 * 510998.95069))
+        pp = np.sqrt(energies[0] * (energies[0] + 2 * rest))
+        total = energies[0] + rest + neutral
+        excess = (
+            energies[0] * (neutral - 510998.95069)
+            - binding * (rest + neutral - 510998.95069)
+            - binding**2 / 2
+        )
+        minimum = (total * energy - excess) / (pp * pe)
+        lower = np.maximum(minimum, center - width)
+        upper = center + width
         expected_cosine = (lower + upper) / 2
         assert abs(cosine.mean() - expected_cosine.mean()) < 1.5e-2
         expected_second = (lower**2 + lower * upper + upper**2) / 3
         assert abs(np.mean(cosine**2) - expected_second.mean()) < 1.5e-2
         conditional_quantile = (cosine - lower) / (upper - lower)
+        # Products are now boosted from the sampled neutral frame. Bound the
+        # thermal angular displacement in the laboratory frame at seven sigma;
+        # the cold test retains the original table/interpolation check.
+        sigma_v = math.sqrt(
+            K_B
+            * float(data[f"{target}_temperature"])
+            / float(data[f"{target}_neutral_mass"])
+        )
+        electron_speed = C * pe / (energy + 510998.95069)
+        beam_speed = C * pp / (energies[0] + rest)
+        thermal_band = (
+            7 * sigma_v * (1 / electron_speed + 1 / beam_speed) / (upper - lower)
+        )
         assert np.all(
-            (conditional_quantile > -2e-5) & (conditional_quantile < 1 + 2e-5)
+            (conditional_quantile > -2e-5 - thermal_band)
+            & (conditional_quantile < 1 + 2e-5 + thermal_band)
         )
         angular_ks = np.max(np.abs(np.sort(conditional_quantile) - empirical))
         assert angular_ks < 4e-3
@@ -165,8 +189,55 @@ for target in ("N2", "O2"):
         / float(data[f"{target}_neutral_mass"])
     )
     ion_u = np.column_stack([data[f"{target}_ions_{c}"] for c in ("ux", "uy", "uz")])
-    assert np.all(abs(ion_u.mean(axis=0)) < 0.03 * thermal_speed)
-    np.testing.assert_allclose(ion_u.std(axis=0), thermal_speed, rtol=0.035)
+    assert np.isfinite(ion_u).all()
+    if len(energies) == 1:
+        # Independently minimize the ion's kinetic energy in the two-body
+        # remainder. Neutral thermal motion broadens this recoil distribution;
+        # the old zero-mean thermal-only ion test no longer describes the model.
+        ion_rest = neutral - 510998.95069 + binding
+        recoil_momentum = pp * direction - pe[:, None] * unit
+        recoil_norm = np.linalg.norm(recoil_momentum, axis=1)
+        recoil_total = total - energy - 510998.95069
+        kinetic_remainder = energies[0] - energy - binding
+        defect = (
+            (energies[0] + rest + 510998.95069) * energy
+            + (energies[0] + rest - energy) * binding
+            - binding**2 / 2
+            - pp * pe * cosine
+        )
+        invariant = (rest + ion_rest) ** 2 + (
+            kinetic_remainder * (2 * (rest + ion_rest) + kinetic_remainder)
+            - recoil_norm**2
+        )
+        product = ion_rest * recoil_total - defect
+        discriminant = (
+            (invariant - (rest + ion_rest) ** 2)
+            * (invariant - (rest - ion_rest) ** 2)
+            / 4
+        )
+        ion_pc = (
+            defect
+            * (2 * ion_rest * recoil_total - defect)
+            / (
+                product * recoil_norm
+                + recoil_total * np.sqrt(np.maximum(discriminant, 0))
+            )
+        )
+        predicted = (C * ion_pc / (ion_rest * recoil_norm))[:, None] * recoil_momentum
+        # The independent conditional binding curve is interpolated differently
+        # from the device table. Resolve recoil moments to the 0.2% table target
+        # in addition to the pre-existing thermal statistical tolerance.
+        scale = np.sqrt(np.mean(predicted**2, axis=0))
+        assert np.all(
+            abs(ion_u.mean(axis=0) - predicted.mean(axis=0))
+            < 0.03 * thermal_speed + 0.002 * scale + 1e-7
+        )
+        expected_variance = predicted.var(axis=0) + thermal_speed**2
+        np.testing.assert_allclose(
+            ion_u.var(axis=0), expected_variance, rtol=0.07, atol=1e-10
+        )
+        if float(data[f"{target}_temperature"]) < 1e-6:
+            assert np.mean(np.linalg.norm(ion_u, axis=1)) > 100 * thermal_speed
     print(
         f"{target}: pairs={len(energy)}, energies={energies}, KS={ks:.3e}, mean={energy.mean():.6f}/{expected_mean:.6f} eV"
     )

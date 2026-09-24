@@ -19,9 +19,7 @@
 
 #include <ablastr/profiler/ProfilerWrapper.H>
 
-#include <AMReX_GpuAssert.H>
 #include <AMReX_GpuAtomic.H>
-#include <AMReX_GpuMemory.H>
 #include <AMReX_Scan.H>
 
 #include <algorithm>
@@ -96,8 +94,12 @@ ProtonImpactIonizationCollision::ProduceFromFluid (amrex::Real cur_time, amrex::
     auto const profile = m_fluid_projectile->getRigidBeam()->executor();
     auto const pjg = m_pjg_model->executor();
     auto const sampling = m_sampling_state;
-    auto const maximum_transfer =
-        pjg.maximumEnergyTransfer(m_fluid_projectile->getRigidBeam()->kineticEnergyEV());
+    double const projectile_mass = m_fluid_projectile->getMass();
+    double const incident_energy = m_fluid_projectile->getRigidBeam()->kineticEnergyEV();
+    double const incident_speed =
+        BackgroundMCCKinematics::properSpeedFromKineticEnergy(incident_energy, projectile_mass);
+    auto const cold_frame = ProtonImpactIonization::neutralFrame(
+        {0, 0, incident_speed * (profile.m_velocity > 0 ? 1 : -1)}, {}, projectile_mass);
     auto const& geom = warpx.Geom(0);
     auto const domain = geom.Domain();
     int const nr = domain.length(0), nz = domain.length(1);
@@ -122,15 +124,6 @@ ProtonImpactIonizationCollision::ProduceFromFluid (amrex::Real cur_time, amrex::
     auto const rate = m_source_rate;
     auto const seed = m_sampling_seed;
     bool const fluid_ion = destination.isFluid();
-    // Constant inputs were checked at construction. Dynamic parser values
-    // must also be checked when device assertions are disabled in Release.
-    std::unique_ptr<amrex::Gpu::DeviceScalar<int>> runtime_error;
-    if (!constant_gas || !constant_temperature) {
-        runtime_error = std::make_unique<amrex::Gpu::DeviceScalar<int>>(0);
-    }
-    auto* error_pointer = runtime_error ? runtime_error->dataPtr() : nullptr;
-    amrex::ignore_unused(error_pointer);
-
     // The separable air source needs only one axial table per global z cell.
     // Its last entry is the independently integrated physical yield; intermediate
     // entries provide a quiet piecewise-uniform spatial sampler, refined by the
@@ -159,13 +152,16 @@ ProtonImpactIonizationCollision::ProduceFromFluid (amrex::Real cur_time, amrex::
             box.numPts() <= std::numeric_limits<int>::max(),
             "Rigid-source tiles must contain fewer than INT_MAX cells.");
         int const nx = box.length(0), cells = static_cast<int>(box.numPts());
-        m_source_indices.resize(2 * static_cast<std::size_t>(cells));
+        m_source_indices.resize(2 * static_cast<std::size_t>(cells) + 1);
         m_source_weights.resize(cells);
         if (!constant_gas) {
             m_source_cdf.resize(cells * gas_stride);
         }
         auto* counts = m_source_indices.data();
         auto* offsets = counts + cells;
+        auto* error_pointer = offsets + cells;
+        amrex::Long const no_error = 0;
+        amrex::Gpu::copyAsync(amrex::Gpu::hostToDevice, &no_error, &no_error + 1, error_pointer);
         auto* weights = m_source_weights.data();
         auto* cdf = m_source_cdf.data();
         auto const rest = remainder.array(mfi);
@@ -195,7 +191,7 @@ ProtonImpactIonizationCollision::ProduceFromFluid (amrex::Real cur_time, amrex::
                                          zb + 0.5 * dz / quadrature, tb + 0.5 * dt / quadrature);
                     if (!(background >= 0.0 && std::isfinite(background))) {
                         AMREX_IF_ON_DEVICE(
-                            (amrex::Gpu::Atomic::Max(error_pointer, 1);))
+                            (amrex::Gpu::Atomic::Max(error_pointer, amrex::Long{1});))
                         AMREX_IF_ON_HOST(
                             (amrex::Abort("Rigid-source neutral density must "
                                           "be finite and non-negative.");))
@@ -229,10 +225,11 @@ ProtonImpactIonizationCollision::ProduceFromFluid (amrex::Real cur_time, amrex::
         });
         auto const total = amrex::Scan::ExclusiveSum(cells, counts, offsets);
         if (!constant_gas) {
-            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-                runtime_error->dataValue() == 0,
-                "Rigid-source neutral density must be finite and "
-                "non-negative.");
+            amrex::Long error = 0;
+            amrex::Gpu::copy(amrex::Gpu::deviceToHost, error_pointer, error_pointer + 1, &error);
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(error == 0,
+                                             "Rigid-source neutral density must be finite and "
+                                             "non-negative.");
         }
         if (total == 0) {
             continue;
@@ -326,38 +323,16 @@ ProtonImpactIonizationCollision::ProduceFromFluid (amrex::Real cur_time, amrex::
                 if (!fluid_ion) {
                     ion_data.m_rdata[PIdx::theta][pi] = e.m_rdata[PIdx::theta][pe];
                 }
-                amrex::ParticleReal secondary, threshold;
-                pjg.sample(
-                    sampling,
-                    ProtonImpactIonization::shiftedRadicalInverse(sample_index, energy_shift),
-                    secondary, threshold);
-                auto const cosine = ProtonImpactIonization::polarCosine(
-                    secondary, threshold, maximum_transfer,
-                    shiftedKronecker<amrex::ParticleReal>(sample_index, angle_shift, 0x6a09e667u));
-                double const phi =
-                    2 * MathConst::pi *
-                    shiftedKronecker<double>(sample_index, azimuth_shift, 0xbb67ae85u);
-                double const speed = BackgroundMCCKinematics::properSpeedFromKineticEnergy(
-                    secondary, PhysConst::m_e_v<double>);
-                double const transverse =
-                    speed * std::sqrt(std::max(0.0, 1 - double(cosine) * cosine));
-                e.m_rdata[PIdx::ux][pe] =
-                    static_cast<amrex::ParticleReal>(transverse * std::cos(phi));
-                e.m_rdata[PIdx::uy][pe] =
-                    static_cast<amrex::ParticleReal>(transverse * std::sin(phi));
-                e.m_rdata[PIdx::uz][pe] = static_cast<amrex::ParticleReal>(
-                    speed * cosine * (profile.m_velocity > 0 ? 1 : -1));
                 double const kelvin =
                     constant_temperature ? temperature : temperature_function(r, 0, z, cur_time);
                 if (!(kelvin >= 0.0 && std::isfinite(kelvin))) {
-                    AMREX_IF_ON_DEVICE(
-                        (amrex::Gpu::Atomic::Max(error_pointer, 2);))
+                    AMREX_IF_ON_DEVICE((amrex::Gpu::Atomic::Max(error_pointer, amrex::Long{2});))
                     AMREX_IF_ON_HOST(
                         (amrex::Abort("Rigid-source neutral temperature must "
                                       "be finite and non-negative.");))
                     return;
                 }
-                double ion_energy = 0.0;
+                double neutral_velocity[3]{};
                 for (int dir = 0; dir < 3; ++dir) {
                     double const a = shiftedKronecker<double>(
                         sample_index, static_cast<std::uint32_t>(scramble(phase + 5 + 2 * dir)),
@@ -370,19 +345,67 @@ ProtonImpactIonizationCollision::ProduceFromFluid (amrex::Real cur_time, amrex::
                             ? std::sqrt(-2 * PhysConst::kb * kelvin / neutral_mass * std::log(a)) *
                                   std::cos(2 * MathConst::pi * b)
                             : 0.0;
-                    if (!fluid_ion) {
-                        ion_data.m_rdata[PIdx::ux + dir][pi] =
-                            static_cast<amrex::ParticleReal>(velocity);
-                    }
-                    ion_energy += 0.5 * ion_mass * velocity * velocity;
+                    neutral_velocity[dir] = velocity;
                 }
+                auto frame = cold_frame;
+                auto event_sampling = sampling;
+                if (kelvin > 0) {
+                    frame = ProtonImpactIonization::neutralFrame(
+                        {0, 0, incident_speed * (profile.m_velocity > 0 ? 1 : -1)},
+                        {neutral_velocity[0], neutral_velocity[1], neutral_velocity[2]},
+                        projectile_mass);
+                    event_sampling =
+                        pjg.prepareSampling(static_cast<amrex::ParticleReal>(frame.m_energy));
+                }
+                if (event_sampling.m_energy_index < 0) {
+                    AMREX_IF_ON_DEVICE(
+                        (amrex::Gpu::Atomic::Max(error_pointer, amrex::Long{3}); return;))
+                    AMREX_IF_ON_HOST(
+                        (amrex::Abort(
+                             "Neutral-frame proton energy is outside the calibrated PJG range.");))
+                }
+                amrex::ParticleReal secondary, threshold;
+                pjg.sample(
+                    event_sampling,
+                    ProtonImpactIonization::shiftedRadicalInverse(sample_index, energy_shift),
+                    secondary, threshold);
+                auto const products = ProtonImpactIonization::compute(
+                    frame, secondary, threshold, projectile_mass, neutral_mass,
+                    shiftedKronecker<double>(sample_index, angle_shift, 0x6a09e667u),
+                    2 * static_cast<double>(MathConst::pi) *
+                        shiftedKronecker<double>(sample_index, azimuth_shift, 0xbb67ae85u));
+                if (!products.m_valid) {
+                    AMREX_IF_ON_DEVICE(
+                        (amrex::Gpu::Atomic::Max(error_pointer, amrex::Long{4}); return;))
+                    AMREX_IF_ON_HOST((
+                        amrex::Abort("Rigid-source spectrum/angle has no on-shell recoil state.");))
+                }
+                e.m_rdata[PIdx::ux][pe] = static_cast<amrex::ParticleReal>(products.m_electron.x);
+                e.m_rdata[PIdx::uy][pe] = static_cast<amrex::ParticleReal>(products.m_electron.y);
+                e.m_rdata[PIdx::uz][pe] = static_cast<amrex::ParticleReal>(products.m_electron.z);
+                if (!fluid_ion) {
+                    ion_data.m_rdata[PIdx::ux][pi] =
+                        static_cast<amrex::ParticleReal>(products.m_ion.x);
+                    ion_data.m_rdata[PIdx::uy][pi] =
+                        static_cast<amrex::ParticleReal>(products.m_ion.y);
+                    ion_data.m_rdata[PIdx::uz][pi] =
+                        static_cast<amrex::ParticleReal>(products.m_ion.z);
+                }
+                double const ion_energy =
+                    BackgroundMCCKinematics::kineticEnergyFromProperVelocity(
+                        products.m_ion, products.m_ion_rest_energy * PhysConst::q_e_v<double> /
+                                            PhysConst::c2_v<double>) *
+                    PhysConst::q_e_v<double>;
                 auto const weight = weights[cell];
                 e.m_rdata[PIdx::w][pe] = weight;
                 if (!fluid_ion) {
                     ion_data.m_rdata[PIdx::w][pi] = weight;
                 }
                 emitted += weight;
-                energy += weight * double(secondary) * PhysConst::q_e;
+                energy += weight *
+                          BackgroundMCCKinematics::kineticEnergyFromProperVelocity(
+                              products.m_electron, PhysConst::m_e_v<double>) *
+                          PhysConst::q_e_v<double>;
                 binding += weight * double(threshold) * PhysConst::q_e;
                 if (fluid_ion) {
                     discarded += weight * ion_energy;
@@ -398,12 +421,16 @@ ProtonImpactIonizationCollision::ProduceFromFluid (amrex::Real cur_time, amrex::
             totals(i, j, 0, 2) += static_cast<amrex::Real>(binding);
             totals(i, j, 0, 3) += static_cast<amrex::Real>(discarded);
         });
-        if (!constant_temperature) {
-            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-                runtime_error->dataValue() == 0,
-                "Rigid-source neutral temperature must be finite and "
-                "non-negative.");
-        }
+        amrex::Long product_error = 0;
+        amrex::Gpu::copy(amrex::Gpu::deviceToHost, error_pointer, error_pointer + 1,
+                         &product_error);
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            product_error != 2,
+            "Rigid-source neutral temperature must be finite and non-negative.");
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            product_error != 3, "Neutral-frame proton energy is outside the calibrated PJG range.");
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            product_error != 4, "Rigid-source spectrum/angle has no on-shell recoil state.");
         ParticleCreation::DefaultInitializeRuntimeAttributes(
             electrons, electron, static_cast<int>(first_e), static_cast<int>(first_e + total));
         if (ions) {

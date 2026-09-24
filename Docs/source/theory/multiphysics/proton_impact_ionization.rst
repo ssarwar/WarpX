@@ -32,7 +32,7 @@ does not alter the equations or coefficients below.
    Multiple ionization, fragmentation, capture, and correlated electron
    emission are not resolved as separate channels. The projectile is rigid:
    this operator changes neither its momentum nor its weight. Ions inherit
-   the neutral thermal velocity distribution, not event recoil.
+   the sampled neutral thermal velocity and the event recoil.
 
 The incident-proton numerical range is 5 keV--10 GeV. The total-data
 calibration covers experiments at 5--4000 keV; the fitted measured N2 spectra
@@ -1033,55 +1033,73 @@ uniforms directly; no arbitrary particle-epsilon cutoff truncates its tail.
 Systematic parent targets are formed from the product index, rather than
 repeatedly incremented with a rounding error that grows with product count.
 
-The electron and effective ion have equal position and weight. Ion velocity
-components have variance :math:`k_BT_n/M_n`, using the product-ion mass
-plus one electron mass as :math:`M_n`, neglecting the binding mass defect.
-The angular closure retains the practical IAA-style center and width, but
-conditions its uniform interval on the physical cosine domain:
+The electron and effective ion have equal position and weight. The neutral
+velocity is drawn from its Maxwellian bath. Products are constructed in that
+neutral rest frame and Lorentz transformed back to the simulation frame.
+The rate calculation retains the stationary-gas approximation for the heavy
+beam. A sampled neutral-frame projectile energy outside the calibrated PJG
+range is an error; it must not silently produce a zero-energy secondary.
+Monoenergetic tables retain neighboring interpolation rows for thermal Doppler
+shifts across a row boundary. The calibration-endpoint test uses a stationary
+target; finite-temperature tests use energies inside the calibrated interval.
+
+The heavy-projectile extension of Schmalzried Eq. (2.66) uses
+:math:`E_a=E-I_{\rm eff}` and the free endpoint :math:`T_m(E_a)`:
 
 .. math::
 
-   a=\mu_f\frac{T+I_{\rm eff}/2}{T+I_{\rm eff}},\qquad
-   b=\frac{I_{\rm eff}}{T+I_{\rm eff}},\qquad
-   L=\max(-1,a-b),\quad U=\min(1,a+b),\quad
-   \mu\sim\mathcal U[L,U],
+   w=\frac{T}{T+I_{\rm eff}},\qquad
+   \mu_f=\sqrt{\frac{T_f(T_m(E_a)+2m)}{T_m(E_a)(T_f+2m)}},\qquad
+   T_f=\min(T,T_m(E_a)),
+
+   a=w\mu_f,\qquad b=1-w.
+
+Here masses denote rest energies, and :math:`E` and :math:`T` are the incident
+projectile and emitted-electron kinetic energies. The free reference becomes
+forward above its endpoint without truncating the molecular energy tail.
+The interval :math:`[a-b,a+b]` lies in :math:`[-1,1]` by construction. Its
+nonrelativistic free-electron limit and low-secondary-energy isotropic limit
+are preserved. There is no legacy half-binding term or post-draw cosine clamp.
+
+The exact molecular recoil support further restricts the interval. For neutral
+rest energy :math:`A`, projectile rest energy :math:`M` and effective binding
+:math:`I=I_{\rm eff}`, the ion has rest energy :math:`A-m+I`. Define
 
 .. math::
 
-   \mu_f=\sqrt{\frac{T_f(T_m+2m)}{T_m(T_f+2m)}},\quad T_f=\min(T,T_m).
+   S=E+M+A,\quad p=\sqrt{E(E+2M)},\quad p_e=\sqrt{T(T+2m)},
 
-The former implementation clipped :math:`a+b\xi`,
-:math:`\xi\sim\mathcal U[-1,1]`, after sampling. Its forward point mass was
-:math:`\max(a+b-1,0)/(2b)`. In particular, at or above the free endpoint,
-:math:`a=1-b/2`, so **one quarter of the draws became exactly forward** for
-any nonzero binding width. Conditioning instead gives the normalized density
-:math:`1/(U-L)` on the allowed interval, without that artificial delta peak.
-There is no new fitting parameter, and intervals already inside :math:`[-1,1]`
-are unchanged. The conditional moments are
+   C=E(A-m)-I(M+A-m)-I^2/2,\qquad
+   \mu_{\min}=\frac{ST-C}{p p_e}.
 
-.. math::
+The condition :math:`(P_p+P_n-P_e)^2\geq(M+A-m+I)^2` gives this lower angular
+bound. The sampled cosine is uniform on
+:math:`[\max(a-b,\mu_{\min}),a+b]`, with the zero-electron-momentum limit handled
+separately. This conditions probabilities on allowed phase space instead of
+clipping samples into a point mass. The primary and residual ion are then
+constructed from their remaining two-body four-momentum, choosing the
+partition with minimum ion kinetic energy in the neutral frame. This extra
+recoil closure needs no random draw or iterative solve and recovers a
+stationary spectator ion in the free-electron binary limit.
 
-   \langle\mu\rangle=\frac{L+U}{2},\qquad
-   \langle\mu^2\rangle=\frac{L^2+LU+U^2}{3}.
+The angular interpolation and minimum-ion-recoil partition are modeling
+assumptions, not a measured molecular doubly differential cross section.
+Conservation tests establish their kinematic consistency; SDCS calibration
+does not establish their angular accuracy. The effective binding describes
+an unresolved ion internal state. Its mass defect is included in the event
+construction; a kinetic ion species still has its configured fixed mass.
 
-For :math:`T\to0` with positive binding, :math:`[L,U]\to[-1,1]`, giving
-isotropy. For vanishing binding with :math:`0<T\leq T_m`, the interval
-collapses to the exact free-binary cone. Independently of the endpoint
-formula, that cone obeys :math:`p_p c\,p_e c\,\mu_f=(E+M+m)T`, the outgoing
-projectile mass-shell relation. Tests check these limits, conditional CDFs
-and moments, absence of the finite-width forward atom, unit directions and
-rotation of the incident axis in float and double.
+A molecular endpoint rounded upward by input/table conversion is moved inside
+its exact support only when the excess is within eight input-precision ulps
+scaled by the incident energy. Larger violations are errors. Tests cover this
+representational endpoint in both precisions; no finite tail is clipped.
 
-The reference axis becomes forward above the free endpoint; the free
-formula is not evaluated outside its domain. Azimuth is uniform.
-This geometry is not a validated molecular DDCS, does not sample the
-support factor's isotropic fraction, and is not a channel-resolved molecular
-recoil construction. The SDCS calibration establishes no angular-accuracy
-claim. The interval conditioning is a minimal regularization, not a new fit.
-Because the beam is not slowed or deflected, neutrals are not depleted,
-and ions receive thermal velocities rather than recoil, the represented
-particle system is not energy- or momentum-closed: beam and background are
-external reservoirs.
+The outgoing projectile momentum is discarded for a rigid beam. Kinetic ions
+receive the constructed recoil; immobile ions discard it. Prescribed-source
+energy diagnostics include the emitted electron's laboratory energy and the
+constructed ion energy when discarded. Because the beam and neutral bath are
+external reservoirs, the represented particle system is not energy- or
+momentum-closed even though the reconstructed event conserves four-momentum.
 
 The independent tests separate three questions:
 
@@ -1092,7 +1110,7 @@ The independent tests separate three questions:
 * Implementation tests: actual C++ SDCS and moments versus independent Python
   fixtures; float/double device-executor CDF monotonicity and moments across
   the full table; full PIC N2/O2 yield, paired weights/positions, unchanged
-  beams, thermal ions, bound tails, mixed parent energies and bounded creation.
+  beams, recoiling ions, bound tails, mixed parent energies and bounded creation.
 * Performance tests: startup separated from collision timesteps, synchronized
   device-table microbenchmarks and a many-cell bounded-source case. Hardware
   results and reproduction commands are recorded with the reference tools;
