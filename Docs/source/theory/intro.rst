@@ -72,6 +72,7 @@ Multiphysics Processes
    :maxdepth: 1
 
    multiphysics_extensions
+   mcc_iaa_sources
 
 Advanced Modes of Running
 =========================
