@@ -2294,6 +2294,14 @@ WarpX::BackwardCompatibility ()
     pp_collisions.queryarr("collision_names", backward_coll_names);
     for(const std::string& coll_name : backward_coll_names){
         const ParmParse pp_coll(coll_name);
+        std::vector<std::string> backward_processes;
+        pp_coll.queryarr("scattering_processes", backward_processes);
+        for (auto const& process : backward_processes) {
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                !pp_coll.contains(process + "_secondary_angle_model"),
+                "The secondary_angle_model input has been removed. IAA electron-impact "
+                "ionization now always uses Schmalzried Eq. (2.66). Remove this input.");
+        }
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
             !pp_coll.query("fusion_multiplier", backward_Real) &&
             !pp_coll.query("fusion_probability_threshold", backward_Real) &&

@@ -226,7 +226,6 @@ public:
         }
 
         IonizationEnergySharingModel m_model = IonizationEnergySharingModel::Equal;
-        IonizationSecondaryAngle m_secondary_angle = IonizationSecondaryAngle::IAA11_132;
         int m_shell_count = 0;
         int m_energy_grid_size = 0;
         int m_shell_energy_grid_size = 0;

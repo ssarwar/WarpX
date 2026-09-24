@@ -31,9 +31,32 @@ namespace BackgroundMCCIonizationKinematics
     using BackgroundMCCKinematics::subtract;
     using BackgroundMCCKinematics::transverseDirections;
 
+    /** Schmalzried Eq. (2.66), in the neutral rest frame before ion recoil.
+     *
+     * The convex combination of a relativistic binary cosine and an isotropic
+     * cosine stays in [-1,1] without conditioning or clipping the distribution.
+     * Inputs satisfy 0 <= secondary_energy <= incident_energy - binding_energy.
+     */
+    template <typename Real>
+    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE Real
+    secondaryCosine (Real incident_energy, Real binding_energy, Real secondary_energy,
+                     Real electron_rest_energy, Real uniform) noexcept
+    {
+        auto const available = incident_energy - binding_energy;
+        auto const denominator = secondary_energy + binding_energy;
+        auto const isotropic = Real(1) - Real(2) * uniform;
+        if (denominator <= Real(0) || available <= Real(0)) {
+            return isotropic;
+        }
+        auto const weight = secondary_energy / denominator;
+        auto const binary =
+            std::sqrt(secondary_energy * (available + Real(2) * electron_rest_energy) /
+                      (available * (secondary_energy + Real(2) * electron_rest_energy)));
+        return weight * binary + (Real(1) - weight) * isotropic;
+    }
+
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE double
-    momentumEnergyFromKineticEnergy (double const kinetic_energy,
-                                     double const rest_energy) noexcept
+    momentumEnergyFromKineticEnergy (double const kinetic_energy, double const rest_energy) noexcept
     {
         return std::sqrt(amrex::max(kinetic_energy * (kinetic_energy + 2.0 * rest_energy),
                                     0.0));
@@ -96,7 +119,7 @@ namespace BackgroundMCCIonizationKinematics
      *
      * For the IAA model, the primary polar angle follows Schmalzried Eq.
      * (2.60), and the secondary uses the bound/free interpolation of Eq.
-     * (11.132). The two electron azimuths differ by pi, which gives the natural
+     * (2.66). The two electron azimuths differ by pi, which gives the natural
      * coplanar binary-encounter geometry while the ion absorbs the residual
      * momentum. Three Newton updates handle the usual regime; a checked,
      * bounded fallback handles large recoil. An inadmissible draw is a null
@@ -130,9 +153,8 @@ namespace BackgroundMCCIonizationKinematics
              amrex::ParticleReal& primary_ux, amrex::ParticleReal& primary_uy,
              amrex::ParticleReal& primary_uz, amrex::ParticleReal& secondary_ux,
              amrex::ParticleReal& secondary_uy, amrex::ParticleReal& secondary_uz,
-             amrex::ParticleReal& ion_ux, amrex::ParticleReal& ion_uy, amrex::ParticleReal& ion_uz,
-             IonizationSecondaryAngle const secondary_angle =
-                 IonizationSecondaryAngle::IAA11_132) noexcept
+             amrex::ParticleReal& ion_ux, amrex::ParticleReal& ion_uy,
+             amrex::ParticleReal& ion_uz) noexcept
     {
         constexpr double c2 = PhysConst::c2_v<double>;
         constexpr double inv_c2 = PhysConst::inv_c2_v<double>;
@@ -190,31 +212,9 @@ namespace BackgroundMCCIonizationKinematics
                                                (available_energy * (unrecoiled_primary_energy +
                                                                     2.0 * electron_rest_energy)),
                                            1.0)));
-            auto const denominator = unrecoiled_secondary_energy + binding;
-            // Schmalzried Eq. (11.132) uses the incident energy before the
-            // binding loss. Combine its free-electron factor with its weight
-            // to retain the finite zero-secondary-energy limit.
-            auto free_component = denominator > 0.0 && incident_energy > 0.0
-                                      ? std::sqrt(unrecoiled_secondary_energy / incident_energy) *
-                                            (unrecoiled_secondary_energy + 0.5 * binding) /
-                                            denominator
-                                      : 0.0;
-            if (secondary_angle == IonizationSecondaryAngle::Relativistic2_66 &&
-                denominator > 0.0) {
-                // Eq. (2.66): relativistic free-electron angle after binding
-                // loss, weighted by W/(W+B). Keep the same bound-electron
-                // isotropic term.
-                free_component = unrecoiled_secondary_energy / denominator *
-                                 std::sqrt(unrecoiled_secondary_energy *
-                                           (available_energy + 2 * electron_rest_energy) /
-                                           (available_energy * (unrecoiled_secondary_energy +
-                                                                2 * electron_rest_energy)));
-            }
-            auto const bound_weight = denominator > 0.0 ? binding / denominator : 0.0;
-            auto const bound_cosine = 1.0 - 2.0 * static_cast<double>(amrex::Random(engine));
-            auto const secondary_cosine =
-                amrex::max(-1.0, amrex::min(free_component + bound_weight * bound_cosine,
-                                            1.0));
+            auto const secondary_cosine = secondaryCosine(
+                incident_energy, binding, unrecoiled_secondary_energy, electron_rest_energy,
+                static_cast<double>(amrex::Random(engine)));
             auto const azimuth = two_pi * static_cast<double>(amrex::Random(engine));
 
             primary_direction = directionFromPolarAngle(incident_direction, transverse_1,

@@ -219,7 +219,4 @@ AMREX_ENUM(IonizationEnergySharingModel,
            Default = Equal  /**< Equal sharing */
 );
 
-/** Secondary-electron angular closure, independent of the RBEQ rate model. */
-AMREX_ENUM(IonizationSecondaryAngle, IAA11_132, Relativistic2_66);
-
 #endif // WARPX_UTILS_WARPXALGORITHMSELECTION_H_

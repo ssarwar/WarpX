@@ -10,6 +10,11 @@ from pathlib import Path
 from pywarpx import amrex, picmi
 
 CASES = {
+    "removed_secondary_angle": (
+        "The secondary_angle_model input has been removed",
+        "ionization",
+        {"secondary_angle_model": "relativistic2_66"},
+    ),
     "legendre_elastic_unsupported": (
         "legendre is not supported for DSMC/MCC collisions.",
         "elastic",

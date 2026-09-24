@@ -3690,16 +3690,6 @@ Details about the collision models can be found in the :ref:`theory section <mul
     for other processes. Collision subcycling is still needed to control the
     one-event-per-substep approximation, especially in thermal-balance studies.
 
-.. pp:param:: <collision_name>.<scattering_process>_secondary_angle_model
-    :type: ``string``
-    :default: ``IAA11_132``
-    :optional:
-
-    For IAA ionization angles, selects either the legacy thesis Eq. (11.132)
-    or ``relativistic2_66`` for Eq. (2.66). The primary angle retains Eq. (2.60).
-    This choice is independent of the RBEQ parameterization and energy-sharing
-    option. The beam-air example selects ``relativistic2_66`` explicitly.
-
 .. pp:param:: <collision_name>.<scattering_process>_species
     :type: ``string``
 

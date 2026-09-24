@@ -41,9 +41,10 @@ uniform until the whole differential distribution is nonnegative, including
 the narrow continuation within 0.1 percent of a shell's binding energy.
 Signed source totals are retained only for reference comparisons.
 
-The secondary-angle prescriptions in Eqs. (11.132) and (2.66) are different.
-For 2.5 MeV impact, binding 15.58 eV and equal sharing, their mean cosines
-are approximately 0.7071 and 0.8804. The primary retains Eq. (2.60).
+IAA ionization uses Eq. (2.66) for the secondary at all energies and
+Eq. (2.60) for the primary. For 2.5 MeV impact, binding 15.58 eV and equal
+sharing, the secondary mean cosine is approximately 0.8804. The ion recoil
+is enforced separately through the three-product kinematics solve.
 The omission of Coulomb interference is intentional.
 
 Rotation and inclusive elastic scattering

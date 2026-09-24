@@ -275,20 +275,23 @@ electron follows the relativistic binary-encounter relation
        \sqrt{\frac{T_p(T_a+2m_ec^2)}{T_a(T_p+2m_ec^2)}}.
 
 The bound/free interpolation for the secondary electron follows
-Schmalzried Eq. (11.132) directly:
+Schmalzried Eq. (2.66) at all incident energies:
 
     .. math::
 
        \cos\theta_s =
        \frac{T_s}{T_s+B_i}
-       \frac{T_s+B_i/2}{\sqrt{T_s T}}
+       \sqrt{\frac{T_s(T_a+2m_ec^2)}{T_a(T_s+2m_ec^2)}}
        + \frac{B_i}{T_s+B_i}\xi,
        \qquad \xi\sim\mathcal{U}[-1,1].
 
-Here :math:`T` is the incident electron energy before the binding loss. The
-sampled result is restricted to the physical cosine interval
-:math:`[-1,1]`; this affects only the upper edge of the crude near-threshold
-square-window model.
+This convex combination is bounded without clipping its probability
+distribution. The nonrelativistic binary factor tends to
+:math:`\sqrt{T_s/T_a}`, while the full model becomes isotropic as
+:math:`T_s/B_i\to0`. These approximate angles do not themselves enforce
+finite ion recoil; the subsequent three-product solve does that.
+The removed ``<process>_secondary_angle_model`` input is rejected with a
+migration message. There is no secondary-angle selector within the IAA model.
 
 The electron azimuths differ by :math:`\pi`; the product ion receives the
 remaining momentum. WarpX solves for the total electron energy after ion recoil

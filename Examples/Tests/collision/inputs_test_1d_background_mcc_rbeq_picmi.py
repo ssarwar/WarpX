@@ -11,7 +11,6 @@ from pywarpx import libwarpx, picmi
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--rbeq-model", default="iaa_thesis_2023")
-parser.add_argument("--secondary-angle", default="IAA11_132")
 args, _ = parser.parse_known_args()
 
 PARTICLE_COUNT = 32768
@@ -132,8 +131,6 @@ def make_collision(
         }
     }
     process["ionization"]["rbeq_model"] = args.rbeq_model
-    if angle_model == "IAA":
-        process["ionization"]["secondary_angle_model"] = args.secondary_angle
     return picmi.MCCCollisions(
         name=f"mcc_{name}",
         species=electrons,
@@ -255,7 +252,7 @@ def cosine_to_z(ux, uy, uz):
     )
 
 
-results = {"rbeq_model": args.rbeq_model, "secondary_angle": args.secondary_angle}
+results = {"rbeq_model": args.rbeq_model}
 particle_real_bytes = None
 for name, _, energy_ev, binding_energy, neutral_mass, _ in CASES:
     particle_count = PARTICLE_COUNTS.get(name, PARTICLE_COUNT)

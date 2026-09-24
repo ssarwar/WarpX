@@ -3520,9 +3520,8 @@ class MCCCollisions(picmistandard.base._ClassWithInit):
         can select ``energy_sharing_model="RBEQ"`` with an ``rbeq_target`` of
         ``"N2"`` or ``"O2"``, independently of their ``scattering_angle_model``.
         ``rbeq_model`` selects ``"iaa_thesis_2023"`` (default) or
-        ``"elmolcs_b8643810"``. For IAA ionization angles,
-        ``secondary_angle_model`` selects ``"IAA11_132"`` (default) or
-        ``"relativistic2_66"``.
+        ``"elmolcs_b8643810"``. IAA ionization uses the relativistic secondary
+        angular closure of Schmalzried Eq. (2.66) at all energies.
         One elastic process can specify ``rotation_model``, ``rotation_file``
         and a fixed ``rotational_temperature`` (default: constant background
         temperature). Its bundle supplies the joint angular and signed-energy

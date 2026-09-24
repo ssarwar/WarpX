@@ -53,11 +53,13 @@ SHELLS = {
 
 data = np.load("background_mcc_rbeq_results.npz")
 SNAPSHOT_MODEL = str(data.get("rbeq_model", "iaa_thesis_2023")) == "elmolcs_b8643810"
-RELATIVISTIC_ANGLE = str(data.get("secondary_angle", "IAA11_132")) == "relativistic2_66"
 if SNAPSHOT_MODEL:
     SHELLS = {k: np.array(v) for k, v in SNAPSHOT.items()}
-DIPOLES = {(s[0], s[3]): dipole(s[0], s[3], SNAPSHOT_MODEL)
-           for shells in SHELLS.values() for s in shells}
+DIPOLES = {
+    (s[0], s[3]): dipole(s[0], s[3], SNAPSHOT_MODEL)
+    for shells in SHELLS.values()
+    for s in shells
+}
 
 
 def rbeq_terms(energy, shell):
@@ -145,9 +147,7 @@ for target, shells in SHELLS.items():
     THRESHOLDS[target] = target_thresholds
 
 
-def conditional_cdf(
-    secondary_energy, incident_energy, shell, terms, uniform_threshold
-):
+def conditional_cdf(secondary_energy, incident_energy, shell, terms, uniform_threshold):
     binding, _, _, q = shell
     prefactor, ratio, binding_sq, exchange, bethe_log, total = terms
     if total <= 0.0:
@@ -198,9 +198,7 @@ def expected_statistics(target, incident_energy, cdf_probes, angle_model):
             max(maximum * 1.0e-14, np.finfo(float).tiny), maximum, 40001
         )
         grid = np.concatenate(([0.0], positive_grid))
-        cdf = conditional_cdf(
-            grid, incident_energy, shell, term, uniform_threshold
-        )
+        cdf = conditional_cdf(grid, incident_energy, shell, term, uniform_threshold)
         secondary_mean += probability * np.trapezoid(1.0 - cdf, grid)
         secondary_second_moment += probability * np.trapezoid(
             2.0 * grid * (1.0 - cdf), grid
@@ -219,30 +217,22 @@ def expected_statistics(target, incident_energy, cdf_probes, angle_model):
                 / (available * (primary_energy + 2.0 * MC2_EV))
             )
             denominator = grid + shell[0]
-            free_component = np.sqrt(grid / incident_energy) * (
-                grid + 0.5 * shell[0]
-            ) / denominator
-            if RELATIVISTIC_ANGLE:
-                free_component = grid / denominator * np.sqrt(
+            free_component = (
+                grid
+                / denominator
+                * np.sqrt(
                     grid * (available + 2 * MC2_EV) / (available * (grid + 2 * MC2_EV))
                 )
+            )
             bound_weight = shell[0] / denominator
-
-            # Eq. (11.132) is uniform on [a-b, a+b], followed by the same
-            # physical cosine clamp as the device implementation.
-            lower = free_component - bound_weight
-            upper = free_component + bound_weight
-            clipped = upper > 1.0
-            secondary_conditional_mean = free_component.copy()
+            # Eq. (2.66) is a convex combination; no probability lies outside
+            # the physical cosine interval, including near threshold.
+            assert np.all(free_component + bound_weight <= 1 + 4 * np.finfo(float).eps)
+            assert np.all(free_component - bound_weight >= -1)
+            secondary_conditional_mean = free_component
             secondary_conditional_second_moment = (
                 free_component**2 + bound_weight**2 / 3.0
             )
-            secondary_conditional_mean[clipped] = (
-                0.5 * (1.0 - lower[clipped] ** 2) + upper[clipped] - 1.0
-            ) / (2.0 * bound_weight[clipped])
-            secondary_conditional_second_moment[clipped] = (
-                (1.0 - lower[clipped] ** 3) / 3.0 + upper[clipped] - 1.0
-            ) / (2.0 * bound_weight[clipped])
             primary_cosine_mean += probability * np.trapezoid(
                 primary_cosine * pdf, grid
             )
@@ -332,9 +322,9 @@ for name, target, incident_energy, angle_model in CASES:
         # Event-by-event energy closure must recover one of the discrete target
         # binding energies, including in single-particle-precision builds.
         assert np.max(np.min(shell_distances, axis=1)) < 5.0e-2
-        observed_shell_probabilities = np.bincount(
-            sampled_shells, minlength=len(SHELLS[target])
-        ) / event_count
+        observed_shell_probabilities = (
+            np.bincount(sampled_shells, minlength=len(SHELLS[target])) / event_count
+        )
         shell_standard_errors = np.sqrt(
             expected_shell_probabilities
             * (1.0 - expected_shell_probabilities)
@@ -347,7 +337,10 @@ for name, target, incident_energy, angle_model in CASES:
 
         # The guarded shell has an analytically negative partial at these
         # energies and therefore must never be selected by grid interpolation.
-        forbidden_shell = {"n2_partial_guard": 3 if SNAPSHOT_MODEL else 2, "o2_partial_guard": 3}.get(name)
+        forbidden_shell = {
+            "n2_partial_guard": 3 if SNAPSHOT_MODEL else 2,
+            "o2_partial_guard": 3,
+        }.get(name)
         if forbidden_shell is not None:
             assert np.count_nonzero(sampled_shells == forbidden_shell) == 0
 
@@ -358,9 +351,7 @@ for name, target, incident_energy, angle_model in CASES:
         if guarded_shell is not None:
             guarded = secondary[sampled_shells == guarded_shell]
             assert guarded.size >= 20
-            maximum = 0.5 * (
-                incident_energy - SHELLS[target][guarded_shell, 0]
-            )
+            maximum = 0.5 * (incident_energy - SHELLS[target][guarded_shell, 0])
             uniform_samples = np.sort(guarded / maximum)
             empirical_upper = np.arange(1, guarded.size + 1) / guarded.size
             empirical_lower = np.arange(guarded.size) / guarded.size

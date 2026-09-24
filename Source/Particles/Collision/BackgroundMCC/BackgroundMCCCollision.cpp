@@ -166,7 +166,6 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
     ionization_targets.reserve(processes.size());
     differential_cross_sections.reserve(processes.size());
     amrex::Vector<BackgroundMCCRBEQ::Model> rbeq_models;
-    amrex::Vector<IonizationSecondaryAngle> secondary_angles;
 
     for (auto& process : processes)
     {
@@ -225,16 +224,9 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
         auto const has_rbeq_model =
             pp_collision_name.query(process.name() + "_rbeq_model", rbeq_name);
         auto const rbeq_model = BackgroundMCCRBEQ::parse(rbeq_name);
-        auto secondary_angle = IonizationSecondaryAngle::IAA11_132;
-        auto const has_secondary_angle = pp_collision_name.query_enum_case_insensitive(
-            process.name() + "_secondary_angle_model", secondary_angle);
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-            (!has_rbeq_model && !has_secondary_angle) ||
-                process_type == ScatteringProcessType::IONIZATION,
-            "RBEQ and secondary-angle options require an ionization process.");
-        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-            !has_secondary_angle || process.scatteringAngleModel() == ScatteringAngleModel::IAA,
-            "secondary_angle_model requires scattering_angle_model = IAA.");
+            !has_rbeq_model || process_type == ScatteringProcessType::IONIZATION,
+            "RBEQ options require an ionization process.");
         if (process_type == ScatteringProcessType::IONIZATION)
         {
             pp_collision_name.query_enum_case_insensitive(
@@ -408,7 +400,6 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
         ionization_energy_models.push_back(energy_sharing_model);
         ionization_targets.push_back(ionization_target);
         rbeq_models.push_back(rbeq_model);
-        secondary_angles.push_back(secondary_angle);
         differential_cross_sections.push_back(
             std::move(differential_cross_section));
         m_processes.push_back(std::move(process));
@@ -470,7 +461,6 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
             }
             executor = m_ionization_models[model->second]->executor();
         }
-        executor.m_secondary_angle = secondary_angles[i];
         host_ionization_processes.push_back(executor);
     }
 

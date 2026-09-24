@@ -190,7 +190,7 @@ add_warpx_test(
 add_warpx_test(
     test_1d_background_mcc_rbeq_snapshot_picmi
     1 1
-    "inputs_test_1d_background_mcc_rbeq_picmi.py --rbeq-model elmolcs_b8643810 --secondary-angle relativistic2_66"
+    "inputs_test_1d_background_mcc_rbeq_picmi.py --rbeq-model elmolcs_b8643810"
     "analysis_background_mcc_rbeq.py"
     OFF OFF
 )

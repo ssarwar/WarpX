@@ -47,3 +47,14 @@ The pinned-archive audit reconstructs the DCS using its named angle/energy axes 
 No negative residual is clipped, and no production rotational bundle is exported. A consistent angular decomposition, low-energy/resonant closure, convergence in elementary rotational rank, and high-energy continuation or an omitted-effect bound are still required. The new beam profile selects the source-matched RBEQ model and Eq. 2.66; it does not enable these rejected rotational candidates.
 
 Full vibrational/electronic/attachment export remains downstream of these source gates, including the O2 longest-band threshold and SR join corrections documented in the source audit. No pull request was opened.
+
+## Secondary-angle simplification
+
+IAA electron-impact ionization now uses Eq. (2.66) exclusively. The legacy
+selector is rejected by `BackwardCompatibility()`. The portable angular test
+checks float and double quantiles, moments, the free-projectile mass shell,
+isotropy and the nonrelativistic limit, including the endpoints without a
+cosine clamp. Both RBEQ integration profiles, the relativistic MCC regression
+and invalid-input suite passed in the double-particle-precision CPU build.
+The angular test uses compensated accumulation so summation error does not
+obscure its float64 checks.

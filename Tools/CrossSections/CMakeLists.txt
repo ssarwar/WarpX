@@ -9,9 +9,14 @@ if(TARGET lib_1d)
     add_executable(test_mcc_rotation test_mcc_rotation.cpp)
     target_link_libraries(test_mcc_rotation PRIVATE lib_1d)
     target_include_directories(test_mcc_rotation PRIVATE ../../Source)
+    add_executable(test_secondary_angles test_secondary_angles.cpp)
+    target_link_libraries(test_secondary_angles PRIVATE lib_1d)
+    target_include_directories(test_secondary_angles PRIVATE ../../Source)
     if(WarpX_COMPUTE STREQUAL CUDA)
         setup_target_for_cuda_compilation(test_mcc_rotation)
+        setup_target_for_cuda_compilation(test_secondary_angles)
     endif()
+    add_test(NAME test_1d_secondary_angles COMMAND test_secondary_angles)
     add_test(NAME test_1d_rotation_reference
         COMMAND ${Python_EXECUTABLE}
             ${CMAKE_CURRENT_SOURCE_DIR}/../../Examples/Tests/collision/analysis_rotation_reference.py
