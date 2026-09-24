@@ -20,189 +20,15 @@
 
 namespace
 {
-struct RBEQShell
-{
-    double binding_energy;
-    double kinetic_energy;
-    double occupation;
-    double oscillator_strength_ratio;
-};
+using namespace BackgroundMCCRBEQ;
 
-constexpr std::array<RBEQShell, 5> n2_shells{{{409.50, 603.30, 4.0, 1.000},
-                                              {37.30, 71.13, 2.0, 0.760},
-                                              {18.72, 63.18, 2.0, 1.000},
-                                              {16.74, 44.30, 4.0, 0.938},
-                                              {15.58, 54.91, 2.0, 0.792}}};
-
-constexpr std::array<RBEQShell, 6> o2_shells{{{543.80, 796.20, 4.0, 1.0000},
-                                              {40.33, 79.73, 2.0, 0.9600},
-                                              {27.05, 90.92, 2.0, 1.0000},
-                                              {20.30, 71.84, 2.0, 1.0000},
-                                              {17.08, 59.89, 4.0, 1.0000},
-                                              {12.07, 84.88, 2.0, 0.9314}}};
-
-struct RBEQTerms
-{
-    double prefactor = 0.0;
-    double incident_to_binding = 0.0;
-    double binding_sq = 0.0;
-    double exchange = 0.0;
-    double bethe_log = 0.0;
-    double total = 0.0;
-};
-
-/** Evaluate the dimensionless terms in the RBEQ* model.
- *
- * This is Schmalzried, Eqs. (11.119)--(11.121), with the corrected
- * high-energy dipole coefficient. The common dimensional normalization
- * cancels in shell selection and conditional energy sampling.
- */
-RBEQTerms rbeqTerms (double const incident_energy, RBEQShell const& shell)
-{
-    if (incident_energy <= shell.binding_energy)
-    {
-        return {};
-    }
-
-    constexpr double electron_rest_energy = 510998.95069; // eV
-    constexpr double log_two = 0.69314718055994530942;
-
-    auto const t = incident_energy / electron_rest_energy;
-    auto const b = shell.binding_energy / electron_rest_energy;
-    auto const u = shell.kinetic_energy / electron_rest_energy;
-    auto const energy_ratio = incident_energy / shell.binding_energy;
-    auto const gamma_tilde = 1.0 + t + u + b;
-    auto const beta_tilde_sq =
-        (gamma_tilde - 1.0) * (gamma_tilde + 1.0) / (gamma_tilde * gamma_tilde);
-    auto const q = shell.oscillator_strength_ratio;
-    auto const dipole_correction = -(1.0 + q - (5.0 - 3.0 * q) * log_two) / q;
-
-    RBEQTerms result;
-    result.prefactor = shell.occupation / (2.0 * b * beta_tilde_sq);
-    result.incident_to_binding = energy_ratio;
-    result.binding_sq = (b / gamma_tilde) * (b / gamma_tilde);
-    result.exchange =
-        (2.0 * gamma_tilde - 1.0) / ((1.0 + energy_ratio) * gamma_tilde * gamma_tilde);
-    result.bethe_log = std::log(t * (t + 2.0)) - t * (t + 2.0) / ((1.0 + t) * (1.0 + t)) -
-                       std::log(2.0 * b) + dipole_correction;
-
-    result.total =
-        result.prefactor *
-        (0.5 * q * result.bethe_log * (1.0 - 1.0 / (energy_ratio * energy_ratio)) +
-         (2.0 - q) * (1.0 - 1.0 / energy_ratio - std::log(energy_ratio) * result.exchange +
-                      0.5 * result.binding_sq * (energy_ratio - 1.0)));
-    return result;
-}
-
-double rbeqCumulative (double const secondary_energy, RBEQShell const& shell,
-                       RBEQTerms const& terms)
-{
-    auto const w = secondary_energy / shell.binding_energy;
-    auto const t = terms.incident_to_binding;
-    auto const q = shell.oscillator_strength_ratio;
-    auto const c1 =
-        0.5 * terms.bethe_log * q *
-        (1.0 - 1.0 / ((w + 1.0) * (w + 1.0)) + 1.0 / ((t - w) * (t - w)) - 1.0 / (t * t));
-    auto const c2 = 1.0 - 1.0 / (w + 1.0) + 1.0 / (t - w) - 1.0 / t + w * terms.binding_sq;
-    auto const c3 = std::log((w + 1.0) * t / (t - w)) * terms.exchange;
-    return terms.prefactor * (c1 + (2.0 - q) * (c2 - c3));
-}
-
-bool hasNonnegativeDifferential (double const incident_energy, RBEQShell const& shell)
-{
-    auto const terms = rbeqTerms(incident_energy, shell);
-    if (terms.total <= 0.0)
-    {
-        return false;
-    }
-
-    // Set y = 1/(w+1) + 1/(t-w). The differential RBEQ shape is the cubic
-    // A*y^3+B*y^2+C*y+D, so its exact minimum on the symmetric half-domain is
-    // attained at an endpoint or one of at most two stationary points.
-    auto const t = terms.incident_to_binding;
-    auto const sum = t + 1.0;
-    auto const q = shell.oscillator_strength_ratio;
-    auto const a = q * terms.bethe_log;
-    auto const b = (2.0 - q) - 3.0 * q * terms.bethe_log / sum;
-    auto const c = -(2.0 - q) * (2.0 / sum + terms.exchange);
-    auto const d = (2.0 - q) * terms.binding_sq;
-    auto const evaluate = [=] (double const y) { return ((a * y + b) * y + c) * y + d; };
-
-    auto const lower = 4.0 / sum;
-    auto const upper = sum / t;
-    auto minimum = std::min(evaluate(lower), evaluate(upper));
-    auto const evaluate_stationary_point = [&] (double const y) {
-        if (y > lower && y < upper)
-        {
-            minimum = std::min(minimum, evaluate(y));
-        }
-    };
-
-    auto const derivative_a = 3.0 * a;
-    auto const derivative_b = 2.0 * b;
-    auto const derivative_c = c;
-    auto const coefficient_scale =
-        std::max({std::abs(derivative_a), std::abs(derivative_b), std::abs(derivative_c)});
-    if (std::abs(derivative_a) <= std::numeric_limits<double>::epsilon() * coefficient_scale)
-    {
-        if (std::abs(derivative_b) >
-            std::numeric_limits<double>::epsilon() * coefficient_scale)
-        {
-            evaluate_stationary_point(-derivative_c / derivative_b);
-        }
-    }
-    else
-    {
-        auto const discriminant =
-            derivative_b * derivative_b - 4.0 * derivative_a * derivative_c;
-        if (discriminant >= 0.0)
-        {
-            auto const root = std::sqrt(discriminant);
-            evaluate_stationary_point((-derivative_b - root) / (2.0 * derivative_a));
-            evaluate_stationary_point((-derivative_b + root) / (2.0 * derivative_a));
-        }
-    }
-    return minimum >= 0.0;
-}
-
-template <typename Predicate>
-double findPositiveThreshold (RBEQShell const& shell, Predicate&& predicate)
-{
-    auto lower = shell.binding_energy;
-    auto upper = std::nextafter(lower, std::numeric_limits<double>::infinity());
-    while (!predicate(upper))
-    {
-        lower = upper;
-        upper *= 1.1;
-        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-            std::isfinite(upper) && upper <= 1.0e9,
-            "Could not find a physical RBEQ near-threshold continuation below 1 GeV.");
-    }
-
-    constexpr int bisection_iterations = 64;
-    for (int iteration = 0; iteration < bisection_iterations; ++iteration)
-    {
-        auto const midpoint = 0.5 * (lower + upper);
-        if (predicate(midpoint))
-        {
-            upper = midpoint;
-        }
-        else
-        {
-            lower = midpoint;
-        }
-    }
-    return upper;
-}
-
-template <std::size_t N>
-void findShellThresholds (std::array<RBEQShell, N> const& shells,
-                          std::array<double, N>& positive_thresholds,
-                          std::array<double, N>& uniform_thresholds)
-{
+void
+findShellThresholds (std::vector<RBEQShell> const& shells,
+                     std::vector<double>& positive_thresholds,
+                     std::vector<double>& uniform_thresholds) {
     constexpr double uniform_threshold_ratio = 1.0e-3;
-    for (int shell_index = 0; shell_index < static_cast<int>(N); ++shell_index)
-    {
+    for (int shell_index = 0; shell_index < static_cast<int>(shells.size());
+         ++shell_index) {
         auto const& shell = shells[shell_index];
         positive_thresholds[shell_index] = findPositiveThreshold(
             shell, [&shell] (double const energy) { return rbeqTerms(energy, shell).total > 0.0; });
@@ -215,12 +41,11 @@ void findShellThresholds (std::array<RBEQShell, N> const& shells,
     }
 }
 
-template <std::size_t N>
-void initializeShellCrossSections (
-    std::array<RBEQShell, N> const& shells, double const energy_min,
+void
+initializeShellCrossSections (
+    std::vector<RBEQShell> const& shells, double const energy_min,
     double const shell_log_energy_step,
-    amrex::Gpu::HostVector<amrex::ParticleReal>& shell_cross_sections)
-{
+    amrex::Gpu::HostVector<amrex::ParticleReal>& shell_cross_sections) {
     constexpr int max_shells = BackgroundMCCIonizationModel::max_shell_count;
     constexpr int shell_energy_count =
         BackgroundMCCIonizationModel::shell_energy_grid_size;
@@ -228,8 +53,8 @@ void initializeShellCrossSections (
     {
         auto const incident_energy = energy_min *
             std::exp(shell_log_energy_step * static_cast<double>(energy_index));
-        for (int shell_index = 0; shell_index < static_cast<int>(N); ++shell_index)
-        {
+        for (int shell_index = 0; shell_index < static_cast<int>(shells.size());
+             ++shell_index) {
             // Some Q=1 partial cross sections are negative immediately above
             // their thresholds because the RBEQ dipole correction is too
             // strong. A negative partial cannot be sampled; it enters only once
@@ -242,12 +67,11 @@ void initializeShellCrossSections (
     }
 }
 
-template <std::size_t N>
-void initializeInverseCdf (std::array<RBEQShell, N> const& shells, double const energy_min,
-                           double const log_energy_step,
-                           std::array<double, N> const& uniform_thresholds,
-                           amrex::Gpu::HostVector<amrex::ParticleReal>& inverse_cdf)
-{
+void
+initializeInverseCdf (
+    std::vector<RBEQShell> const& shells, double const energy_min,
+    double const log_energy_step, std::vector<double> const& uniform_thresholds,
+    amrex::Gpu::HostVector<amrex::ParticleReal>& inverse_cdf) {
     constexpr int inverse_iterations = 36;
     constexpr int max_shells = BackgroundMCCIonizationModel::max_shell_count;
     constexpr int energy_count = BackgroundMCCIonizationModel::energy_grid_size;
@@ -258,14 +82,14 @@ void initializeInverseCdf (std::array<RBEQShell, N> const& shells, double const 
         auto const incident_energy =
             energy_min * std::exp(log_energy_step * static_cast<double>(energy_index));
 
-        std::array<RBEQTerms, N> terms;
-        for (int shell_index = 0; shell_index < static_cast<int>(N); ++shell_index)
-        {
+        std::vector<RBEQTerms> terms(shells.size());
+        for (int shell_index = 0; shell_index < static_cast<int>(shells.size());
+             ++shell_index) {
             terms[shell_index] = rbeqTerms(incident_energy, shells[shell_index]);
         }
 
-        for (int shell_index = 0; shell_index < static_cast<int>(N); ++shell_index)
-        {
+        for (int shell_index = 0; shell_index < static_cast<int>(shells.size());
+             ++shell_index) {
             auto const& shell = shells[shell_index];
             auto const available_energy = std::max(incident_energy - shell.binding_energy, 0.0);
             auto const maximum_secondary_energy = 0.5 * available_energy;
@@ -316,8 +140,9 @@ void initializeInverseCdf (std::array<RBEQShell, N> const& shells, double const 
 } // namespace
 
 BackgroundMCCIonizationModel::BackgroundMCCIonizationModel (
-    BackgroundMCCIonizationTarget const target, amrex::ParticleReal const maximum_energy)
-{
+    BackgroundMCCIonizationTarget const target,
+    amrex::ParticleReal const maximum_energy,
+    BackgroundMCCRBEQ::Model const model) {
     using namespace amrex::literals;
 
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(target == BackgroundMCCIonizationTarget::N2 ||
@@ -350,52 +175,27 @@ BackgroundMCCIonizationModel::BackgroundMCCIonizationModel (
     m_executor_h.m_inverse_log_energy_step =
         static_cast<amrex::ParticleReal>(1.0 / log_energy_step);
 
-    if (target == BackgroundMCCIonizationTarget::N2)
-    {
-        std::array<double, n2_shells.size()> positive_thresholds;
-        std::array<double, n2_shells.size()> uniform_thresholds;
-        findShellThresholds(n2_shells, positive_thresholds, uniform_thresholds);
-        m_executor_h.m_shell_count = static_cast<int>(n2_shells.size());
-        for (int i = 0; i < m_executor_h.m_shell_count; ++i)
-        {
-            m_executor_h.m_binding_energies[i] =
-                static_cast<amrex::ParticleReal>(n2_shells[i].binding_energy);
-            m_executor_h.m_positive_threshold_coordinates[i] =
-                static_cast<amrex::ParticleReal>(
-                    std::log(positive_thresholds[i] / energy_min) /
-                    shell_log_energy_step);
-            m_executor_h.m_uniform_threshold_coordinates[i] =
-                static_cast<amrex::ParticleReal>(
-                    std::log(uniform_thresholds[i] / energy_min) / log_energy_step);
-        }
-        initializeShellCrossSections(
-            n2_shells, energy_min, shell_log_energy_step, m_shell_cross_sections_h);
-        initializeInverseCdf(
-            n2_shells, energy_min, log_energy_step, uniform_thresholds, m_inverse_cdf_h);
+    auto const parameters = BackgroundMCCRBEQ::shells(
+        target == BackgroundMCCIonizationTarget::N2, model);
+    std::vector<double> positive_thresholds(parameters.size());
+    std::vector<double> uniform_thresholds(parameters.size());
+    findShellThresholds(parameters, positive_thresholds, uniform_thresholds);
+    m_executor_h.m_shell_count = static_cast<int>(parameters.size());
+    for (int i = 0; i < m_executor_h.m_shell_count; ++i) {
+        m_executor_h.m_binding_energies[i] =
+            static_cast<amrex::ParticleReal>(parameters[i].binding_energy);
+        m_executor_h.m_positive_threshold_coordinates[i] =
+            static_cast<amrex::ParticleReal>(
+                std::log(positive_thresholds[i] / energy_min) /
+                shell_log_energy_step);
+        m_executor_h.m_uniform_threshold_coordinates[i] =
+            static_cast<amrex::ParticleReal>(
+                std::log(uniform_thresholds[i] / energy_min) / log_energy_step);
     }
-    else
-    {
-        std::array<double, o2_shells.size()> positive_thresholds;
-        std::array<double, o2_shells.size()> uniform_thresholds;
-        findShellThresholds(o2_shells, positive_thresholds, uniform_thresholds);
-        m_executor_h.m_shell_count = static_cast<int>(o2_shells.size());
-        for (int i = 0; i < m_executor_h.m_shell_count; ++i)
-        {
-            m_executor_h.m_binding_energies[i] =
-                static_cast<amrex::ParticleReal>(o2_shells[i].binding_energy);
-            m_executor_h.m_positive_threshold_coordinates[i] =
-                static_cast<amrex::ParticleReal>(
-                    std::log(positive_thresholds[i] / energy_min) /
-                    shell_log_energy_step);
-            m_executor_h.m_uniform_threshold_coordinates[i] =
-                static_cast<amrex::ParticleReal>(
-                    std::log(uniform_thresholds[i] / energy_min) / log_energy_step);
-        }
-        initializeShellCrossSections(
-            o2_shells, energy_min, shell_log_energy_step, m_shell_cross_sections_h);
-        initializeInverseCdf(
-            o2_shells, energy_min, log_energy_step, uniform_thresholds, m_inverse_cdf_h);
-    }
+    initializeShellCrossSections(parameters, energy_min, shell_log_energy_step,
+                                 m_shell_cross_sections_h);
+    initializeInverseCdf(parameters, energy_min, log_energy_step,
+                         uniform_thresholds, m_inverse_cdf_h);
 
     m_executor_h.m_shell_cross_sections = m_shell_cross_sections_h.data();
     m_executor_h.m_inverse_cdf = m_inverse_cdf_h.data();
@@ -438,11 +238,11 @@ BackgroundMCCIonizationModel::outerBindingEnergy (BackgroundMCCIonizationTarget 
 {
     if (target == BackgroundMCCIonizationTarget::N2)
     {
-        return static_cast<amrex::ParticleReal>(n2_shells.back().binding_energy);
+        return static_cast<amrex::ParticleReal>(15.58);
     }
     if (target == BackgroundMCCIonizationTarget::O2)
     {
-        return static_cast<amrex::ParticleReal>(o2_shells.back().binding_energy);
+        return static_cast<amrex::ParticleReal>(12.07);
     }
     return 0.0;
 }

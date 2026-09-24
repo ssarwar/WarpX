@@ -91,8 +91,8 @@ public:
         m_ionization_processes_exe;
     std::vector<std::unique_ptr<BackgroundMCCElasticScatteringModel>>
         m_differential_scattering_models;
-    std::unique_ptr<BackgroundMCCIonizationModel> m_n2_ionization_model;
-    std::unique_ptr<BackgroundMCCIonizationModel> m_o2_ionization_model;
+    std::vector<std::unique_ptr<BackgroundMCCIonizationModel>>
+        m_ionization_models;
     std::unique_ptr<BackgroundMCCProcessSelector> m_process_selector;
     amrex::Vector<ProductGroup> m_product_groups;
     amrex::Gpu::DeviceVector<int> m_process_product_group;

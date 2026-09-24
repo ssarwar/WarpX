@@ -3519,6 +3519,10 @@ class MCCCollisions(picmistandard.base._ClassWithInit):
         additionally requires ``third_body_density`` in m^-3. Ionization entries
         can select ``energy_sharing_model="RBEQ"`` with an ``rbeq_target`` of
         ``"N2"`` or ``"O2"``, independently of their ``scattering_angle_model``.
+        ``rbeq_model`` selects ``"iaa_thesis_2023"`` (default) or
+        ``"elmolcs_b8643810"``. For IAA ionization angles,
+        ``secondary_angle_model`` selects ``"IAA11_132"`` (default) or
+        ``"relativistic2_66"``.
         The ``"IAA"`` angle model implements IAA ionization kinematics or, for
         elastic electron scattering, samples the required
         ``differential_cross_section`` table.

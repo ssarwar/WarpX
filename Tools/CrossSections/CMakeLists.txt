@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.24)
+project(WarpXCrossSections LANGUAGES CXX)
+add_executable(export_rbeq export_rbeq.cpp)
+target_compile_features(export_rbeq PRIVATE cxx_std_17)
+target_include_directories(export_rbeq PRIVATE ../../Source)

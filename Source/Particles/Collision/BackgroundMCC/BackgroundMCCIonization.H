@@ -7,6 +7,7 @@
 #ifndef WARPX_PARTICLES_COLLISION_BACKGROUNDMCC_IONIZATION_H_
 #define WARPX_PARTICLES_COLLISION_BACKGROUNDMCC_IONIZATION_H_
 
+#include "BackgroundMCCRBEQ.H"
 #include "Utils/WarpXAlgorithmSelection.H"
 
 #include <AMReX_Array.H>
@@ -225,6 +226,8 @@ public:
         }
 
         IonizationEnergySharingModel m_model = IonizationEnergySharingModel::Equal;
+        IonizationSecondaryAngle m_secondary_angle =
+            IonizationSecondaryAngle::IAA11_132;
         int m_shell_count = 0;
         int m_energy_grid_size = 0;
         int m_shell_energy_grid_size = 0;
@@ -242,7 +245,9 @@ public:
     };
 
     BackgroundMCCIonizationModel (BackgroundMCCIonizationTarget target,
-                                  amrex::ParticleReal maximum_energy);
+                                  amrex::ParticleReal maximum_energy,
+                                  BackgroundMCCRBEQ::Model model =
+                                      BackgroundMCCRBEQ::Model::IAAThesis2023);
 
     [[nodiscard]] Executor const& executor () const
     {

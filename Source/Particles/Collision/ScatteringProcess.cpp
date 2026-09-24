@@ -24,7 +24,8 @@ ScatteringProcess::ScatteringProcess (
 {
     // Retain the unscaled values in double precision. Three-body attachment
     // tables in m^5 can be much smaller than the single-precision range.
-    readCrossSectionFileRaw(cross_section_file, m_energies, m_sigmas_unscaled);
+    readCrossSectionFileRaw(cross_section_file, m_energies, m_sigmas_unscaled,
+                            &m_metadata);
 
     init(scattering_process, energy, scattering_angle_model);
 }
@@ -190,9 +191,8 @@ ScatteringProcess::parseProcessType(const std::string& scattering_process)
 void
 ScatteringProcess::readCrossSectionFileRaw (
     const std::string& cross_section_file,
-    amrex::Vector<amrex::ParticleReal>& energies,
-    std::vector<double>& sigmas)
-{
+    amrex::Vector<amrex::ParticleReal>& energies, std::vector<double>& sigmas,
+    std::map<std::string, std::string>* metadata) {
     std::ifstream infile(cross_section_file);
     if (!infile.is_open()) {
         WARPX_ABORT_WITH_MESSAGE("Failed to open cross-section data file");
@@ -205,7 +205,22 @@ ScatteringProcess::readCrossSectionFileRaw (
         ++line_number;
         std::istringstream row(line);
         row >> std::ws;
-        if (row.eof() || row.peek() == '#') { continue; }
+        if (row.eof()) {
+            continue;
+        }
+        if (row.peek() == '#') {
+            row.get();
+            std::string key, equal, value;
+            if (metadata && row >> key >> equal >> value && equal == "=" &&
+                (key == "rbeq_model" || key == "rbeq_normalization" ||
+                 key == "rbeq_target")) {
+                WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                    metadata->count(key) == 0,
+                    "Duplicate cross-section metadata: " + key);
+                metadata->emplace(key, value);
+            }
+            continue;
+        }
 
         double energy;
         double sigma;

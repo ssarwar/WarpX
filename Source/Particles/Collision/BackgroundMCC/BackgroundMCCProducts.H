@@ -104,9 +104,10 @@ public:
             ? secondary_energy/available_energy : 0.0_prt;
 
         return BackgroundMCCIonizationKinematics::compute(
-            ux, uy, uz, neutral_vx, neutral_vy, neutral_vz, m_mass1, ion_mass, binding_energy,
-            secondary_fraction, m_processes[process_index].m_scattering_angle_model, engine, ux, uy,
-            uz, e_ux, e_uy, e_uz, i_ux, i_uy, i_uz);
+            ux, uy, uz, neutral_vx, neutral_vy, neutral_vz, m_mass1, ion_mass,
+            binding_energy, secondary_fraction,
+            m_processes[process_index].m_scattering_angle_model, engine, ux, uy,
+            uz, e_ux, e_uy, e_uz, i_ux, i_uy, i_uz, model.m_secondary_angle);
     }
 
 private:

@@ -16,7 +16,9 @@
       "species": "N2_plus",
       "energy_sharing_model": "RBEQ",
       "rbeq_target": "N2",
-      "scattering_angle_model": "IAA"
+      "scattering_angle_model": "IAA",
+      "rbeq_model": "iaa_thesis_2023",
+      "secondary_angle_model": "relativistic2_66"
     }
   },
   "O2": {
@@ -36,7 +38,9 @@
       "species": "O2_plus",
       "energy_sharing_model": "RBEQ",
       "rbeq_target": "O2",
-      "scattering_angle_model": "IAA"
+      "scattering_angle_model": "IAA",
+      "rbeq_model": "iaa_thesis_2023",
+      "secondary_angle_model": "relativistic2_66"
     },
     "attachment_dissociative": {
       "cross_section": "cross_sections/e_O2_attachment_m2.txt",

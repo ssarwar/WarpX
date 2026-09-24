@@ -18,6 +18,7 @@
 #include <AMReX_RandomEngine.H>
 #include <AMReX_Vector.H>
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -160,6 +161,13 @@ public:
         return m_sigmas_h;
     }
 
+    /** Read a recognized source identifier from a cross-section comment. */
+    [[nodiscard]] std::string
+    metadata (std::string const& key) const {
+        auto const entry = m_metadata.find(key);
+        return entry == m_metadata.end() ? std::string{} : entry->second;
+    }
+
     [[nodiscard]] std::string const& name () const { return m_name; }
     [[nodiscard]] ScatteringProcessType type () const { return m_exe_h.m_type; }
     [[nodiscard]] ScatteringAngleModel scatteringAngleModel () const
@@ -171,17 +179,18 @@ public:
     ScatteringProcessType parseProcessType(const std::string& process);
 
 private:
-    static void readCrossSectionFileRaw (
-        const std::string& cross_section_file,
-        amrex::Vector<amrex::ParticleReal>& energies,
-        std::vector<double>& sigmas);
+  static void readCrossSectionFileRaw (
+      const std::string& cross_section_file,
+      amrex::Vector<amrex::ParticleReal>& energies, std::vector<double>& sigmas,
+      std::map<std::string, std::string>* metadata = nullptr);
 
-    void init (const std::string& scattering_process, amrex::ParticleReal energy,
-               ScatteringAngleModel scattering_angle_model);
+  void init (const std::string& scattering_process, amrex::ParticleReal energy,
+             ScatteringAngleModel scattering_angle_model);
 
-    std::string m_name;
-    amrex::Vector<amrex::ParticleReal> m_energies;
-    std::vector<double> m_sigmas_unscaled;
+  std::string m_name;
+  std::map<std::string, std::string> m_metadata;
+  amrex::Vector<amrex::ParticleReal> m_energies;
+  std::vector<double> m_sigmas_unscaled;
 
 #ifdef AMREX_USE_GPU
     amrex::Gpu::DeviceVector<amrex::ParticleReal> m_energies_d;

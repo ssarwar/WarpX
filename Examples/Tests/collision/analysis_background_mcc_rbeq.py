@@ -4,6 +4,7 @@
 import math
 
 import numpy as np
+from rbeq_reference import SNAPSHOT, dipole
 
 PARTICLE_COUNT = 32768
 MC2_EV = 510998.95069
@@ -50,6 +51,15 @@ SHELLS = {
 }
 
 
+data = np.load("background_mcc_rbeq_results.npz")
+SNAPSHOT_MODEL = str(data.get("rbeq_model", "iaa_thesis_2023")) == "elmolcs_b8643810"
+RELATIVISTIC_ANGLE = str(data.get("secondary_angle", "IAA11_132")) == "relativistic2_66"
+if SNAPSHOT_MODEL:
+    SHELLS = {k: np.array(v) for k, v in SNAPSHOT.items()}
+DIPOLES = {(s[0], s[3]): dipole(s[0], s[3], SNAPSHOT_MODEL)
+           for shells in SHELLS.values() for s in shells}
+
+
 def rbeq_terms(energy, shell):
     binding, kinetic, occupation, q = shell
     if energy <= binding:
@@ -60,7 +70,7 @@ def rbeq_terms(energy, shell):
     ratio = energy / binding
     gamma_tilde = 1.0 + t + u + b
     beta_tilde_sq = 1.0 - 1.0 / gamma_tilde**2
-    correction = -(1.0 + q - (5.0 - 3.0 * q) * LN2) / q
+    correction = DIPOLES[binding, q]
     prefactor = occupation / (2.0 * b * beta_tilde_sq)
     binding_sq = (b / gamma_tilde) ** 2
     exchange = (2.0 * gamma_tilde - 1.0) / ((1.0 + ratio) * gamma_tilde**2)
@@ -212,6 +222,10 @@ def expected_statistics(target, incident_energy, cdf_probes, angle_model):
             free_component = np.sqrt(grid / incident_energy) * (
                 grid + 0.5 * shell[0]
             ) / denominator
+            if RELATIVISTIC_ANGLE:
+                free_component = grid / denominator * np.sqrt(
+                    grid * (available + 2 * MC2_EV) / (available * (grid + 2 * MC2_EV))
+                )
             bound_weight = shell[0] / denominator
 
             # Eq. (11.132) is uniform on [a-b, a+b], followed by the same
@@ -333,7 +347,7 @@ for name, target, incident_energy, angle_model in CASES:
 
         # The guarded shell has an analytically negative partial at these
         # energies and therefore must never be selected by grid interpolation.
-        forbidden_shell = {"n2_partial_guard": 2, "o2_partial_guard": 3}.get(name)
+        forbidden_shell = {"n2_partial_guard": 3 if SNAPSHOT_MODEL else 2, "o2_partial_guard": 3}.get(name)
         if forbidden_shell is not None:
             assert np.count_nonzero(sampled_shells == forbidden_shell) == 0
 

@@ -3619,6 +3619,31 @@ Details about the collision models can be found in the :ref:`theory section <mul
     with ``energy_sharing_model = RBEQ``. The supported molecular targets are
     ``N2`` and ``O2`` (case-insensitive).
 
+.. pp:param:: <collision_name>.<scattering_process>_rbeq_model
+    :type: ``string``
+    :default: ``iaa_thesis_2023``
+    :optional:
+
+    Selects the shell parameters and dipole correction for RBEQ energy sharing.
+    ``iaa_thesis_2023`` uses thesis Table 11.12 and Eq. (11.121).
+    ``elmolcs_b8643810`` uses the archived fitted parameters and finite-energy
+    correction described in :ref:`mcc-iaa-sources`. Both use positive shell
+    partials and the bounded uniform near-threshold sharing continuation.
+    Generate matching rates with ``Tools/CrossSections/export_rbeq.cpp``.
+    Recognized comments ``# rbeq_model = ...``, ``# rbeq_target = ...`` and
+    ``# rbeq_normalization = positive_part`` are checked against the sampler.
+    Legacy tables without these comments remain supported.
+
+.. pp:param:: <collision_name>.<scattering_process>_secondary_angle_model
+    :type: ``string``
+    :default: ``IAA11_132``
+    :optional:
+
+    For IAA ionization angles, selects either the legacy thesis Eq. (11.132)
+    or ``relativistic2_66`` for Eq. (2.66). The primary angle retains Eq. (2.60).
+    This choice is independent of the RBEQ parameterization and energy-sharing
+    option. The beam-air example selects ``relativistic2_66`` explicitly.
+
 .. pp:param:: <collision_name>.<scattering_process>_species
     :type: ``string``
 

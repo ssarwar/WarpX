@@ -165,8 +165,8 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
     ionization_energy_models.reserve(processes.size());
     ionization_targets.reserve(processes.size());
     differential_cross_sections.reserve(processes.size());
-    amrex::ParticleReal n2_maximum_energy = 0.0_prt;
-    amrex::ParticleReal o2_maximum_energy = 0.0_prt;
+    amrex::Vector<BackgroundMCCRBEQ::Model> rbeq_models;
+    amrex::Vector<IonizationSecondaryAngle> secondary_angles;
 
     for (auto& process : processes)
     {
@@ -178,6 +178,22 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
 
         auto energy_sharing_model = IonizationEnergySharingModel::Equal;
         auto ionization_target = BackgroundMCCIonizationTarget::None;
+        std::string rbeq_name = "iaa_thesis_2023";
+        auto const has_rbeq_model =
+            pp_collision_name.query(process.name() + "_rbeq_model", rbeq_name);
+        auto const rbeq_model = BackgroundMCCRBEQ::parse(rbeq_name);
+        auto secondary_angle = IonizationSecondaryAngle::IAA11_132;
+        auto const has_secondary_angle =
+            pp_collision_name.query_enum_case_insensitive(
+                process.name() + "_secondary_angle_model", secondary_angle);
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            (!has_rbeq_model && !has_secondary_angle) ||
+                process_type == ScatteringProcessType::IONIZATION,
+            "RBEQ and secondary-angle options require an ionization process.");
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            !has_secondary_angle ||
+                process.scatteringAngleModel() == ScatteringAngleModel::IAA,
+            "secondary_angle_model requires scattering_angle_model = IAA.");
         if (process_type == ScatteringProcessType::IONIZATION)
         {
             pp_collision_name.query_enum_case_insensitive(
@@ -204,19 +220,31 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
                     "binding energy to within 0.05 eV."
                 );
 
-                if (ionization_target == BackgroundMCCIonizationTarget::N2)
-                {
-                    n2_maximum_energy = std::max(
-                        n2_maximum_energy, process.getMaxEnergyInput());
-                }
-                else
-                {
-                    o2_maximum_energy = std::max(
-                        o2_maximum_energy, process.getMaxEnergyInput());
-                }
+                WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                    process.metadata("rbeq_model").empty() ||
+                        process.metadata("rbeq_model") == rbeq_name,
+                    "Cross-section rbeq_model metadata does not match the "
+                    "selected sampler.");
+                WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                    process.metadata("rbeq_normalization").empty() ||
+                        process.metadata("rbeq_normalization") ==
+                            "positive_part",
+                    "RBEQ production tables require positive_part "
+                    "normalization.");
+                WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                    process.metadata("rbeq_target").empty() ||
+                        BackgroundMCCIonizationModel::parseTarget(
+                            process.metadata("rbeq_target")) ==
+                            ionization_target,
+                    "Cross-section rbeq_target metadata does not match the "
+                    "selected target.");
             }
         }
 
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            !has_rbeq_model ||
+                energy_sharing_model == IonizationEnergySharingModel::RBEQ,
+            "rbeq_model requires energy_sharing_model = RBEQ.");
         std::string differential_cross_section;
         auto const has_differential_cross_section = pp_collision_name.query(
             process.name() + "_differential_cross_section", differential_cross_section);
@@ -339,6 +367,8 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
         process_product_group.push_back(product_group);
         ionization_energy_models.push_back(energy_sharing_model);
         ionization_targets.push_back(ionization_target);
+        rbeq_models.push_back(rbeq_model);
+        secondary_angles.push_back(secondary_angle);
         differential_cross_sections.push_back(
             std::move(differential_cross_section));
         m_processes.push_back(std::move(process));
@@ -372,17 +402,7 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
         host_differential_scattering_processes.push_back(executor);
     }
 
-    if (n2_maximum_energy > 0.0_prt)
-    {
-        m_n2_ionization_model = std::make_unique<BackgroundMCCIonizationModel>(
-            BackgroundMCCIonizationTarget::N2, n2_maximum_energy);
-    }
-    if (o2_maximum_energy > 0.0_prt)
-    {
-        m_o2_ionization_model = std::make_unique<BackgroundMCCIonizationModel>(
-            BackgroundMCCIonizationTarget::O2, o2_maximum_energy);
-    }
-
+    std::unordered_map<std::string, std::size_t> ionization_model_indices;
     amrex::Gpu::HostVector<BackgroundMCCIonizationModel::Executor>
         host_ionization_processes;
     host_ionization_processes.reserve(m_processes.size());
@@ -390,14 +410,29 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
     {
         BackgroundMCCIonizationModel::Executor executor;
         executor.m_model = ionization_energy_models[i];
-        if (ionization_targets[i] == BackgroundMCCIonizationTarget::N2)
-        {
-            executor = m_n2_ionization_model->executor();
+        if (ionization_targets[i] != BackgroundMCCIonizationTarget::None) {
+            auto const key =
+                std::to_string(static_cast<int>(ionization_targets[i])) + ":" +
+                BackgroundMCCRBEQ::name(rbeq_models[i]);
+            auto model = ionization_model_indices.find(key);
+            if (model == ionization_model_indices.end()) {
+                amrex::ParticleReal maximum_energy = 0;
+                for (int j = 0; j < static_cast<int>(m_processes.size()); ++j) {
+                    if (ionization_targets[j] == ionization_targets[i] &&
+                        rbeq_models[j] == rbeq_models[i]) {
+                        maximum_energy = std::max(
+                            maximum_energy, m_processes[j].getMaxEnergyInput());
+                    }
+                }
+                auto const index = m_ionization_models.size();
+                m_ionization_models.push_back(
+                    std::make_unique<BackgroundMCCIonizationModel>(
+                        ionization_targets[i], maximum_energy, rbeq_models[i]));
+                model = ionization_model_indices.emplace(key, index).first;
+            }
+            executor = m_ionization_models[model->second]->executor();
         }
-        else if (ionization_targets[i] == BackgroundMCCIonizationTarget::O2)
-        {
-            executor = m_o2_ionization_model->executor();
-        }
+        executor.m_secondary_angle = secondary_angles[i];
         host_ionization_processes.push_back(executor);
     }
 

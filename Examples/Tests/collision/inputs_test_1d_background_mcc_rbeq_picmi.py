@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
 """Sample N2 and O2 RBEQ ionization from threshold through 1 GeV."""
 
+import argparse
 import math
 from pathlib import Path
 
 import numpy as np
 
 from pywarpx import libwarpx, picmi
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--rbeq-model", default="iaa_thesis_2023")
+parser.add_argument("--secondary-angle", default="IAA11_132")
+args, _ = parser.parse_known_args()
 
 PARTICLE_COUNT = 32768
 INITIAL_ION_COUNT = 1
@@ -125,6 +131,9 @@ def make_collision(
             "species": ions,
         }
     }
+    process["ionization"]["rbeq_model"] = args.rbeq_model
+    if angle_model == "IAA":
+        process["ionization"]["secondary_angle_model"] = args.secondary_angle
     return picmi.MCCCollisions(
         name=f"mcc_{name}",
         species=electrons,
@@ -246,7 +255,7 @@ def cosine_to_z(ux, uy, uz):
     )
 
 
-results = {}
+results = {"rbeq_model": args.rbeq_model, "secondary_angle": args.secondary_angle}
 particle_real_bytes = None
 for name, _, energy_ev, binding_energy, neutral_mass, _ in CASES:
     particle_count = PARTICLE_COUNTS.get(name, PARTICLE_COUNT)
