@@ -30,9 +30,12 @@ parser.add_argument(
 parser.add_argument("--particles", type=int, default=65536)
 parser.add_argument("--steps", type=int, default=8)
 parser.add_argument("--repeats", type=int, default=5)
+parser.add_argument("--warmup-runs", type=int, default=1)
 args = parser.parse_args()
 if args.repeats < 2:
     raise ValueError("At least two independent seeds are required to measure variance")
+if args.warmup_runs < 0:
+    raise ValueError("The number of warmup runs must be nonnegative")
 script = (
     Path(__file__).resolve().parents[2]
     / "Examples/Tests/collision/inputs_test_1d_background_mcc_rotation_picmi.py"
@@ -41,12 +44,14 @@ report = {
     "particles_per_case": args.particles,
     "steps": args.steps,
     "repeats": args.repeats,
+    "warmup_runs_per_mode": args.warmup_runs,
 }
 records = {"alias": [], "cumulative": []}
-for repeat in range(args.repeats):
+for repeat in range(-args.warmup_runs, args.repeats):
     # Alternate order to reduce thermal/throttling bias.
     for mode in ["alias", "cumulative"] if repeat % 2 == 0 else ["cumulative", "alias"]:
-        directory = (args.output / f"{mode}_{repeat}").resolve()
+        name = f"{mode}_{repeat}" if repeat >= 0 else f"warmup_{mode}_{-repeat}"
+        directory = (args.output / name).resolve()
         directory.mkdir(parents=True, exist_ok=True)
         command = [
             sys.executable,
@@ -66,6 +71,10 @@ for repeat in range(args.repeats):
             subprocess.run(
                 command, cwd=directory, stdout=log, stderr=subprocess.STDOUT, check=True
             )
+        # Warm both paths in separate processes, then measure fresh ensembles.
+        # This avoids mixing one-time driver/cache costs into one sampler's mean.
+        if repeat < 0:
+            continue
         with np.load(directory / "background_mcc_rotation_results.npz") as data:
             records[mode].append(
                 {
@@ -83,6 +92,8 @@ for mode, runs in records.items():
     report[mode] = {
         "runs": runs,
         "mean_step_seconds": average,
+        "median_step_seconds": float(np.median(seconds)),
+        "standard_deviation_step_seconds": float(seconds.std(ddof=1)),
         "particle_steps_per_second": args.particles
         * args.steps
         * runs[0]["cases"]

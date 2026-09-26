@@ -98,6 +98,8 @@ python Tools/CrossSections/benchmark_rotation.py --data-dir /path/to/warpx-data/
 `test_mcc_rotation` measures table initialization, memory and isolated lookup
 throughput. `benchmark_rotation.py` measures complete timesteps and variance
 per computational cost using identical physics for alias and cumulative paths.
+It performs one separate warmup run per sampler before measuring fresh seeded
+ensembles, and records the timing mean, median and standard deviation.
 `perlmutter_rotation.sbatch` builds and runs the portable checks and benchmarks
 on one Perlmutter GPU; provide the GPU allocation and Python environment when
 submitting. CPU results alone do not establish CUDA/HIP/SYCL performance.
