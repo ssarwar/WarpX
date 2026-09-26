@@ -569,6 +569,8 @@ ProtonImpactIonizationCollision::doCollisions (amrex::Real const cur_time, amrex
             amrex::ParallelForRNG(num_cells, [=] AMREX_GPU_DEVICE(
                                                  int const cell,
                                                  amrex::RandomEngine const& engine) noexcept {
+                // Keep the capture identical in NVCC's host and device passes.
+                amrex::ignore_unused(runtime_error);
                 auto const product_count = count_pointer[cell];
                 auto const total_score = collision_score_pointer[cell];
                 if (product_count == 0 || total_score <= 0.0_prt) {
