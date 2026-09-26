@@ -61,7 +61,8 @@ namespace
                             frame.m_energy, projectile);
                         for (double secondary :
                              {0., 1.e-8, .1 * free, .9 * free, 1.1 * free, .5 * maximum,
-                              .999999 * maximum, double(Real(maximum))}) {
+                              .999999 * maximum, double(Real(maximum)), std::nextafter(maximum, 0.),
+                              std::nextafter(maximum, std::numeric_limits<double>::infinity())}) {
                             amrex::ParallelFor(count, [=] AMREX_GPU_DEVICE(int j) noexcept {
                                 auto products = ProtonImpactIonization::compute(
                                     frame, secondary, binding, mass, neutral_mass, (j + .5) / count,
@@ -139,6 +140,20 @@ namespace
                                     throw std::runtime_error(
                                         "Free binary collision recoils the spectator ion");
                                 }
+                            }
+                        }
+                        double const outside =
+                            maximum * (1 + 64 * std::numeric_limits<Real>::epsilon());
+                        amrex::ParallelFor(count, [=] AMREX_GPU_DEVICE(int j) noexcept {
+                            output[j] = ProtonImpactIonization::compute(
+                                frame, outside, binding, mass, neutral_mass, (j + .5) / count, 0.,
+                                std::numeric_limits<Real>::epsilon());
+                        });
+                        amrex::Gpu::copy(amrex::Gpu::deviceToHost, device.begin(), device.end(),
+                                         host.begin());
+                        for (auto const &result : host) {
+                            if (result.m_valid) {
+                                throw std::runtime_error("Endpoint guard accepted a finite excess");
                             }
                         }
                     }

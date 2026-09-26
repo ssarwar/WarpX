@@ -156,11 +156,13 @@ namespace ProtonImpactIonization
         if (!interval.m_valid) {
             double const endpoint =
                 molecularMaximumSecondaryEnergy(incident, projectile, neutral, binding);
-            // Input/table conversion can round a molecular endpoint upward.
-            // Repair only a few input ulps, never a finite portion of the tail.
-            if (secondary >= endpoint &&
-                secondary - endpoint <= 8 * relative_precision * amrex::max(incident, secondary)) {
-                secondary = endpoint * (1 - 32 * std::numeric_limits<double>::epsilon());
+            // Host/device evaluation can put the same endpoint on opposite
+            // sides of the angular boundary. Repair only a few input ulps,
+            // always decreasing the sampled energy, never a finite tail.
+            if (std::abs(secondary - endpoint) <=
+                8 * relative_precision * amrex::max(incident, secondary)) {
+                secondary = amrex::min(secondary, endpoint) *
+                            (1 - 32 * std::numeric_limits<double>::epsilon());
                 interval = angularInterval(secondary, binding, incident, projectile, neutral);
             }
         }
