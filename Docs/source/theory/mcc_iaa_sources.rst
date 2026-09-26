@@ -69,48 +69,63 @@ approximately 19.5 and 18.6 percent of the respective equilibrium populations.
 A thermal sum must extend the state set, rather than renormalize those lists.
 
 IAA Eq. (11.24) constructs transitions from elementary integral rates using
-the sudden approximation. Forward and reverse rates obey integral detailed
-balance before Boltzmann weighting. The runtime draws the angle from the
-existing inclusive elastic DCS, followed by a discrete rotational change.
-Only exact energy/recoil accessibility conditions that second draw. At exactly
-zero relative momentum there is no incident axis, so emitted electrons use
-the isotropic limit.
-
-The spectator relation in Eq. (11.29), :math:`J_R=kR\sin(\theta/2)`, describes a
-high-energy rotational-rainbow scale. It is not a hard quantum selection rule:
-Eq. (11.30) has nonzero probabilities beyond it. The runtime therefore does
-not use this scale to exclude channels. It also does not use the rotational
-DCS shapes from Eqs. (11.21b) or (11.35).
-
-Reference bundles contain integral rates and a nonnegative unchanged residual,
-so there is no subtraction of incompatible angular shapes. The revised N2/O2
-audit passes that integral nonnegativity check over its tested range. It does
-not establish the missing low-energy rate continuations, convergence in
-omitted elementary rotational ranks, or coverage through beam energies.
-O2 still uses an angular-integrated Born rate approximation, whose sub-eV
-validity must be distinguished from the elastic angular sampler.
-
-For incident neutral-rest-frame energy :math:`E`, cosine :math:`\mu`, electron
-rest energy :math:`m` and initial molecular rest energy :math:`M`, define
-:math:`S=M+m+E`, :math:`p^2=E(E+2m)` and
-:math:`s=(M+m)^2+2ME`. The largest accessible internal-energy increase is
+the sudden approximation. The V3 rate model uses the canonical internal-energy
+threshold :math:`\Delta=E_{J'}-E_J`, without molecular recoil shifts. For
+relativistic electron momentum :math:`p(E)=\sqrt{E(E+2m_ec^2)}/c`, reverse rates
+satisfy the heavy-target integral relation
 
 .. math::
 
-   Q_{\max}(E,\mu)=
-   \sqrt{s+m^2-2m\sqrt{S^2-p^2\max(\mu,0)^2}}-M.
+  g_Jp(E+\Delta)^2\sigma_{J\to J'}(E+\Delta)
+  =g_{J'}p(E)^2\sigma_{J'\to J}(E).
 
-WarpX evaluates this with rationalized differences. Positive losses must not
-exceed this bound; de-excitation is allowed whenever the final mass is positive.
-Its angular restriction matters close to recoil-shifted excitation thresholds.
-Away from those boundaries, it introduces no angle-dependent rotational weight.
+The runtime draws a discrete rotational change independently of the angle from
+the existing inclusive elastic DCS. At exactly zero relative momentum there
+is no incident axis, so emitted electrons use the isotropic limit. A selected
+excitation below its exact level spacing, possible through energy-grid
+rounding, becomes an unchanged event. No other rotational rate is increased.
+There is no angular conditioning, transition search, or rejection in the
+alias sampler, and it requires no cumulative table.
 
-Using the same energy-dependent elastic angular distribution for forward and
-reverse processes does not impose exact differential detailed balance.
-Conditioning at finite-mass accessibility boundaries can also alter the
-integral rotational rates in narrow threshold intervals. These are explicit
-approximations of the selected model; population, integral detailed balance,
-threshold conditioning and thermal power balance are tested separately.
+The spectator relation in Eq. (11.29), :math:`J_R=kR\sin(\theta/2)`, is not a
+hard quantum selection rule. Neither it nor a separate rotational DCS is used.
+The elastic DCS supplies the vibrationally elastic angular marginal, including
+unresolved rotations; see thesis Eq. (8.129), the end of Section 11.1 and
+Section 12.1. Its integral and the residual rate have separate normalization.
+
+Recoil uses the sampled laboratory angle and relativistic transformations.
+Exact two-body kinematics applies outside the small energy-only band
+:math:`0\le E-\Delta\le 2(m_e/M)E` for excitation. Inside that band, the electron
+retains :math:`E'=E-\Delta`; its virtual neutral receives the momentum
+difference, and its recoil energy is neglected in the electron update.
+The resulting energy defect is bounded by :math:`2(m_e/M)E` for N2/O2.
+This explicit heavy-target continuation retains the nominal threshold and
+independent angle without rejecting outcomes or projecting angles. It does
+not claim exact four-momentum conservation in the continuation band.
+Unchanged events retain the ordinary elastic recoil implementation.
+
+Integral detailed balance in the reference rates does not imply differential
+detailed balance for an energy-dependent elastic DCS used independently of
+rotational outcomes. This is the selected approximation. Independent tests
+cover level thresholds, unchanged/loss/gain probabilities, angular independence,
+signed recoil, the continuation bound and thermal power balance.
+
+Physical bundles are generated offline and kept in ``warpx-data``. Runtime
+initialization only validates loaded data, weights equilibrium populations,
+prepares shared in-memory samplers and uploads them to the device. It neither
+evaluates elmolcs source models nor creates cross-section files.
+
+The zero-reference-temperature candidate audit has nonnegative unchanged
+integral rates. This is an explicit reference-population assumption, not a
+demonstrated temperature for all source measurements. A 300 K diagnostic
+exposes negative low-energy residuals with the current extrapolations. Finite
+inclusive cross sections imply :math:`v\sigma\to0`, which cannot contain the
+finite superelastic contribution of a thermally populated rotor. Validated
+thermal low-energy continuations, omitted-rank convergence and coverage through
+beam energies remain production requirements. O2's angular-integrated Born
+rate approximation retains its limited validity; the elastic angular sampler
+does not extend it. Synthetic V3 verification bundles establish software
+correctness, not N2/O2 beam-physics validity.
 
 Other table conversion issues
 -----------------------------

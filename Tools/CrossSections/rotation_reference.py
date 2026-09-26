@@ -91,19 +91,14 @@ def speed(energy):
 
 
 def threshold(target, initial, final):
-    loss = ROTATION[target] * (final * (final + 1) - initial * (initial + 1))
-    mass = MASSES[target] * C**2 / QE + ROTATION[target] * initial * (initial + 1)
-    return loss * (1 + REST / mass) + loss**2 / (2 * mass)
+    """Canonical internal-energy threshold; molecular recoil shifts are neglected."""
+    return ROTATION[target] * (final * (final + 1) - initial * (initial + 1))
 
 
-def phase_rate(energy, loss, mass):
-    """v(E)*p_out_COM/p_in_COM, including a finite exothermic E=0 limit."""
-    cutoff = loss * (1 + REST / mass) + loss**2 / (2 * mass)
-    first = np.maximum(energy - cutoff, 0)
-    second = np.maximum(
-        energy + 2 * REST - loss * (1 - REST / mass) - loss**2 / (2 * mass), 0
-    )
-    return C * np.sqrt(first * second) / (energy + REST)
+def phase_rate(energy, loss):
+    """v(E)*p_out/p_in in the heavy-target limit, including finite gain at E=0."""
+    outgoing = np.maximum(np.asarray(energy) - loss, 0)
+    return C * np.sqrt(outgoing * (outgoing + 2 * REST)) / (energy + REST)
 
 
 def thermal_rates(target, temperature, maximum_j, transitions, rates):
@@ -188,13 +183,49 @@ class Bundle:
                 ):
                     raise ValueError("Missing excitation threshold knot")
 
+    @classmethod
+    def read(cls, path):
+        """Read an existing offline bundle without generating cross-section data."""
+        with Path(path).open("rb") as source:
+            if source.readline() != b"WARPX_THERMAL_ROTATION_V3\n":
+                raise ValueError("Expected an independent-angle V3 rotational bundle")
+            target, model, maximum_j, temperature = source.readline().decode().split()
+            energy_count, transition_count = map(int, source.readline().split())
+            payload = source.read()
+        expected = (
+            8 * energy_count
+            + 8 * transition_count
+            + 8 * energy_count * (transition_count + 1)
+        )
+        if energy_count < 2 or transition_count < 1 or len(payload) != expected:
+            raise ValueError("Invalid rotational bundle payload length")
+        energies = np.frombuffer(payload, "<f8", energy_count)
+        transitions = np.frombuffer(
+            payload, "<i4", 2 * transition_count, 8 * energy_count
+        ).reshape(-1, 2)
+        rates = np.frombuffer(
+            payload, "<f8", offset=8 * (energy_count + transition_count)
+        ).reshape(energy_count, 1, transition_count + 1)
+        result = cls(
+            target,
+            model,
+            int(maximum_j),
+            float(temperature),
+            energies,
+            np.array([-1.0, 1.0]),
+            transitions.tolist(),
+            rates,
+        )
+        result.validate()
+        return result
+
     def write(self, path):
         self.validate()
         # Little-endian IEEE binary64 payload; text header remains inspectable.
         with Path(path).open("wb") as output:
             output.write(
                 (
-                    "WARPX_THERMAL_ROTATION_V2\n"
+                    "WARPX_THERMAL_ROTATION_V3\n"
                     f"{self.target} {self.model} {self.maximum_j} {self.reference_temperature:.17g}\n"
                     f"{len(self.energies)} {len(self.transitions)}\n"
                 ).encode("ascii")
@@ -222,7 +253,7 @@ def construct(
     reduced_elementary maps rank to A(E)=sigma_0,rank*p_in/p_out.
     inclusive(E) returns the integral cross section at reference_temperature.
     Both have a length-one trailing axis for the reference quadrature helpers.
-    Detailed balance uses finite-mass COM momenta at the same invariant energy.
+    Detailed balance uses relativistic electron momenta with an infinitely heavy target.
     No rotational angular distribution is generated.
     """
     states = np.arange(maximum_j + 1)
@@ -243,13 +274,8 @@ def construct(
                 for rank, coef in coefficients.items()
                 if coef
             )
-            mass = MASSES[target] * C**2 / QE + ROTATION[target] * initial * (
-                initial + 1
-            )
-            upward = phase_rate(energies, loss, mass)[:, None] * amplitude
-            shifted = (mass + loss) / mass * energies + threshold(
-                target, initial, final
-            )
+            upward = phase_rate(energies, loss)[:, None] * amplitude
+            shifted = energies + loss
             reverse_amplitude = sum(
                 coef * reduced_elementary[rank](shifted)
                 for rank, coef in coefficients.items()
@@ -258,8 +284,6 @@ def construct(
             downward = (
                 weights(target, initial)
                 / weights(target, final)
-                * mass
-                / (mass + loss)
                 * (C * np.sqrt(shifted * (shifted + 2 * REST)) / (energies + REST))[
                     :, None
                 ]

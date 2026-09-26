@@ -139,7 +139,7 @@ BackgroundMCCThermalRotation::BackgroundMCCThermalRotation (std::string const& f
     input >> magic >> target >> source_model >> maximum_j >> reference_temperature >>
         energy_count >> transition_count;
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-        input && magic == "WARPX_THERMAL_ROTATION_V2" && (target == "N2" || target == "O2") &&
+        input && magic == "WARPX_THERMAL_ROTATION_V3" && (target == "N2" || target == "O2") &&
             source_model == model && (model == "elastic_dcs" || model == "analytic_test"),
         "Invalid thermal-rotation bundle header or model mismatch.");
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(maximum_j >= 8 && maximum_j <= 4096 && energy_count >= 2 &&
@@ -194,13 +194,10 @@ BackgroundMCCThermalRotation::BackgroundMCCThermalRotation (std::string const& f
                                          "Invalid homonuclear rotational transition.");
         double const initial_energy = b * initial * (initial + 1);
         double const loss = b * (final * (final + 1) - initial * (initial + 1));
-        double const mass =
-            m_neutral_mass * PhysConst::c2_v<double> / PhysConst::q_e_v<double> + initial_energy;
-        thresholds[i + 1] = loss * (1 + 510998.95069 / mass) + loss * loss / (2 * mass);
+        thresholds[i + 1] = loss;
         factors[i + 1] = population[initial];
         reference_factors[i + 1] = reference_population[initial];
-        m_outcomes_h.push_back({static_cast<amrex::ParticleReal>(loss),
-                                static_cast<amrex::ParticleReal>(initial_energy)});
+        m_outcomes_h.push_back({loss, initial_energy});
         if (loss > 0 && thresholds[i + 1] < energies.back()) {
             auto const knot = std::find_if(energies.begin(), energies.end(), [&] (double e) {
                 return static_cast<float>(e) == static_cast<float>(thresholds[i + 1]);
@@ -217,31 +214,6 @@ BackgroundMCCThermalRotation::BackgroundMCCThermalRotation (std::string const& f
         return av.m_loss == bv.m_loss ? av.m_initial_energy > bv.m_initial_energy
                                       : av.m_loss < bv.m_loss;
     });
-    double const neutral_rest = m_neutral_mass * PhysConst::c2_v<double> / PhysConst::q_e_v<double>;
-    double const largest_loss = m_outcomes_h[order.back()].m_loss;
-    m_maximum_loss = largest_loss;
-    double const electron_rest =
-        PhysConst::m_e_v<double> * PhysConst::c2_v<double> / PhysConst::q_e_v<double>;
-    // Backward scattering sets the most restrictive laboratory threshold.
-    // This factor bounds it for every retained loss and initial rotational mass.
-    double const all_angle_factor =
-        (neutral_rest + largest_loss / 2) / (neutral_rest - electron_rest) +
-        8 * std::numeric_limits<double>::epsilon();
-    double const mass_span = b * maximum_j * (maximum_j + 1);
-    // Accessibility changes at E ~ loss. Bound its variation with the initial
-    // rotational mass below every distinct canonical level gap.
-    double const ordering_bound = 16 * mass_span * largest_loss * (510998.95069 + largest_loss) /
-                                  (neutral_rest * neutral_rest);
-    double previous_loss = 0;
-    for (int index : order) {
-        double const loss = m_outcomes_h[index].m_loss;
-        if (loss > previous_loss) {
-            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-                loss - previous_loss > ordering_bound,
-                "Rotational levels do not admit ordered kinematic accessibility.");
-            previous_loss = loss;
-        }
-    }
     m_rates_h.resize(energy_count);
     m_reference_rates.assign(energy_count, 0);
     m_cells_h.reserve(energy_count);
@@ -252,10 +224,7 @@ BackgroundMCCThermalRotation::BackgroundMCCThermalRotation (std::string const& f
             auto const rate = rates[static_cast<std::size_t>(e) * component_count + index];
             WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
                 std::isfinite(rate) && rate >= 0 &&
-                    (thresholds[index] <= 0 ||
-                     energies[e] >
-                         thresholds[index] * (1 - 32 * std::numeric_limits<double>::epsilon()) ||
-                     rate == 0),
+                    (thresholds[index] <= 0 || energies[e] > thresholds[index] || rate == 0),
                 "Negative, nonfinite or sub-threshold thermal-rotation reference rate.");
             m_reference_rates[e] += reference_factors[index] * rate;
             auto const weighted = factors[index] * rate;
@@ -274,20 +243,20 @@ BackgroundMCCThermalRotation::BackgroundMCCThermalRotation (std::string const& f
             weights.push_back(1);
             outcomes.push_back(0);
         }
-        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-            m_outcomes_h[outcomes.front()].m_loss <= 0,
-            "Every thermal-rotation row needs an unchanged or de-excitation outcome.");
         m_cells_h.push_back(
             {static_cast<int>(m_loss_alias_h.size()), static_cast<int>(weights.size())});
         appendAlias(weights, outcomes, m_loss_alias_h);
-        double prefix = 0;
-        double const normalization = total > 0 ? total : 1;
-        for (double weight : weights) {
-            prefix += weight / normalization;
-            m_cdf_h.push_back(std::min(prefix, 1.0));
+        if (cumulative) {
+            double prefix = 0;
+            double const normalization = total > 0 ? total : 1;
+            for (double weight : weights) {
+                prefix += weight / normalization;
+                m_cdf_h.push_back(std::min(prefix, 1.0));
+            }
+            m_cdf_h.back() = 1;
         }
-        m_cdf_h.back() = 1;
-        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(m_loss_alias_h.size() * (sizeof(Alias) + sizeof(double)) <=
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(m_loss_alias_h.size() * sizeof(Alias) +
+                                                 m_cdf_h.size() * sizeof(double) <=
                                              maximum_bytes,
                                          "Thermal-rotation sampling tables exceed 512 MiB.");
     }
@@ -298,8 +267,7 @@ BackgroundMCCThermalRotation::BackgroundMCCThermalRotation (std::string const& f
                                      "Empty or oversized thermal-rotation sampling tables.");
     m_executor_h = {m_energies_h.data(),   m_rates_h.data(),    m_cdf_h.data(),
                     m_loss_alias_h.data(), m_cells_h.data(),    m_outcomes_h.data(),
-                    energy_count,          m_energies_h.back(), neutral_rest,
-                    electron_rest,         all_angle_factor,    cumulative};
+                    energy_count,          m_energies_h.back(), cumulative};
 #ifdef AMREX_USE_GPU
     auto upload = [] (auto const& host, auto& device) {
         device.resize(host.size());
@@ -313,8 +281,7 @@ BackgroundMCCThermalRotation::BackgroundMCCThermalRotation (std::string const& f
     upload(m_outcomes_h, m_outcomes_d);
     m_executor_d = {m_energies_d.data(),   m_rates_d.data(),    m_cdf_d.data(),
                     m_loss_alias_d.data(), m_cells_d.data(),    m_outcomes_d.data(),
-                    energy_count,          m_energies_h.back(), neutral_rest,
-                    electron_rest,         all_angle_factor,    cumulative};
+                    energy_count,          m_energies_h.back(), cumulative};
     amrex::Gpu::streamSynchronize();
 #endif
 }

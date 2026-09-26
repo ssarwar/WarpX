@@ -3525,8 +3525,8 @@ class MCCCollisions(picmistandard.base._ClassWithInit):
         One elastic process can specify ``rotation_model``, ``rotation_file``
         and a fixed ``rotational_temperature`` (default: constant background
         temperature). Use ``rotation_model="elastic_dcs"`` with the ordinary
-        elastic DCS. Integral rotational probabilities are conditioned only on
-        exact energy/recoil accessibility at the sampled angle.
+        elastic DCS. Rotational outcomes are independent of the scattering angle;
+        excitation requires the canonical internal-energy threshold.
         ``rotation_sampling="cumulative"`` selects the explicit reference
         sampler; the default is ``"alias"``.
         The ``"IAA"`` angle model implements IAA ionization kinematics or, for

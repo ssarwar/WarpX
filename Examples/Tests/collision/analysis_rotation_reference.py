@@ -4,7 +4,7 @@
 #
 # License: BSD-3-Clause-LBNL
 
-"""Independent rigid-rotor identities and finite-mass detailed-balance checks."""
+"""Independent rigid-rotor identities and heavy-target detailed-balance checks."""
 
 import json
 import sys
@@ -26,7 +26,6 @@ from rotation_reference import (  # noqa: E402
     energy_grid,
     populations,
     refine_grid,
-    threshold,
 )
 
 
@@ -93,9 +92,21 @@ def analytic_bundle(target="N2", maximum=10, count=768, maximum_j=None):
     )
 
 
+def write_verification_inputs(bundle, folder):
+    """Export synthetic verification files before running WarpX or benchmarks."""
+    bundle.write(folder / f"{bundle.target}_analytic.rot")
+    np.savetxt(folder / f"{bundle.target}_inclusive.txt", [[0, 2e-20], [10, 2e-20]])
+    np.savetxt(folder / f"{bundle.target}_ordinary.txt", [[0, 1e-21], [10, 1e-21]])
+    for name, a in [("elastic_dcs", 0), ("elastic_dcs_anisotropic", 3)]:
+        values = f"1 {1 + a / np.sqrt(2):.17g} {1 + a}"
+        (folder / f"{bundle.target}_{name}.txt").write_text(
+            f"1e-10 {values}\n10 {values}\n"
+        )
+
+
 def write_sampler_reference(bundle, folder):
     path = folder / f"{bundle.target}_analytic.rot"
-    bundle.write(path)
+    write_verification_inputs(bundle, folder)
     edges = bundle.edges
     mu1 = (edges[1:] + edges[:-1]) / 2
     mu2 = (edges[1:] ** 2 + edges[1:] * edges[:-1] + edges[:-1] ** 2) / 3
@@ -151,6 +162,12 @@ def write_sampler_reference(bundle, folder):
 
 
 def main():
+    if len(sys.argv) == 3 and sys.argv[1] == "--export-only":
+        folder = Path(sys.argv[2])
+        folder.mkdir(parents=True, exist_ok=True)
+        for target in ["N2", "O2"]:
+            write_verification_inputs(analytic_bundle(target), folder)
+        return
     if len(sys.argv) > 1:
         folder = Path(sys.argv[1])
         folder.mkdir(parents=True, exist_ok=True)
@@ -239,15 +256,12 @@ def main():
         for channel in range(0, len(bundle.transitions), 2):
             initial, final = bundle.transitions[channel]
             loss = ROTATION[target] * (final * (final + 1) - initial * (initial + 1))
-            mass = MASSES[target] * C**2 / QE + ROTATION[target] * initial * (
-                initial + 1
-            )
             down_e = 0.07
-            up_e = (mass + loss) / mass * down_e + threshold(target, initial, final)
-            # Direct Kallen momenta at one invariant s, using factored terms.
-            invariant = (REST + mass) ** 2 + 2 * mass * up_e
-            p_up2 = mass**2 * up_e * (up_e + 2 * REST) / invariant
-            p_down2 = (mass + loss) ** 2 * down_e * (down_e + 2 * REST) / invariant
+            up_e = down_e + loss
+            # Independent relativistic electron phase-space factors. Molecular
+            # recoil shifts are omitted from this state-to-state rate model.
+            p_up2 = up_e * (up_e + 2 * REST)
+            p_down2 = down_e * (down_e + 2 * REST)
             velocity_up = C * np.sqrt(up_e * (up_e + 2 * REST)) / (up_e + REST)
             velocity_down = C * np.sqrt(down_e * (down_e + 2 * REST)) / (down_e + REST)
             rate_up = np.interp(

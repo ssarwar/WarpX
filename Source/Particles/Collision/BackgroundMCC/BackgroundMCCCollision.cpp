@@ -536,6 +536,8 @@ BackgroundMCCCollision::CheckRuntimeInputs (int error) const
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(error != 4,
                                      "Electron energy is outside the thermal-rotation bundle's "
                                      "validity range.");
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(error != 5,
+                                     "Thermal-rotation recoil produced invalid kinematics.");
 }
 
 amrex::ParticleReal
@@ -1177,21 +1179,8 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
     auto* processes = m_processes_exe.data();
     auto const process_count = static_cast<int>(m_processes_exe.size());
     auto const process_selector = m_process_selector->executor();
-    auto rotation = m_thermal_rotation ? m_thermal_rotation->executor()
-                                       : BackgroundMCCThermalRotation::Executor{};
-    if (m_thermal_rotation) {
-        // Use the same configured/rounded mass as the subsequent recoil solve.
-        // Shared reference tables retain their canonical source mass.
-        double const target =
-            double(m_background_mass) * PhysConst::c2_v<double> / PhysConst::q_e_v<double>;
-        double const electron =
-            double(m_mass1) * PhysConst::c2_v<double> / PhysConst::q_e_v<double>;
-        rotation.m_neutral_rest_energy = target;
-        rotation.m_electron_rest_energy = electron;
-        rotation.m_all_angle_factor =
-            (target + m_thermal_rotation->maximumLoss() / 2) / (target - electron) +
-            8 * std::numeric_limits<double>::epsilon();
-    }
+    auto const rotation = m_thermal_rotation ? m_thermal_rotation->executor()
+                                             : BackgroundMCCThermalRotation::Executor{};
     auto const* differential_scattering_processes =
         m_differential_scattering_processes_exe.data();
     int const rotation_process = m_rotation_process;
@@ -1392,7 +1381,7 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
                         ? 1 - 2 * angle_draw
                         : differential_scattering_processes[rotation_process].sampleCosine(
                               E_coll, angle_draw);
-                auto const outcome = rotation.sample(rotational_interpolation, cosine,
+                auto const outcome = rotation.sample(rotational_interpolation,
                                                      amrex::Random(engine), amrex::Random(engine));
                 amrex::ParticleReal ex, ey, ez, nx, ny, nz;
                 bool physical = true;
@@ -1401,7 +1390,7 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
                                                             ua_z, m, M, cosine, engine, ex, ey, ez,
                                                             nx, ny, nz);
                 } else {
-                    physical = BackgroundMCCElasticKinematics::computeInternalEnergyChangeLab(
+                    physical = BackgroundMCCElasticKinematics::computeRotation(
                         ux[ip], uy[ip], uz[ip], ua_x, ua_y, ua_z, m,
                         static_cast<double>(M) + outcome.m_initial_energy *
                                                      PhysConst::q_e_v<double> /
@@ -1412,6 +1401,12 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
                     ux[ip] = ex;
                     uy[ip] = ey;
                     uz[ip] = ez;
+                } else {
+#ifdef AMREX_USE_GPU
+                    amrex::Gpu::Atomic::Max(runtime_error, 5);
+#else
+                    amrex::Abort("Thermal-rotation recoil produced invalid kinematics.");
+#endif
                 }
                 return;
             }

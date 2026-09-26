@@ -3648,8 +3648,9 @@ Details about the collision models can be found in the :ref:`theory section <mul
     temperature, then replaced by the family's aggregate rate coefficient.
     Do not add the same rotational transitions as separate processes.
     The elastic DCS supplies the neutral-rest-frame angle. Integral rotational
-    probabilities are conditioned only on exact energy/recoil accessibility at
-    that angle. No spectator or Born rotational angular distribution is used.
+    probabilities are independent of that angle. Excitation requires the
+    canonical level spacing; recoil shifts and angular-accessibility constraints
+    are omitted. No spectator or Born rotational angular distribution is used.
     The target and neutral mass are identified by the bundle, and any explicit
     ``background_mass`` must agree.
 
@@ -3657,8 +3658,10 @@ Details about the collision models can be found in the :ref:`theory section <mul
     :type: ``string``
     :optional:
 
-    Path to a ``WARPX_THERMAL_ROTATION_V2`` reference bundle, described in
-    ``Tools/CrossSections/README.md``. Initialization sums Boltzmann populations
+    Path to a ``WARPX_THERMAL_ROTATION_V3`` reference bundle, described in
+    ``Tools/CrossSections/README.md``. Generate physical data offline and store
+    them in ``warpx-data``; WarpX only reads existing bundles. V1/V2 files must
+    be regenerated for the nominal-threshold model. Initialization sums Boltzmann populations
     and builds shared sampling tables for each data/model/temperature pair.
     The unchanged contribution must be nonnegative, all excitation thresholds
     must be represented, and the omitted population must be below :math:`10^{-10}`.
@@ -3685,10 +3688,10 @@ Details about the collision models can be found in the :ref:`theory section <mul
     :default: ``alias``
     :optional:
 
-    ``alias`` uses one constant-time draw for the usual unrestricted energy-change
-    distribution. Near kinematic boundaries, bounded prefix-CDF searches select
-    an accessible outcome without rejection. ``cumulative`` always uses the
-    same prefix CDF for physics and performance comparisons. Both
+    ``alias`` uses one constant-time energy-change draw and stores no cumulative
+    table. ``cumulative`` uses a cumulative bisection for physics and performance
+    comparisons. A threshold-roundoff excitation below its level spacing becomes
+    an unchanged event, without resampling or renormalizing other channels. Both
     interpolate incident energy by mixtures of rows, preserving discrete loss
     labels and the unchanged outcome. The ordinary MCC selector remains active
     for other processes. Collision subcycling is still needed to control the

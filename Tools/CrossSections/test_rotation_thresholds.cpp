@@ -22,51 +22,42 @@ namespace
     struct Case
     {
         double m_energy, m_loss, m_cosine;
+        double m_mass = 28.0134 * 1.66053906660e-27;
     };
     struct Result
     {
-        double m_energy_error, m_angle_error;
+        double m_energy_error, m_angle_error, m_outgoing, m_momentum_error;
         bool m_valid;
     };
 
-    // Independent minimum final kinetic energy at the specified laboratory angle.
-    // Numerical minimization of the on-shell energy budget does not use the
-    // implementation's analytic discriminant or maximum internal energy formula.
+    // Independent scalar energy-budget solve, with no implementation quadratic.
+    // Above the continuation band, the larger physical root lies in [0,E-loss].
     double
-    minimumCost (Case value, double m, double mass)
+    outgoingReference (Case value, double m, double mass)
     {
-        auto cost = [=] (double t) {
-            double const p = std::sqrt(value.m_energy * (value.m_energy + 2 * m));
+        double const p = std::sqrt(value.m_energy * (value.m_energy + 2 * m));
+        double const final_mass = mass + value.m_loss;
+        double lo = 0, hi = value.m_energy - value.m_loss;
+        for (int i = 0; i < 100; ++i) {
+            double const t = (lo + hi) / 2;
             double const q = std::sqrt(t * (t + 2 * m));
             double const recoil2 = p * p + q * q - 2 * p * q * value.m_cosine;
-            double const final_mass = mass + value.m_loss;
-            return t + recoil2 / (std::sqrt(final_mass * final_mass + recoil2) + final_mass);
-        };
-        double lo = 0, hi = std::max(1., value.m_energy + std::abs(value.m_loss));
-        constexpr double ratio = .6180339887498948482;
-        double x = hi - ratio * (hi - lo), y = lo + ratio * (hi - lo);
-        for (int i = 0; i < 160; ++i) {
-            if (cost(x) < cost(y)) {
-                hi = y;
-                y = x;
-                x = hi - ratio * (hi - lo);
+            double const recoil =
+                recoil2 / (std::sqrt(final_mass * final_mass + recoil2) + final_mass);
+            if (t + recoil < value.m_energy - value.m_loss) {
+                lo = t;
             } else {
-                lo = x;
-                x = y;
-                y = lo + ratio * (hi - lo);
+                hi = t;
             }
         }
-        return std::min(cost(0), std::min(cost(x), cost(y)));
+        return (lo + hi) / 2;
     }
     void
-    checkConditionalSampler ()
+    checkIndependentSampler ()
     {
         using Model = BackgroundMCCThermalRotation;
         constexpr int draws = 8192;
-        constexpr double c2 = PhysConst::c2_v<double>, qe = PhysConst::q_e_v<double>;
-        constexpr double m = PhysConst::m_e_v<double> * c2 / qe;
-        constexpr double mass = 28.0134 * 1.66053906660e-27 * c2 / qe;
-        amrex::ParticleReal const loss = amrex::ParticleReal(.0014863225708172047);
+        double const loss = .0014863225708172047;
         amrex::Vector<Model::Alias> ah{{.3, 1, 0}, {1, 1, 1},  {.9, 1, 2},
                                        {.9, 2, 0}, {.9, 2, 1}, {1, 2, 2}};
         amrex::Vector<double> ch{.1, .7, 1, .3, .6, 1};
@@ -78,7 +69,7 @@ namespace
         amrex::Gpu::DeviceVector<Model::Cell> cells(sh.size());
         amrex::Gpu::DeviceVector<Model::Outcome> outcomes(oh.size());
         amrex::Gpu::DeviceVector<amrex::ParticleReal> rates(rh.size());
-        auto upload = [] (auto const& host, auto& device) {
+        auto upload = [] (auto const &host, auto &device) {
             amrex::Gpu::copy(amrex::Gpu::hostToDevice, host.begin(), host.end(), device.begin());
         };
         upload(ah, aliases);
@@ -92,19 +83,18 @@ namespace
         executor.m_cells = cells.data();
         executor.m_outcomes = outcomes.data();
         executor.m_rates = rates.data();
-        executor.m_neutral_rest_energy = mass;
-        double const threshold = double(loss) * (1 + m / mass) + double(loss) * loss / (2 * mass);
+
         amrex::Vector<Case> cases;
         for (double relative : {-1e-8, 2e-11, 1e-10, 1e-8}) {
             for (double cosine : {-1., .3, .8, 1.}) {
-                cases.push_back({threshold * (1 + relative), loss, cosine});
+                cases.push_back({loss * (1 + relative), loss, cosine});
             }
         }
         amrex::Gpu::DeviceVector<Case> inputs(cases.size());
         upload(cases, inputs);
         amrex::Gpu::DeviceVector<int> samples(draws * cases.size());
-        auto const* input = inputs.data();
-        auto* output = samples.data();
+        auto const *input = inputs.data();
+        auto *output = samples.data();
         amrex::Vector<int> host(samples.size());
         for (bool cumulative : {false, true}) {
             executor.m_cumulative = cumulative;
@@ -118,18 +108,20 @@ namespace
                         reversed = (reversed << 1) | ((unsigned(j) >> bit) & 1u);
                     }
                     // Use Hammersley quadrature for the two independent uniforms.
-                    auto const result = executor.sample(state, value.m_cosine, (j + .5) / draws,
-                                                        (reversed + .5) / draws);
+                    auto const result =
+                        executor.sample(state, (j + .5) / draws, (reversed + .5) / draws);
                     output[i] = result.m_loss < 0 ? 0 : result.m_loss == 0 ? 1 : 2;
                 });
             amrex::Gpu::copy(amrex::Gpu::deviceToHost, samples.begin(), samples.end(),
                              host.begin());
             for (std::size_t k = 0; k < cases.size(); ++k) {
-                bool const allowed =
-                    cases[k].m_energy - cases[k].m_loss > minimumCost(cases[k], m, mass);
+                bool const allowed = cases[k].m_energy >= cases[k].m_loss;
                 double expected[3]{.75 * .1 + .5 * .3, .75 * .6 + .5 * .3,
                                    allowed ? .75 * .3 + .5 * .4 : 0};
-                double const sum = expected[0] + expected[1] + expected[2];
+                if (!allowed) {
+                    expected[1] += .75 * .3 + .5 * .4;
+                }
+                double const sum = 1.25;
                 int count[3]{};
                 for (int j = 0; j < draws; ++j) {
                     ++count[host[k * draws + j]];
@@ -140,71 +132,81 @@ namespace
                                   << " allowed=" << allowed
                                   << " actual=" << double(count[j]) / draws
                                   << " expected=" << expected[j] / sum << '\n';
-                        throw std::runtime_error("Incorrect accessibility-conditioned row mixture");
+                        throw std::runtime_error("Incorrect energy-only threshold or row mixture");
                     }
                 }
                 if (!allowed && count[2] != 0) {
-                    throw std::runtime_error("Sampled an inaccessible rotational excitation");
+                    throw std::runtime_error("Sampled a subthreshold rotational excitation");
                 }
             }
         }
-        std::cout << "PASS: alias/prefix mixtures conditioned on independent accessibility\n";
+        std::cout
+            << "PASS: independent aliases, strict thresholds and unchanged gain probabilities\n";
     }
 
 } // namespace
 
 int
-main (int argc, char* argv[])
+main (int argc, char *argv[])
 {
     amrex::Initialize(argc, argv);
     {
         constexpr double c = PhysConst::c_v<double>;
         constexpr double qe = PhysConst::q_e_v<double>;
         constexpr double me = PhysConst::m_e_v<double>;
-        constexpr double mass = 28.0134 * 1.66053906660e-27;
-        constexpr double m = me * c * c / qe, target = mass * c * c / qe;
+        constexpr double m = me * c * c / qe;
         amrex::Vector<Case> cases;
-        for (double loss : {.0014863225708172047, .02, .1}) {
-            double const threshold = loss * (1 + m / target) + loss * loss / (2 * target);
-            for (double shift : {-1e-5, -1e-8, -1e-12, 0., 1e-12, 1e-10, 1e-8, 1e-5}) {
-                for (double cosine : {-1., -.3, 0., .3, .8, 1.}) {
-                    // Test what the actual particle precision represents.
-                    amrex::ParticleReal const u = static_cast<amrex::ParticleReal>(
-                        c * std::sqrt(threshold * (1 + shift) * (threshold * (1 + shift) + 2 * m)) /
-                        m);
-                    double const actual = m * (double(u) * u / (c * c)) /
-                                          (std::sqrt(1 + double(u) * u / (c * c)) + 1);
-                    cases.push_back({actual, loss, cosine});
+        for (double mass : {28.0134 * 1.66053906660e-27, 31.9988 * 1.66053906660e-27}) {
+            for (double loss : {.0014863225708172047, .0017828927734694198, .02, .1}) {
+                for (double shift :
+                     {-1e-5, -1e-8, -1e-12, 0., 1e-12, 1e-8, 1e-5, 2e-5, 3e-5, 1e-4, 1e-2}) {
+                    for (double cosine : {-1., -.3, 0., .3, .8, 1.}) {
+                        // Compare the actual energy represented by particle precision.
+                        amrex::ParticleReal const u = static_cast<amrex::ParticleReal>(
+                            c * std::sqrt(loss * (1 + shift) * (loss * (1 + shift) + 2 * m)) / m);
+                        double const actual = m * (double(u) * u / (c * c)) /
+                                              (std::sqrt(1 + double(u) * u / (c * c)) + 1);
+                        cases.push_back({actual, loss, cosine, mass});
+                    }
                 }
             }
-        }
-        for (double energy : {0., 1e-12, .01, 1e9}) {
-            for (double cosine : {-1., 0., 1.}) {
-                cases.push_back({energy, -.01, cosine});
+            for (double energy : {0., 1e-12, .01, 1e4, 2.5e6, 1e9}) {
+                for (double loss : {-.01, 0.}) {
+                    for (double cosine : {-1., 0., 1.}) {
+                        cases.push_back({energy, loss, cosine, mass});
+                    }
+                }
             }
         }
         amrex::Gpu::DeviceVector<Case> inputs(cases.size());
         amrex::Gpu::copy(amrex::Gpu::hostToDevice, cases.begin(), cases.end(), inputs.begin());
         amrex::Gpu::DeviceVector<Result> outputs(cases.size());
-        auto const* in = inputs.data();
-        auto* out = outputs.data();
+        auto const *in = inputs.data();
+        auto *out = outputs.data();
         amrex::ParallelForRNG(
             static_cast<int>(cases.size()),
-            [=] AMREX_GPU_DEVICE(int i, amrex::RandomEngine const& engine) noexcept {
+            [=] AMREX_GPU_DEVICE(int i, amrex::RandomEngine const &engine) noexcept {
                 auto const state = in[i];
                 auto const u = static_cast<amrex::ParticleReal>(
                     c * std::sqrt(state.m_energy * (state.m_energy + 2 * m)) / m);
                 amrex::ParticleReal ex, ey, ez, ix, iy, iz;
-                bool const valid = BackgroundMCCElasticKinematics::computeInternalEnergyChangeLab(
-                    0, 0, u, 0, 0, 0, me, mass, state.m_loss, state.m_cosine, engine, ex, ey, ez,
-                    ix, iy, iz);
-                out[i] = {0, 0, valid};
+                double const target = state.m_mass * c * c / qe;
+                bool const valid = BackgroundMCCElasticKinematics::computeRotation(
+                    0, 0, u, 0, 0, 0, me, state.m_mass, state.m_loss, state.m_cosine, engine, ex,
+                    ey, ez, ix, iy, iz);
+                out[i] = {0, 0, 0, 0, valid};
                 if (valid) {
                     double const e2 = double(ex) * ex + double(ey) * ey + double(ez) * ez;
                     double const i2 = double(ix) * ix + double(iy) * iy + double(iz) * iz;
                     double const ke = m * e2 / (c * c * (1 + std::sqrt(1 + e2 / (c * c))));
                     double const ki =
                         (target + state.m_loss) * i2 / (c * c * (1 + std::sqrt(1 + i2 / (c * c))));
+                    out[i].m_outgoing = ke;
+                    double const factor = (target + state.m_loss) / m;
+                    double const px = ex + factor * ix, py = ey + factor * iy;
+                    double const pz = ez + factor * iz - u;
+                    out[i].m_momentum_error = std::sqrt(px * px + py * py + pz * pz) /
+                                              amrex::max(double(u) + std::sqrt(e2), 1.0);
                     out[i].m_energy_error =
                         std::abs(ke + ki + state.m_loss - state.m_energy) /
                         amrex::max(state.m_energy + std::abs(state.m_loss), .001);
@@ -215,28 +217,47 @@ main (int argc, char* argv[])
         amrex::Vector<Result> result(cases.size());
         amrex::Gpu::copy(amrex::Gpu::deviceToHost, outputs.begin(), outputs.end(), result.begin());
         double const tolerance = sizeof(amrex::ParticleReal) == 4 ? 2e-6 : 1e-10;
-        int restricted = 0;
+        int restricted = 0, continued = 0;
         for (std::size_t i = 0; i < cases.size(); ++i) {
             auto const value = cases[i];
-            double const gap = value.m_energy - value.m_loss - minimumCost(value, m, target);
-            double const boundary = 1e-14 * std::max(std::abs(value.m_loss), value.m_energy);
-            if (std::abs(gap) > boundary && result[i].m_valid != (gap > 0)) {
-                std::cerr << "E=" << value.m_energy << " Q=" << value.m_loss
-                          << " mu=" << value.m_cosine << " independent gap=" << gap
-                          << " valid=" << result[i].m_valid << '\n';
-                throw std::runtime_error("Incorrect angular accessibility");
-            }
-            if (result[i].m_energy_error > tolerance || result[i].m_angle_error > tolerance) {
-                throw std::runtime_error("Laboratory-angle signed recoil changed angle or energy");
+            double const target = value.m_mass * c * c / qe;
+            double const available = value.m_energy - value.m_loss;
+            // Avoid classifying the double-precision velocity reconstruction's
+            // final ulp as a threshold violation; both neighboring sides are tested.
+            if (std::abs(available) > 8 * std::numeric_limits<double>::epsilon() *
+                                          std::max(value.m_energy, std::abs(value.m_loss)) &&
+                result[i].m_valid != (available >= 0)) {
+                throw std::runtime_error("Incorrect nominal rotational threshold");
             }
             restricted += !result[i].m_valid;
+            if (!result[i].m_valid) {
+                continue;
+            }
+            bool const continuation =
+                value.m_loss > 0 && available <= 2 * m / target * value.m_energy;
+            double const expected =
+                continuation ? std::max(available, 0.) : outgoingReference(value, m, target);
+            double const scale = std::max(value.m_energy + std::abs(value.m_loss), .001);
+            double const energy_tolerance = continuation ? 2 * m / target + tolerance : tolerance;
+            if (!std::isfinite(result[i].m_outgoing) || result[i].m_outgoing < 0 ||
+                std::abs(result[i].m_outgoing - expected) / scale > tolerance ||
+                result[i].m_energy_error > energy_tolerance ||
+                result[i].m_momentum_error > tolerance || result[i].m_angle_error > tolerance) {
+                std::cerr << "E=" << value.m_energy << " loss=" << value.m_loss
+                          << " cosine=" << value.m_cosine << " continued=" << continuation
+                          << " outgoing=" << result[i].m_outgoing << " expected=" << expected
+                          << " energy_error=" << result[i].m_energy_error
+                          << " angle_error=" << result[i].m_angle_error << '\n';
+                throw std::runtime_error("Independent-angle recoil reference mismatch");
+            }
+            continued += continuation;
         }
-        if (restricted == 0) {
-            throw std::runtime_error("Accessibility test did not exercise forbidden states");
+        if (restricted == 0 || continued == 0) {
+            throw std::runtime_error("Threshold test missed forbidden or continuation cases");
         }
         std::cout
-            << "PASS: numerical energy-budget accessibility, signed recoil and preserved angle\n";
+            << "PASS: nominal thresholds, independent angles, recoil and bounded continuation\n";
     }
-    checkConditionalSampler();
+    checkIndependentSampler();
     amrex::Finalize();
 }
