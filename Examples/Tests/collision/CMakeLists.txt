@@ -204,7 +204,7 @@ add_warpx_test(
 add_warpx_test(
     test_1d_background_mcc_rotation_anisotropic_picmi
     1 1
-    "inputs_test_1d_background_mcc_rotation_picmi.py --anisotropic --particles 262144"
+    "inputs_test_1d_background_mcc_rotation_picmi.py --data-dir ${CMAKE_BINARY_DIR}/Tools/CrossSections/rotation_reference --anisotropic --particles 262144"
     "analysis_background_mcc_rotation.py"
     OFF OFF
 )
@@ -212,7 +212,7 @@ add_warpx_test(
 add_warpx_test(
     test_1d_background_mcc_rotation_picmi
     1 1
-    inputs_test_1d_background_mcc_rotation_picmi.py
+    "inputs_test_1d_background_mcc_rotation_picmi.py --data-dir ${CMAKE_BINARY_DIR}/Tools/CrossSections/rotation_reference"
     "analysis_background_mcc_rotation.py"
     OFF OFF
 )
@@ -220,7 +220,7 @@ add_warpx_test(
 add_warpx_test(
     test_1d_background_mcc_rotation_cumulative_picmi
     1 1
-    "inputs_test_1d_background_mcc_rotation_picmi.py --cumulative"
+    "inputs_test_1d_background_mcc_rotation_picmi.py --data-dir ${CMAKE_BINARY_DIR}/Tools/CrossSections/rotation_reference --cumulative"
     "analysis_background_mcc_rotation.py"
     OFF OFF
 )
@@ -553,3 +553,11 @@ add_warpx_test(
     "inputs_test_rz_rigid_source_picmi.py --alpha --subcycles 2"
     OFF OFF OFF
 )
+
+# The fixture exports synthetic cross sections before launching the simulations.
+foreach(rotation_test IN ITEMS rotation rotation_anisotropic rotation_cumulative)
+    if(TEST test_1d_background_mcc_${rotation_test}_picmi.run)
+        set_property(TEST test_1d_background_mcc_${rotation_test}_picmi.run
+            APPEND PROPERTY FIXTURES_REQUIRED rotation_reference)
+    endif()
+endforeach()

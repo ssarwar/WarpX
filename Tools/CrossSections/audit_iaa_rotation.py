@@ -32,6 +32,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--archive", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--reference-temperature", type=float, default=0.0)
     args = parser.parse_args()
     digest = hashlib.sha256(args.archive.read_bytes()).hexdigest()
     if digest != "b864381086120fff37eb8c658dfcb0f150b80969cf9add626a38d89bab0a3c38":
@@ -140,7 +141,14 @@ def main():
         maximum_j = converged_j(target, 1000)
         energies = energy_grid(target, maximum_j, elementary, 20, count=192)
         bundle = construct(
-            target, energies, edges, elementary, inclusive, maximum_j, model=model
+            target,
+            energies,
+            edges,
+            elementary,
+            inclusive,
+            maximum_j,
+            reference_temperature=args.reference_temperature,
+            model=model,
         )
         errors = []
         try:
@@ -166,7 +174,7 @@ def main():
             "target": target,
             "model": model,
             "archive_sha256": digest,
-            "reference_temperature_K": 0,
+            "reference_temperature_K": args.reference_temperature,
             "reference_temperature_is_model_assumption": True,
             "maximum_temperature_K": 1000,
             "maximum_j": maximum_j,
@@ -176,7 +184,9 @@ def main():
             "minimum_unchanged_rate_m3_s": float(bundle.rates[index[0], index[1], 0]),
             "minimum_at_energy_eV": float(energies[index[0]]),
             "angular_sampling": "existing elastic DCS",
-            "conditional_model": "integral rates conditioned only on exact recoil accessibility",
+            "conditional_model": "angle-independent rotational outcomes with canonical energy thresholds",
+            "bundle_format": "WARPX_THERMAL_ROTATION_V3",
+            "rate_detailed_balance": "relativistic electron momenta in the heavy-target limit",
         }
         write_audit(args.output / f"{target}_rotation_audit.json", report)
         print(target, "production export blocked:", *errors, sep="\n  ")

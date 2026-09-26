@@ -22,77 +22,82 @@ near-threshold continuation, and rotational production gates.
 
 ## Thermal rotation
 
-`rotation_reference.py` constructs integral forward rates, finite-mass
-COM detailed-balance reverse rates, and an unchanged integral contribution.
-`audit_iaa_rotation.py` audits the pinned source rates. Invoke it with the
-archived package source on `PYTHONPATH`, the archive via `--archive`, and an
-output directory via `--output`. It records unresolved physics gates without
-exporting an unvalidated production bundle. Reference temperature zero is an
-explicit audit assumption; the inclusive measurements do not establish it.
+Physical cross sections and bundles are prepared offline and stored in
+`warpx-data/IAA`. WarpX reads existing files; it never invokes elmolcs or a
+cross-section generator. Initialization applies the chosen Boltzmann populations
+and packs shared in-memory sampling tables. This supports arbitrary fixed
+rotational temperatures without generating physical data during a simulation.
 
-The collision draws its angle from the existing elastic DCS, then draws a
-signed rotational energy change. No separate rotational DCS is used. The
-thesis's spectator rainbow parameter is not a hard quantum cutoff. Only
-exact energy/recoil accessibility conditions the rotational outcome.
+`rotation_reference.py` constructs integral forward/reverse rates in the
+heavy-target limit, with relativistic electron phase space and canonical
+rigid-rotor level spacings as thresholds. `audit_iaa_rotation.py` audits the
+pinned source data and accepts `--reference-temperature` (default zero, an
+explicit assumption). It records unresolved physics checks without exporting
+an unvalidated production bundle.
 
-Integral bundles have three ASCII header lines and a little-endian payload:
+The angle comes from the existing elastic DCS and is independent of the
+unchanged/excitation/de-excitation draw. An energy-row mixture followed by one
+alias lookup selects the internal change. There is no angular-accessibility
+search, rejection, rotational-state loop, or special function on the device.
+A subthreshold excitation caused by grid rounding becomes an unchanged event;
+the other channels are not renormalized. Loss labels retain double precision.
+The optional cumulative reference uses the same probabilities. Only that
+reference stores a cumulative table; the alias path omits it.
+
+Bundles have three ASCII header lines and a little-endian payload:
 
 ```text
-WARPX_THERMAL_ROTATION_V2
+WARPX_THERMAL_ROTATION_V3
 N2 elastic_dcs J_MAX T_REFERENCE_K
 N_ENERGY N_TRANSITION
 ```
 
-The arrays are energies (binary64), transition pairs `(J_initial,J_final)`
-(int32), then integral rate coefficients (binary64, C order
-`[energy,component]`). Component zero is unchanged; the others correspond to
-transition pairs. Rates have units m³/s and precede Boltzmann weighting.
-There are no angular bins. V1 bundles must be regenerated. Rigid-rotor constants,
-spin weights and thresholds are canonical, and the state sum must converge.
+Arrays contain energies (binary64), transition pairs `(J_initial,J_final)`
+(int32), and integral rate coefficients (binary64, C order
+`[energy,component]`). Component zero is unchanged. Other components correspond
+to transition pairs, before Boltzmann weighting. Rates have units m³/s.
+There are no angular bins. V1/V2 bundles must be regenerated; V3 omits the
+molecular recoil shift from thresholds and source-rate detailed balance.
+The state sum and rate/transfer moments must converge. Input and sampler
+storage each have a 512 MiB limit per copy.
 
-At initialization, WarpX weights the rotational states and constructs one
-sparse alias distribution and one cumulative distribution per energy row.
-Outcomes are ordered by increasing energy loss, with descending initial
-internal energy for equal losses. A conservative mass-dependence bound checks
-that this ordering also orders the accessibility thresholds. Every nonempty
-row must retain an unchanged or de-excitation outcome. Reference input and
-sampler storage each have a 512 MiB limit.
+The signed recoil solve preserves the sampled angle. For excitation in the
+small energy-only band `0 <= E-loss <= 2*m_e/M*E`, it neglects recoil energy
+in the electron update, setting `E_out = E-loss`. The virtual neutral receives
+the momentum difference. The energy defect is bounded by `2*m_e/M*E` for
+N2/O2 and is explicitly tested. Outside that band, two-body recoil conserves
+four-momentum. Unchanged outcomes reuse ordinary elastic recoil. Thus nominal
+thresholds and independent angles do not require angle projection or rejection.
 
-The usual device path samples one alias. When a rotational excitation is
-inaccessible at the elastic angle, a bounded bisection finds the accessible
-prefix. Both the energy-row mixture and the outcome distribution are then
-conditioned on that prefix. There is no rejection loop, state loop, or
-special-function evaluation. The cumulative reference uses the same physics.
-The angular draw is unchanged, and loss labels are never interpolated.
+The source rates satisfy heavy-target integral detailed balance. The selected
+energy-dependent elastic angular shape does not enforce differential detailed
+balance. This approximation and the threshold continuation are separate from
+numerical interpolation accuracy.
 
-The neutral-rest-frame energy and the signed laboratory-angle recoil solver
-use relativistic transformations. The solver chooses the higher outgoing
-energy if two forward solutions exist immediately above threshold. Unit tests
-compare accessibility with independent numerical minimization of the final
-energy budget, preserve the sampled angle, and check conditioned mixtures
-against explicit probabilities.
+`refine_grid` checks rates and absolute first/second transfer moments. Its
+0.1% target uses a 1e-4-of-peak floor for insignificant tails; independent
+midpoints must stay below 0.2%. Float32 threshold bands are tested separately.
+Analytic bundles check population and moment convergence, thermal power
+balance at 100/300/1000 K, thresholds and angular independence.
 
-Integral detailed balance is enforced in the reference rates. Reusing an
-energy-dependent elastic DCS does not impose exact differential detailed
-balance. Conditioning can change integral rotational rates inside the narrow
-recoil-accessibility bands. These are explicit approximations; they must be
-checked separately from interpolation and thermal power balance.
+Export the synthetic verification inputs offline:
 
-`refine_grid` checks aggregate rates and absolute first/second transfer moments.
-The default target is 0.1%, with a 1e-4-of-peak floor for insignificant tails;
-independent midpoint checks require 0.2%. Four-float32-ulp threshold bands are
-tested separately. The first interval uses a `sqrt(E)` mixture to preserve
-finite elastic cross sections next to zero. Analytic verification bundles
-check population/moment convergence and thermal power balance at 100, 300
-and 1000 K. They do not establish production N2/O2 source accuracy.
+```sh
+python Examples/Tests/collision/analysis_rotation_reference.py --export-only /path/to/warpx-data/MCC_cross_sections/IAA/rotation/verification
+```
+
+These files are also stored on `warpx-data/IAA`; they are not production
+molecular cross sections. CTest regenerates verification fixtures as a separate
+setup step. The PICMI input and performance driver only read prepared files.
 
 ```sh
 ctest --test-dir build -R 'rotation|rbeq_source|secondary_angles' --output-on-failure
+python Tools/CrossSections/benchmark_rotation.py --data-dir /path/to/warpx-data/MCC_cross_sections/IAA/rotation/verification --output build/rotation-benchmark --repeats 5
 ```
 
-`test_mcc_rotation` runs portable AMReX kernels and reports startup time, table
-bytes, sampling cost and distribution moments. Full timestep measurements use
-`benchmark_rotation.py --output build/rotation-benchmark --repeats 5` in a
-WarpX Python environment. Compare `alias` and `cumulative` with identical
-physics and report variance times cost. CPU measurements do not establish
-CUDA, HIP or SYCL throughput.
+`test_mcc_rotation` measures table initialization, memory and isolated lookup
+throughput. `benchmark_rotation.py` measures complete timesteps and variance
+per computational cost using identical physics for alias and cumulative paths.
+`perlmutter_rotation.sbatch` builds and runs the portable checks and benchmarks
+on one Perlmutter GPU; provide the GPU allocation and Python environment when
+submitting. CPU results alone do not establish CUDA/HIP/SYCL performance.

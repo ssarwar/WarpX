@@ -8,15 +8,19 @@
 """End-to-end combined-family rates, signed losses and MCC timing."""
 
 import argparse
+import sys
 import time
 from pathlib import Path
 
 import numpy as np
-from analysis_rotation_reference import analytic_bundle
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "Tools/CrossSections"))
+from rotation_reference import Bundle
 
 from pywarpx import libwarpx, picmi
 
 parser = argparse.ArgumentParser()
+parser.add_argument("--data-dir", type=Path, required=True)
 parser.add_argument("--particles", type=int, default=65536)
 parser.add_argument("--steps", type=int, default=1)
 parser.add_argument("--cumulative", action="store_true")
@@ -44,20 +48,12 @@ qe = picmi.constants.q_e
 rest = me * c * c / qe
 species, collisions, references = [], [], []
 for target in ["N2", "O2"]:
-    bundle = analytic_bundle(target)
-    file = Path(f"{target}_analytic.rot").resolve()
-    bundle.write(file)
-    inclusive = Path(f"{target}_inclusive.txt").resolve()
-    np.savetxt(inclusive, [[0, 2e-20], [10, 2e-20]])
-    elastic_dcs = Path(f"{target}_elastic_dcs.txt").resolve()
-    # DCS = 1 + a*sin(theta/2), exactly linear in the source interpolation
-    # coordinate. Its angular moments are available by independent integration.
-    a = 3 if args.anisotropic else 0
-    angular_values = f"1 {1 + a / np.sqrt(2):.17g} {1 + a}"
-    elastic_dcs.write_text(f"1e-10 {angular_values}\n10 {angular_values}\n")
-    # An ordinary channel exercises the retained selector alongside the family.
-    ordinary = Path(f"{target}_ordinary.txt").resolve()
-    np.savetxt(ordinary, [[0, 1e-21], [10, 1e-21]])
+    file = (args.data_dir / f"{target}_analytic.rot").resolve()
+    bundle = Bundle.read(file)
+    inclusive = (args.data_dir / f"{target}_inclusive.txt").resolve()
+    angular_file = "elastic_dcs_anisotropic" if args.anisotropic else "elastic_dcs"
+    elastic_dcs = (args.data_dir / f"{target}_{angular_file}.txt").resolve()
+    ordinary = (args.data_dir / f"{target}_ordinary.txt").resolve()
     for temperature in [0, 100, 300, 1000]:
         rates = bundle.at_temperature(temperature).sum(axis=1)
         for energy in [0, 0.5]:

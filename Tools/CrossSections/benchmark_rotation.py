@@ -21,6 +21,12 @@ import numpy as np
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--output", type=Path, required=True)
+parser.add_argument(
+    "--data-dir",
+    type=Path,
+    default=Path(__file__).resolve().parents[2]
+    / "build/Tools/CrossSections/rotation_reference",
+)
 parser.add_argument("--particles", type=int, default=65536)
 parser.add_argument("--steps", type=int, default=8)
 parser.add_argument("--repeats", type=int, default=5)
@@ -45,6 +51,8 @@ for repeat in range(args.repeats):
         command = [
             sys.executable,
             str(script),
+            "--data-dir",
+            str(args.data_dir.resolve()),
             "--particles",
             str(args.particles),
             "--steps",
