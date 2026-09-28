@@ -54,7 +54,7 @@ def electron_proper_speed(energy_ev):
 
 def dcs_screening_radius(path):
     for line in path.read_text().splitlines():
-        fields = line.split()
+        fields = line.lstrip("# ").split()
         if len(fields) == 4 and fields[:3] == ["SPECIES:", "e", "/"]:
             return {"N2": 0.6052, "O2": 0.5677}.get(fields[3], 0.0)
     return 0.0

@@ -25,6 +25,11 @@ parser.add_argument("--particles", type=int, default=65536)
 parser.add_argument("--steps", type=int, default=1)
 parser.add_argument("--cumulative", action="store_true")
 parser.add_argument("--anisotropic", action="store_true")
+parser.add_argument(
+    "--elmolcs",
+    action="store_true",
+    help="read prepared N2/IAA and O2/IAA source families",
+)
 parser.add_argument("--seed", type=int, default=42)
 args = parser.parse_args()
 
@@ -48,15 +53,29 @@ qe = picmi.constants.q_e
 rest = me * c * c / qe
 species, collisions, references = [], [], []
 for target in ["N2", "O2"]:
-    file = (args.data_dir / f"{target}_analytic.rot").resolve()
+    directory = args.data_dir / target / "IAA" if args.elmolcs else args.data_dir
+    file = (
+        directory
+        / ("thermal_rotation.rot" if args.elmolcs else f"{target}_analytic.rot")
+    ).resolve()
     bundle = Bundle.read(file)
-    inclusive = (args.data_dir / f"{target}_inclusive.txt").resolve()
+    inclusive = (
+        directory
+        / (
+            "thermal_rotation_elastic.txt"
+            if args.elmolcs
+            else f"{target}_inclusive.txt"
+        )
+    ).resolve()
     angular_file = "elastic_dcs_anisotropic" if args.anisotropic else "elastic_dcs"
-    elastic_dcs = (args.data_dir / f"{target}_{angular_file}.txt").resolve()
+    elastic_dcs = (
+        directory
+        / ("elastic_dcs.txt" if args.elmolcs else f"{target}_{angular_file}.txt")
+    ).resolve()
     ordinary = (args.data_dir / f"{target}_ordinary.txt").resolve()
     for temperature in [0, 100, 300, 1000]:
         rates = bundle.at_temperature(temperature).sum(axis=1)
-        for energy in [0, 0.5]:
+        for energy in [0, 0.0021, 0.01, 0.5, 2.3, 10] if args.elmolcs else [0, 0.5]:
             if energy == 0 and temperature == 0:
                 continue
             name = f"e_{target}_{temperature}_{energy}".replace(".", "_")
@@ -73,7 +92,7 @@ for target in ["N2", "O2"]:
             rotation = {
                 "cross_section": str(inclusive),
                 "rotation_file": str(file),
-                "rotation_model": "analytic_test",
+                "rotation_model": "elastic_dcs" if args.elmolcs else "analytic_test",
                 "scattering_angle_model": "IAA",
                 "differential_cross_section": str(elastic_dcs),
                 "rotational_temperature": temperature,
@@ -85,7 +104,9 @@ for target in ["N2", "O2"]:
                     species=electron,
                     background_density=density,
                     background_temperature=0,
-                    scattering_processes={
+                    scattering_processes={"elastic": rotation}
+                    if args.elmolcs
+                    else {
                         "elastic": rotation,
                         "elastic_ordinary": {"cross_section": str(ordinary)},
                     },
@@ -96,11 +117,12 @@ for target in ["N2", "O2"]:
                 [np.interp(energy, bundle.energies, column) for column in rates.T]
             )
             v = c * np.sqrt(energy * (energy + 2 * rest)) / (energy + rest)
-            total = interpolated.sum() + v * 1e-21
+            total = interpolated.sum() + (0 if args.elmolcs else v * 1e-21)
             probability = -np.expm1(-density * total * dt)
             mean = probability * np.dot(interpolated, bundle.losses) / total
             second = probability * np.dot(interpolated, bundle.losses**2) / total
-            references.append((name, target, energy, mean, second, probability))
+            fourth = probability * np.dot(interpolated, bundle.losses**4) / total
+            references.append((name, target, energy, mean, second, fourth, probability))
 
 sim = picmi.Simulation(
     solver=solver,
@@ -142,7 +164,7 @@ output = {
     "steps": args.steps,
     "cases": len(references),
 }
-for name, target, energy, mean, second, probability in references:
+for name, target, energy, mean, second, fourth, probability in references:
     container = sim.particles.get(name)
     ux, uy, uz = (component(container, key) for key in ["ux", "uy", "uz"])
     u2 = ux**2 + uy**2 + uz**2
@@ -178,6 +200,25 @@ for name, target, energy, mean, second, probability in references:
         changed.mean(),
         probability,
     ]
+    if args.elmolcs and args.steps == 1:
+        # Test with independently reconstructed neutral recoil. The source
+        # bundle is loaded only; neither a source fit nor a test table is built.
+        first_error = 7 * np.sqrt(
+            max(losses.var(), second - mean**2, 0) / args.particles
+        )
+        second_error = 7 * np.sqrt(
+            max((losses**2).var(), fourth - second**2, 0) / args.particles
+        )
+        assert abs(losses.mean() - mean) <= first_error + 0.002 * max(
+            abs(mean), 1e-10
+        ), (name, losses.mean(), mean)
+        assert abs((losses**2).mean() - second) <= second_error + 0.002 * max(
+            second, 1e-10
+        ), (name, (losses**2).mean(), second)
+        assert (
+            abs(changed.mean() - probability)
+            <= 7 * np.sqrt(probability * (1 - probability) / args.particles) + 1e-5
+        ), (name, changed.mean(), probability)
 if libwarpx.amr.ParallelDescriptor.MyProc() == 0:
     np.savez("background_mcc_rotation_results.npz", **output)
 sim.finalize()

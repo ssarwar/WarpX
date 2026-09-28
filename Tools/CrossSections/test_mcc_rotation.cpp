@@ -5,6 +5,7 @@
  * License: BSD-3-Clause-LBNL
  */
 #include "Particles/Collision/BackgroundMCC/BackgroundMCCElasticKinematics.H"
+#include "Particles/Collision/BackgroundMCC/BackgroundMCCElasticScattering.H"
 #include "Particles/Collision/BackgroundMCC/BackgroundMCCThermalRotation.H"
 #include "Utils/WarpXConst.H"
 
@@ -44,6 +45,16 @@ main (int argc, char** argv)
         pp.query("samples", count);
         bool cumulative = false;
         pp.query("cumulative", cumulative);
+        std::string source_model = "analytic_test", n2_dcs, o2_dcs;
+        pp.query("model", source_model);
+        pp.query("n2_dcs", n2_dcs);
+        pp.query("o2_dcs", o2_dcs);
+        std::shared_ptr<BackgroundMCCElasticScatteringModel> nitrogen, oxygen;
+        if (!n2_dcs.empty() && !o2_dcs.empty()) {
+            nitrogen = BackgroundMCCElasticScatteringModel::get(n2_dcs);
+            oxygen = BackgroundMCCElasticScatteringModel::get(o2_dcs);
+            AMREX_ALWAYS_ASSERT(nitrogen == BackgroundMCCElasticScatteringModel::get(n2_dcs));
+        }
         AMREX_ALWAYS_ASSERT(count > 0);
         std::ifstream reference(reference_file);
         std::ofstream output(output_file);
@@ -70,7 +81,7 @@ main (int argc, char** argv)
             AMREX_ALWAYS_ASSERT(reference);
             auto const start = std::chrono::steady_clock::now();
             model =
-                BackgroundMCCThermalRotation::get(file, "analytic_test", temperature, cumulative);
+                BackgroundMCCThermalRotation::get(file, source_model, temperature, cumulative);
             auto const initialized = std::chrono::steady_clock::now();
             auto const executor = model->executor();
             auto const state_host =
@@ -78,10 +89,15 @@ main (int argc, char** argv)
             AMREX_ALWAYS_ASSERT(std::abs(state_host.m_rate / expected_rate - 1) < 0.002);
             auto* data = samples.data();
             double const mass = model->neutralMass();
+            auto const angular_model = mass < 30 * 1.66053906660e-27 ? nitrogen : oxygen;
+            auto const angular = angular_model ? angular_model->executor()
+                                              : BackgroundMCCElasticScatteringModel::Executor{};
             auto const sample_start = std::chrono::steady_clock::now();
             amrex::ParallelForRNG(count, [=] AMREX_GPU_DEVICE(int i,
                                                               amrex::RandomEngine const& engine) {
-                double const cosine = 1 - 2 * amrex::Random(engine);
+                double const draw = amrex::Random(engine);
+                double const cosine = energy == 0 ? 1 - 2 * draw
+                    : angular.sampleCosine(static_cast<amrex::ParticleReal>(energy), draw);
                 auto const state = executor.interpolate(static_cast<amrex::ParticleReal>(energy));
                 auto const outcome =
                     executor.sample(state, amrex::Random(engine), amrex::Random(engine));

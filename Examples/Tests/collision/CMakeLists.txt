@@ -1,6 +1,26 @@
 # Add tests (alphabetical order) ##############################################
 #
 
+set(WarpX_ELMOLCS_TEST_DATA "" CACHE PATH "Prepared offline elmolcs MCC test data")
+if(WarpX_ELMOLCS_TEST_DATA)
+    foreach(mode IN ITEMS alias cumulative)
+        set(elmolcs_sampler_argument "")
+        if(mode STREQUAL "cumulative")
+            set(elmolcs_sampler_argument "--cumulative")
+        endif()
+        add_warpx_test(
+            test_1d_elmolcs_${mode}_picmi 1 1
+            "inputs_test_1d_background_mcc_rotation_picmi.py --elmolcs --data-dir ${WarpX_ELMOLCS_TEST_DATA} ${elmolcs_sampler_argument}"
+            OFF OFF OFF
+        )
+    endforeach()
+    add_warpx_test(
+        test_1d_elmolcs_thermal_picmi 1 1
+        "inputs_test_1d_elmolcs_thermal_picmi.py --data-dir ${WarpX_ELMOLCS_TEST_DATA}"
+        OFF OFF OFF
+    )
+endif()
+
 add_warpx_test(
     test_rz_rigid_source_recoil_picmi RZ 1
     "inputs_test_rz_rigid_source_picmi.py --solver Yee --subcycles 2"

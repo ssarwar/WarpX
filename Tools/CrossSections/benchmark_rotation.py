@@ -31,6 +31,9 @@ parser.add_argument("--particles", type=int, default=65536)
 parser.add_argument("--steps", type=int, default=8)
 parser.add_argument("--repeats", type=int, default=5)
 parser.add_argument("--warmup-runs", type=int, default=1)
+parser.add_argument(
+    "--elmolcs", action="store_true", help="benchmark prepared elmolcs source families"
+)
 args = parser.parse_args()
 if args.repeats < 2:
     raise ValueError("At least two independent seeds are required to measure variance")
@@ -67,6 +70,8 @@ for repeat in range(-args.warmup_runs, args.repeats):
         ]
         if mode == "cumulative":
             command.append("--cumulative")
+        if args.elmolcs:
+            command.append("--elmolcs")
         with (directory / "run.log").open("w") as log:
             subprocess.run(
                 command, cwd=directory, stdout=log, stderr=subprocess.STDOUT, check=True
