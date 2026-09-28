@@ -13,8 +13,11 @@
 
 #include <cmath>
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <limits>
+#include <map>
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -225,6 +228,22 @@ namespace
         }
     }
 } // namespace
+
+std::shared_ptr<BackgroundMCCElasticScatteringModel>
+BackgroundMCCElasticScatteringModel::get (std::string const& differential_cross_section)
+{
+    static std::mutex mutex;
+    static std::map<std::string, std::weak_ptr<BackgroundMCCElasticScatteringModel>> cache;
+    auto const key = std::filesystem::canonical(differential_cross_section).string();
+    std::lock_guard<std::mutex> lock(mutex);
+    auto& entry = cache[key];
+    if (auto existing = entry.lock()) {
+        return existing;
+    }
+    auto result = std::make_shared<BackgroundMCCElasticScatteringModel>(key);
+    entry = result;
+    return result;
+}
 
 BackgroundMCCElasticScatteringModel::BackgroundMCCElasticScatteringModel (
     std::string const& differential_cross_section)

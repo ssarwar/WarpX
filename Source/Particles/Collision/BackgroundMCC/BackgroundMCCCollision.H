@@ -90,7 +90,7 @@ public:
         m_differential_scattering_processes_exe;
     amrex::Gpu::DeviceVector<BackgroundMCCIonizationModel::Executor>
         m_ionization_processes_exe;
-    std::vector<std::unique_ptr<BackgroundMCCElasticScatteringModel>>
+    std::vector<std::shared_ptr<BackgroundMCCElasticScatteringModel>>
         m_differential_scattering_models;
     std::vector<std::unique_ptr<BackgroundMCCIonizationModel>> m_ionization_models;
     std::unique_ptr<BackgroundMCCProcessSelector> m_process_selector;

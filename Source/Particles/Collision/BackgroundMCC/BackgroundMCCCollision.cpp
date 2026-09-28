@@ -425,7 +425,7 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
             {
                 auto const model_index = m_differential_scattering_models.size();
                 m_differential_scattering_models.push_back(
-                    std::make_unique<BackgroundMCCElasticScatteringModel>(file_name));
+                    BackgroundMCCElasticScatteringModel::get(file_name));
                 model = differential_model_indices.emplace(file_name, model_index).first;
             }
             executor = m_differential_scattering_models[model->second]->executor();

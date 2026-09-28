@@ -13,6 +13,7 @@
 #include <AMReX_REAL.H>
 
 #include <cmath>
+#include <memory>
 #include <string>
 
 /** Precomputed inverse angular CDF for an IAA/elmolcs elastic DCS table.
@@ -144,6 +145,10 @@ public:
     };
 
     explicit BackgroundMCCElasticScatteringModel (std::string const& differential_cross_section);
+
+    /** Share immutable angular tables across collision objects using the same file. */
+    static std::shared_ptr<BackgroundMCCElasticScatteringModel>
+    get (std::string const& differential_cross_section);
 
     [[nodiscard]] Executor const& executor () const
     {
