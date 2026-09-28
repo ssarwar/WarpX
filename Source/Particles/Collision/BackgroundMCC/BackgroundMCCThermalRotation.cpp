@@ -243,12 +243,38 @@ BackgroundMCCThermalRotation::BackgroundMCCThermalRotation (std::string const& f
             weights.push_back(1);
             outcomes.push_back(0);
         }
+        // Source bundles cover the hottest supported gas. Colder gases can
+        // leave many numerically irrelevant Boltzmann tails in every row.
+        // Remove a channel only if its contributions to the rate AND both
+        // absolute energy-transfer moments are negligible. The sum discarded
+        // in each moment is bounded by 1e-14; retain the original total rate.
+        double first_moment = 0, second_moment = 0;
+        for (std::size_t i = 0; i < weights.size(); ++i) {
+            double const loss = std::abs(m_outcomes_h[outcomes[i]].m_loss);
+            first_moment += weights[i] * loss;
+            second_moment += weights[i] * loss * loss;
+        }
+        double const budget = 1.0e-14 / static_cast<double>(weights.size());
+        std::size_t retained = 0;
+        for (std::size_t i = 0; i < weights.size(); ++i) {
+            double const loss = std::abs(m_outcomes_h[outcomes[i]].m_loss);
+            if (weights[i] > budget * total ||
+                weights[i] * loss > budget * first_moment ||
+                weights[i] * loss * loss > budget * second_moment)
+            {
+                weights[retained] = weights[i];
+                outcomes[retained] = outcomes[i];
+                ++retained;
+            }
+        }
+        weights.resize(retained);
+        outcomes.resize(retained);
         m_cells_h.push_back(
             {static_cast<int>(m_loss_alias_h.size()), static_cast<int>(weights.size())});
         appendAlias(weights, outcomes, m_loss_alias_h);
         if (cumulative) {
             double prefix = 0;
-            double const normalization = total > 0 ? total : 1;
+            double const normalization = std::accumulate(weights.begin(), weights.end(), 0.0);
             for (double weight : weights) {
                 prefix += weight / normalization;
                 m_cdf_h.push_back(std::min(prefix, 1.0));
