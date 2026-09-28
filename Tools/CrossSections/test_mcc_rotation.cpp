@@ -223,7 +223,8 @@ main (int argc, char** argv)
                     data[i].cosine = energy == 0 ? 1 - 2 * draw
                         : angular.sampleCosine(static_cast<amrex::ParticleReal>(energy), draw);
                 });
-                amrex::Gpu::copy(amrex::Gpu::deviceToHost, samples.begin(), samples.end(), host.begin());
+                amrex::Gpu::copy(amrex::Gpu::deviceToHost, samples.begin(), samples.end(),
+                                 host.begin());
                 double first = 0, second = 0;
                 for (auto const& value : host) {
                     first += value.cosine;
