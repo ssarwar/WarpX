@@ -115,17 +115,46 @@ initialization only validates loaded data, weights equilibrium populations,
 prepares shared in-memory samplers and uploads them to the device. It neither
 evaluates elmolcs source models nor creates cross-section files.
 
-The zero-reference-temperature candidate audit has nonnegative unchanged
-integral rates. This is an explicit reference-population assumption, not a
-demonstrated temperature for all source measurements. A 300 K diagnostic
-exposes negative low-energy residuals with the current extrapolations. Finite
-inclusive cross sections imply :math:`v\sigma\to0`, which cannot contain the
-finite superelastic contribution of a thermally populated rotor. Validated
-thermal low-energy continuations, omitted-rank convergence and coverage through
-beam energies remain production requirements. O2's angular-integrated Born
-rate approximation retains its limited validity; the elastic angular sampler
-does not extend it. Synthetic V3 verification bundles establish software
-correctness, not N2/O2 beam-physics validity.
+The elementary N2 tables expose a normalization conflict near the resonance:
+at 2.3 eV their excitation sum is :math:`2.40\times10^{-19}\,\mathrm{m^2}`,
+larger than the residual integral :math:`1.73\times10^{-19}\,\mathrm{m^2}`.
+An earlier coarse candidate audit missed this interval. A nonnegative
+unchanged rate cannot be obtained by subtracting these particular source sets.
+The separate Kutz--Meyer :math:`J=0\to0` table is a fixed-initial-state
+theoretical result, not the measured residual minus rotation and not a
+thermal average over :math:`J\to J` channels. Replacing the residual by its
+sum with the excitation tables changes the physical rate substantially.
+
+``Tools/CrossSections/export_elmolcs.py`` exports the source elastic,
+DCS and elementary rotational cross sections offline. It preserves positive
+source knots and refines for the ordinary linear cross-section reader.
+The residual elastic continuation above 6 keV is the package's fitted Born
+model, matched at the last datum. DCS rows retain the source resolution.
+Rotational tables use canonical thresholds and interpolate
+:math:`\sigma p_\mathrm{in}/p_\mathrm{out}`, with a constant reduced amplitude
+between threshold and the first positive datum. No rotational tail is
+extrapolated beyond the source endpoint.
+
+O2 export uses the actual numerical integral table attributed to
+Takayanagi--Itikawa, rather than the previous replacement polynomial for
+Eq. (11.21b). N2 elementary coverage ends at 1000 eV and O2 at 20 eV.
+These endpoints do not establish physical validity of the approximations
+throughout their energy ranges, or bound omitted higher-rank transitions.
+The optional ``--test-bundles`` output belongs in a build directory and
+exercises the software with these real sources. It uses N2's separate
+:math:`0\to0` table and a ground-rotor reference decomposition for O2;
+it is not a resolution of the production source-consistency questions.
+Neither clipping a negative remainder nor publishing synthetic fixtures as
+physical data is an acceptable resolution.
+
+``Tools/CrossSections/test_elmolcs.py`` compares exported tables to source
+knots, checks interpolation at independent probes, and checks equilibrium
+power at 100, 300 and 1000 K. Its device references use independent angular
+quadrature. The sampler tests, full MCC inputs and benchmark driver accept
+prepared data; no source model or cross-section file is generated at runtime.
+Finite inclusive cross sections imply :math:`v\sigma\to0`, whereas thermal
+superelastic rates can remain finite. This low-energy distinction also needs
+an explicit reference-population model in a production combined family.
 
 Other table conversion issues
 -----------------------------
