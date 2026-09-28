@@ -69,7 +69,7 @@ approximately 19.5 and 18.6 percent of the respective equilibrium populations.
 A thermal sum must extend the state set, rather than renormalize those lists.
 
 IAA Eq. (11.24) constructs transitions from elementary integral rates using
-the sudden approximation. The V3 rate model uses the canonical internal-energy
+the sudden approximation. The V3/V4 rate models use the canonical internal-energy
 threshold :math:`\Delta=E_{J'}-E_J`, without molecular recoil shifts. For
 relativistic electron momentum :math:`p(E)=\sqrt{E(E+2m_ec^2)}/c`, reverse rates
 satisfy the heavy-target integral relation
@@ -124,6 +124,22 @@ The separate Kutz--Meyer :math:`J=0\to0` table is a fixed-initial-state
 theoretical result, not the measured residual minus rotation and not a
 thermal average over :math:`J\to J` channels. Replacing the residual by its
 sum with the excitation tables changes the physical rate substantially.
+In the sudden approximation the unchanged channel for an arbitrary initial
+state is
+
+.. math::
+
+  \sigma_{J\to J}(E)=A_0(E)+\sum_{\lambda=2,4,\ldots}
+  |C_{J0,\lambda0}^{J0}|^2 A_\lambda(E),
+  \qquad A_\lambda=\sigma_{0\to\lambda}p_\mathrm{in}/p_\mathrm{out}.
+
+Simply reusing :math:`\sigma_{0\to0}` for every initial state misses the
+second term. V4 bundles carry these state-resolved unchanged rates, which
+are thermally averaged and collapsed to one outcome during initialization.
+At 300 K the source-based N2 reconstruction at 2.3 eV still totals about
+:math:`5.09\times10^{-19}\,\mathrm{m^2}`; Boltzmann averaging does not cure
+the normalization conflict. States through J=48 for N2 and odd J=57 for O2
+leave less than :math:`10^{-10}` population outside a 300 K partition sum.
 
 ``Tools/CrossSections/export_elmolcs.py`` exports the source elastic,
 DCS and elementary rotational cross sections offline. It preserves positive

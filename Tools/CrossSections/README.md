@@ -23,17 +23,16 @@ near-threshold continuation, and rotational production gates.
 ## Thermal rotation
 
 Physical cross sections and bundles are prepared offline and stored in
-`warpx-data/IAA`. WarpX reads existing files; it never invokes elmolcs or a
+`warpx-data`. WarpX reads existing files; it never invokes elmolcs or a
 cross-section generator. Initialization applies the chosen Boltzmann populations
 and packs shared in-memory sampling tables. This supports arbitrary fixed
 rotational temperatures without generating physical data during a simulation.
 
 `rotation_reference.py` constructs integral forward/reverse rates in the
 heavy-target limit, with relativistic electron phase space and canonical
-rigid-rotor level spacings as thresholds. `audit_iaa_rotation.py` audits the
-pinned source data and accepts `--reference-temperature` (default zero, an
-explicit assumption). It records unresolved physics checks without exporting
-an unvalidated production bundle.
+rigid-rotor level spacings as thresholds. `export_elmolcs.py` converts real
+source tables; `test_elmolcs.py` independently checks the conversion and
+prepares sampler references in the build directory.
 
 The angle comes from the existing elastic DCS and is independent of the
 unchanged/excitation/de-excitation draw. An energy-row mixture followed by one
@@ -47,7 +46,7 @@ reference stores a cumulative table; the alias path omits it.
 Bundles have three ASCII header lines and a little-endian payload:
 
 ```text
-WARPX_THERMAL_ROTATION_V3
+WARPX_THERMAL_ROTATION_V4
 N2 elastic_dcs J_MAX T_REFERENCE_K
 N_ENERGY N_TRANSITION
 ```
@@ -55,7 +54,10 @@ N_ENERGY N_TRANSITION
 Arrays contain energies (binary64), transition pairs `(J_initial,J_final)`
 (int32), and integral rate coefficients (binary64, C order
 `[energy,component]`). Component zero is unchanged. Other components correspond
-to transition pairs, before Boltzmann weighting. Rates have units m³/s.
+to transition pairs, before Boltzmann weighting. V4 also permits `J_initial =
+J_final`: these state-dependent unchanged rates are summed to one unchanged
+outcome on the host. V3 remains readable and retains its scalar unchanged
+component. Rates have units m³/s.
 There are no angular bins. V1/V2 bundles must be regenerated; V3 omits the
 molecular recoil shift from thresholds and source-rate detailed balance.
 The state sum and rate/transfer moments must converge. Input and sampler
@@ -80,19 +82,27 @@ midpoints must stay below 0.2%. Float32 threshold bands are tested separately.
 Analytic bundles check population and moment convergence, thermal power
 balance at 100/300/1000 K, thresholds and angular independence.
 
-Export the synthetic verification inputs offline:
+Export real source cross sections offline with elmolcs on `PYTHONPATH`:
 
 ```sh
-python Examples/Tests/collision/analysis_rotation_reference.py --export-only /path/to/warpx-data/MCC_cross_sections/IAA/rotation/verification
+python Tools/CrossSections/export_elmolcs.py --output /path/to/warpx-data/MCC_cross_sections
 ```
 
-These files are also stored on `warpx-data/IAA`; they are not production
-molecular cross sections. CTest regenerates verification fixtures as a separate
-setup step. The PICMI input and performance driver only read prepared files.
+The N2 and O2 `IAA` directories contain source cross sections and short usage
+notes. Keep synthetic fixtures, validation output and candidate bundles in
+the build directory. N2's residual elastic and elementary rotational tables
+are incompatible near resonance; a combined production family needs an
+explicit source reconciliation. `--test-bundles` prepares source-driven
+software tests, including all unchanged `J->J` channels. It does not resolve
+that physical normalization problem. Tests and simulations only load the
+prepared files; they never evaluate elmolcs or generate source data at runtime.
 
 ```sh
-ctest --test-dir build -R 'rotation|rbeq_source|secondary_angles' --output-on-failure
-python Tools/CrossSections/benchmark_rotation.py --data-dir /path/to/warpx-data/MCC_cross_sections/IAA/rotation/verification --output build/rotation-benchmark --repeats 5
+python Tools/CrossSections/export_elmolcs.py --output build/elmolcs-data --test-bundles
+python Tools/CrossSections/test_elmolcs.py --data-dir build/elmolcs-data --output build/elmolcs-checks
+cmake -S . -B build -DWarpX_ELMOLCS_TEST_DATA="$PWD/build/elmolcs-data"
+ctest --test-dir build -R 'elmolcs|rotation|rbeq_source|secondary_angles' --output-on-failure
+python Tools/CrossSections/benchmark_rotation.py --elmolcs --data-dir build/elmolcs-data --output build/rotation-benchmark --repeats 5
 ```
 
 `test_mcc_rotation` measures table initialization, memory and isolated lookup

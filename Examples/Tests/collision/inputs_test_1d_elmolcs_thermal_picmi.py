@@ -20,7 +20,7 @@ from pywarpx import picmi
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--data-dir", type=Path, required=True)
-parser.add_argument("--particles", type=int, default=65536)
+parser.add_argument("--particles", type=int, default=32768)
 parser.add_argument("--steps", type=int, default=128)
 args = parser.parse_args()
 

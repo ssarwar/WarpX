@@ -138,8 +138,10 @@ BackgroundMCCThermalRotation::BackgroundMCCThermalRotation (std::string const& f
     double reference_temperature = 0;
     input >> magic >> target >> source_model >> maximum_j >> reference_temperature >>
         energy_count >> transition_count;
+    bool const state_resolved_elastic = magic == "WARPX_THERMAL_ROTATION_V4";
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-        input && magic == "WARPX_THERMAL_ROTATION_V3" && (target == "N2" || target == "O2") &&
+        input && (magic == "WARPX_THERMAL_ROTATION_V3" || state_resolved_elastic) &&
+            (target == "N2" || target == "O2") &&
             source_model == model && (model == "elastic_dcs" || model == "analytic_test"),
         "Invalid thermal-rotation bundle header or model mismatch.");
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(maximum_j >= 8 && maximum_j <= 4096 && energy_count >= 2 &&
@@ -188,7 +190,8 @@ BackgroundMCCThermalRotation::BackgroundMCCThermalRotation (std::string const& f
     for (int i = 0; i < transition_count; ++i) {
         int const initial = transitions[2 * i], final = transitions[2 * i + 1];
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(initial >= 0 && final >= 0 && initial <= maximum_j &&
-                                             final <= maximum_j && initial != final &&
+                                             final <= maximum_j &&
+                                             (initial != final || state_resolved_elastic) &&
                                              (initial - final) % 2 == 0 &&
                                              (nitrogen || (initial % 2 == 1 && final % 2 == 1)),
                                          "Invalid homonuclear rotational transition.");
@@ -220,6 +223,7 @@ BackgroundMCCThermalRotation::BackgroundMCCThermalRotation (std::string const& f
     for (int e = 0; e < energy_count; ++e) {
         std::vector<double> weights;
         std::vector<int> outcomes;
+        double unchanged_rate = 0;
         for (int index : order) {
             auto const rate = rates[static_cast<std::size_t>(e) * component_count + index];
             WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
@@ -228,10 +232,18 @@ BackgroundMCCThermalRotation::BackgroundMCCThermalRotation (std::string const& f
                 "Negative, nonfinite or sub-threshold thermal-rotation reference rate.");
             m_reference_rates[e] += reference_factors[index] * rate;
             auto const weighted = factors[index] * rate;
-            if (weighted > 0) {
+            if (thresholds[index] == 0) {
+                unchanged_rate += weighted;
+            } else if (weighted > 0) {
                 weights.push_back(weighted);
                 outcomes.push_back(index);
             }
+        }
+        if (unchanged_rate > 0) {
+            // All J->J channels have the same unchanged outcome. Sum them
+            // before upload, retaining one alias entry and no device J loop.
+            weights.push_back(unchanged_rate);
+            outcomes.push_back(0);
         }
         double const total = std::accumulate(weights.begin(), weights.end(), 0.0);
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(

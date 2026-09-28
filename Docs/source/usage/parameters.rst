@@ -3658,20 +3658,23 @@ Details about the collision models can be found in the :ref:`theory section <mul
     :type: ``string``
     :optional:
 
-    Path to a ``WARPX_THERMAL_ROTATION_V3`` reference bundle, described in
+    Path to a ``WARPX_THERMAL_ROTATION_V3`` or ``WARPX_THERMAL_ROTATION_V4`` reference bundle, described in
     ``Tools/CrossSections/README.md``. Generate physical data offline and store
     them in ``warpx-data``; WarpX only reads existing bundles. V1/V2 files must
     be regenerated for the nominal-threshold model. Initialization sums Boltzmann populations
     and builds shared sampling tables for each data/model/temperature pair.
+    V4 additionally permits state-resolved unchanged :math:`J\to J` entries.
+    Their Boltzmann-weighted rates are summed into one unchanged outcome on
+    the host, without additional device sampling or neutral-state bookkeeping.
     The unchanged contribution must be nonnegative, all excitation thresholds
     must be represented, and the omitted population must be below :math:`10^{-10}`.
     The bundle must cover zero energy, including any finite de-excitation rate
     coefficient there. Energies above its validity range cause a runtime error;
     this model does not silently clamp a high-energy rotational tail.
     Source arrays and final sampling storage are limited to 512 MiB each.
-    The current IAA audit rejects the supplied N2/O2 production constructions:
-    see :ref:`mcc-iaa-sources`. Synthetic test bundles establish software
-    correctness, not beam-physics validity.
+    Source consistency and the normalization conflict in the supplied N2
+    tables are discussed in :ref:`mcc-iaa-sources`. Passing a sampler test
+    does not establish a combined model's physical accuracy.
 
 .. pp:param:: <collision_name>.<scattering_process>_rotational_temperature
     :type: ``float``

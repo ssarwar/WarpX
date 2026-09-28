@@ -125,6 +125,30 @@ def validate(target, directory, output):
                 )
                 assert abs(integral - cg_squared(i, rank, f)) < 3e-11
 
+    if target == "N2":
+        # J->J also receives higher-rank contributions. Independently project
+        # them with Legendre quadrature; a universal 0->0 remainder would fail.
+        probes = np.array([0.1, 2.3, 10.0])
+        direct = source.rates(probes)
+        for initial in [0, 1, 6, 12, 24, 48]:
+            expected = source.unchanged(probes).copy()
+            for rank, section in source.elementary.items():
+                coefficient = (
+                    (2 * initial + 1)
+                    / 2
+                    * np.dot(
+                        w, eval_legendre(initial, mu) ** 2 * eval_legendre(rank, mu)
+                    )
+                )
+                expected += coefficient * section.reduced(probes)
+            index = bundle.transitions.index([initial, initial]) + 1
+            velocity = (
+                299792458.0 * np.sqrt(probes * (probes + 2 * REST)) / (probes + REST)
+            )
+            np.testing.assert_allclose(
+                direct[:, index] / velocity, expected, rtol=1e-10
+            )
+
     lo, hi = bundle.energies[:-1], bundle.energies[1:]
     probe = lo + (hi - lo) * rng.uniform(0.05, 0.95, len(lo))
     exact_rates = source.rates(probe)

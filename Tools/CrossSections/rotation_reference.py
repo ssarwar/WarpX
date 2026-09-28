@@ -187,8 +187,13 @@ class Bundle:
     def read(cls, path):
         """Read an existing offline bundle without generating cross-section data."""
         with Path(path).open("rb") as source:
-            if source.readline() != b"WARPX_THERMAL_ROTATION_V3\n":
-                raise ValueError("Expected an independent-angle V3 rotational bundle")
+            if source.readline() not in (
+                b"WARPX_THERMAL_ROTATION_V3\n",
+                b"WARPX_THERMAL_ROTATION_V4\n",
+            ):
+                raise ValueError(
+                    "Expected an independent-angle V3 or V4 rotational bundle"
+                )
             target, model, maximum_j, temperature = source.readline().decode().split()
             energy_count, transition_count = map(int, source.readline().split())
             payload = source.read()
@@ -223,9 +228,10 @@ class Bundle:
         self.validate()
         # Little-endian IEEE binary64 payload; text header remains inspectable.
         with Path(path).open("wb") as output:
+            version = 4 if any(i == f for i, f in self.transitions) else 3
             output.write(
                 (
-                    "WARPX_THERMAL_ROTATION_V3\n"
+                    f"WARPX_THERMAL_ROTATION_V{version}\n"
                     f"{self.target} {self.model} {self.maximum_j} {self.reference_temperature:.17g}\n"
                     f"{len(self.energies)} {len(self.transitions)}\n"
                 ).encode("ascii")

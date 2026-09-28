@@ -186,7 +186,20 @@ class Source:
             )
         )
         self.pairs = [pair for i, f in self.transitions for pair in [(i, f), (f, i)]]
-        self.losses = np.r_[0, np.column_stack((self.loss, -self.loss)).ravel()]
+        self.diagonal = np.array(
+            [
+                [
+                    cg_squared(j, rank, j)
+                    / cg_squared(self.ground, rank, self.ground + rank)
+                    for rank in self.elementary
+                ]
+                for j in states
+            ]
+        )
+        self.pairs.extend((j, j) for j in states)
+        self.losses = np.r_[
+            0, np.column_stack((self.loss, -self.loss)).ravel(), np.zeros(len(states))
+        ]
 
     def elastic(self, energy):
         """Residual table followed continuously by the package's fitted Born model."""
@@ -230,19 +243,23 @@ class Source:
             / (energies[:, None] + REST)
             * reverse
         )
-        unchanged = (
+        isotropic_rank = (
             self.unchanged(energies)
             if self.unchanged is not None
-            else self.residual(energies) - self.ground_inelastic(energies)
+            else self.residual(energies)
+            - self.ground_inelastic(energies)
+            - reduced @ self.diagonal[0]
         )
-        if np.any(unchanged < 0):
+        if np.any(isotropic_rank < 0):
             raise ValueError(
                 "Rotational source exceeds the selected inclusive elastic rate"
             )
+        unchanged = isotropic_rank[:, None] + reduced @ self.diagonal.T
         return np.column_stack(
             (
-                speed(energies) * unchanged,
+                np.zeros(len(energies)),
                 np.stack((upward, downward), axis=-1).reshape(len(energies), -1),
+                speed(energies)[:, None] * unchanged,
             )
         )
 
