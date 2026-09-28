@@ -213,6 +213,30 @@ main (int argc, char** argv)
                 output << ' ' << mean;
             }
             output << '\n';
+            if (angular_model) {
+                // Deterministic quadrature of the actual device angular
+                // sampler also resolves interpolation bias below Monte Carlo
+                // noise. The reference moments come from independent DCS
+                // integration, not this inverse-CDF implementation.
+                amrex::ParallelFor(count, [=] AMREX_GPU_DEVICE(int i) {
+                    double const draw = (i + 0.5) / count;
+                    data[i].cosine = energy == 0 ? 1 - 2 * draw
+                        : angular.sampleCosine(static_cast<amrex::ParticleReal>(energy), draw);
+                });
+                amrex::Gpu::copy(amrex::Gpu::deviceToHost, samples.begin(), samples.end(), host.begin());
+                double first = 0, second = 0;
+                for (auto const& value : host) {
+                    first += value.cosine;
+                    second += value.cosine * value.cosine;
+                }
+                double const quadrature_error = 4.0 / count;
+                if (std::abs(first / count - expected[2]) > quadrature_error + 1.0e-4 ||
+                    std::abs(second / count - expected[7]) > quadrature_error + 1.0e-4)
+                {
+                    amrex::Print() << "Deterministic angular moment failure at " << energy << '\n';
+                    status = 1;
+                }
+            }
         }
         AMREX_ALWAYS_ASSERT(cases > 0 && reference.eof());
         amrex::Print() << "Thermal rotation sampler and signed recoil: "

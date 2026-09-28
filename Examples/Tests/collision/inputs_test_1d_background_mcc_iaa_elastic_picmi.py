@@ -17,6 +17,9 @@ parser.add_argument(
 )
 parser.add_argument("--n2-dcs", type=Path)
 parser.add_argument("--o2-dcs", type=Path)
+parser.add_argument("--n2-cross-section", type=Path)
+parser.add_argument("--o2-cross-section", type=Path)
+parser.add_argument("--optical-depth", type=float, default=12.0)
 args = parser.parse_args()
 
 PARTICLE_COUNT = args.particle_count
@@ -26,7 +29,7 @@ NU_MAX = 1.0e8
 # This one-step sampling test deliberately makes nearly every particle collide.
 # It is not a time-converged physical simulation and therefore does not use the
 # usual nu_max*dt <= 0.1 production guideline.
-MAJORANT_OPTICAL_DEPTH = 12.0
+MAJORANT_OPTICAL_DEPTH = args.optical_depth
 RATE_FRACTION = 0.999
 
 C = picmi.constants.c
@@ -36,6 +39,8 @@ AMU = 1.66053906660e-27
 
 assert PARTICLE_COUNT > 0
 assert (args.n2_dcs is None) == (args.o2_dcs is None)
+assert (args.n2_cross_section is None) == (args.o2_cross_section is None)
+assert args.n2_cross_section is None or args.n2_dcs is not None
 
 
 def electron_gamma(energy_ev):
@@ -65,11 +70,21 @@ def screened_rutherford_statistics(energy_ev, screening_radius):
     tau = energy_ev / (M_E * C**2 / Q_E)
     k_sq = tau * (tau + 2.0) / fine_structure**2
     eta = 1.0 / (4.0 * screening_radius**2 * k_sq)
-    probabilities = np.linspace(0.0, 1.0, 200001)
-    deflection = 2.0 * eta * probabilities / (1.0 - probabilities + eta)
-    cosine = 1.0 - deflection
+    # Analytic deflection moments. Uniform quadrature including q=1 assigns
+    # a spurious finite weight to backscattering as the forward lobe narrows.
+    j = math.log1p(1.0 / eta)
+    deflection_moments = [1.0]
+    for order in range(1, 9):
+        deflection_moments.append(2**order * eta * ((1 + eta) * order * j - 1))
+        j = 1 / order - eta * j
     moments = np.array(
-        [np.trapezoid(cosine**order, probabilities) for order in range(1, 9)]
+        [
+            sum(
+                math.comb(order, k) * (-1) ** k * deflection_moments[k]
+                for k in range(order + 1)
+            )
+            for order in range(1, 9)
+        ]
     )
     backward_probability = eta / (1.0 + 2.0 * eta)
     return moments, backward_probability
@@ -141,8 +156,8 @@ def interpolated_dcs_statistics(dcs_lo, dcs_hi, energy_fraction):
     integral_lo, moments_lo, backward_lo = dcs_integrals(dcs_lo)
     integral_hi, moments_hi, backward_hi = dcs_integrals(dcs_hi)
     normalization = (
-        (1.0 - energy_fraction) * integral_lo + energy_fraction * integral_hi
-    )
+        1.0 - energy_fraction
+    ) * integral_lo + energy_fraction * integral_hi
     moments = (
         (1.0 - energy_fraction) * moments_lo + energy_fraction * moments_hi
     ) / normalization
@@ -315,7 +330,12 @@ else:
         ("n2", 28.0134 * AMU, 6.0, args.n2_dcs.resolve()),
         ("o2", 31.9988 * AMU, 1.0, args.o2_dcs.resolve()),
     ):
-        for energy in (0.1, 1000.0, 9990.0, 10010.0, 1.0e6, 1.0e9):
+        energies = (
+            (0.001, 0.01, 0.1, 2.3, 1000.0, 5990.0, 6001.0, 9990.0, 10010.0, 1e6, 1e9)
+            if args.n2_cross_section
+            else (0.1, 1000.0, 9990.0, 10010.0, 1.0e6, 1.0e9)
+        )
+        for energy in energies:
             cases.append(
                 (
                     f"elastic_{target}_{energy:g}",
@@ -327,7 +347,7 @@ else:
                     0.0,
                 )
             )
-        for energy in (1000.0, 1.0e9):
+        for energy in () if args.n2_cross_section else (1000.0, 1.0e9):
             cases.append(
                 (
                     f"excitation_{target}_{energy:g}",
@@ -387,7 +407,12 @@ for (
         warpx_do_not_gather=True,
     )
     cross_section_path = Path(f"background_mcc_iaa_{name}_cross_section.txt").resolve()
-    if process_type == "elastic":
+    if args.n2_cross_section:
+        cross_section_path = (
+            args.n2_cross_section if neutral_mass < 30 * AMU else args.o2_cross_section
+        ).resolve()
+        cross_section_table = np.loadtxt(cross_section_path)
+    elif process_type == "elastic":
         cross_section_table = np.array([[0.0, CROSS_SECTION], [1.0e9, CROSS_SECTION]])
     else:
         cross_section_table = np.array(
@@ -399,15 +424,17 @@ for (
                 [1.0e9, CROSS_SECTION],
             ]
         )
-    np.savetxt(cross_section_path, cross_section_table)
+    if args.n2_cross_section is None:
+        np.savetxt(cross_section_path, cross_section_table)
     local_cross_section = np.interp(energy_ev, *cross_section_table.T)
+    normalization = local_cross_section if args.n2_cross_section else CROSS_SECTION
     if process_type == "excitation":
         neutral_rest_energy = neutral_mass * C**2 / Q_E
         physical_threshold = energy_loss * (1.0 + M_E / neutral_mass)
         physical_threshold += energy_loss**2 / (2.0 * neutral_rest_energy)
         if energy_ev < physical_threshold:
             local_cross_section = 0.0
-    case_rate_fraction = RATE_FRACTION * local_cross_section / CROSS_SECTION
+    case_rate_fraction = RATE_FRACTION * local_cross_section / normalization
 
     process = {
         "cross_section": str(cross_section_path),
@@ -421,7 +448,7 @@ for (
         name=f"mcc_{name}",
         species=electrons,
         background_density=(
-            RATE_FRACTION * NU_MAX / (CROSS_SECTION * electron_speed(energy_ev))
+            RATE_FRACTION * NU_MAX / (normalization * electron_speed(energy_ev))
         ),
         background_temperature=0.0,
         background_mass=neutral_mass,
@@ -448,9 +475,7 @@ for (
             energy_ev, screening_radius
         )
     else:
-        reference_moments, reference_backward = dcs_file_statistics(
-            dcs_file, energy_ev
-        )
+        reference_moments, reference_backward = dcs_file_statistics(dcs_file, energy_ev)
     expected_moments.append(reference_moments)
     expected_backward_probabilities.append(reference_backward)
 
@@ -500,6 +525,7 @@ results = {
     "expected_backward_probabilities": np.array(expected_backward_probabilities),
     "particle_count": PARTICLE_COUNT,
     "rate_fraction": RATE_FRACTION,
+    "majorant_optical_depth": MAJORANT_OPTICAL_DEPTH,
     "scattering_angle_model": SCATTERING_ANGLE_MODEL,
     "initialization_elapsed": initialization_elapsed,
     "step_elapsed": step_elapsed,

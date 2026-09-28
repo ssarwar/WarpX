@@ -74,7 +74,12 @@ for index, raw_name in enumerate(case_names):
     azimuth_y = data[f"{name}_azimuth_y"]
     energies = data[f"{name}_energies"]
 
-    expected_event_fraction = -math.expm1(-12.0 * rate_fraction)
+    optical_depth = (
+        float(data["majorant_optical_depth"])
+        if "majorant_optical_depth" in data
+        else 12.0
+    )
+    expected_event_fraction = -math.expm1(-optical_depth * rate_fraction)
     event_standard_error = math.sqrt(
         expected_event_fraction * (1.0 - expected_event_fraction) / particle_count
     )
@@ -99,9 +104,7 @@ for index, raw_name in enumerate(case_names):
         tau = incident_energy / electron_rest_energy
         k_sq = tau * (tau + 2.0) / fine_structure**2
         eta = 1.0 / (4.0 * screening_radius**2 * k_sq)
-        reconstructed_draws = deflections * (1.0 + eta) / (
-            deflections + 2.0 * eta
-        )
+        reconstructed_draws = deflections * (1.0 + eta) / (deflections + 2.0 * eta)
         assert np.isfinite(reconstructed_draws).all()
         assert np.all(reconstructed_draws >= -2.0e-6)
         assert np.all(reconstructed_draws <= 1.0 + 2.0e-6)

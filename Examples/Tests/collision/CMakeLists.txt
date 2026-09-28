@@ -3,6 +3,11 @@
 
 set(WarpX_ELMOLCS_TEST_DATA "" CACHE PATH "Prepared offline elmolcs MCC test data")
 if(WarpX_ELMOLCS_TEST_DATA)
+    add_warpx_test(
+        test_1d_elmolcs_elastic_picmi 1 1
+        "inputs_test_1d_background_mcc_iaa_elastic_picmi.py --n2-dcs ${WarpX_ELMOLCS_TEST_DATA}/N2/IAA/elastic_dcs.txt --o2-dcs ${WarpX_ELMOLCS_TEST_DATA}/O2/IAA/elastic_dcs.txt --n2-cross-section ${WarpX_ELMOLCS_TEST_DATA}/N2/IAA/elastic.txt --o2-cross-section ${WarpX_ELMOLCS_TEST_DATA}/O2/IAA/elastic.txt --optical-depth 1"
+        "analysis_background_mcc_iaa_elastic.py" OFF OFF
+    )
     foreach(mode IN ITEMS alias cumulative)
         set(elmolcs_sampler_argument "")
         if(mode STREQUAL "cumulative")
