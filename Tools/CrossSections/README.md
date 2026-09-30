@@ -190,3 +190,7 @@ Add `--broad-spectrum` to the benchmark driver to initialize a log-uniform
 exercises divergent energy lookups and table-cache access. Its recorded mean
 electron energy change is an ensemble difference, independent of particle
 reordering; the fixed-energy tests provide the separate physics checks.
+The benchmark distributes the total particle count across 128 cells by default
+(`--cells`). WarpX's within-cell injection loop is serial, so putting the entire
+ensemble in one cell exaggerates GPU startup time. The fixed-energy physics
+tests retain their minimal one-cell setup.

@@ -28,6 +28,9 @@ parser.add_argument(
     / "build/Tools/CrossSections/rotation_reference",
 )
 parser.add_argument("--particles", type=int, default=65536)
+parser.add_argument(
+    "--cells", type=int, default=128, help="parallelize initialization across cells"
+)
 parser.add_argument("--steps", type=int, default=8)
 parser.add_argument("--repeats", type=int, default=5)
 parser.add_argument("--warmup-runs", type=int, default=1)
@@ -56,6 +59,7 @@ script = (
 )
 report = {
     "particles_per_case": args.particles,
+    "cells": args.cells,
     "steps": args.steps,
     "repeats": args.repeats,
     "warmup_runs_per_mode": args.warmup_runs,
@@ -75,6 +79,8 @@ for repeat in range(-args.warmup_runs, args.repeats):
             str(args.data_dir.resolve()),
             "--particles",
             str(args.particles),
+            "--cells",
+            str(args.cells),
             "--steps",
             str(args.steps),
             "--seed",

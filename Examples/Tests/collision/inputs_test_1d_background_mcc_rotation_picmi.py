@@ -23,6 +23,7 @@ from pywarpx import libwarpx, picmi
 parser = argparse.ArgumentParser()
 parser.add_argument("--data-dir", type=Path, required=True)
 parser.add_argument("--particles", type=int, default=65536)
+parser.add_argument("--cells", type=int, default=1)
 parser.add_argument("--steps", type=int, default=1)
 parser.add_argument("--cumulative", action="store_true")
 parser.add_argument("--anisotropic", action="store_true")
@@ -42,6 +43,8 @@ parser.add_argument(
     help="benchmark spectator scattering with log-uniform 0.0021--900 eV electrons",
 )
 args = parser.parse_args()
+if args.cells <= 0 or args.particles % args.cells:
+    raise ValueError("The particle count must be divisible by the positive cell count")
 if args.broad_spectrum and (not args.spectator or args.steps <= 1):
     raise ValueError(
         "The broad-spectrum benchmark requires --spectator and --steps > 1"
@@ -58,14 +61,14 @@ if args.spectator:
         spectator_reference[temperature, energy] = np.array(fields[4:], float)
 
 grid = picmi.Cartesian1DGrid(
-    number_of_cells=[1],
+    number_of_cells=[args.cells],
     lower_bound=[0],
     upper_bound=[100],
     lower_boundary_conditions=["periodic"],
     upper_boundary_conditions=["periodic"],
     lower_boundary_conditions_particles=["periodic"],
     upper_boundary_conditions_particles=["periodic"],
-    warpx_max_grid_size=1,
+    warpx_max_grid_size=args.cells,
     warpx_blocking_factor=1,
 )
 solver = picmi.ElectromagneticSolver(grid=grid, method="Yee", cfl=0.9)
@@ -202,7 +205,7 @@ for electron in species:
     sim.add_species(
         electron,
         layout=picmi.GriddedLayout(
-            n_macroparticle_per_cell=[args.particles], grid=grid
+            n_macroparticle_per_cell=[args.particles // args.cells], grid=grid
         ),
     )
 sim.initialize_inputs()
@@ -258,11 +261,13 @@ output = {
     "particles": args.particles,
     "steps": args.steps,
     "cases": len(references),
+    "cells": args.cells,
     "broad_spectrum": args.broad_spectrum,
 }
 for name, target, energy, mean, second, fourth, probability in references:
     container = sim.particles.get(name)
     ux, uy, uz = (component(container, key) for key in ["ux", "uy", "uz"])
+    assert len(ux) == args.particles, (name, len(ux), args.particles)
     u2 = ux**2 + uy**2 + uz**2
     final_energy = me * u2 / (qe * (1 + np.sqrt(1 + u2 / c**2)))
     if args.broad_spectrum:
