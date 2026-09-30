@@ -79,8 +79,9 @@ satisfy the heavy-target integral relation
   g_Jp(E+\Delta)^2\sigma_{J\to J'}(E+\Delta)
   =g_{J'}p(E)^2\sigma_{J'\to J}(E).
 
-The runtime draws a discrete rotational change independently of the angle from
-the existing inclusive elastic DCS. At exactly zero relative momentum there
+For the V3/V4 rate models, the runtime draws a discrete rotational change
+independently of the angle from the existing inclusive elastic DCS.
+At exactly zero relative momentum there
 is no incident axis, so emitted electrons use the isotropic limit. A selected
 excitation below its exact level spacing, possible through energy-grid
 rounding, becomes an unchanged event. No other rotational rate is increased.
@@ -88,7 +89,8 @@ There is no angular conditioning, transition search, or rejection in the
 alias sampler, and it requires no cumulative table.
 
 The spectator relation in Eq. (11.29), :math:`J_R=kR\sin(\theta/2)`, is not a
-hard quantum selection rule. Neither it nor a separate rotational DCS is used.
+hard quantum selection rule. The V3/V4 models use neither this relation nor
+a separate rotational DCS.
 The elastic DCS supplies the vibrationally elastic angular marginal, including
 unresolved rotations; see thesis Eq. (8.129), the end of Section 11.1 and
 Section 12.1. Its integral and the residual rate have separate normalization.
@@ -104,7 +106,7 @@ independent angle without rejecting outcomes or projecting angles. It does
 not claim exact four-momentum conservation in the continuation band.
 Unchanged events retain the ordinary elastic recoil implementation.
 
-Integral detailed balance in the reference rates does not imply differential
+Integral detailed balance in the V3/V4 reference rates does not imply differential
 detailed balance for an energy-dependent elastic DCS used independently of
 rotational outcomes. This is the selected approximation. Independent tests
 cover level thresholds, unchanged/loss/gain probabilities, angular independence,
@@ -140,6 +142,79 @@ At 300 K the source-based N2 reconstruction at 2.3 eV still totals about
 :math:`5.09\times10^{-19}\,\mathrm{m^2}`; Boltzmann averaging does not cure
 the normalization conflict. States through J=48 for N2 and odd J=57 for O2
 leave less than :math:`10^{-10}` population outside a 300 K partition sum.
+
+Kinetic spectator closure
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The separate ``iaa_spectator`` model implements discrete outcomes in place of
+the mean rotational loss in Eq. (2.48). It retains the IAA inclusive elastic
+rate and samples its angle first. For each initial rotational level, Eqs.
+(11.24) and (11.35) give nonnegative differential weights
+
+.. math::
+
+   S_{if}(E,\theta) = p(E-\Delta_{if})
+     \sum_{L=0,2,4,6}|C_{i0,L0}^{f0}|^2 A_L(E)h_L(E,\theta),
+   \qquad
+   P_{if}(E,\theta) = \frac{S_{if}(E,\theta)}{\sum_k S_{ik}(E,\theta)}.
+
+Here :math:`p(E)=\sqrt{E(E+2m_ec^2)}/c`, closed excitation channels have zero
+weight, and :math:`h_L` is the angularly normalized squared spherical Bessel
+function from Eq. (11.35). The elementary amplitudes are
+:math:`A_0(E)=\sigma_{00}(E)` and
+:math:`A_L(E)=\sigma_{0L}(E)p(E)/p(E-\Delta_{0L})` for positive ranks,
+The reduced amplitude is held at its first positive source value between
+the canonical threshold and the first datum, as in the offline source exporter.
+The common incident-momentum factor cancels in the conditional normalization.
+The thermal outcome probability is
+:math:`p_i(T_\mathrm{rot})P_{if}(E,\theta)`. The rate of each outcome is therefore
+determined by its angular average under the inclusive IAA DCS. It is not the
+unmodified elementary rotational cross section multiplied by a population.
+No angular balancing step restores the original integral channel rates.
+If :math:`F_{\mathrm{el}}(E,\Omega)` denotes the normalized elastic angular
+distribution, the effective differential cross sections are
+
+.. math::
+
+   \frac{d\sigma^{\mathrm{eff}}_{if}}{d\Omega}
+   = \sigma_{\mathrm{el}}(E) F_{\mathrm{el}}(E,\Omega)
+     p_i(T_\mathrm{rot})P_{if}(E,\theta).
+
+Their sum recovers the inclusive elastic rate and angular marginal, without
+subtracting incompatible absolute rotational differential cross sections.
+
+The average sampled loss is Eq. (2.48) evaluated with these probabilities,
+while the discrete draw also retains energy diffusion and angle--energy
+correlations. The source set uses the supplied N2 elementary tables, including
+the low-energy Itikawa recommendation, corrected level thresholds and N2
+nuclear-spin weights. The spectator geometry uses the Kutz--Meyer separation
+:math:`R=2.068a_0`. De-excitation uses the same incident-energy sudden
+weights as excitation. Normalizing these weights does not enforce detailed
+balance, even if a preceding differential source model were reciprocal.
+Equilibrium heating/cooling must be measured as a model property; the closure
+must not be described as preserving a Maxwellian electron bath.
+The optional ``--thermal-balance`` source check reports this defect separately
+from tabulation accuracy; it does not assert that the defect vanishes.
+
+``Tools/CrossSections/thermiaa_spectator.py`` tabulates the angular basis and
+finite-threshold transition coefficients offline in a V5 bundle. Factoring
+the differential weights avoids a large table of normalized probabilities.
+The GPU selects a virtual initial level with a small precomputed Boltzmann
+alias and evaluates only seven candidate final levels from loaded weights.
+There is no loop over all populated states, no Bessel or Clebsch--Gordan
+evaluation and no neutral-state evolution. Canonical losses use double
+precision; nonnegative interpolation weights are stored in binary32.
+The independent source check uses triple-Legendre quadrature for the angular
+momentum coefficients and direct quadrature of Eq. (2.48).
+
+The supplied reference set stops at rank six and 1000 eV. Its availability
+does not establish convergence of higher-rank rotational rainbows. The
+spectator angular approximation is known to be inaccurate in the thermal
+and resonance regimes (Fig. 11.15); using it there is an explicit part of
+this Thetaermiaa-style closure. It is not a hard angular accessibility rule.
+The finite elastic rate also differs from a superelastic rate coefficient
+that remains nonzero as the incident energy vanishes. These physical limits
+are distinct from tabulation and sampling errors.
 
 ``Tools/CrossSections/export_elmolcs.py`` exports the source elastic,
 DCS and elementary rotational cross sections offline. It preserves positive

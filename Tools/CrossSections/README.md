@@ -113,3 +113,72 @@ ensembles, and records the timing mean, median and standard deviation.
 `perlmutter_rotation.sbatch` builds and runs the portable checks and benchmarks
 on one Perlmutter GPU; provide the GPU allocation and Python environment when
 submitting. CPU results alone do not establish CUDA/HIP/SYCL performance.
+
+## Kinetic IAA spectator model
+
+`rotation_model="iaa_spectator"` is a separate N2 model. It keeps the ordinary
+inclusive elastic cross section, samples its elastic DCS, and then selects a
+discrete rotational outcome conditional on that angle. The transition
+probabilities follow Eqs. (11.24), (11.35) and (2.48); their angular averages
+are not forced to reproduce the input elementary integral cross sections.
+No matrix balancing or additive rotational rate is used.
+
+Prepare its source data offline in an environment with elmolcs:
+
+```sh
+python Tools/CrossSections/thermiaa_spectator.py \
+    --output /path/to/warpx-data/MCC_cross_sections/N2/IAA/thermal_spectator.rot
+```
+
+The V5 file has three ASCII header lines followed by a little-endian payload:
+
+```text
+WARPX_THERMAL_ROTATION_V5
+N2 iaa_spectator J_MAX 0
+N_ENERGY N_ANGULAR_NODES
+```
+
+Arrays are energies (binary64), angular-row offsets (int32, `N_ENERGY+1`),
+`sin(theta/2)` knots (binary32), angular basis values (binary32,
+`[angular_node,4]`), and transition weights (binary32,
+`[energy,J_initial,7,4]`). The seven choices are `J_final = J_initial +
+2*(-3,-2,-1,0,1,2,3)`; negative final states have zero weight. The four ranks
+are 0, 2, 4 and 6. A common scale at each energy cancels in normalization.
+The fourth field of the second header line is reserved and must be zero.
+The data are temperature independent and shared on the host and device.
+
+Initialization prepares only the small Boltzmann alias. The device selects
+a virtual initial state in constant time and evaluates seven outcomes from
+the tabulated weights. This factorization avoids storing a large table of
+normalized probabilities and performs no Bessel functions or state-population
+loop on the device. The virtual state is not stored or evolved. Canonical
+energy changes remain binary64. `rotation_sampling="cumulative"` uses a
+cumulative reference for the initial-state draw with identical physics.
+
+The data use the real elmolcs elementary tables and cover their 0–1000 eV
+range. The initial state sum resolves a 1000 K bath. Rank truncation, the
+spectator model's low-energy inaccuracies, and its lack of detailed balance
+are explicit physical limitations. Independent checks compare the first moment
+with Eq. (2.48),
+and also test the second moment, signed outcomes and angle–energy correlation.
+The V3/V4 model preserves integral detailed balance in its reference rates;
+that alone does not establish differential detailed balance either.
+
+The independent reference requires NumPy/SciPy and the published physical
+tables, without an elmolcs installation:
+
+```sh
+cmake -S . -B build \
+    -DWarpX_SPECTATOR_TEST_DATA=/path/to/warpx-data/MCC_cross_sections
+cmake --build build -j 8
+ctest --test-dir build -R spectator --output-on-failure
+python Tools/CrossSections/benchmark_rotation.py --spectator \
+    --data-dir /path/to/warpx-data/MCC_cross_sections \
+    --spectator-reference build/Tools/CrossSections/spectator_reference/reference.txt \
+    --output build/spectator-benchmark --repeats 5
+```
+
+Add `--thermal-balance` to `test_thermiaa_spectator.py` to measure equilibrium
+heating and cooling independently of the sampler. This reports the physical
+model's imbalance rather than treating a nonzero result as a tabulation error.
+For the Perlmutter script, set `WARPX_SPECTATOR_DATA` to the same data directory.

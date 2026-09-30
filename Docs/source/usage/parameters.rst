@@ -3641,9 +3641,11 @@ Details about the collision models can be found in the :ref:`theory section <mul
 
     Enables one combined vibrationally elastic and rotational family on an
     electron Background MCC ``elastic`` process. Requires ``rotation_file``.
-    Use ``rotation_model = elastic_dcs`` with ``scattering_angle_model = IAA``
-    and the usual elastic ``differential_cross_section``. ``analytic_test`` is
-    reserved for synthetic verification kernels.
+    Both physical models require ``scattering_angle_model = IAA`` and the
+    usual elastic ``differential_cross_section``. ``analytic_test`` is reserved
+    for synthetic verification kernels.
+
+    ``elastic_dcs`` selects angle-independent rotational outcomes.
     The supplied inclusive elastic rate is checked at the bundle's reference
     temperature, then replaced by the family's aggregate rate coefficient.
     Do not add the same rotational transitions as separate processes.
@@ -3654,15 +3656,30 @@ Details about the collision models can be found in the :ref:`theory section <mul
     The target and neutral mass are identified by the bundle, and any explicit
     ``background_mass`` must agree.
 
+    ``iaa_spectator`` selects angle-dependent N2 outcomes using the kinetic
+    counterpart of the IAA mean-loss prescription, Eq. (2.48). The ordinary
+    inclusive elastic cross section and its angular sampler are retained.
+    Differential sudden/spectator weights are normalized over the open final
+    levels separately for each initial level. A Boltzmann draw and a fixed
+    seven-outcome draw select a discrete signed energy change. No neutral
+    rotational state is stored or evolved. The effective integral channel rates
+    follow from angular averaging; they are not forced to match the elementary
+    Kutz--Meyer integrals. This probability closure does not impose integral or
+    differential detailed balance and is not an equilibrium-preserving model.
+    Its source approximations and angular validity are described in
+    :ref:`mcc-iaa-sources`.
+
 .. pp:param:: <collision_name>.<scattering_process>_rotation_file
     :type: ``string``
     :optional:
 
-    Path to a ``WARPX_THERMAL_ROTATION_V3`` or ``WARPX_THERMAL_ROTATION_V4`` reference bundle, described in
+    Path to a ``WARPX_THERMAL_ROTATION_V3``, ``WARPX_THERMAL_ROTATION_V4`` or
+    ``WARPX_THERMAL_ROTATION_V5`` bundle, described in
     ``Tools/CrossSections/README.md``. Generate physical data offline and store
     them in ``warpx-data``; WarpX only reads existing bundles. V1/V2 files must
-    be regenerated for the nominal-threshold model. Initialization sums Boltzmann populations
-    and builds shared sampling tables for each data/model/temperature pair.
+    be regenerated for the nominal-threshold model. For V3/V4, initialization
+    sums Boltzmann populations and builds shared sampling tables for each
+    data/model/temperature pair.
     V4 additionally permits state-resolved unchanged :math:`J\to J` entries.
     Their Boltzmann-weighted rates are summed into one unchanged outcome on
     the host, without additional device sampling or neutral-state bookkeeping.
@@ -3675,6 +3692,14 @@ Details about the collision models can be found in the :ref:`theory section <mul
     Source consistency and the normalization conflict in the supplied N2
     tables are discussed in :ref:`mcc-iaa-sources`. Passing a sampler test
     does not establish a combined model's physical accuracy.
+
+    V5 stores the temperature-independent, factored differential weights for
+    ``iaa_spectator``. Angular functions and level couplings are already tabulated
+    offline. Initialization only reads and validates them and prepares the small
+    Boltzmann sampler. Immutable host/device data are shared across temperatures
+    and sampling modes. Its elastic rate remains supplied by ``cross_section``;
+    in particular a finite zero-energy elastic cross section gives a vanishing
+    collision rate for stationary zero-energy electrons.
 
 .. pp:param:: <collision_name>.<scattering_process>_rotational_temperature
     :type: ``float``
@@ -3691,14 +3716,18 @@ Details about the collision models can be found in the :ref:`theory section <mul
     :default: ``alias``
     :optional:
 
-    ``alias`` uses one constant-time energy-change draw and stores no cumulative
-    table. ``cumulative`` uses a cumulative bisection for physics and performance
+    For ``elastic_dcs``, ``alias`` uses one constant-time energy-change draw
+    and stores no cumulative table. ``cumulative`` uses a cumulative bisection
+    for physics and performance
     comparisons. A threshold-roundoff excitation below its level spacing becomes
     an unchanged event, without resampling or renormalizing other channels. Both
     interpolate incident energy by mixtures of rows, preserving discrete loss
     labels and the unchanged outcome. The ordinary MCC selector remains active
     for other processes. Collision subcycling is still needed to control the
     one-event-per-substep approximation, especially in thermal-balance studies.
+    For ``iaa_spectator``, the option selects the alias or cumulative sampler for
+    the virtual initial level. Both paths use the same bounded seven-outcome
+    conditional calculation; neither evaluates Bessel functions on the device.
 
 .. pp:param:: <collision_name>.<scattering_process>_species
     :type: ``string``

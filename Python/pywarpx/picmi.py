@@ -3527,6 +3527,11 @@ class MCCCollisions(picmistandard.base._ClassWithInit):
         temperature). Use ``rotation_model="elastic_dcs"`` with the ordinary
         elastic DCS. Rotational outcomes are independent of the scattering angle;
         excitation requires the canonical internal-energy threshold.
+        ``rotation_model="iaa_spectator"`` instead selects discrete N2 outcomes
+        conditioned on that angle, using pretabulated IAA spectator weights.
+        It retains the ordinary elastic rate; angular averaging determines the
+        effective rotational rates. The normalized spectator closure does not
+        impose detailed balance. Neither model evolves neutral rotational states.
         ``rotation_sampling="cumulative"`` selects the explicit reference
         sampler; the default is ``"alias"``.
         The ``"IAA"`` angle model implements IAA ionization kinematics or, for
