@@ -15,6 +15,7 @@
 
 #include <cmath>
 #include <cstddef>
+#include <limits>
 #include <memory>
 #include <string>
 
@@ -41,7 +42,10 @@ class BackgroundMCCSpectator
         [[nodiscard]] AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE bool
         inRange (double energy) const noexcept
         {
-            return energy >= 0 && energy <= m_maximum_energy;
+            // A nominal endpoint energy can move by a few ulps when its
+            // proper velocity is stored at particle precision.
+            constexpr double tolerance = 8 * std::numeric_limits<amrex::ParticleReal>::epsilon();
+            return energy >= 0 && energy <= m_maximum_energy * (1 + tolerance);
         }
 
         [[nodiscard]] AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE Outcome

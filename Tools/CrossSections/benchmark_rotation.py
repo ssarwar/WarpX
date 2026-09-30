@@ -34,6 +34,10 @@ parser.add_argument("--warmup-runs", type=int, default=1)
 parser.add_argument(
     "--elmolcs", action="store_true", help="benchmark prepared elmolcs source families"
 )
+parser.add_argument(
+    "--spectator", action="store_true", help="benchmark kinetic IAA spectator outcomes"
+)
+parser.add_argument("--spectator-reference", type=Path)
 args = parser.parse_args()
 if args.repeats < 2:
     raise ValueError("At least two independent seeds are required to measure variance")
@@ -72,6 +76,16 @@ for repeat in range(-args.warmup_runs, args.repeats):
             command.append("--cumulative")
         if args.elmolcs:
             command.append("--elmolcs")
+        if args.spectator:
+            if args.spectator_reference is None:
+                raise ValueError("--spectator-reference is required with --spectator")
+            command.extend(
+                [
+                    "--spectator",
+                    "--spectator-reference",
+                    str(args.spectator_reference.resolve()),
+                ]
+            )
         with (directory / "run.log").open("w") as log:
             subprocess.run(
                 command, cwd=directory, stdout=log, stderr=subprocess.STDOUT, check=True

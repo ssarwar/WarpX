@@ -36,7 +36,7 @@ class Reference:
         self.loss = B * (
             self.final * (self.final + 1) - self.initial * (self.initial + 1)
         )
-        x, w = np.polynomial.legendre.leggauss(128)
+        x, w = np.polynomial.legendre.leggauss(max(128, maximum_j + 8))
         legendre = np.polynomial.legendre.legvander(x, maximum_j + 6).T
         self.cg = np.zeros((maximum_j + 1, 7, 4))
         for n, rank in enumerate([0, 2, 4, 6]):
@@ -171,11 +171,88 @@ class Reference:
         return mass @ value, mass @ square
 
 
+def thermal_balance(reference):
+    """Measure the closure's equilibrium defect without asserting it vanishes."""
+    original_y, original_measure = reference.y, reference.measure
+    mu, angular_weights = np.polynomial.legendre.leggauss(192)
+    reference.y = np.sqrt((1 - mu) / 2)
+    reference.measure = angular_weights
+    results = []
+    for temperature in [100, 300, 1000]:
+        endpoint = 40 * KB * temperature
+        knots = np.unique(
+            np.r_[
+                0,
+                endpoint,
+                np.geomspace(1e-10, endpoint, 80),
+                reference.loss[reference.loss > 0],
+                reference.elastic[:, 0],
+                *(table[:, 0] for table in reference.tables),
+            ]
+        )
+        knots = knots[knots <= endpoint]
+        previous = None
+        for order in [4, 8]:
+            node, weight = np.polynomial.legendre.leggauss(order)
+            widths = np.diff(knots)
+            energies = (knots[:-1, None] + widths[:, None] * (node + 1) / 2).ravel()
+            measure = (widths[:, None] * weight / 2).ravel()
+            phase = np.sqrt(energies * (energies + 2 * REST)) * (energies + REST)
+            measure *= phase * np.exp(-energies / (KB * temperature))
+            measure /= measure.sum()
+            powers = np.zeros(2)
+            for energy, p_e in zip(energies, measure, strict=True):
+                p = reference.probability(energy, reference.y)
+                p *= reference.population(temperature)[None, :, None]
+                p = p.reshape(len(mu), -1)
+                angular = reference.angular_weights(energy)
+                transfer = (
+                    angular
+                    @ p
+                    @ np.column_stack(
+                        (
+                            np.maximum(reference.loss.ravel(), 0),
+                            np.maximum(-reference.loss.ravel(), 0),
+                        )
+                    )
+                )
+                speed = (
+                    299792458 * np.sqrt(energy * (energy + 2 * REST)) / (energy + REST)
+                )
+                sigma = np.interp(
+                    energy, reference.elastic[:, 0], reference.elastic[:, 1]
+                )
+                powers += p_e * speed * sigma * transfer
+            imbalance = (powers[1] - powers[0]) / powers.sum()
+            if previous is not None:
+                assert abs(imbalance - previous) < 2e-4, (
+                    temperature,
+                    previous,
+                    imbalance,
+                )
+            previous = imbalance
+        row = {
+            "temperature_K": temperature,
+            "cooling_eVm3s": powers[0],
+            "heating_eVm3s": powers[1],
+            "relative_power_imbalance": imbalance,
+        }
+        results.append(row)
+        print(row, flush=True)
+    reference.y, reference.measure = original_y, original_measure
+    return results
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data-dir", type=Path, required=True)
     parser.add_argument("--bundle", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--thermal-balance",
+        action="store_true",
+        help="also measure the model's Maxwellian heating/cooling defect",
+    )
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     bundle = ConditionalBundle.read(args.bundle)
@@ -195,6 +272,7 @@ def main():
             10.0,
             100.0,
             900.0,
+            1000.0,
             np.exp(rng.uniform(np.log(0.0005), np.log(950), 24)),
         ]
     )
@@ -236,6 +314,8 @@ def main():
         "bundle_bytes": args.bundle.stat().st_size,
         "definition": "Conditional kinetic Eq. 2.48; no assertion of equilibrium detailed balance",
     }
+    if args.thermal_balance:
+        result["thermal_balance"] = thermal_balance(reference)
     (args.output / "quadrature.json").write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result, indent=2))
 

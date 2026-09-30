@@ -3,6 +3,7 @@ project(WarpXCrossSections LANGUAGES CXX)
 add_executable(export_rbeq export_rbeq.cpp)
 target_compile_features(export_rbeq PRIVATE cxx_std_17)
 target_include_directories(export_rbeq PRIVATE ../../Source)
+set(WarpX_SPECTATOR_TEST_DATA "" CACHE PATH "Prepared offline IAA spectator MCC data")
 
 if(TARGET lib_1d)
     find_package(Python 3.8 COMPONENTS Interpreter REQUIRED)
@@ -48,6 +49,26 @@ if(TARGET lib_1d)
             reference=${CMAKE_CURRENT_BINARY_DIR}/rotation_reference/reference.txt
             output=${CMAKE_CURRENT_BINARY_DIR}/rotation_reference/cumulative.txt samples=32768)
     set_tests_properties(test_1d_rotation_cumulative_reference PROPERTIES FIXTURES_REQUIRED rotation_reference)
+    if(WarpX_SPECTATOR_TEST_DATA)
+        set(spectator_reference "${CMAKE_CURRENT_BINARY_DIR}/spectator_reference")
+        add_test(NAME test_1d_spectator_source_quadrature
+            COMMAND ${CMAKE_COMMAND} -E env OPENBLAS_NUM_THREADS=1
+                ${Python_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_thermiaa_spectator.py
+                --data-dir ${WarpX_SPECTATOR_TEST_DATA}
+                --bundle ${WarpX_SPECTATOR_TEST_DATA}/N2/IAA/thermal_spectator.rot
+                --output ${spectator_reference})
+        set_tests_properties(test_1d_spectator_source_quadrature PROPERTIES
+            FIXTURES_SETUP spectator_reference)
+        foreach(mode IN ITEMS 0 1)
+            add_test(NAME test_1d_spectator_sampler_${mode}
+                COMMAND test_mcc_rotation model=iaa_spectator cumulative=${mode}
+                    reference=${spectator_reference}/reference.txt
+                    output=${spectator_reference}/sampler-${mode}.txt samples=32768
+                    n2_dcs=${WarpX_SPECTATOR_TEST_DATA}/N2/IAA/elastic_dcs.txt)
+            set_tests_properties(test_1d_spectator_sampler_${mode} PROPERTIES
+                FIXTURES_REQUIRED spectator_reference)
+        endforeach()
+    endif()
     add_test(NAME test_1d_rbeq_source_quadrature
         COMMAND ${Python_EXECUTABLE}
             ${CMAKE_CURRENT_SOURCE_DIR}/../../Examples/Tests/collision/analysis_rbeq_sources.py

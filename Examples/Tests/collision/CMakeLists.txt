@@ -26,6 +26,24 @@ if(WarpX_ELMOLCS_TEST_DATA)
     )
 endif()
 
+if(WarpX_SPECTATOR_TEST_DATA)
+    foreach(mode IN ITEMS alias cumulative)
+        set(spectator_sampler_argument "")
+        if(mode STREQUAL "cumulative")
+            set(spectator_sampler_argument "--cumulative")
+        endif()
+        add_warpx_test(
+            test_1d_spectator_${mode}_picmi 1 1
+            "inputs_test_1d_background_mcc_rotation_picmi.py --spectator --data-dir ${WarpX_SPECTATOR_TEST_DATA} --spectator-reference ${CMAKE_BINARY_DIR}/Tools/CrossSections/spectator_reference/reference.txt ${spectator_sampler_argument}"
+            OFF OFF OFF
+        )
+        if(TEST test_1d_spectator_${mode}_picmi.run)
+            set_property(TEST test_1d_spectator_${mode}_picmi.run
+                APPEND PROPERTY FIXTURES_REQUIRED spectator_reference)
+        endif()
+    endforeach()
+endif()
+
 add_warpx_test(
     test_rz_rigid_source_recoil_picmi RZ 1
     "inputs_test_rz_rigid_source_picmi.py --solver Yee --subcycles 2"

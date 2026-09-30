@@ -8,6 +8,7 @@
 """End-to-end combined-family rates, signed losses and MCC timing."""
 
 import argparse
+import shlex
 import sys
 import time
 from pathlib import Path
@@ -31,7 +32,21 @@ parser.add_argument(
     help="read prepared N2/IAA and O2/IAA source families",
 )
 parser.add_argument("--seed", type=int, default=42)
+parser.add_argument(
+    "--spectator", action="store_true", help="kinetic IAA spectator closure"
+)
+parser.add_argument("--spectator-reference", type=Path)
 args = parser.parse_args()
+spectator_reference = {}
+if args.spectator:
+    if args.spectator_reference is None:
+        raise ValueError(
+            "Spectator tests require the separately prepared quadrature reference"
+        )
+    for line in args.spectator_reference.read_text().splitlines():
+        fields = shlex.split(line)
+        temperature, energy = map(float, fields[1:3])
+        spectator_reference[temperature, energy] = np.array(fields[4:], float)
 
 grid = picmi.Cartesian1DGrid(
     number_of_cells=[1],
@@ -52,30 +67,57 @@ me = picmi.constants.m_e
 qe = picmi.constants.q_e
 rest = me * c * c / qe
 species, collisions, references = [], [], []
-for target in ["N2", "O2"]:
-    directory = args.data_dir / target / "IAA" if args.elmolcs else args.data_dir
+for target in ["N2"] if args.spectator else ["N2", "O2"]:
+    directory = (
+        args.data_dir / target / "IAA"
+        if args.elmolcs or args.spectator
+        else args.data_dir
+    )
     file = (
         directory
-        / ("thermal_rotation.rot" if args.elmolcs else f"{target}_analytic.rot")
+        / (
+            "thermal_spectator.rot"
+            if args.spectator
+            else "thermal_rotation.rot"
+            if args.elmolcs
+            else f"{target}_analytic.rot"
+        )
     ).resolve()
-    bundle = Bundle.read(file)
+    bundle = None if args.spectator else Bundle.read(file)
     inclusive = (
         directory
         / (
-            "thermal_rotation_elastic.txt"
-            if args.elmolcs
+            "elastic.txt"
+            if args.spectator
+            else "thermal_rotation_elastic.txt"
+            if args.elmolcs or args.spectator
             else f"{target}_inclusive.txt"
         )
     ).resolve()
     angular_file = "elastic_dcs_anisotropic" if args.anisotropic else "elastic_dcs"
     elastic_dcs = (
         directory
-        / ("elastic_dcs.txt" if args.elmolcs else f"{target}_{angular_file}.txt")
+        / (
+            "elastic_dcs.txt"
+            if args.elmolcs or args.spectator
+            else f"{target}_{angular_file}.txt"
+        )
     ).resolve()
     ordinary = (args.data_dir / f"{target}_ordinary.txt").resolve()
     for temperature in [0, 100, 300, 1000]:
-        rates = bundle.at_temperature(temperature).sum(axis=1)
-        for energy in [0, 0.0021, 0.01, 0.5, 2.3, 10] if args.elmolcs else [0, 0.5]:
+        rates = (
+            None if args.spectator else bundle.at_temperature(temperature).sum(axis=1)
+        )
+        energies = (
+            [0.0021, 0.01, 0.1, 0.5, 2.3, 2.6, 10, 100, 900]
+            if args.spectator
+            else [0, 0.0021, 0.01, 0.5, 2.3, 10]
+            if args.elmolcs
+            else [0, 0.5]
+        )
+        if args.spectator and args.steps == 1:
+            energies.append(1000)
+        for energy in energies:
             if energy == 0 and temperature == 0:
                 continue
             name = f"e_{target}_{temperature}_{energy}".replace(".", "_")
@@ -92,7 +134,11 @@ for target in ["N2", "O2"]:
             rotation = {
                 "cross_section": str(inclusive),
                 "rotation_file": str(file),
-                "rotation_model": "elastic_dcs" if args.elmolcs else "analytic_test",
+                "rotation_model": "iaa_spectator"
+                if args.spectator
+                else "elastic_dcs"
+                if args.elmolcs
+                else "analytic_test",
                 "scattering_angle_model": "IAA",
                 "differential_cross_section": str(elastic_dcs),
                 "rotational_temperature": temperature,
@@ -105,7 +151,7 @@ for target in ["N2", "O2"]:
                     background_density=density,
                     background_temperature=0,
                     scattering_processes={"elastic": rotation}
-                    if args.elmolcs
+                    if args.elmolcs or args.spectator
                     else {
                         "elastic": rotation,
                         "elastic_ordinary": {"cross_section": str(ordinary)},
@@ -113,15 +159,22 @@ for target in ["N2", "O2"]:
                 )
             )
             species.append(electron)
-            interpolated = np.array(
-                [np.interp(energy, bundle.energies, column) for column in rates.T]
-            )
             v = c * np.sqrt(energy * (energy + 2 * rest)) / (energy + rest)
-            total = interpolated.sum() + (0 if args.elmolcs else v * 1e-21)
-            probability = -np.expm1(-density * total * dt)
-            mean = probability * np.dot(interpolated, bundle.losses) / total
-            second = probability * np.dot(interpolated, bundle.losses**2) / total
-            fourth = probability * np.dot(interpolated, bundle.losses**4) / total
+            if args.spectator:
+                table = np.loadtxt(inclusive)
+                total = v * np.interp(energy, table[:, 0], table[:, 1])
+                probability = -np.expm1(-density * total * dt)
+                expected = spectator_reference[temperature, energy]
+                mean, second, fourth = probability * expected[[0, 1, 9]]
+            else:
+                interpolated = np.array(
+                    [np.interp(energy, bundle.energies, column) for column in rates.T]
+                )
+                total = interpolated.sum() + (0 if args.elmolcs else v * 1e-21)
+                probability = -np.expm1(-density * total * dt)
+                mean = probability * np.dot(interpolated, bundle.losses) / total
+                second = probability * np.dot(interpolated, bundle.losses**2) / total
+                fourth = probability * np.dot(interpolated, bundle.losses**4) / total
             references.append((name, target, energy, mean, second, fourth, probability))
 
 sim = picmi.Simulation(
@@ -143,6 +196,14 @@ sim.initialize_inputs()
 start = time.perf_counter()
 sim.initialize_warpx()
 startup = time.perf_counter() - start
+initial_momentum = {}
+for electron in species:
+    # Exhaust each AMReX iterator before opening the next species' iterator.
+    for tile in sim.particles.get(electron.name).iterator(level=0):
+        value = tile["uz"][0]
+        initial_momentum[electron.name] = float(
+            value.get() if hasattr(value, "get") else value
+        )
 start = time.perf_counter()
 sim.step(args.steps)
 # A scalar reduction fences GPU work without copying the particle arrays.
@@ -170,13 +231,16 @@ for name, target, energy, mean, second, fourth, probability in references:
     u2 = ux**2 + uy**2 + uz**2
     final_energy = me * u2 / (qe * (1 + np.sqrt(1 + u2 / c**2)))
     # Recover internal loss using the independently reconstructed neutral recoil.
-    incoming = c * np.sqrt(energy * (energy + 2 * rest)) / rest
+    # Reconstruct small rotational changes from the momentum actually stored.
+    # At keV energies, float32 initialization roundoff can bias a meV signal.
+    incoming = initial_momentum[name]
+    initial_energy = me * incoming**2 / (qe * (1 + np.sqrt(1 + incoming**2 / c**2)))
     mass = (28.0134 if target == "N2" else 31.9988) * 1.66053906660e-27
     recoil_u2 = (me / mass) ** 2 * (ux**2 + uy**2 + (uz - incoming) ** 2)
     recoil = mass * recoil_u2 / (qe * (1 + np.sqrt(1 + recoil_u2 / c**2)))
     # One event permits a recoil reconstruction. In multi-step benchmarks use
     # the physical electron energy change, without combining distinct neutrals.
-    losses = energy - final_energy - (recoil if args.steps == 1 else 0)
+    losses = initial_energy - final_energy - (recoil if args.steps == 1 else 0)
     changed = (ux != 0) | (uy != 0) | (np.abs(uz - incoming) > 1e-6 * max(incoming, 1))
     if args.anisotropic:
         assert args.steps == 1
@@ -200,7 +264,7 @@ for name, target, energy, mean, second, fourth, probability in references:
         changed.mean(),
         probability,
     ]
-    if args.elmolcs and args.steps == 1:
+    if (args.elmolcs or args.spectator) and args.steps == 1:
         # Test with independently reconstructed neutral recoil. The source
         # bundle is loaded only; neither a source fit nor a test table is built.
         first_error = 7 * np.sqrt(
@@ -219,6 +283,19 @@ for name, target, energy, mean, second, fourth, probability in references:
             abs(changed.mean() - probability)
             <= 7 * np.sqrt(probability * (1 - probability) / args.particles) + 1e-5
         ), (name, changed.mean(), probability)
+        if args.spectator:
+            temperature = int(name.split("_")[2])
+            expected = spectator_reference[temperature, energy]
+            cosine = np.divide(uz, np.sqrt(u2), out=np.ones_like(uz), where=u2 > 0)
+            mixed = losses * cosine
+            predicted = probability * expected[3]
+            error = 7 * np.sqrt(
+                max(mixed.var(), probability * expected[11] - predicted**2, 0)
+                / args.particles
+            )
+            assert abs(mixed.mean() - predicted) <= error + 0.002 * max(
+                abs(predicted), 1e-10
+            ), (name, mixed.mean(), predicted)
 if libwarpx.amr.ParallelDescriptor.MyProc() == 0:
     np.savez("background_mcc_rotation_results.npz", **output)
 sim.finalize()
