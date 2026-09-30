@@ -273,6 +273,10 @@ def main():
             100.0,
             900.0,
             1000.0,
+            (
+                (B * np.array([6, 20, 42]))[:, None]
+                * (1 + np.array([-1e-5, 0, 1e-9, 1e-7, 1e-5, 1e-3, 0.01]))
+            ).ravel(),
             np.exp(rng.uniform(np.log(0.0005), np.log(950), 24)),
         ]
     )

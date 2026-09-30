@@ -134,7 +134,7 @@ main (int argc, char** argv)
                     constexpr double me = PhysConst::m_e_v<double>;
                     constexpr double rest = me * c2 / qe;
                     // Exercise the signed solver through beam energies independently
-                    // of the intentionally limited analytic rotational source bundle.
+                    // of the finite rotational source range.
                     int const high_case = (i / 16) % 3;
                     double const kinetic_energy = i % 16 == 0 ? (high_case == 0   ? 1.0e4
                                                                  : high_case == 1 ? 2.5e6
@@ -148,14 +148,19 @@ main (int argc, char** argv)
                     double const vz = i % 3 == 0 ? 0 : 600;
                     double const v2 = vx * vx + vy * vy + vz * vz;
                     double const neutral_gamma = 1 / std::sqrt(1 - v2 / c2);
+                    double const incoming_ke =
+                        me * double(u) * u / (qe * (1 + std::sqrt(1 + double(u) * u / c2)));
+                    // Lorentz-transform the kinetic energy without subtracting
+                    // nearly equal electron rest energies at a threshold.
+                    double const relative_energy = neutral_gamma * incoming_ke +
+                        rest * neutral_gamma * neutral_gamma * v2 /
+                            (c2 * (neutral_gamma + 1)) -
+                        neutral_gamma * vz * rest * u / c2;
                     auto const change = data[i].loss;
                     bool const ok = BackgroundMCCElasticKinematics::computeRotation(
                         0, 0, u, vx, vy, vz, me, mass, change, data[i].cosine, engine, ex, ey, ez,
                         nx, ny, nz);
                     if (!ok) {
-                        double const incident_total = rest * std::sqrt(1 + double(u) * u / c2);
-                        double const relative_energy =
-                            neutral_gamma * (incident_total - vz * rest * u / c2) - rest;
                         data[i].energy_residual = relative_energy >= change ? 1 : 0;
                         return;
                     }
@@ -164,19 +169,42 @@ main (int argc, char** argv)
                     double const un2 = double(nx) * nx + double(ny) * ny + double(nz) * nz;
                     double const ke = me * ue2 / (qe * (1 + std::sqrt(1 + ue2 / c2)));
                     double const kn = mf * un2 / (qe * (1 + std::sqrt(1 + un2 / c2)));
-                    double const incoming_ke =
-                        me * double(u) * u / (qe * (1 + std::sqrt(1 + double(u) * u / c2)));
+                    double continued_recoil = 0;
+                    if (change > 0 &&
+                        relative_energy - change <= 2 * me / mass * relative_energy) {
+                        // In the documented heavy-target continuation the
+                        // electron retains E-change. Its independently computed
+                        // target recoil is the expected energy defect, rather
+                        // than an error in the exact two-body solver.
+                        double const available = amrex::max(relative_energy - change, 0.0);
+                        double const pin2 = relative_energy * (relative_energy + 2 * rest);
+                        double const pout2 = available * (available + 2 * rest);
+                        double const q2 = pin2 + pout2 -
+                            2 * std::sqrt(pin2 * pout2) * data[i].cosine;
+                        double const target_rest = mf * c2 / qe;
+                        continued_recoil = q2 /
+                            (std::sqrt(target_rest * target_rest + q2) + target_rest);
+                        if (continued_recoil > 2 * me / mass * relative_energy) {
+                            data[i].energy_residual = 1;
+                            return;
+                        }
+                    }
                     // Scale by the total available kinetic/internal energy,
                     // including energy released to a cold electron in a
                     // superelastic event.
                     double const neutral_ke =
                         mass * neutral_gamma * neutral_gamma * v2 / (qe * (neutral_gamma + 1));
                     data[i].energy_residual =
-                        (ke + kn + change - incoming_ke - neutral_ke) /
+                        (ke + kn + change - incoming_ke - neutral_ke -
+                         neutral_gamma * continued_recoil) /
                         amrex::max(kinetic_energy + neutral_ke + std::abs(change), .001);
-                    double const px = me * ex + mf * nx - mass * neutral_gamma * vx;
-                    double const py = me * ey + mf * ny - mass * neutral_gamma * vy;
-                    double const pz = me * (ez - u) + mf * nz - mass * neutral_gamma * vz;
+                    double const defect_mass = neutral_gamma * continued_recoil * qe / c2;
+                    double const px =
+                        me * ex + mf * nx - mass * neutral_gamma * vx - defect_mass * vx;
+                    double const py =
+                        me * ey + mf * ny - mass * neutral_gamma * vy - defect_mass * vy;
+                    double const pz =
+                        me * (ez - u) + mf * nz - mass * neutral_gamma * vz - defect_mass * vz;
                     data[i].momentum_residual = std::sqrt(px * px + py * py + pz * pz) /
                                                 (me * amrex::max(double(u), std::sqrt(ue2)) +
                                                  mass * neutral_gamma * std::sqrt(v2));
@@ -185,6 +213,7 @@ main (int argc, char** argv)
                              host.begin());
             std::array<double, 8> sum{}, square{};
             double max_energy_error = 0, max_momentum_error = 0;
+            bool conservation_failure = false;
             for (auto const& sample : host) {
                 double const loss = sample.loss, mu = sample.cosine;
                 std::array<double, 8> values{loss,
@@ -207,9 +236,10 @@ main (int argc, char** argv)
                     std::abs(sample.energy_residual) > tolerance ||
                     sample.momentum_residual > tolerance) {
                     status = 1;
+                    conservation_failure = true;
                 }
             }
-            if (status != 0) {
+            if (conservation_failure) {
                 amrex::Print() << "Conservation residuals " << temperature << ' ' << energy << ' '
                                << max_energy_error << ' ' << max_momentum_error << '\n';
             }

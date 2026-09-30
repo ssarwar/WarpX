@@ -154,6 +154,9 @@ normalized probabilities and performs no Bessel functions or state-population
 loop on the device. The virtual state is not stored or evolved. Canonical
 energy changes remain binary64. `rotation_sampling="cumulative"` uses a
 cumulative reference for the initial-state draw with identical physics.
+Energy knots also remain binary64 when particles use binary32. Row mixtures
+use a square-root coordinate immediately above zero and the first excitation
+threshold; this resolves the channel onset inside the smallest energy interval.
 
 The data use the real elmolcs elementary tables and cover their 0–1000 eV
 range. The initial state sum resolves a 1000 K bath. Rank truncation, the

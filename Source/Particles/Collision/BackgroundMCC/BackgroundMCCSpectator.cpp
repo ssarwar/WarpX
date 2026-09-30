@@ -40,12 +40,12 @@ namespace
 struct BackgroundMCCSpectator::Data
 {
     explicit Data (std::string const& file);
-    amrex::Gpu::HostVector<amrex::ParticleReal> m_energies_h;
+    amrex::Gpu::HostVector<double> m_energies_h;
     amrex::Gpu::HostVector<int> m_angle_offsets_h;
     amrex::Gpu::HostVector<float> m_angles_h, m_basis_h, m_weights_h;
     Executor m_executor_h;
 #ifdef AMREX_USE_GPU
-    amrex::Gpu::DeviceVector<amrex::ParticleReal> m_energies_d;
+    amrex::Gpu::DeviceVector<double> m_energies_d;
     amrex::Gpu::DeviceVector<int> m_angle_offsets_d;
     amrex::Gpu::DeviceVector<float> m_angles_d, m_basis_d, m_weights_d;
     Executor m_executor_d;
@@ -106,12 +106,11 @@ BackgroundMCCSpectator::Data::Data (std::string const& file)
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(energies.front() == 0 && m_angle_offsets_h.front() == 0 &&
                                          m_angle_offsets_h.back() == angle_count,
                                      "Invalid spectator grid endpoints.");
-    amrex::ParticleReal previous = -1;
+    double previous = -1;
     constexpr double b = 0.0002477204284695341;
     for (int e = 0; e < energy_count; ++e) {
-        auto const energy = static_cast<amrex::ParticleReal>(energies[e]);
-        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(std::isfinite(energies[e]) && std::isfinite(energy) &&
-                                             energy > previous,
+        double const energy = energies[e];
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(std::isfinite(energy) && energy > previous,
                                          "Spectator energies must remain finite and increasing.");
         m_energies_h.push_back(energy);
         previous = energy;
@@ -146,8 +145,7 @@ BackgroundMCCSpectator::Data::Data (std::string const& file)
                                          "Invalid spectator angular basis.");
     }
 
-    m_bytes = m_energies_h.size() * sizeof(amrex::ParticleReal) +
-              m_angle_offsets_h.size() * sizeof(int) +
+    m_bytes = m_energies_h.size() * sizeof(double) + m_angle_offsets_h.size() * sizeof(int) +
               (m_angles_h.size() + m_basis_h.size() + m_weights_h.size()) * sizeof(float);
     m_executor_h = {m_energies_h.data(),
                     m_angle_offsets_h.data(),

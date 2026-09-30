@@ -204,6 +204,10 @@ alias and evaluates only seven candidate final levels from loaded weights.
 There is no loop over all populated states, no Bessel or Clebsch--Gordan
 evaluation and no neutral-state evolution. Canonical losses use double
 precision; nonnegative interpolation weights are stored in binary32.
+Energy knots remain in binary64, and the interval immediately above the
+first excitation threshold uses square-root interpolation of row probabilities.
+This retains the threshold law in the narrow interval where further energy
+grid refinement would no longer give distinct binary32 knots.
 The independent source check uses triple-Legendre quadrature for the angular
 momentum coefficients and direct quadrature of Eq. (2.48).
 

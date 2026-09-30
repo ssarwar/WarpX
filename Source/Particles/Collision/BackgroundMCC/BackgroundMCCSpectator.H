@@ -54,12 +54,14 @@ class BackgroundMCCSpectator
         {
             int const lower = energy >= m_maximum_energy
                                   ? m_energy_count - 2
-                                  : amrex::bisect(m_energies, 0, m_energy_count - 1,
-                                                  static_cast<amrex::ParticleReal>(energy));
+                                  : amrex::bisect(m_energies, 0, m_energy_count - 1, energy);
             double fraction =
                 (energy - m_energies[lower]) / (m_energies[lower + 1] - m_energies[lower]);
             fraction = amrex::max(0.0, amrex::min(fraction, 1.0));
-            if (lower == 0) {
+            constexpr double b = 0.0002477204284695341; // N2, eV
+            // Resolve the square-root onset of the first open excitation,
+            // including the interval too narrow to refine at particle precision.
+            if (lower == 0 || m_energies[lower] == 6 * b) {
                 fraction = std::sqrt(fraction);
             }
             int const row = lower + (row_draw < fraction ? 1 : 0);
@@ -115,7 +117,6 @@ class BackgroundMCCSpectator
                 }
             }
             int const final = initial + 2 * (choice - 3);
-            constexpr double b = 0.0002477204284695341; // N2, eV
             double const loss = b * (final * (final + 1) - initial * (initial + 1));
             // Energy-grid roundoff never permits a subthreshold excitation.
             if (loss > energy) {
@@ -124,7 +125,7 @@ class BackgroundMCCSpectator
             return {loss, b * initial * (initial + 1)};
         }
 
-        amrex::ParticleReal const* m_energies = nullptr;
+        double const* m_energies = nullptr;
         int const* m_angle_offsets = nullptr;
         float const* m_angles = nullptr;
         float const* m_angular_basis = nullptr;

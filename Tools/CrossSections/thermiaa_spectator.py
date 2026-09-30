@@ -282,7 +282,7 @@ class ConditionalBundle:
         fraction = (energy - self.energies[index]) / (
             self.energies[index + 1] - self.energies[index]
         )
-        if index == 0:
+        if index == 0 or self.energies[index] == threshold("N2", 0, 2):
             fraction = np.sqrt(fraction)
         rows = []
         for row in [index, index + 1]:
@@ -375,7 +375,10 @@ def construct(model, tolerance=5e-4):
     for _ in range(32):
         values = np.array([feature(e) for e in knots])
         midpoint = (knots[:-1] + knots[1:]) / 2
-        midpoint[0] = knots[1] / 4
+        square_root = (knots[:-1] == 0) | (knots[:-1] == threshold("N2", 0, 2))
+        midpoint[square_root] = (
+            knots[:-1][square_root] + np.diff(knots)[square_root] / 4
+        )
         reference = np.array([feature(e) for e in midpoint])
         interpolated = (values[:-1] + values[1:]) / 2
         mass = np.array([measure(e) for e in midpoint])
