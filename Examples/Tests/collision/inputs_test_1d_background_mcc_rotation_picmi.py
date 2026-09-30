@@ -36,7 +36,16 @@ parser.add_argument(
     "--spectator", action="store_true", help="kinetic IAA spectator closure"
 )
 parser.add_argument("--spectator-reference", type=Path)
+parser.add_argument(
+    "--broad-spectrum",
+    action="store_true",
+    help="benchmark spectator scattering with log-uniform 0.0021--900 eV electrons",
+)
 args = parser.parse_args()
+if args.broad_spectrum and (not args.spectator or args.steps <= 1):
+    raise ValueError(
+        "The broad-spectrum benchmark requires --spectator and --steps > 1"
+    )
 spectator_reference = {}
 if args.spectator:
     if args.spectator_reference is None:
@@ -117,6 +126,10 @@ for target in ["N2"] if args.spectator else ["N2", "O2"]:
         )
         if args.spectator and args.steps == 1:
             energies.append(1000)
+        if args.broad_spectrum:
+            # One ensemble per temperature; overwrite its nominal momentum
+            # below with a spectrum spanning the loaded source table.
+            energies = [0.1]
         for energy in energies:
             if energy == 0 and temperature == 0:
                 continue
@@ -197,13 +210,34 @@ start = time.perf_counter()
 sim.initialize_warpx()
 startup = time.perf_counter() - start
 initial_momentum = {}
+initial_mean_energy = {}
+spectrum_rng = np.random.default_rng(args.seed)
 for electron in species:
+    energy_sum, particle_count = 0.0, 0
     # Exhaust each AMReX iterator before opening the next species' iterator.
     for tile in sim.particles.get(electron.name).iterator(level=0):
-        value = tile["uz"][0]
-        initial_momentum[electron.name] = float(
-            value.get() if hasattr(value, "get") else value
-        )
+        if args.broad_spectrum:
+            kinetic = np.exp(
+                spectrum_rng.uniform(np.log(0.0021), np.log(900), len(tile["uz"]))
+            )
+            stored = (c * np.sqrt(kinetic * (kinetic + 2 * rest)) / rest).astype(
+                tile["uz"].dtype
+            )
+            if hasattr(tile["uz"], "set"):
+                tile["uz"].set(stored)
+                tile["uz"].device.synchronize()
+            else:
+                tile["uz"][:] = stored
+            u2 = stored.astype(float) ** 2
+            energy_sum += (me * u2 / (qe * (1 + np.sqrt(1 + u2 / c**2)))).sum()
+            particle_count += len(stored)
+        else:
+            value = tile["uz"][0]
+            initial_momentum[electron.name] = float(
+                value.get() if hasattr(value, "get") else value
+            )
+    if args.broad_spectrum:
+        initial_mean_energy[electron.name] = energy_sum / particle_count
 start = time.perf_counter()
 sim.step(args.steps)
 # A scalar reduction fences GPU work without copying the particle arrays.
@@ -224,12 +258,19 @@ output = {
     "particles": args.particles,
     "steps": args.steps,
     "cases": len(references),
+    "broad_spectrum": args.broad_spectrum,
 }
 for name, target, energy, mean, second, fourth, probability in references:
     container = sim.particles.get(name)
     ux, uy, uz = (component(container, key) for key in ["ux", "uy", "uz"])
     u2 = ux**2 + uy**2 + uz**2
     final_energy = me * u2 / (qe * (1 + np.sqrt(1 + u2 / c**2)))
+    if args.broad_spectrum:
+        # A difference of ensemble means remains valid if particles reorder.
+        # There is no fixed-energy moment reference for this timing-only input.
+        output[name] = [initial_mean_energy[name] - final_energy.mean()]
+        assert np.isfinite(output[name]).all(), name
+        continue
     # Recover internal loss using the independently reconstructed neutral recoil.
     # Reconstruct small rotational changes from the momentum actually stored.
     # At keV energies, float32 initialization roundoff can bias a meV signal.

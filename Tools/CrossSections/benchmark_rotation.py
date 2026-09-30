@@ -38,7 +38,14 @@ parser.add_argument(
     "--spectator", action="store_true", help="benchmark kinetic IAA spectator outcomes"
 )
 parser.add_argument("--spectator-reference", type=Path)
+parser.add_argument(
+    "--broad-spectrum", action="store_true", help="mix energies within each GPU warp"
+)
 args = parser.parse_args()
+if args.broad_spectrum and (not args.spectator or args.steps <= 1):
+    raise ValueError(
+        "The broad-spectrum benchmark requires --spectator and --steps > 1"
+    )
 if args.repeats < 2:
     raise ValueError("At least two independent seeds are required to measure variance")
 if args.warmup_runs < 0:
@@ -52,6 +59,7 @@ report = {
     "steps": args.steps,
     "repeats": args.repeats,
     "warmup_runs_per_mode": args.warmup_runs,
+    "broad_spectrum": args.broad_spectrum,
 }
 records = {"alias": [], "cumulative": []}
 for repeat in range(-args.warmup_runs, args.repeats):
@@ -76,6 +84,8 @@ for repeat in range(-args.warmup_runs, args.repeats):
             command.append("--cumulative")
         if args.elmolcs:
             command.append("--elmolcs")
+        if args.broad_spectrum:
+            command.append("--broad-spectrum")
         if args.spectator:
             if args.spectator_reference is None:
                 raise ValueError("--spectator-reference is required with --spectator")

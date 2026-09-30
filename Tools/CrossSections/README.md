@@ -182,3 +182,8 @@ Add `--thermal-balance` to `test_thermiaa_spectator.py` to measure equilibrium
 heating and cooling independently of the sampler. This reports the physical
 model's imbalance rather than treating a nonzero result as a tabulation error.
 For the Perlmutter script, set `WARPX_SPECTATOR_DATA` to the same data directory.
+Add `--broad-spectrum` to the benchmark driver to initialize a log-uniform
+0.0021--900 eV electron ensemble at each of the four bath temperatures. This
+exercises divergent energy lookups and table-cache access. Its recorded mean
+electron energy change is an ensemble difference, independent of particle
+reordering; the fixed-energy tests provide the separate physics checks.

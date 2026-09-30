@@ -52,6 +52,12 @@ ctest --test-dir build --output-on-failure \
 srun -n 1 "${WARPX_ROTATION_PYTHON}" Tools/CrossSections/benchmark_rotation.py \
     "${rotation_data_args[@]}" \
     --output "${rotation_output}/timesteps" --particles 524288 --steps 32 --repeats 5
+if [[ -n "${WARPX_SPECTATOR_DATA:-}" ]]; then
+    srun -n 1 "${WARPX_ROTATION_PYTHON}" Tools/CrossSections/benchmark_rotation.py \
+        "${rotation_data_args[@]}" --broad-spectrum \
+        --output "${rotation_output}/broad-timesteps" \
+        --particles 2097152 --steps 32 --repeats 5
+fi
 for rotation_mode in 0 1; do
     if [[ -n "${WARPX_SPECTATOR_DATA:-}" ]]; then
         srun -n 1 build/bin/test_mcc_rotation model=iaa_spectator \
