@@ -6,6 +6,7 @@
  */
 #include "Particles/Collision/BackgroundMCC/BackgroundMCCElasticKinematics.H"
 #include "Particles/Collision/BackgroundMCC/BackgroundMCCElasticScattering.H"
+#include "Particles/Collision/BackgroundMCC/BackgroundMCCSpectator.H"
 #include "Particles/Collision/BackgroundMCC/BackgroundMCCThermalRotation.H"
 #include "Utils/WarpXConst.H"
 
@@ -50,10 +51,12 @@ main (int argc, char** argv)
         pp.query("n2_dcs", n2_dcs);
         pp.query("o2_dcs", o2_dcs);
         std::shared_ptr<BackgroundMCCElasticScatteringModel> nitrogen, oxygen;
-        if (!n2_dcs.empty() && !o2_dcs.empty()) {
+        if (!n2_dcs.empty()) {
             nitrogen = BackgroundMCCElasticScatteringModel::get(n2_dcs);
-            oxygen = BackgroundMCCElasticScatteringModel::get(o2_dcs);
             AMREX_ALWAYS_ASSERT(nitrogen == BackgroundMCCElasticScatteringModel::get(n2_dcs));
+        }
+        if (!o2_dcs.empty()) {
+            oxygen = BackgroundMCCElasticScatteringModel::get(o2_dcs);
         }
         AMREX_ALWAYS_ASSERT(count > 0);
         std::ifstream reference(reference_file);
@@ -67,6 +70,7 @@ main (int argc, char** argv)
         std::array<double, 8> expected{};
         std::array<double, 8> expected_square{};
         std::shared_ptr<BackgroundMCCThermalRotation> model;
+        std::shared_ptr<BackgroundMCCSpectator> spectator_model;
         amrex::Gpu::DeviceVector<Sample> samples(count);
         amrex::Gpu::HostVector<Sample> host(count);
         int cases = 0;
@@ -80,15 +84,28 @@ main (int argc, char** argv)
             }
             AMREX_ALWAYS_ASSERT(reference);
             auto const start = std::chrono::steady_clock::now();
-            model =
-                BackgroundMCCThermalRotation::get(file, source_model, temperature, cumulative);
+            if (source_model == "iaa_spectator") {
+                spectator_model = BackgroundMCCSpectator::get(file, temperature, cumulative);
+                auto const cold = BackgroundMCCSpectator::get(file, 0, !cumulative);
+                AMREX_ALWAYS_ASSERT(spectator_model->hostExecutor().m_weights ==
+                                    cold->hostExecutor().m_weights);
+            } else {
+                model = BackgroundMCCThermalRotation::get(file, source_model, temperature, cumulative);
+            }
             auto const initialized = std::chrono::steady_clock::now();
-            auto const executor = model->executor();
-            auto const state_host =
-                model->hostExecutor().interpolate(static_cast<amrex::ParticleReal>(energy));
-            AMREX_ALWAYS_ASSERT(std::abs(state_host.m_rate / expected_rate - 1) < 0.002);
+            auto const executor = model ? model->executor() : BackgroundMCCThermalRotation::Executor{};
+            auto const spectator = spectator_model ? spectator_model->executor()
+                                                  : BackgroundMCCSpectator::Executor{};
+            auto const state_host = model
+                ? model->hostExecutor().interpolate(static_cast<amrex::ParticleReal>(energy))
+                : BackgroundMCCThermalRotation::Executor::Interpolation{};
+            if (spectator.enabled()) {
+                AMREX_ALWAYS_ASSERT(expected_rate == 0);
+            } else {
+                AMREX_ALWAYS_ASSERT(std::abs(state_host.m_rate / expected_rate - 1) < 0.002);
+            }
             auto* data = samples.data();
-            double const mass = model->neutralMass();
+            double const mass = spectator_model ? spectator_model->neutralMass() : model->neutralMass();
             auto const angular_model = mass < 30 * 1.66053906660e-27 ? nitrogen : oxygen;
             auto const angular = angular_model ? angular_model->executor()
                                               : BackgroundMCCElasticScatteringModel::Executor{};
@@ -99,8 +116,10 @@ main (int argc, char** argv)
                 double const cosine = energy == 0 ? 1 - 2 * draw
                     : angular.sampleCosine(static_cast<amrex::ParticleReal>(energy), draw);
                 auto const state = executor.interpolate(static_cast<amrex::ParticleReal>(energy));
-                auto const outcome =
-                    executor.sample(state, amrex::Random(engine), amrex::Random(engine));
+                auto const outcome = spectator.enabled()
+                    ? spectator.sample(energy, cosine, amrex::Random(engine), amrex::Random(engine),
+                                       amrex::Random(engine))
+                    : executor.sample(state, amrex::Random(engine), amrex::Random(engine));
                 data[i] = {outcome.m_loss, cosine, 0, 0};
             });
             amrex::Gpu::streamSynchronize();
@@ -196,7 +215,7 @@ main (int argc, char** argv)
             }
             output << temperature << ' ' << energy << ' ' << state_host.m_rate << ' '
                    << std::chrono::duration<double>(initialized - start).count() << ' '
-                   << model->tableBytes() << ' '
+                   << (spectator_model ? spectator_model->tableBytes() : model->tableBytes()) << ' '
                    << std::chrono::duration<double>(sampled - sample_start).count();
             for (int j = 0; j < 8; ++j) {
                 double const mean = sum[j] / count;

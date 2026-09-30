@@ -6,6 +6,7 @@ foreach(D IN LISTS WarpX_DIMS)
         BackgroundMCCElasticScattering.cpp
         BackgroundMCCIonization.cpp
         BackgroundMCCProcessSelector.cpp
+        BackgroundMCCSpectator.cpp
         BackgroundMCCThermalRotation.cpp
     )
 endforeach()

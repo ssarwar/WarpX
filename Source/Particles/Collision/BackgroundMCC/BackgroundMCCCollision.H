@@ -10,6 +10,7 @@
 #include "BackgroundMCCElasticScattering.H"
 #include "BackgroundMCCIonization.H"
 #include "BackgroundMCCProcessSelector.H"
+#include "BackgroundMCCSpectator.H"
 #include "BackgroundMCCThermalRotation.H"
 #include "Particles/Collision/CollisionBase.H"
 #include "Particles/Collision/IonProductDestination.H"
@@ -95,6 +96,7 @@ public:
     std::vector<std::unique_ptr<BackgroundMCCIonizationModel>> m_ionization_models;
     std::unique_ptr<BackgroundMCCProcessSelector> m_process_selector;
     std::shared_ptr<BackgroundMCCThermalRotation> m_thermal_rotation;
+    std::shared_ptr<BackgroundMCCSpectator> m_spectator_rotation;
     int m_rotation_process = -1;
     amrex::Vector<ProductGroup> m_product_groups;
     amrex::Gpu::DeviceVector<int> m_process_product_group;

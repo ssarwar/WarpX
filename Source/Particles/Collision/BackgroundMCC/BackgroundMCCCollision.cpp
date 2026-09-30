@@ -189,6 +189,7 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
                                          "Rotational options require <process>_rotation_file.");
         if (has_rotation) {
             WARPX_ALWAYS_ASSERT_WITH_MESSAGE(has_rotation_model && !m_thermal_rotation &&
+                                                 !m_spectator_rotation &&
                                                  process_type == ScatteringProcessType::ELASTIC &&
                                                  process.getEnergyPenalty() == 0,
                                              "One elastic process per MCC block may specify a "
@@ -206,20 +207,29 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
                 process.scatteringAngleModel() == ScatteringAngleModel::IAA,
                 "Thermal rotation requires scattering_angle_model = IAA and the elastic DCS.");
             m_rotation_process = static_cast<int>(m_processes.size());
-            m_thermal_rotation = BackgroundMCCThermalRotation::get(
-                rotation_file, rotation_model, rotation_temperature,
-                rotation_sampling == "cumulative");
-            m_thermal_rotation->checkInclusiveRate(process);
+            double rotation_mass;
+            if (rotation_model == "iaa_spectator") {
+                m_spectator_rotation = BackgroundMCCSpectator::get(
+                    rotation_file, rotation_temperature, rotation_sampling == "cumulative");
+                rotation_mass = m_spectator_rotation->neutralMass();
+                // Conditional spectator outcomes belong to this ordinary
+                // elastic event. Its cross section and selector stay intact.
+            } else {
+                m_thermal_rotation = BackgroundMCCThermalRotation::get(
+                    rotation_file, rotation_model, rotation_temperature,
+                    rotation_sampling == "cumulative");
+                m_thermal_rotation->checkInclusiveRate(process);
+                rotation_mass = m_thermal_rotation->neutralMass();
+                // The integral-rate model replaces the ordinary elastic rate.
+                // Keep zero knots in the selector union for interval bounds.
+                process.useZeroRateGrid(m_thermal_rotation->energies());
+            }
             if (m_background_mass < 0) {
-                m_background_mass =
-                    static_cast<amrex::ParticleReal>(m_thermal_rotation->neutralMass());
+                m_background_mass = static_cast<amrex::ParticleReal>(rotation_mass);
             }
             WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-                std::abs(m_background_mass / m_thermal_rotation->neutralMass() - 1) < 1.0e-5,
+                std::abs(m_background_mass / rotation_mass - 1) < 1.0e-5,
                 "Thermal-rotation target mass does not match background_mass.");
-            // Its aggregate rate coefficient replaces this inclusive elastic
-            // rate. Keep zero knots in the ordinary union for interval bounds.
-            process.useZeroRateGrid(m_thermal_rotation->energies());
         }
 
         auto energy_sharing_model = IonizationEnergySharingModel::Equal;
@@ -1181,6 +1191,8 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
     auto const process_selector = m_process_selector->executor();
     auto const rotation = m_thermal_rotation ? m_thermal_rotation->executor()
                                              : BackgroundMCCThermalRotation::Executor{};
+    auto const spectator = m_spectator_rotation ? m_spectator_rotation->executor()
+                                               : BackgroundMCCSpectator::Executor{};
     auto const* differential_scattering_processes =
         m_differential_scattering_processes_exe.data();
     int const rotation_process = m_rotation_process;
@@ -1278,7 +1290,7 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
             amrex::ParticleReal E_coll;
             amrex::ParticleReal v_coll;
             double rotation_energy = 0;
-            if (rotation.enabled()) {
+            if (rotation.enabled() || spectator.enabled()) {
                 using namespace BackgroundMCCKinematics;
                 Vector3 const velocity{ua_x, ua_y, ua_z};
                 double const gamma =
@@ -1308,7 +1320,8 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
             if (nu_max <= 0.0_prt || (!rotation.enabled() && v_coll <= 0.0_prt)) {
                 return;
             }
-            if (rotation.enabled() && !rotation.inRange(E_coll)) {
+            if ((rotation.enabled() && !rotation.inRange(E_coll)) ||
+                (spectator.enabled() && !spectator.inRange(rotation_energy))) {
 #ifdef AMREX_USE_GPU
                 amrex::Gpu::Atomic::Max(runtime_error, 4);
 #else
@@ -1372,7 +1385,34 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
             // channel. The cached interval avoids a second energy bisection.
             auto const rate_draw =
                 static_cast<amrex::ParticleReal>((process_draw / acceptance) * total_rate);
-            if (rotation.enabled() && rate_draw < rotational_interpolation.m_rate) {
+            bool const integral_rotation =
+                rotation.enabled() && rate_draw < rotational_interpolation.m_rate;
+            int chosen_process = rotation_process;
+            if (!integral_rotation) {
+                if (v_coll <= 0.0_prt) {
+                    return;
+                }
+                auto const cross_section_draw = rotation.enabled()
+                    ? (rate_draw - rotational_interpolation.m_rate) / v_coll
+                    : static_cast<amrex::ParticleReal>((process_draw / acceptance) *
+                                                       total_cross_section);
+                chosen_process = -1;
+                if (process_selector.enabled()) {
+                    chosen_process = process_selector.select(interpolation, cross_section_draw);
+                } else {
+                    amrex::ParticleReal cumulative = 0.0_prt;
+                    for (int i = 0; i < process_count; ++i) {
+                        cumulative += processes[i].getCrossSection(E_coll);
+                        if (cross_section_draw < cumulative) {
+                            chosen_process = i;
+                            break;
+                        }
+                    }
+                }
+                if (chosen_process < 0) { return; }
+            }
+            if (integral_rotation ||
+                (spectator.enabled() && chosen_process == rotation_process)) {
                 double const angle_draw = amrex::Random(engine);
                 // A zero relative momentum has no incident axis. Superelastic
                 // emission then uses the rotationally invariant angular limit.
@@ -1381,8 +1421,11 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
                         ? 1 - 2 * angle_draw
                         : differential_scattering_processes[rotation_process].sampleCosine(
                               E_coll, angle_draw);
-                auto const outcome = rotation.sample(rotational_interpolation,
-                                                     amrex::Random(engine), amrex::Random(engine));
+                auto const outcome = integral_rotation
+                    ? rotation.sample(rotational_interpolation, amrex::Random(engine),
+                                      amrex::Random(engine))
+                    : spectator.sample(rotation_energy, cosine, amrex::Random(engine),
+                                       amrex::Random(engine), amrex::Random(engine));
                 amrex::ParticleReal ex, ey, ez, nx, ny, nz;
                 bool physical = true;
                 if (outcome.m_loss == 0) {
@@ -1410,27 +1453,6 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
                 }
                 return;
             }
-            if (v_coll <= 0.0_prt) {
-                return;
-            }
-            auto const cross_section_draw =
-                rotation.enabled() ? (rate_draw - rotational_interpolation.m_rate) / v_coll
-                                   : static_cast<amrex::ParticleReal>((process_draw / acceptance) *
-                                                                      total_cross_section);
-            int chosen_process = -1;
-            if (process_selector.enabled()) {
-                chosen_process = process_selector.select(interpolation, cross_section_draw);
-            } else {
-                amrex::ParticleReal cumulative = 0.0_prt;
-                for (int i = 0; i < process_count; ++i) {
-                    cumulative += processes[i].getCrossSection(E_coll);
-                    if (cross_section_draw < cumulative) {
-                        chosen_process = i;
-                        break;
-                    }
-                }
-            }
-            if (chosen_process < 0) { return; }
             auto const& process = processes[chosen_process];
 
             if (use_relativistic_electron_kinematics &&

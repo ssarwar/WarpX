@@ -2,5 +2,7 @@ CEXE_sources += BackgroundMCCCollision.cpp
 CEXE_sources += BackgroundMCCElasticScattering.cpp
 CEXE_sources += BackgroundMCCIonization.cpp
 CEXE_sources += BackgroundMCCProcessSelector.cpp
+CEXE_sources += BackgroundMCCSpectator.cpp
+CEXE_sources += BackgroundMCCThermalRotation.cpp
 
 VPATH_LOCATIONS   += $(WARPX_HOME)/Source/Particles/Collision/BackgroundMCC
