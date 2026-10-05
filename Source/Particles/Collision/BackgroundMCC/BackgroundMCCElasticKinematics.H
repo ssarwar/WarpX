@@ -36,7 +36,7 @@ namespace BackgroundMCCElasticKinematics
                      amrex::RandomEngine const &engine, amrex::ParticleReal &electron_ux,
                      amrex::ParticleReal &electron_uy, amrex::ParticleReal &electron_uz,
                      amrex::ParticleReal &recoil_ux, amrex::ParticleReal &recoil_uy,
-                     amrex::ParticleReal &recoil_uz) noexcept
+                     amrex::ParticleReal &recoil_uz, double const deflection = -1) noexcept
     {
         using namespace BackgroundMCCKinematics;
         constexpr double c = PhysConst::c_v<double>;
@@ -74,7 +74,8 @@ namespace BackgroundMCCElasticKinematics
         transverseDirections(axis, transverse1, transverse2);
         auto const direction =
             directionFromPolarAngle(axis, transverse1, transverse2, cosine,
-                                    2 * static_cast<double>(MathConst::pi) * amrex::Random(engine));
+                                    2 * static_cast<double>(MathConst::pi) * amrex::Random(engine),
+                                    deflection);
         auto const electron_pc = scale(direction, std::sqrt(outgoing * (outgoing + 2 * m)));
         auto const recoil_pc = subtract(scale(axis, p), electron_pc);
         auto const electron_lab = boostToLab(scale(electron_pc, c / m), velocity, gamma, boost);
@@ -105,7 +106,8 @@ namespace BackgroundMCCElasticKinematics
              double const scattering_cosine, amrex::RandomEngine const& engine,
              amrex::ParticleReal& electron_ux, amrex::ParticleReal& electron_uy,
              amrex::ParticleReal& electron_uz, amrex::ParticleReal& recoil_ux,
-             amrex::ParticleReal& recoil_uy, amrex::ParticleReal& recoil_uz) noexcept
+             amrex::ParticleReal& recoil_uy, amrex::ParticleReal& recoil_uz,
+             double const deflection = -1) noexcept
     {
         using BackgroundMCCKinematics::Vector3;
         using BackgroundMCCKinematics::boostToLab;
@@ -150,7 +152,8 @@ namespace BackgroundMCCElasticKinematics
         transverseDirections(incident_direction, transverse_1, transverse_2);
 
         auto const cosine = amrex::max(-1.0, amrex::min(scattering_cosine, 1.0));
-        auto const sine_sq = amrex::max(1.0 - cosine * cosine, 0.0);
+        auto const sine_sq = amrex::max(deflection >= 0
+            ? deflection * (2 - deflection) : 1.0 - cosine * cosine, 0.0);
         auto const incident_energy =
             kineticEnergyFromProperVelocity(incident_rest, electron_mass);
         auto const electron_rest_energy = electron_mass * c2 / elementary_charge;
@@ -164,7 +167,7 @@ namespace BackgroundMCCElasticKinematics
             0.0));
         auto const recoil_factor =
             (incident_energy + electron_rest_energy) * sine_sq +
-            neutral_rest_energy * (1.0 - cosine) +
+            neutral_rest_energy * (deflection >= 0 ? deflection : 1.0 - cosine) +
             cosine * electron_rest_energy * electron_rest_energy * sine_sq /
                 (neutral_rest_energy + recoil_root);
         auto const incident_pc_sq =
@@ -181,7 +184,7 @@ namespace BackgroundMCCElasticKinematics
 
         auto const azimuth = two_pi * static_cast<double>(amrex::Random(engine));
         auto const outgoing_direction = directionFromPolarAngle(
-            incident_direction, transverse_1, transverse_2, cosine, azimuth);
+            incident_direction, transverse_1, transverse_2, cosine, azimuth, deflection);
         auto const electron_rest = scale(
             outgoing_direction,
             properSpeedFromKineticEnergy(outgoing_energy, electron_mass));

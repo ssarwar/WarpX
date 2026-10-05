@@ -23,6 +23,7 @@ namespace
     {
         double m_energy, m_loss, m_cosine;
         double m_mass = 28.0134 * 1.66053906660e-27;
+        double m_deflection = -1;
     };
     struct Result
     {
@@ -41,7 +42,9 @@ namespace
         for (int i = 0; i < 100; ++i) {
             double const t = (lo + hi) / 2;
             double const q = std::sqrt(t * (t + 2 * m));
-            double const recoil2 = p * p + q * q - 2 * p * q * value.m_cosine;
+            double const deflection = value.m_deflection >= 0
+                ? value.m_deflection : 1 - value.m_cosine;
+            double const recoil2 = (p - q) * (p - q) + 2 * p * q * deflection;
             double const recoil =
                 recoil2 / (std::sqrt(final_mass * final_mass + recoil2) + final_mass);
             if (t + recoil < value.m_energy - value.m_loss) {
@@ -177,6 +180,13 @@ main (int argc, char *argv[])
                     }
                 }
             }
+            for (double energy : {.02, 1e4, 2.5e6, 1e9}) {
+                for (double loss : {-.01, 0., .01}) {
+                    for (double deflection : {1e-24, 1e-16, 1e-8, .1, 1., 2.}) {
+                        cases.push_back({energy, loss, 1 - deflection, mass, deflection});
+                    }
+                }
+            }
         }
         amrex::Gpu::DeviceVector<Case> inputs(cases.size());
         amrex::Gpu::copy(amrex::Gpu::hostToDevice, cases.begin(), cases.end(), inputs.begin());
@@ -191,9 +201,16 @@ main (int argc, char *argv[])
                     c * std::sqrt(state.m_energy * (state.m_energy + 2 * m)) / m);
                 amrex::ParticleReal ex, ey, ez, ix, iy, iz;
                 double const target = state.m_mass * c * c / qe;
-                bool const valid = BackgroundMCCElasticKinematics::computeRotation(
-                    0, 0, u, 0, 0, 0, me, state.m_mass, state.m_loss, state.m_cosine, engine, ex,
-                    ey, ez, ix, iy, iz);
+                bool valid = true;
+                if (state.m_loss == 0 && state.m_deflection >= 0) {
+                    BackgroundMCCElasticKinematics::compute(
+                        0, 0, u, 0, 0, 0, me, state.m_mass, state.m_cosine, engine,
+                        ex, ey, ez, ix, iy, iz, state.m_deflection);
+                } else {
+                    valid = BackgroundMCCElasticKinematics::computeRotation(
+                        0, 0, u, 0, 0, 0, me, state.m_mass, state.m_loss, state.m_cosine, engine,
+                        ex, ey, ez, ix, iy, iz, state.m_deflection);
+                }
                 out[i] = {0, 0, 0, 0, valid};
                 if (valid) {
                     double const e2 = double(ex) * ex + double(ey) * ey + double(ez) * ez;
@@ -212,6 +229,11 @@ main (int argc, char *argv[])
                         amrex::max(state.m_energy + std::abs(state.m_loss), .001);
                     out[i].m_angle_error =
                         e2 > 0 ? std::abs(double(ez) / std::sqrt(e2) - state.m_cosine) : 0;
+                    if (state.m_deflection > 0 && state.m_deflection < 2) {
+                        double const expected = state.m_deflection * (2 - state.m_deflection);
+                        out[i].m_angle_error = amrex::max(out[i].m_angle_error,
+                            std::abs((double(ex) * ex + double(ey) * ey) / e2 / expected - 1));
+                    }
                 }
             });
         amrex::Vector<Result> result(cases.size());

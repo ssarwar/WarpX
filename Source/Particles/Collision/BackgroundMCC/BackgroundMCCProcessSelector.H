@@ -141,7 +141,8 @@ public:
     };
 
     explicit BackgroundMCCProcessSelector (
-        amrex::Vector<ScatteringProcess> const& processes);
+        amrex::Vector<ScatteringProcess> const& processes,
+        std::size_t table_budget = maximum_table_bytes);
 
     [[nodiscard]] bool enabled () const noexcept
     {

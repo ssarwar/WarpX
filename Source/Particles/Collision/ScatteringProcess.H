@@ -18,6 +18,7 @@
 #include <AMReX_RandomEngine.H>
 #include <AMReX_Vector.H>
 
+#include <limits>
 #include <map>
 #include <string>
 #include <vector>
@@ -79,9 +80,9 @@ public:
                                 );
 
     struct Executor {
-        /** Get the collision cross-section using a simple linear interpolator. If
-         * the energy value is lower (higher) than the given energy range the
-         * first (last) cross-section value is used.
+        /** Get the collision cross section by linear interpolation. Unmarked
+         * tables use their first/last value outside the tabulated interval.
+         * Explicitly bounded tables reject queries outside their supported range.
          *
          * @param E_coll collision energy in eV
          *
@@ -90,6 +91,15 @@ public:
         AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
         amrex::ParticleReal getCrossSection (amrex::ParticleReal E_coll) const
         {
+            if (m_bounded_energy) {
+                constexpr double tolerance =
+                    8 * std::numeric_limits<amrex::ParticleReal>::epsilon();
+                AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
+                    double(E_coll) >= m_valid_energy_lo * (1 - tolerance) &&
+                        double(E_coll) <= m_valid_energy_hi * (1 + tolerance),
+                    "Collision energy is outside the cross-section file's "
+                    "supported range.");
+            }
             if (E_coll < m_energy_lo) {
                 return m_sigma_lo;
             } else if (E_coll > m_energy_hi) {
@@ -122,6 +132,9 @@ public:
         ScatteringAngleModel m_scattering_angle_model;
         /** True if this process creates or removes particles. */
         bool m_produces_products = false;
+        bool m_bounded_energy = false;
+        double m_valid_energy_lo = 0;
+        double m_valid_energy_hi = std::numeric_limits<double>::infinity();
     };
 
     [[nodiscard]]
@@ -154,6 +167,14 @@ public:
     [[nodiscard]] amrex::ParticleReal getMinEnergyInput () const { return m_exe_h.m_energy_lo; }
     [[nodiscard]] amrex::ParticleReal getMaxEnergyInput () const { return m_exe_h.m_energy_hi; }
     [[nodiscard]] amrex::ParticleReal getEnergyInputStep () const { return m_exe_h.m_dE; }
+    [[nodiscard]] double
+    validEnergyMin () const {
+        return m_exe_h.m_valid_energy_lo;
+    }
+    [[nodiscard]] double
+    validEnergyMax () const {
+        return m_exe_h.m_valid_energy_hi;
+    }
 
     [[nodiscard]] amrex::Vector<amrex::ParticleReal> const& getEnergyGrid () const
     {

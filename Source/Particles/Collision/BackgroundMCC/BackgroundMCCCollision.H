@@ -10,6 +10,7 @@
 #include "BackgroundMCCElasticScattering.H"
 #include "BackgroundMCCIonization.H"
 #include "BackgroundMCCProcessSelector.H"
+#include "BackgroundMCCReciprocalRotation.H"
 #include "BackgroundMCCSpectator.H"
 #include "BackgroundMCCThermalRotation.H"
 #include "Particles/Collision/CollisionBase.H"
@@ -22,6 +23,7 @@
 #include <AMReX_REAL.H>
 #include <AMReX_Vector.H>
 
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
@@ -34,7 +36,9 @@ class BackgroundMCCCollision final
     : public CollisionBase
 {
 public:
-    explicit BackgroundMCCCollision (std::string const& collision_name);
+    explicit BackgroundMCCCollision (
+        std::string const& collision_name,
+        std::size_t selector_table_budget = BackgroundMCCProcessSelector::maximum_table_bytes);
 
     ~BackgroundMCCCollision () override;
 
@@ -75,6 +79,13 @@ public:
         BackgroundMCCProductEvent* product_events, int* product_counts,
         int* product_event_count, int* runtime_error);
 
+    // NVCC requires public access to functions enclosing extended device lambdas.
+    template <bool use_reciprocal>
+    void doBackgroundCollisionsWithinTileImpl (
+        WarpXParIter& pti, amrex::Real t, amrex::Real dt,
+        BackgroundMCCProductEvent* product_events, int* product_counts,
+        int* product_event_count, int* runtime_error);
+
   private:
     /** Report invalid device inputs after the kernel has completed. */
     void CheckRuntimeInputs (int error) const;
@@ -96,6 +107,10 @@ public:
     std::vector<std::unique_ptr<BackgroundMCCIonizationModel>> m_ionization_models;
     std::unique_ptr<BackgroundMCCProcessSelector> m_process_selector;
     std::shared_ptr<BackgroundMCCThermalRotation> m_thermal_rotation;
+    std::shared_ptr<BackgroundMCCReciprocalRotation> m_reciprocal_rotation;
+    double m_minimum_collision_energy = 0;
+    double m_maximum_collision_energy = std::numeric_limits<double>::infinity();
+    std::string m_energy_range_error;
     std::shared_ptr<BackgroundMCCSpectator> m_spectator_rotation;
     int m_rotation_process = -1;
     amrex::Vector<ProductGroup> m_product_groups;

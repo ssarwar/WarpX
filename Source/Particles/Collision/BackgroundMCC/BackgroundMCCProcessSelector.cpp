@@ -17,7 +17,7 @@
 #include <vector>
 
 BackgroundMCCProcessSelector::BackgroundMCCProcessSelector (
-    amrex::Vector<ScatteringProcess> const& processes)
+    amrex::Vector<ScatteringProcess> const& processes, std::size_t table_budget)
 {
     if (processes.empty()) { return; }
 
@@ -42,8 +42,8 @@ BackgroundMCCProcessSelector::BackgroundMCCProcessSelector (
 
     auto const energy_count = union_energies.size();
     auto const process_count = static_cast<std::size_t>(processes.size());
-    constexpr std::size_t max_table_entries =
-        maximum_table_bytes / sizeof(amrex::ParticleReal);
+    std::size_t const max_table_entries =
+        std::min(table_budget, maximum_table_bytes) / sizeof(amrex::ParticleReal);
     auto const table_column_count = process_count + 1u;
     if (energy_count < 2u ||
         energy_count > static_cast<std::size_t>(std::numeric_limits<int>::max()) ||

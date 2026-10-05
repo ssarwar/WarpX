@@ -33,6 +33,7 @@
 #include <memory>
 #include <queue>
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 #include <vector>
 
@@ -58,7 +59,8 @@ namespace
     };
 }
 
-BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_name)
+BackgroundMCCCollision::BackgroundMCCCollision (
+    std::string const& collision_name, std::size_t selector_table_budget)
     : CollisionBase(collision_name)
 {
     using namespace amrex::literals;
@@ -170,6 +172,10 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
     for (auto& process : processes)
     {
         auto const process_type = process.type();
+        m_minimum_collision_energy =
+            std::max(m_minimum_collision_energy, process.validEnergyMin());
+        m_maximum_collision_energy =
+            std::min(m_maximum_collision_energy, process.validEnergyMax());
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
             process_type != ScatteringProcessType::INVALID,
             "Cannot add an unknown scattering process type."
@@ -188,12 +194,13 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
                                              (!has_rotation_model && !has_rotation_temperature),
                                          "Rotational options require <process>_rotation_file.");
         if (has_rotation) {
-            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(has_rotation_model && !m_thermal_rotation &&
-                                                 !m_spectator_rotation &&
-                                                 process_type == ScatteringProcessType::ELASTIC &&
-                                                 process.getEnergyPenalty() == 0,
-                                             "One elastic process per MCC block may specify a "
-                                             "thermal-rotation model.");
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                has_rotation_model && !m_thermal_rotation &&
+                    !m_reciprocal_rotation && !m_spectator_rotation &&
+                    process_type == ScatteringProcessType::ELASTIC &&
+                    process.getEnergyPenalty() == 0,
+                "One elastic process per MCC block may specify a "
+                "thermal-rotation model.");
             WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
                 has_rotation_temperature || m_background_temperature_is_constant,
                 "A variable translational temperature requires an explicit "
@@ -208,7 +215,23 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
                 "Thermal rotation requires scattering_angle_model = IAA and the elastic DCS.");
             m_rotation_process = static_cast<int>(m_processes.size());
             double rotation_mass;
-            if (rotation_model == "iaa_spectator") {
+            if (rotation_model == "reciprocal_hybrid") {
+                m_reciprocal_rotation = BackgroundMCCReciprocalRotation::get(
+                    rotation_file, rotation_temperature,
+                    rotation_sampling == "cumulative");
+                m_reciprocal_rotation->checkInclusiveRate(process);
+                rotation_mass = m_reciprocal_rotation->neutralMass();
+                auto const maximum =
+                    m_reciprocal_rotation->hostExecutor().m_maximum_energy;
+                m_maximum_collision_energy =
+                    std::min(m_maximum_collision_energy, maximum);
+                // The prepared family supplies K, including its finite value at
+                // rest. Its detailed knots are needed for majorants, not
+                // ordinary prefixes.
+                amrex::Gpu::HostVector<amrex::ParticleReal> const zero_grid{
+                    0, std::max(process.getMaxEnergyInput(), static_cast<amrex::ParticleReal>(maximum))};
+                process.useZeroRateGrid(zero_grid);
+            } else if (rotation_model == "iaa_spectator") {
                 m_spectator_rotation = BackgroundMCCSpectator::get(
                     rotation_file, rotation_temperature, rotation_sampling == "cumulative");
                 rotation_mass = m_spectator_rotation->neutralMass();
@@ -304,9 +327,18 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
             if (process_type == ScatteringProcessType::ELASTIC ||
                 process_type == ScatteringProcessType::EXCITATION)
             {
-                WARPX_ALWAYS_ASSERT_WITH_MESSAGE(has_differential_cross_section,
-                                                 "IAA elastic or excitation scattering requires a "
-                                                 "<process>_differential_cross_section file.");
+                if (rotation_model == "reciprocal_hybrid") {
+                    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                        !has_differential_cross_section,
+                        "reciprocal_hybrid reads its elastic angular tables "
+                        "from rotation_file; "
+                        "do not also supply differential_cross_section.");
+                } else {
+                    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                        has_differential_cross_section,
+                        "IAA elastic or excitation scattering requires a "
+                        "<process>_differential_cross_section file.");
+                }
                 m_has_iaa_differential_processes = true;
             }
             else
@@ -416,7 +448,18 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
     }
 
     m_process_selector =
-        std::make_unique<BackgroundMCCProcessSelector>(m_processes);
+        std::make_unique<BackgroundMCCProcessSelector>(m_processes, selector_table_budget);
+
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(m_minimum_collision_energy <
+                                         m_maximum_collision_energy,
+                                     "Background MCC cross sections have no "
+                                     "common supported energy interval.");
+    m_energy_range_error = "Background MCC " + collision_name +
+                           " requires collision energies in [" +
+                           std::to_string(m_minimum_collision_energy) + ", " +
+                           std::to_string(m_maximum_collision_energy) +
+                           "] eV. Extend the physical tables offline; endpoint "
+                           "clamping is not permitted.";
 
     amrex::Gpu::HostVector<BackgroundMCCElasticScatteringModel::Executor>
         host_differential_scattering_processes;
@@ -479,6 +522,9 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
     host_processes.reserve(m_processes.size());
     for (auto const& process : m_processes) {
         host_processes.push_back(process.executor());
+        // The collision block checks the intersected domain once before lookup.
+        // Retain per-table checks in the original direct-lookup executors.
+        host_processes.back().m_bounded_energy = false;
     }
     m_processes_exe.resize(host_processes.size());
     amrex::Gpu::copyAsync(
@@ -512,6 +558,7 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
 #else
     for (auto const& process : m_processes) {
         m_processes_exe.push_back(process.executor());
+        m_processes_exe.back().m_bounded_energy = false;
     }
     for (auto const& ionization_process : host_ionization_processes) {
         m_ionization_processes_exe.push_back(ionization_process);
@@ -548,6 +595,10 @@ BackgroundMCCCollision::CheckRuntimeInputs (int error) const
                                      "validity range.");
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(error != 5,
                                      "Thermal-rotation recoil produced invalid kinematics.");
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(error != 6, m_energy_range_error);
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+        error != 7,
+        "Reciprocal rotational tables selected a subthreshold excitation.");
 }
 
 amrex::ParticleReal
@@ -601,6 +652,12 @@ BackgroundMCCCollision::get_nu_max (
             // The ordinary union includes every rotational rate knot. Bound
             // the sum by the separate interval maxima, including E=0.
             rotational_bound = std::max(static_cast<Accumulator>(lo), static_cast<Accumulator>(hi));
+        }
+        if (m_reciprocal_rotation) {
+            auto const& rotation = m_reciprocal_rotation->hostExecutor();
+            rotational_bound =
+                std::max(rotation.interpolate(double(left_energy)).m_rate,
+                         rotation.interpolate(double(right_energy)).m_rate);
         }
         max_sigma_v = std::max(
             max_sigma_v, rotational_bound + std::max(left_sigma * collision_speed(left_energy),
@@ -688,8 +745,62 @@ BackgroundMCCCollision::get_nu_max (
     Accumulator left_energy = 0.0L;
     Accumulator left_sigma = 0.0L;
 
-    if (m_process_selector && m_process_selector->enabled())
-    {
+    if (std::isfinite(m_maximum_collision_energy)) {
+        std::vector<double> knots{m_minimum_collision_energy,
+                                  m_maximum_collision_energy};
+        for (auto const& process : processes) {
+            for (auto energy : process.getEnergyGrid()) {
+                if (energy > m_minimum_collision_energy &&
+                    energy < m_maximum_collision_energy) {
+                    knots.push_back(energy);
+                }
+            }
+        }
+        if (m_reciprocal_rotation) {
+            for (auto energy : m_reciprocal_rotation->energies()) {
+                if (energy > m_minimum_collision_energy &&
+                    energy < m_maximum_collision_energy) {
+                    knots.push_back(energy);
+                }
+            }
+        }
+        if (m_thermal_rotation) {
+            for (auto energy : m_thermal_rotation->energies()) {
+                if (energy > m_minimum_collision_energy &&
+                    energy < m_maximum_collision_energy) {
+                    knots.push_back(energy);
+                }
+            }
+        }
+        std::sort(knots.begin(), knots.end());
+        knots.erase(std::unique(knots.begin(), knots.end()), knots.end());
+        auto total_sigma = [this, &processes] (double energy) {
+            if (m_process_selector && m_process_selector->enabled()) {
+                auto const& grid = m_process_selector->energyGrid();
+                auto const* values = m_process_selector->totalCrossSectionGrid();
+                auto const e = static_cast<amrex::ParticleReal>(energy);
+                if (e <= grid.front()) { return Accumulator(values[0]); }
+                if (e >= grid.back()) { return Accumulator(values[grid.size() - 1]); }
+                int const i = amrex::bisect(grid.data(), 0, static_cast<int>(grid.size()) - 1, e);
+                Accumulator const fraction = (e - grid[i]) / (grid[i + 1] - grid[i]);
+                return (1 - fraction) * values[i] + fraction * values[i + 1];
+            }
+            Accumulator result = 0;
+            for (auto const& process : processes) {
+                result += process.getCrossSection(
+                    static_cast<amrex::ParticleReal>(energy));
+            }
+            return result;
+        };
+        left_energy = knots.front();
+        left_sigma = total_sigma(knots.front());
+        for (std::size_t i = 1; i < knots.size(); ++i) {
+            auto const sigma = total_sigma(knots[i]);
+            update_interval_maximum(left_energy, left_sigma, knots[i], sigma);
+            left_energy = knots[i];
+            left_sigma = sigma;
+        }
+    } else if (m_process_selector && m_process_selector->enabled()) {
         // The selector already tabulated the exact total cross section on the
         // union grid. Reuse it instead of merging every process grid again.
         auto const& energies = m_process_selector->energyGrid();
@@ -711,9 +822,7 @@ BackgroundMCCCollision::get_nu_max (
             left_energy = right_energy;
             left_sigma = right_sigma;
         }
-    }
-    else
-    {
+    } else {
         std::priority_queue<
             CrossSectionKnot,
             std::vector<CrossSectionKnot>,
@@ -787,7 +896,9 @@ BackgroundMCCCollision::get_nu_max (
     // covers the constant high-energy extrapolation used by ScatteringProcess,
     // including relativistic non-electron projectiles beyond the last knot.
     auto const c = static_cast<Accumulator>(PhysConst::c_v<double>);
-    max_sigma_v = std::max(max_sigma_v, left_sigma*c);
+    if (!std::isfinite(m_maximum_collision_energy)) {
+        max_sigma_v = std::max(max_sigma_v, left_sigma * c);
+    }
 
     auto nu_max = static_cast<Accumulator>(m_max_background_density)*max_sigma_v;
     if (nu_max <= 0.0L) { return 0; }
@@ -857,7 +968,7 @@ BackgroundMCCCollision::doCollisions (
                     } else if (m_background_mass < 0.0_prt) {
                         auto const mass_scale = std::max(
                             std::abs(inferred_background_mass),
-                            std::abs(candidate_mass));
+                            std::abs(static_cast<double>(candidate_mass)));
                         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
                             std::abs(candidate_mass - inferred_background_mass) <=
                                 mass_tolerance*mass_scale,
@@ -927,7 +1038,8 @@ BackgroundMCCCollision::doCollisions (
                 m_background_mass > 0.0_prt,
             "The background neutral mass must be finite and greater than 0."
         );
-        if (m_has_iaa_differential_processes || m_thermal_rotation) {
+        if (m_has_iaa_differential_processes || m_thermal_rotation ||
+            m_reciprocal_rotation) {
             WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
                 m_use_relativistic_electron_kinematics,
                 "IAA differential scattering requires an electron incident species."
@@ -1172,6 +1284,24 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
     BackgroundMCCProductEvent* product_events, int* product_counts,
     int* product_event_count, int* runtime_error)
 {
+    if (m_reciprocal_rotation) {
+        doBackgroundCollisionsWithinTileImpl<true>(
+            pti, t, dt, product_events, product_counts, product_event_count,
+            runtime_error);
+    } else {
+        doBackgroundCollisionsWithinTileImpl<false>(
+            pti, t, dt, product_events, product_counts, product_event_count,
+            runtime_error);
+    }
+}
+
+template <bool use_reciprocal>
+void
+BackgroundMCCCollision::doBackgroundCollisionsWithinTileImpl (
+    WarpXParIter& pti, amrex::Real t, amrex::Real dt,
+    BackgroundMCCProductEvent* product_events, int* product_counts,
+    int* product_event_count, int* runtime_error)
+{
     ABLASTR_PROFILE("BackgroundMCCCollision::selectAndScatter()");
     amrex::ignore_unused(product_counts, product_event_count, runtime_error);
     using namespace amrex::literals;
@@ -1193,6 +1323,11 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
                                              : BackgroundMCCThermalRotation::Executor{};
     auto const spectator = m_spectator_rotation ? m_spectator_rotation->executor()
                                                : BackgroundMCCSpectator::Executor{};
+    auto const reciprocal = m_reciprocal_rotation
+                                ? m_reciprocal_rotation->executor()
+                                : BackgroundMCCReciprocalRotation::Executor{};
+    auto const minimum_energy = m_minimum_collision_energy;
+    auto const maximum_energy = m_maximum_collision_energy;
     auto const* differential_scattering_processes =
         m_differential_scattering_processes_exe.data();
     int const rotation_process = m_rotation_process;
@@ -1290,7 +1425,7 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
             amrex::ParticleReal E_coll;
             amrex::ParticleReal v_coll;
             double rotation_energy = 0;
-            if (rotation.enabled() || spectator.enabled()) {
+            if (rotation.enabled() || spectator.enabled() || use_reciprocal) {
                 using namespace BackgroundMCCKinematics;
                 Vector3 const velocity{ua_x, ua_y, ua_z};
                 double const gamma =
@@ -1317,8 +1452,24 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
                 E_coll = static_cast<amrex::ParticleReal>(E_coll_double);
                 v_coll = sqrt(v_coll2) / static_cast<amrex::ParticleReal>(gamma);
             }
-            if (nu_max <= 0.0_prt || (!rotation.enabled() && v_coll <= 0.0_prt)) {
+            if (nu_max <= 0.0_prt ||
+                (!rotation.enabled() && !use_reciprocal && v_coll <= 0.0_prt)) {
                 return;
+            }
+            double const checked_energy =
+                use_reciprocal ? rotation_energy : double(E_coll);
+            constexpr double range_tolerance =
+                8 * std::numeric_limits<amrex::ParticleReal>::epsilon();
+            if (!(checked_energy >= minimum_energy * (1 - range_tolerance) &&
+                  checked_energy <= maximum_energy * (1 + range_tolerance))) {
+#ifdef AMREX_USE_GPU
+                amrex::Gpu::Atomic::Max(runtime_error, 6);
+                return;
+#else
+                amrex::Abort("Background MCC collision energy is outside the "
+                             "supported table "
+                             "range. Extend the physical tables offline.");
+#endif
             }
             if ((rotation.enabled() && !rotation.inRange(E_coll)) ||
                 (spectator.enabled() && !spectator.inRange(rotation_energy))) {
@@ -1332,6 +1483,10 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
             }
             auto rotational_interpolation = rotation.interpolate(E_coll);
             rotational_interpolation.m_energy = rotation_energy;
+            auto const reciprocal_interpolation =
+                use_reciprocal ? reciprocal.interpolate(rotation_energy)
+                               : BackgroundMCCReciprocalRotation::Executor::
+                                     Interpolation{};
 
             amrex::ParticleReal total_cross_section = 0.0_prt;
             auto const interpolation = process_selector.interpolate(E_coll);
@@ -1348,12 +1503,19 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
             }
 
             auto const ordinary_rate = total_cross_section * v_coll;
-            auto const total_rate = ordinary_rate + rotational_interpolation.m_rate;
+            using Rate =
+                std::conditional_t<use_reciprocal, double, amrex::ParticleReal>;
+            Rate const family_rate =
+                use_reciprocal ? Rate(reciprocal_interpolation.m_rate)
+                               : Rate(rotational_interpolation.m_rate);
+            Rate const total_rate = ordinary_rate + family_rate;
             if (total_rate <= 0.0_prt) {
                 return;
             }
             auto const collision_frequency =
-                rotation.enabled() ? n_a * total_rate : (n_a * total_cross_section) * v_coll;
+                rotation.enabled() || use_reciprocal
+                    ? n_a * total_rate
+                    : (n_a * total_cross_section) * v_coll;
             bool const valid_majorant = collision_frequency <= nu_max * (1.0_prt + tolerance);
 #ifdef AMREX_USE_GPU
             if (!valid_majorant) {
@@ -1383,19 +1545,23 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
             }
             // Conditional on acceptance, this same uniform draw selects a
             // channel. The cached interval avoids a second energy bisection.
-            auto const rate_draw =
-                static_cast<amrex::ParticleReal>((process_draw / acceptance) * total_rate);
+            Rate const rate_draw = (process_draw / acceptance) * total_rate;
+            bool const reciprocal_event =
+                use_reciprocal && rate_draw < family_rate;
             bool const integral_rotation =
                 rotation.enabled() && rate_draw < rotational_interpolation.m_rate;
             int chosen_process = rotation_process;
-            if (!integral_rotation) {
+            if (!integral_rotation && !reciprocal_event) {
                 if (v_coll <= 0.0_prt) {
                     return;
                 }
-                auto const cross_section_draw = rotation.enabled()
-                    ? (rate_draw - rotational_interpolation.m_rate) / v_coll
-                    : static_cast<amrex::ParticleReal>((process_draw / acceptance) *
-                                                       total_cross_section);
+                auto const cross_section_draw =
+                    rotation.enabled() || use_reciprocal
+                        ? static_cast<amrex::ParticleReal>(
+                              (rate_draw - family_rate) / v_coll)
+                        : static_cast<amrex::ParticleReal>(
+                              (process_draw / acceptance) *
+                              total_cross_section);
                 chosen_process = -1;
                 if (process_selector.enabled()) {
                     chosen_process = process_selector.select(interpolation, cross_section_draw);
@@ -1410,6 +1576,51 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
                     }
                 }
                 if (chosen_process < 0) { return; }
+            }
+            if (reciprocal_event) {
+                auto const sample = reciprocal.sample(
+                    reciprocal_interpolation,
+                    BackgroundMCCUtils::uniformDouble(engine),
+                    BackgroundMCCUtils::uniformDouble(engine));
+                if (!sample.m_valid) {
+#ifdef AMREX_USE_GPU
+                    amrex::Gpu::Atomic::Max(runtime_error, 7);
+                    return;
+#else
+                    amrex::Abort("Reciprocal rotational tables selected a "
+                                 "subthreshold excitation.");
+#endif
+                }
+                double const cosine = 1 - sample.m_deflection;
+                auto const outcome = sample.m_outcome;
+                amrex::ParticleReal ex, ey, ez, nx, ny, nz;
+                bool physical = true;
+                if (outcome.m_loss == 0) {
+                    BackgroundMCCElasticKinematics::compute(
+                        ux[ip], uy[ip], uz[ip], ua_x, ua_y, ua_z, m, M, cosine,
+                        engine, ex, ey, ez, nx, ny, nz, sample.m_deflection);
+                } else {
+                    physical = BackgroundMCCElasticKinematics::computeRotation(
+                        ux[ip], uy[ip], uz[ip], ua_x, ua_y, ua_z, m,
+                        static_cast<double>(M) + outcome.m_initial_energy *
+                                                     PhysConst::q_e_v<double> /
+                                                     PhysConst::c2_v<double>,
+                        outcome.m_loss, cosine, engine, ex, ey, ez, nx, ny, nz,
+                        sample.m_deflection);
+                }
+                if (physical) {
+                    ux[ip] = ex;
+                    uy[ip] = ey;
+                    uz[ip] = ez;
+                } else {
+#ifdef AMREX_USE_GPU
+                    amrex::Gpu::Atomic::Max(runtime_error, 5);
+#else
+                    amrex::Abort("Reciprocal rotational recoil produced "
+                                 "invalid kinematics.");
+#endif
+                }
+                return;
             }
             if (integral_rotation ||
                 (spectator.enabled() && chosen_process == rotation_process)) {

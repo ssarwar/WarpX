@@ -85,6 +85,40 @@ ScatteringProcess::init (const std::string& scattering_process, const amrex::Par
     // save energy grid parameters for easy use
     const int grid_size = static_cast<int>(m_energies.size());
     m_exe_h.m_grid_size = grid_size;
+    bool const has_range = m_metadata.count("outside_energy_range") != 0;
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+        has_range || (m_metadata.count("energy_min_eV") == 0 &&
+                      m_metadata.count("energy_max_eV") == 0),
+        "Cross-section energy limits require outside_energy_range = error.");
+    if (has_range) {
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            m_metadata.at("outside_energy_range") == "error" &&
+                m_metadata.count("energy_min_eV") == 1 &&
+                m_metadata.count("energy_max_eV") == 1,
+            "Bounded cross sections require energy_min_eV, energy_max_eV and "
+            "outside_energy_range = error.");
+        auto parse_limit = [this] (std::string const& name) {
+            std::istringstream input(m_metadata.at(name));
+            double value = -1;
+            std::string trailing;
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                input >> value && !(input >> trailing) &&
+                    std::isfinite(value) && value >= 0,
+                "Invalid cross-section limit: " + name);
+            return value;
+        };
+        m_exe_h.m_valid_energy_lo = parse_limit("energy_min_eV");
+        m_exe_h.m_valid_energy_hi = parse_limit("energy_max_eV");
+        m_exe_h.m_bounded_energy = true;
+        constexpr double range_tolerance =
+            8 * std::numeric_limits<amrex::ParticleReal>::epsilon();
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            m_exe_h.m_valid_energy_lo < m_exe_h.m_valid_energy_hi &&
+                m_exe_h.m_valid_energy_hi <= double(m_energies.back()) * (1 + range_tolerance) &&
+                (m_exe_h.m_valid_energy_lo >= double(m_energies.front()) * (1 - range_tolerance) ||
+                 m_sigmas_unscaled.front() == 0),
+            "Cross-section table does not cover its declared energy interval.");
+    }
     m_exe_h.m_energy_lo = m_energies[0];
     m_exe_h.m_energy_hi = m_energies[grid_size-1];
     // The energy grid does not need to be evenly spaced; `m_dE` is only used as a
@@ -219,8 +253,14 @@ ScatteringProcess::readCrossSectionFileRaw (const std::string& cross_section_fil
         if (row.peek() == '#') {
             row.get();
             std::string key, equal, value;
-            if (metadata && row >> key >> equal >> value && equal == "=" &&
-                (key == "rbeq_model" || key == "rbeq_normalization" || key == "rbeq_target")) {
+            if (metadata && row >> key &&
+                (key == "rbeq_model" || key == "rbeq_normalization" ||
+                 key == "rbeq_target" || key == "outside_energy_range" ||
+                 key == "energy_min_eV" || key == "energy_max_eV")) {
+                std::string trailing;
+                WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                    row >> equal >> value && equal == "=" && !(row >> trailing),
+                    "Invalid cross-section metadata: " + key);
                 WARPX_ALWAYS_ASSERT_WITH_MESSAGE(metadata->count(key) == 0,
                                                  "Duplicate cross-section metadata: " + key);
                 metadata->emplace(key, value);

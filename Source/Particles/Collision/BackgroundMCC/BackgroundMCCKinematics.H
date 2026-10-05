@@ -98,11 +98,17 @@ namespace BackgroundMCCKinematics
         return mass * proper_speed_sq / ((gamma + 1.0) * elementary_charge);
     }
 
-    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE Vector3 directionFromPolarAngle (
-        Vector3 const& incident_direction, Vector3 const& transverse_1, Vector3 const& transverse_2,
-        double const cosine, double const azimuth) noexcept
+    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE Vector3
+    directionFromPolarAngle (Vector3 const& incident_direction,
+                             Vector3 const& transverse_1,
+                             Vector3 const& transverse_2, double const cosine,
+                             double const azimuth,
+                             double const deflection = -1) noexcept
     {
-        auto const sine = std::sqrt(amrex::max(1.0 - cosine * cosine, 0.0));
+        auto const sine =
+            std::sqrt(amrex::max(deflection >= 0 ? deflection * (2 - deflection)
+                                                 : 1.0 - cosine * cosine,
+                                 0.0));
         auto const [azimuth_sine, azimuth_cosine] = amrex::Math::sincos(azimuth);
         auto const transverse =
             add(scale(transverse_1, azimuth_cosine), scale(transverse_2, azimuth_sine));
