@@ -112,7 +112,12 @@ def write_cross_section(path, function, knots, description):
         path,
         np.column_stack((energy, sigma)),
         fmt=["%.17e", "%.12e"],
-        header=description + "\nEnergy (eV), cross section (m^2); linear interpolation",
+        header=(
+            description
+            + f"\nenergy_min_eV = {0 if sigma[0] == 0 else energy[0]:.17g}"
+            + f"\nenergy_max_eV = {energy[-1]:.17g}\noutside_energy_range = error"
+            + "\nEnergy (eV), cross section (m^2); linear interpolation"
+        ),
     )
     print(
         f"{path.name}: {len(energy)} points, {energy[0]:g}--{energy[-1]:g} eV",
