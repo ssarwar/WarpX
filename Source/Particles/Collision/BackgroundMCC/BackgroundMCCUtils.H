@@ -10,11 +10,23 @@
 #include "Utils/WarpXConst.H"
 
 #include <AMReX_REAL.H>
+#include <AMReX_Random.H>
 
 #include <cmath>
 
 namespace BackgroundMCCUtils
 {
+/** Preserve rare angular and rotational tails in single-Real builds. */
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE double
+uniformDouble (amrex::RandomEngine const& engine) noexcept {
+#ifdef BL_USE_FLOAT
+    auto const high = amrex::Random_int(1u << 27, engine);
+    auto const low = amrex::Random_int(1u << 26, engine);
+    return (double(high) * 67108864.0 + double(low)) * 0x1p-53;
+#else
+    return amrex::Random(engine);
+#endif
+}
     /** Physical one-event probability conditional on a majorant attempt.
      *
      * Attempt thinning must use p(nu)/p(nu_max), not nu/nu_max. The latter

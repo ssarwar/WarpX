@@ -4,9 +4,42 @@ add_executable(export_rbeq export_rbeq.cpp)
 target_compile_features(export_rbeq PRIVATE cxx_std_17)
 target_include_directories(export_rbeq PRIVATE ../../Source)
 set(WarpX_SPECTATOR_TEST_DATA "" CACHE PATH "Prepared offline IAA spectator MCC data")
+set(WarpX_RECIPROCAL_TEST_DATA "" CACHE PATH "warpx-data MCC_cross_sections with prepared V6 bundles")
 
 if(TARGET lib_1d)
     find_package(Python 3.8 COMPONENTS Interpreter REQUIRED)
+    add_executable(test_reciprocal_rotation test_reciprocal_rotation.cpp)
+    target_link_libraries(test_reciprocal_rotation PRIVATE lib_1d)
+    target_include_directories(test_reciprocal_rotation PRIVATE ../../Source)
+    add_executable(benchmark_reciprocal_mcc benchmark_reciprocal_mcc.cpp)
+    target_link_libraries(benchmark_reciprocal_mcc PRIVATE lib_1d)
+    target_include_directories(benchmark_reciprocal_mcc PRIVATE ../../Source)
+    if(WarpX_COMPUTE STREQUAL CUDA)
+        setup_target_for_cuda_compilation(test_reciprocal_rotation)
+        setup_target_for_cuda_compilation(benchmark_reciprocal_mcc)
+    endif()
+    if(WarpX_RECIPROCAL_TEST_DATA)
+        set(reciprocal_output "${CMAKE_CURRENT_BINARY_DIR}/reciprocal_tests")
+        file(MAKE_DIRECTORY "${reciprocal_output}")
+        foreach(gas IN ITEMS N2 O2)
+            set(reciprocal_bundle "${WarpX_RECIPROCAL_TEST_DATA}/${gas}/IAA/reciprocal_hybrid_300K/thermal_rotation.rot")
+            add_test(NAME test_1d_reciprocal_sampler_${gas}
+                COMMAND test_reciprocal_rotation
+                    file=${reciprocal_bundle}
+                    cross_section=${WarpX_RECIPROCAL_TEST_DATA}/${gas}/IAA/elastic.txt
+                    output=${reciprocal_output}/${gas}.txt samples=32768)
+            set_tests_properties(test_1d_reciprocal_sampler_${gas} PROPERTIES
+                FIXTURES_SETUP reciprocal_sampler_${gas})
+            add_test(NAME test_1d_reciprocal_moments_${gas}
+                COMMAND ${Python_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/reciprocal_rotation/sampling_reference.py
+                    --bundle ${reciprocal_bundle} --sampler ${reciprocal_output}/${gas}.txt
+                    --samples 32768)
+            set_tests_properties(test_1d_reciprocal_moments_${gas} PROPERTIES
+                FIXTURES_REQUIRED reciprocal_sampler_${gas}
+                ENVIRONMENT "OPENBLAS_NUM_THREADS=1")
+        endforeach()
+    endif()
     add_executable(test_mcc_rotation test_mcc_rotation.cpp)
     target_link_libraries(test_mcc_rotation PRIVATE lib_1d)
     target_include_directories(test_mcc_rotation PRIVATE ../../Source)
