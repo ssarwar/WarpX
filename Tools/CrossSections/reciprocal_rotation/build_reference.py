@@ -10,12 +10,14 @@ import argparse
 import json
 
 import numpy as np
-from hybrid_reference import REST, C, Hybrid
+from hybrid_reference import REFERENCE_VERSION, REST, C, Hybrid
 from reference_paths import output_path
 from reference_refinement import inserted_moments
 
 
-def build_reference(target, temperature=300.0, maximum_energy=1000.0, tolerance=2e-4):
+def build_reference(
+    target, temperature=300.0, maximum_energy=1000.0, tolerance=2e-4, seed=None
+):
     """Return the positive reference and source-grid convergence diagnostics."""
     model = Hybrid(
         target,
@@ -23,7 +25,8 @@ def build_reference(target, temperature=300.0, maximum_energy=1000.0, tolerance=
         maximum_energy,
         resolution=2,
         rank_max=48,
-        angular_resolution=4 if target == "N2" else 2,
+        angular_resolution=4,
+        energy_override=None if seed is None else np.load(seed)["energy"],
     ).solve()
     history = []
     for iteration in range(12):
@@ -81,8 +84,13 @@ if __name__ == "__main__":
     parser.add_argument("--target", choices=["N2", "O2"], required=True)
     parser.add_argument("--temperature", type=float, default=300.0)
     parser.add_argument("--maximum-energy", type=float, default=1000.0)
+    parser.add_argument(
+        "--seed", type=str, help="Refined energy mesh; solve all angular rows anew"
+    )
     args = parser.parse_args()
-    model, history = build_reference(args.target, args.temperature, args.maximum_energy)
+    model, history = build_reference(
+        args.target, args.temperature, args.maximum_energy, seed=args.seed
+    )
     np.savez_compressed(
         output_path(f"refined-reference-{args.target}.npz"),
         energy=model.energy,
@@ -93,6 +101,7 @@ if __name__ == "__main__":
         temperature=model.T,
         target=model.target,
         maximum_energy=args.maximum_energy,
+        reference_version=REFERENCE_VERSION,
         initial_jmax=model.jmax,
         ranks=model.ranks,
     )

@@ -16,23 +16,29 @@ import json
 import time
 
 import numpy as np
-from hybrid_reference import REST, C, Hybrid
+from hybrid_reference import REFERENCE_VERSION, REST, C, Hybrid
 from reference_paths import OUTPUT, output_path
 from rotation_reference import KB
 
 p = argparse.ArgumentParser()
 p.add_argument("--target", default="N2")
+p.add_argument("--temperature", type=float, default=300)
+p.add_argument("--maximum-energy", type=float, default=1000)
 p.add_argument("--tolerance", type=float, default=0.0005)
 a = p.parse_args()
 ROOT = OUTPUT
 start = time.perf_counter()
-m = Hybrid(a.target, 300, 1000, 2, 48, angular_resolution=4 if a.target == "N2" else 2)
+m = Hybrid(a.target, a.temperature, a.maximum_energy, 2, 48, angular_resolution=4)
 from build_reference import build_reference
 
 checkpoint = output_path(f"refined-reference-{a.target}.npz")
 if checkpoint.exists():
     saved = np.load(checkpoint)
-    if "temperature" in saved and float(saved["temperature"]) != 300.0:
+    if int(saved.get("reference_version", 0)) != REFERENCE_VERSION:
+        raise ValueError(
+            "Outdated normalization reference; run build_reference.py again"
+        )
+    if "temperature" in saved and float(saved["temperature"]) != a.temperature:
         raise ValueError(
             "Reference temperature does not match this sampling-grid check"
         )
@@ -45,11 +51,11 @@ if checkpoint.exists():
     m.c = saved["c"]
     m.p = np.sqrt(m.energy * (m.energy + 2 * REST))
     m.kin = C / (m.energy + REST)
-    m.boundary = np.searchsorted(m.energy, 1001.0)
+    m.boundary = np.searchsorted(m.energy, a.maximum_energy + 1)
     anchor = np.flatnonzero(m.energy == 0.001)[0]
     m.cold_anchor = m.X[anchor, 0] / m.p[anchor]
 else:
-    m, _ = build_reference(a.target)
+    m, _ = build_reference(a.target, a.temperature, a.maximum_energy)
 weight = m.measure[:, None] * np.column_stack(
     (np.ones(len(m.y)), 2 * m.y * m.y, 4 * m.y**4)
 )
@@ -136,16 +142,17 @@ anchors = np.array(
 grid = np.unique(
     np.r_[
         anchors,
+        a.maximum_energy,
         thresholds,
-        m.prior.s.knots[m.prior.s.knots <= 1000],
-        m.elastic.energy[m.elastic.energy <= 1000],
-        np.geomspace(1e-9, 1000, 80),
+        m.prior.s.knots[m.prior.s.knots <= a.maximum_energy],
+        m.elastic.energy[m.elastic.energy <= a.maximum_energy],
+        np.geomspace(1e-9, a.maximum_energy, 80),
     ]
 )
-grid = grid[(grid >= 0) & (grid <= 1000)]
+grid = grid[(grid >= 0) & (grid <= a.maximum_energy)]
 rows = reference(grid)
 peak = np.max(abs(rows), axis=0)
-pool = m.energy[m.energy <= 1000]
+pool = m.energy[m.energy <= a.maximum_energy]
 for iteration in range(16):
     f = np.array([0.25, 0.5, 0.75])
     probe = np.unique(
@@ -157,7 +164,7 @@ for iteration in range(16):
     hi = grid[index + 1]
     t = blend(probe, lo, hi)
     fit = (1 - t[:, None]) * rows[index] + t[:, None] * rows[index + 1]
-    error = abs(exact - fit) / np.maximum(abs(exact), peak * 1e-12)
+    error = abs(exact - fit) / np.maximum(np.maximum(abs(exact), peak * 1e-12), 1e-100)
     per_probe = error.max(axis=1)
     per_interval = np.zeros(len(grid) - 1)
     np.maximum.at(per_interval, index, per_probe)
@@ -196,18 +203,26 @@ def tabulated(E):
 
 
 # Separate energy integrations of gain and loss for three angular weights.
-end = 40 * KB * 300
-edges = np.unique(np.r_[0, end, grid[grid <= end]])
-x, w = np.polynomial.legendre.leggauss(16)
-E = (edges[:-1, None] + np.diff(edges)[:, None] * (x + 1) / 2).ravel()
-dE = (np.diff(edges)[:, None] * w / 2).ravel()
-values = tabulated(E).reshape(-1, 6, 3)
-density = np.sqrt(E * (E + 2 * REST)) * (E + REST) * np.exp(-E / (KB * 300)) * dE
-powers = np.einsum("e,epw->pw", density, values[:, 3:5])
-imbalance = (powers[1] - powers[0]) / powers.sum(axis=0)
-assert np.max(abs(imbalance)) < 0.001
+imbalance = np.zeros(3)
+if a.temperature > 0:
+    end = 40 * KB * a.temperature
+    edges = np.unique(np.r_[0, end, grid[grid <= end]])
+    x, w = np.polynomial.legendre.leggauss(16)
+    E = (edges[:-1, None] + np.diff(edges)[:, None] * (x + 1) / 2).ravel()
+    dE = (np.diff(edges)[:, None] * w / 2).ravel()
+    values = tabulated(E).reshape(-1, 6, 3)
+    density = (
+        np.sqrt(E * (E + 2 * REST))
+        * (E + REST)
+        * np.exp(-E / (KB * a.temperature))
+        * dE
+    )
+    powers = np.einsum("e,epw->pw", density, values[:, 3:5])
+    imbalance = (powers[1] - powers[0]) / powers.sum(axis=0)
+    assert np.max(abs(imbalance)) < 0.001
 out = {
     "target": a.target,
+    "temperature": a.temperature,
     "energy_rows": len(grid),
     "tolerance": a.tolerance,
     "max_probe_relative_error": float(error.max()),
@@ -219,6 +234,8 @@ out = {
 )
 np.savez_compressed(
     ROOT / f"adaptive-low-grid-{a.target}.npz",
+    temperature=a.temperature,
+    reference_version=REFERENCE_VERSION,
     energy=grid,
     moments=rows,
     thresholds=thresholds,

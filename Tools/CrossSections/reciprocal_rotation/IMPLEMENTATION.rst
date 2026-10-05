@@ -112,6 +112,16 @@ after constructing reverse rates. Never clip a negative physical remainder.
 A failed positive decomposition blocks the bundle and retains diagnostic
 information outside warpx-data.
 
+In the transition from a protected background to a common multiplier, the
+implicit reverse contribution must contain the corrected current row. Let S
+be the available inclusive rate after known future rows, D the forward rate
+excluding rank zero, Q the original rank-zero rate, H the unscaled implicit
+reverse rate, and w the transition fraction. Solve
+``(1-w)*H*c^2 - ((1-w)*S + w*(D+Q) + H)*c + S = 0`` using its stable smaller
+root. Construct the blended background with ``S-c*H-D``, not ``S-H-D``.
+Independent bisection checks this normalization. Treating the implicit term
+as uncorrected introduces a grid-dependent discontinuity.
+
 The reference satisfies differential reciprocity in the stated heavy-target
 model. Finite sampling tables approximate it; report their measured errors
 rather than claiming machine-exact reciprocity after arbitrary interpolation.

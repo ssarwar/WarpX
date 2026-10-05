@@ -1,3 +1,9 @@
+# Copyright 2026 The WarpX Community
+#
+# This file is part of WarpX.
+#
+# License: BSD-3-Clause-LBNL
+
 """Check the reference energy grid against newly solved intermediate rows.
 
 A point inserted in the advanced-energy system depends only on existing
@@ -44,7 +50,7 @@ def inserted_moments(m, E):
         residual = inclusive - moments[0] - kin * ((m.diag + up + implicit[0]) @ P)
         if E >= 0.001:
             assert np.min(residual) >= 0, (m.target, E)
-            P[0] = residual / kin
+            P[0] = residual / (kin * m.diag[0])
         else:
             w = smooth(np.sqrt(E / 0.001))
             a = {"N2": 0.44, "O2": 0.3}[m.target]
@@ -54,13 +60,33 @@ def inserted_moments(m, E):
         if E < release:
             tmp = P.copy()
             tmp[0] = 0
-            residual = (
-                inclusive - moments[0] - kin * ((m.diag + up + implicit[0]) @ tmp)
-            )
-            assert np.min(residual) >= 0
+            other_forward = kin * ((m.diag + up) @ tmp)
+            implicit_rate = kin * (implicit[0] @ tmp)
+            original = kin * m.diag[0] * P[0]
+            available = inclusive - moments[0]
             w = smooth((E - cutoff) / (release - cutoff))
-            P[0] = (1 - w) * residual / kin + w * P[0]
-        c = (inclusive - moments[0]) / (kin * ((m.diag + up + implicit[0]) @ P))
+            lo = np.zeros_like(available)
+            hi = (
+                2
+                * available
+                / ((1 - w) * available + w * (other_forward + original) + implicit_rate)
+            )
+            # Independent bisection of the physical normalization equation;
+            # do not reuse the production reference's quadratic root.
+            for _ in range(56):
+                mid = (lo + hi) / 2
+                background = (1 - w) * (
+                    available - mid * implicit_rate - other_forward
+                ) + w * original
+                total = mid * (other_forward + background + implicit_rate)
+                lo = np.where(total < available, mid, lo)
+                hi = np.where(total >= available, mid, hi)
+            c = (lo + hi) / 2
+            residual = available - c * implicit_rate - other_forward
+            assert np.min(residual) >= 0
+            P[0] = (1 - w) * residual / (kin * m.diag[0]) + w * P[0]
+        else:
+            c = (inclusive - moments[0]) / (kin * ((m.diag + up + implicit[0]) @ P))
         assert np.min(c) >= 0
         P *= c
     phase = (

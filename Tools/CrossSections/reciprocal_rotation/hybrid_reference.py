@@ -20,6 +20,7 @@ from scipy.sparse import csr_matrix
 from scipy.special import gammaln, spherical_jn
 
 HERE = OUTPUT
+REFERENCE_VERSION = 2
 from elmolcs import reader
 from elmolcs_source import Source
 from rotation_reference import (
@@ -568,9 +569,11 @@ class Hybrid:
                     if np.any(residual < 0):
                         self.fail.append((float(E), "unchanged"))
                         raise ValueError(self.fail[-1])
-                    P[0] = residual / self.kin[i]
+                    P[0] = residual / (self.kin[i] * self.diag[0])
                     if E == 0.001:
-                        self.cold_anchor = residual / (self.kin[i] * self.p[i])
+                        self.cold_anchor = residual / (
+                            self.kin[i] * self.p[i] * self.diag[0]
+                        )
                 else:
                     if self.cold_anchor is None:
                         raise ValueError("missing cold anchor")
@@ -586,19 +589,32 @@ class Hybrid:
                 if E < release:
                     protected = P.copy()
                     protected[0] = 0
-                    residual = (
-                        target
-                        - future
-                        - selfpart
-                        - self.kin[i] * ((self.diag + up) @ protected)
+                    other_forward = self.kin[i] * ((self.diag + up) @ protected)
+                    original = self.kin[i] * self.diag[0] * P[0]
+                    available = target - future
+                    w = smooth((E - cutoff) / (release - cutoff))
+                    # The implicit reverse contribution is c*selfpart. Include
+                    # that same corrected contribution in the protected
+                    # background, so the model does not depend on grid spacing.
+                    linear = (
+                        (1 - w) * available + w * (other_forward + original) + selfpart
                     )
+                    discriminant = ((1 - w) * available - selfpart) ** 2 + (
+                        2
+                        * w
+                        * (other_forward + original)
+                        * ((1 - w) * available + selfpart)
+                        + (w * (other_forward + original)) ** 2
+                    )
+                    c = 2 * available / (linear + np.sqrt(discriminant))
+                    residual = available - c * selfpart - other_forward
                     if np.any(residual < 0):
                         raise ValueError(("negative transition background", E))
-                    w = smooth((E - cutoff) / (release - cutoff))
-                    P[0] = (1 - w) * residual / self.kin[i] + w * P[0]
-                raw = self.kin[i] * ((self.diag + up) @ P) + selfpart
-                c = (target - future) / raw
-                if np.any(c < 0):
+                    P[0] = (1 - w) * residual / (self.kin[i] * self.diag[0]) + w * P[0]
+                else:
+                    raw = self.kin[i] * ((self.diag + up) @ P) + selfpart
+                    c = (target - future) / raw
+                if np.any(~np.isfinite(c)) or np.any(c < 0):
                     self.fail.append((float(E), "common factor"))
                     raise ValueError(self.fail[-1])
                 self.c[i] = c
