@@ -7,6 +7,7 @@
 """Prepare an offline cumulative reference from independently decoded aliases."""
 
 import argparse
+import math
 from pathlib import Path
 
 import numpy as np
@@ -28,8 +29,12 @@ def main():
         probability = (
             cut + np.bincount(values["alias"], weights=1 - cut, minlength=count)
         ) / count
-        cdf[start:end] = np.cumsum(probability)
-        cdf[end - 1] = 1
+        # Normalize the accumulated roundoff before conversion to binary64.
+        # Forcing only the last element to one can create a descending final
+        # interval when the preceding partial sum rounds just above one.
+        partial = np.cumsum(probability, dtype=np.longdouble)
+        assert abs(math.fsum(probability) - 1) < 16 * np.finfo(float).eps
+        cdf[start:end] = partial / partial[-1]
     arrays = []
     for name, value in data.items():
         kind = {"f": {4: "f32", 8: "f64"}, "u": {2: "u16", 4: "u32"}}[value.dtype.kind][

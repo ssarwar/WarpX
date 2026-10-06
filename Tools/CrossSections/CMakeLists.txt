@@ -21,6 +21,12 @@ if(TARGET lib_1d)
     if(WarpX_RECIPROCAL_TEST_DATA)
         set(reciprocal_output "${CMAKE_CURRENT_BINARY_DIR}/reciprocal_tests")
         file(MAKE_DIRECTORY "${reciprocal_output}")
+        add_test(NAME test_1d_reciprocal_input_bounds
+            COMMAND ${Python_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/../../Examples/Tests/collision/analysis_reciprocal_inputs.py
+                --program $<TARGET_FILE:benchmark_reciprocal_mcc>
+                --sampler $<TARGET_FILE:test_reciprocal_rotation>
+                --data-dir ${WarpX_RECIPROCAL_TEST_DATA} --output ${reciprocal_output}/bounds)
         foreach(gas IN ITEMS N2 O2)
             set(reciprocal_bundle "${WarpX_RECIPROCAL_TEST_DATA}/${gas}/IAA/reciprocal_hybrid_300K/thermal_rotation.rot")
             add_test(NAME test_1d_reciprocal_sampler_${gas}
@@ -39,6 +45,27 @@ if(TARGET lib_1d)
                 FIXTURES_REQUIRED reciprocal_sampler_${gas}
                 ENVIRONMENT "OPENBLAS_NUM_THREADS=1")
         endforeach()
+        if(WarpX_PYTHON)
+            foreach(gas IN ITEMS N2 O2 air)
+                foreach(temperature IN ITEMS 75 300 1200)
+                    set(thermal_name test_1d_reciprocal_thermal_${gas}_${temperature})
+                    set(thermal_directory "${reciprocal_output}/${thermal_name}")
+                    file(MAKE_DIRECTORY "${thermal_directory}")
+                    add_test(NAME ${thermal_name}
+                        COMMAND ${CMAKE_COMMAND} -E env
+                            "PYTHONPATH=${CMAKE_BINARY_DIR}/lib/site-packages"
+                            OPENBLAS_NUM_THREADS=1 ${Python_EXECUTABLE}
+                            ${CMAKE_CURRENT_SOURCE_DIR}/../../Examples/Tests/collision/inputs_test_1d_reciprocal_rotation_picmi.py
+                            --data-dir ${WarpX_RECIPROCAL_TEST_DATA}
+                            --source-dir ${WarpX_RECIPROCAL_TEST_DATA}
+                            --target ${gas} --electron-temperature ${temperature}
+                            --particles 8192 --steps 512 --dt 1e-17 --density 1e30
+                            --check-thermal --output ${thermal_directory}/results.json)
+                    set_tests_properties(${thermal_name} PROPERTIES
+                        WORKING_DIRECTORY ${thermal_directory})
+                endforeach()
+            endforeach()
+        endif()
     endif()
     add_executable(test_mcc_rotation test_mcc_rotation.cpp)
     target_link_libraries(test_mcc_rotation PRIVATE lib_1d)
