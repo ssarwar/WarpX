@@ -23,8 +23,10 @@
 
 class ScatteringProcess;
 
-/** Read-only, offline thermal rotational distributions and their elastic
- * marginal. */
+/** Immutable thermal rotational distributions and their elastic marginal.
+ * V7 text inputs prepare the sampling representation once on the host; V6
+ * inputs contain prepared arrays. See theory/multiphysics/rotational_scattering.
+ */
 class BackgroundMCCReciprocalRotation
 {
 public:

@@ -4,7 +4,7 @@ add_executable(export_rbeq export_rbeq.cpp)
 target_compile_features(export_rbeq PRIVATE cxx_std_17)
 target_include_directories(export_rbeq PRIVATE ../../Source)
 set(WarpX_SPECTATOR_TEST_DATA "" CACHE PATH "Prepared offline IAA spectator MCC data")
-set(WarpX_RECIPROCAL_TEST_DATA "" CACHE PATH "warpx-data MCC_cross_sections with prepared V6 bundles")
+set(WarpX_RECIPROCAL_TEST_DATA "" CACHE PATH "warpx-data MCC_cross_sections with reciprocal rotational bundles")
 
 if(TARGET lib_1d)
     find_package(Python 3.8 COMPONENTS Interpreter REQUIRED)

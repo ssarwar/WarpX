@@ -66,6 +66,10 @@ def read_bundle(index):
     """Read packed data for offline verification; no source-model imports."""
     index = Path(index)
     lines = index.read_text().splitlines()
+    if lines[0] == "WARPX_THERMAL_ROTATION_V7":
+        from text_bundle import read_text_bundle
+
+        return read_text_bundle(index)
     if lines[0] != "WARPX_THERMAL_ROTATION_V6":
         raise ValueError("Not a reciprocal V6 bundle")
     count, parts, size = map(int, lines[3].split())

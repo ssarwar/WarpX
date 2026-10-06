@@ -189,7 +189,13 @@ for name, replacement in [
 
 bundle = args.data_dir.resolve() / "O2/IAA/reciprocal_hybrid_300K/thermal_rotation.rot"
 base = bundle.read_text().splitlines()
-count, parts, _ = map(int, base[3].split())
+text_format = base[0] == "WARPX_THERMAL_ROTATION_V7"
+if text_format:
+    count = int(base[3])
+    payloads = [line.split()[3] for line in base[4:]]
+else:
+    count, parts, _ = map(int, base[3].split())
+    payloads = [line.split()[0] for line in base[4 + count : 4 + count + parts]]
 for name, mutate in [
     (
         "temperature",
@@ -207,8 +213,7 @@ for name, mutate in [
     mutate(lines)
     index = directory / "thermal_rotation.rot"
     index.write_text("\n".join(lines) + "\n")
-    for line in base[4 + count : 4 + count + parts]:
-        filename = line.split()[0]
+    for filename in payloads:
         destination = directory / filename
         if not destination.exists():
             destination.symlink_to(bundle.parent / filename)
@@ -237,8 +242,7 @@ lines = list(base)
 lines[2] = "300.15 " + lines[2].split(" ", 1)[1]
 index = directory / "thermal_rotation.rot"
 index.write_text("\n".join(lines) + "\n")
-for line in base[4 + count : 4 + count + parts]:
-    filename = line.split()[0]
+for filename in payloads:
     destination = directory / filename
     if not destination.exists():
         destination.symlink_to(bundle.parent / filename)
@@ -254,7 +258,7 @@ run(path)
 lookup = next(
     (line for line in base[4 : 4 + count] if line.startswith("angular_lookup ")), None
 )
-if lookup is not None:
+if lookup is not None and not text_format:
     directory = root / "invalid-lookup"
     directory.mkdir(exist_ok=True)
     (directory / "thermal_rotation.rot").write_text(bundle.read_text())
@@ -288,6 +292,39 @@ if lookup is not None:
     )
     (directory / "run.log").write_text(result.stdout)
     assert result.returncode != 0 and "lookup" in result.stdout.lower()
+if text_format:
+    for name, filename, replacement in [
+        ("bad-copy", "rates.txt", "copy 1 0\n"),
+        ("bad-scalar", "coordinates.txt", "values 1\n0.5\n"),
+        ("bad-factor", "probabilities.txt", "WARPX_PROBABILITY_FACTORS_V1 1 1\n"),
+    ]:
+        directory = root / name
+        directory.mkdir(exist_ok=True)
+        (directory / "thermal_rotation.rot").write_text(bundle.read_text())
+        for payload in payloads:
+            destination = directory / payload
+            if destination.exists() or destination.is_symlink():
+                destination.unlink()
+            if payload == filename:
+                destination.write_text(replacement)
+            else:
+                destination.symlink_to(bundle.parent / payload)
+        result = subprocess.run(
+            [
+                str(sampler),
+                f"file={directory / 'thermal_rotation.rot'}",
+                f"cross_section={source.parent / 'elastic.txt'}",
+                f"output={directory / 'samples.txt'}",
+                "samples=16",
+                "amrex.the_arena_init_size=8388608",
+            ],
+            cwd=directory,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        (directory / "run.log").write_text(result.stdout)
+        assert result.returncode != 0 and ("rotational" in result.stdout.lower()), name
 print(
     "PASS: direct, cached and fallback bounds; finite majorants; malformed inputs",
     bounds,
