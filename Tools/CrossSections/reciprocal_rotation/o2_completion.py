@@ -37,6 +37,9 @@ class Completion:
     def __call__(self, E):
         if E in self.cache:
             return self.cache[E]
+        # In the sub-20 eV bridge, only the published constraints and spectator
+        # prior are held at 20 eV. The IAA angular marginal and total use actual E.
+        # See the O2 completion equations in the multiphysics rotational DCS page.
         e = np.clip(E, 20, 200)
         k = np.clip(np.searchsorted(ENERGY, e) - 1, 0, len(ENERGY) - 2)
         t = np.log(e / ENERGY[k]) / np.log(ENERGY[k + 1] / ENERGY[k])

@@ -68,7 +68,7 @@ operations. The complete MCC operator is timed separately, including its
 normal selection, recoil and synchronization costs. Particle observations
 and file loading are outside the timed step region.
 
-For 1048576 particles and 64 measured steps, the original V6 alias tables
+For 1048576 particles and 64 measured steps, the original prepared binary alias tables
 without search indices gave the following median times:
 
 =====================  ==============  =============  ==============  =============
@@ -117,7 +117,7 @@ and require identical angles and discrete outcomes for each event.
 At one million particles, the indices reduced complete MCC time by about
 4--9% for the thermal, resonance, intermediate and mixed-energy cases.
 The 2.5 MeV case changed by less than 1%, because it uses the analytic
-Rutherford angle and the momentum-transfer bank. These measurements use prepared V6 inputs. V7 constructs the same
+Rutherford angle and the momentum-transfer bank. These measurements use prepared binary inputs. Text input constructs the same
 search indices once during initialization.
 
 Full PIC timing depends on particle layout. In the 128-cell test, indexed
@@ -130,7 +130,7 @@ search PIC-time ratios were 0.993 (thermal), 0.989 (resonance), 0.992
 (intermediate), 1.003 (2.5 MeV), and 0.978 (mixed). Thus the collision search
 improvement is measured, while an end-to-end speedup is workload dependent.
 No unexplained regression above 5% remained against the same-physics
-reference. The original full-grid lookup remains supported for V6 bundles
+reference. The original full-grid lookup remains supported for prepared binary bundles
 without the optional indices.
 
 Readable-data validation
@@ -155,7 +155,7 @@ for O2; they are initialization times, not GPU collision throughput. Measure
 cold filesystem/cache conditions separately when deploying on a new system.
 These trials are within the allowed minute-scale startup budget. Text inputs
 remain substantial: approximately 140 MiB for N2 and 95 MiB for O2, compared
-with 716.4 MiB combined binary V6 data. Human readability does not imply that
+with 716.4 MiB combined binary data. Human readability does not imply that
 every probability is a two-column cross section; their representation is
 specified in :ref:`rotation-data-format`.
 
@@ -164,17 +164,17 @@ independent 28-energy sampler checks, exact-search equivalence, threshold/range
 and malformed-input checks, and air heating/equilibrium/cooling cases. Sampler
 Compute Sanitizer runs for both gases reported zero errors. Deterministic
 GPU decoding of every probability cell reproduced the CPU encoding-error
-bounds above. This V7 campaign used double precision; the all-single CUDA and
-four-GPU results in the earlier section are from the preceding V6 campaign.
+bounds above. This text-input campaign used double precision; the all-single CUDA and
+four-GPU results in the earlier section are from the binary-input campaign.
 
 First-read initialization measurements were 6.89 seconds for N2 and 18.40
 seconds for O2. Filesystem state matters: subsequent reads were much faster.
 In the repeated complete-PIC benchmark with both gases resident, median
-initialization was 6.27--6.44 seconds for V7, versus 0.84--0.93 seconds for
-prepared V6 input. No initialization work is repeated per collision.
+initialization was 6.27--6.44 seconds for text input, versus 0.84--0.93 seconds for
+prepared binary input. No initialization work is repeated per collision.
 
 With 1048576 electrons, 4096 cells, 64 timed steps and three alternating seeds,
-the V7/V6 median full-MCC time ratios were 0.9992 (thermal), 1.0024 (resonance),
+the text-input/binary-input median full-MCC time ratios were 0.9992 (thermal), 1.0024 (resonance),
 0.9997 (50 eV), 1.0012 (2.5 MeV) and 0.9993 (mixed). The corresponding complete
 PIC ratios were 0.9906, 0.9911, 1.0013, 0.9899 and 0.9996. These measurements
 show no material collision-throughput regression from preparing aliases at
@@ -206,7 +206,7 @@ The independent checks have different responsibilities:
 * ``verify_high.py``, ``q_transition_check.py`` and ``phase_average_check.py``
   separately check angular continuation, momentum-transfer binning and the
   oscillatory tail approximation.
-* ``check_text_cells.py`` compares every native decoded V7 cell to the original
+* ``check_text_cells.py`` compares every native decoded probability cell to the original
   validated probability distribution, including rare tails and float32 packing.
 * ``test_reciprocal_rotation`` samples the actual C++/GPU implementation;
   ``sampling_reference.py`` compares its first and higher moments with an

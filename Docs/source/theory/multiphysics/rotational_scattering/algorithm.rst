@@ -192,7 +192,7 @@ Unchanged outcomes use the existing stable elastic two-body formula and
 retain recoil even when their internal-energy change is zero.
 
 Where the equations are implemented
-------------------------------------
+-----------------------------------
 
 The source/preparation files below are under
 ``Tools/CrossSections/reciprocal_rotation``; runtime classes are under
@@ -201,6 +201,7 @@ to change a numerical encoding without changing the molecular source model.
 
 .. list-table::
    :header-rows: 1
+   :class: rotational-scattering-table
    :widths: 40 60
 
    * - File or function

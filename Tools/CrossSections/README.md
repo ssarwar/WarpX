@@ -1,5 +1,13 @@
 # Electron collision tables
 
+For production N₂/O₂ rotational scattering, start with the
+[complete rotational DCS specification](../../Docs/source/theory/multiphysics/rotational_scattering/rotational_dcs.rst)
+and the [continuing development guide](../../Docs/source/theory/multiphysics/rotational_scattering/development.rst).
+They record the physics, data provenance, implementation map, reproducible
+commands and validation requirements needed in a fresh task or checkout.
+The tools below also cover ionization and alternative rotational models.
+
+
 The RBEQ exporter shares its host source definition with the WarpX sampler.
 Build it inside the WarpX worktree:
 
@@ -46,7 +54,7 @@ reference stores a cumulative table; the alias path omits it.
 Bundles have three ASCII header lines and a little-endian payload:
 
 ```text
-WARPX_THERMAL_ROTATION_V4
+WARPX_THERMAL_ROTATION_RATES
 N2 elastic_dcs J_MAX T_REFERENCE_K
 N_ENERGY N_TRANSITION
 ```
@@ -54,12 +62,10 @@ N_ENERGY N_TRANSITION
 Arrays contain energies (binary64), transition pairs `(J_initial,J_final)`
 (int32), and integral rate coefficients (binary64, C order
 `[energy,component]`). Component zero is unchanged. Other components correspond
-to transition pairs, before Boltzmann weighting. V4 also permits `J_initial =
+to transition pairs, before Boltzmann weighting. The rate format permits `J_initial =
 J_final`: these state-dependent unchanged rates are summed to one unchanged
-outcome on the host. V3 remains readable and retains its scalar unchanged
-component. Rates have units m³/s.
-There are no angular bins. V1/V2 bundles must be regenerated; V3 omits the
-molecular recoil shift from thresholds and source-rate detailed balance.
+outcome on the host. Older scalar-unchanged input remains readable. Rates have units m³/s.
+There are no angular bins. The thresholds and source-rate detailed balance omit the molecular recoil shift.
 The state sum and rate/transfer moments must converge. Input and sampler
 storage each have a 512 MiB limit per copy.
 
@@ -130,10 +136,10 @@ python Tools/CrossSections/thermiaa_spectator.py \
     --output /path/to/warpx-data/MCC_cross_sections/N2/IAA/thermal_spectator.rot
 ```
 
-The V5 file has three ASCII header lines followed by a little-endian payload:
+The spectator data file has three ASCII header lines followed by a little-endian payload:
 
 ```text
-WARPX_THERMAL_ROTATION_V5
+WARPX_IAA_SPECTATOR
 N2 iaa_spectator J_MAX 0
 N_ENERGY N_ANGULAR_NODES
 ```
@@ -164,7 +170,7 @@ spectator model's low-energy inaccuracies, and its lack of detailed balance
 are explicit physical limitations. Independent checks compare the first moment
 with Eq. (2.48),
 and also test the second moment, signed outcomes and angle–energy correlation.
-The V3/V4 model preserves integral detailed balance in its reference rates;
+The angle-independent model preserves integral detailed balance in its reference rates;
 that alone does not establish differential detailed balance either.
 
 The independent reference requires NumPy/SciPy and the published physical

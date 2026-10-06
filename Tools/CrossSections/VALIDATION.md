@@ -138,11 +138,12 @@ performed; single particle precision was validated on the CPU.
 
 ## Offline data and source scope
 
-V3 synthetic verification bundles and their integral/DCS inputs are versioned
-in `warpx-data/IAA/MCC_cross_sections/IAA/rotation/verification`, with hashes
-in `manifest.json`. They match the files used by the CPU tests. The PICMI
-input and benchmark only read prepared files. CTest generates its synthetic
-fixtures in a separate setup step; production runs do not invoke data tools.
+Synthetic verification inputs for the angle-independent model are generated in
+build directories. Production data and numerical source constraints are stored
+in warpx-data. The current reciprocal model's physics and GPU validation are
+documented in `Docs/source/theory/multiphysics/rotational_scattering/validation.rst`.
+The records below describe the earlier independent-angle source audit and do
+not describe the current production model.
 
 The physical source audits retain their explicit zero-temperature reference
 assumption. Additional 300 K audits record negative low-energy unchanged

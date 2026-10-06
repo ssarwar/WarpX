@@ -21,13 +21,13 @@ not a collection of additional processes to add to the elastic rate.
 Why the original files were large
 ---------------------------------
 
-V6 stored final device arrays directly. The N2 bundle contained 55,163,303
+Binary inputs stored final device arrays directly. The N2 bundle contained 55,163,303
 8-byte alias entries; O2 contained 31,779,555. Many neighboring angular cells
 repeat closely related distributions over the same thermally recoupled
 rotational transitions. Aliases therefore occupied 441,306,424 bytes for N2
 and 254,236,440 bytes for O2. These are sampling acceleration arrays, not
 that many measured cross sections. Including grids, outcomes and search
-indices, the two V6 payloads totaled 751,195,072 bytes (716.4 MiB).
+indices, the two binary payloads totaled 751,195,072 bytes (716.4 MiB).
 
 The 15 N2 and nine O2 ``.bin`` files were arbitrary slices of a concatenated
 payload, each limited to 32 MiB. A file boundary had no physical meaning.
@@ -35,10 +35,10 @@ Splitting kept individual files below Git's large-file limit; it did not
 reduce total data size. Binary storage made startup simple but made source
 review and interpretation unnecessarily difficult.
 
-Readable V7 probability inputs
-------------------------------
+Readable probability inputs
+---------------------------
 
-V7 stores decimal numerical tables and a compact factorization of the
+The production data use decimal numerical tables and a compact factorization of the
 conditional probability matrices. Initialization expands that representation
 and builds the device aliases. The numerical factorization is an encoding
 of a previously validated probability distribution, not a new molecular
@@ -47,7 +47,7 @@ model, and its matrix rank has no relationship to rotational tensor rank
 
 The index ``thermal_rotation.rot`` has the form::
 
-   WARPX_THERMAL_ROTATION_V7
+   WARPX_RECIPROCAL_ROTATION
    N2 reciprocal_hybrid probabilities
    temperature mass maximum_energy high_energy rutherford_energy separation screening_radius
    array_count
@@ -71,6 +71,7 @@ exact round trips; integer ranges are checked.
 
 .. list-table::
    :header-rows: 1
+   :class: rotational-scattering-table
    :widths: 30 70
 
    * - Array
@@ -106,7 +107,7 @@ Probability reconstruction
 
 ``probabilities.txt`` starts with::
 
-   WARPX_PROBABILITY_FACTORS_V1 number_of_cells number_of_alias_entries
+   WARPX_ROTATIONAL_PROBABILITIES number_of_cells number_of_alias_entries
 
 Each consecutive block contains at most 256 cells::
 
@@ -165,7 +166,7 @@ rotational levels, parity, molecular masses, range coverage, temperature and
 threshold accessibility. It checks the combined source rate against the
 ordinary elastic table above the cold join. No prepared file is written by
 the simulation, and no Python or external numerical library is required to
-read V7. A restart prepares the immutable arrays again; repeated collision
+read the production data. A restart prepares the immutable arrays again; repeated collision
 objects within a process share them.
 
 The 8-byte device alias layout remains float32 cutoff, uint16 alternate
@@ -175,10 +176,10 @@ budget. One MPI rank per GPU shares these tables within that rank; separate
 ranks on one GPU each allocate their own copies. Choosing cumulative storage
 uses additional memory and is primarily a reference option.
 
-V6 remains supported with its original little-endian binary64 host
+Binary input remains supported with its little-endian binary64 host
 requirement. Its directory lists ``name type count byte_offset`` followed by
 relative binary-part filenames and byte counts. Offsets are eight-byte aligned
-within the concatenated payload. Optional V6 quantile indices are accepted;
+within the concatenated payload. Optional binary quantile indices are accepted;
 without them the full search is used. Unmarked ordinary cross-section files
-retain their legacy endpoint behavior. V7 does not silently change any legacy
+retain their legacy endpoint behavior. The readable representation does not change any other
 rotation option or source continuation.

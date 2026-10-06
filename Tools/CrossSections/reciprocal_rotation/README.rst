@@ -1,5 +1,9 @@
 Reciprocal rotational scattering
-===============================
+================================
+
+For continuation in another task, start with
+``Docs/source/theory/multiphysics/rotational_scattering/development.rst``.
+The complete piecewise angular model is in the adjacent ``rotational_dcs.rst``.
 
 These are offline reference and export tools for a fixed N2 or O2 rotational
 bath. They implement the model described in ``IMPLEMENTATION.rst``; source
@@ -36,7 +40,7 @@ inputs and validated production bundles are exported to warpx-data.
 
 The exporter includes small quantile lookup arrays to shorten exact searches
 of the adaptive CDF grids. ``lookup_index.py`` can append these arrays to an
-existing V6 bundle without recomputing or changing its physical arrays. Compare
+existing prepared binary bundle without recomputing or changing its physical arrays. Compare
 indexed and unindexed alias data with ``benchmark_reciprocal_rotation.py
 --reference-dir ... --samplings alias reference``. The ``lookup_check=1``
 sampler test requires event-by-event equality for identical random uniforms.
@@ -67,7 +71,7 @@ Repeat with O2. After source validation, encode the readable production inputs::
 Run the sampler, decoded-probability and thermal checks on the readable input
 before copying its index and text tables to warpx-data. Run the native sampler
 with ``cell_output=<path>`` and compare every decoded probability cell using
-``check_text_cells.py --reference <V6-index> --decoded <path>``. This includes
+``check_text_cells.py --reference <reference-index> --decoded <path>``. This includes
 float32 alias packing and both signs of the first, second and fourth moments. Alias construction and
 exact search-index construction now happen once at initialization; the source
 model and equilibrium construction remain offline. The probability encoding
@@ -75,11 +79,11 @@ has an additional, independently checked numerical budget described in the
 multiphysics theory manual. Do not publish the intermediate binary cache or
 the report in warpx-data.
 
- ``verify.py`` independently evaluates intermediate source rows
+``verify.py`` independently evaluates intermediate source rows
 and decodes packed probabilities; it is intentionally more expensive than
 quick runtime tests. Never reuse a sampling grid built from an older source
-reference version. For a V6 binary reference, use ``cumulative_reference.py`` to prepare an identical
-distribution with cumulative sampling outside warpx-data. V7 selects either
+physical reference construction. For a binary reference, use ``cumulative_reference.py`` to prepare an identical
+distribution with cumulative sampling outside warpx-data. Text input selects either
 sampler from the same readable input at initialization::
 
     python Tools/CrossSections/reciprocal_rotation/cumulative_reference.py \

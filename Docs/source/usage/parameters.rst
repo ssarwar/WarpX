@@ -3666,8 +3666,7 @@ Details about the collision models can be found in the :ref:`theory section <mul
     ``cross_section`` is checked for source consistency above 1 meV and its
     runtime rate is replaced by the combined family. An unchanged rotational
     outcome still scatters and recoils. No rotational states are evolved, and
-    no population sums or source fits are performed at initialization. Readable
-    V7 input reconstructs probabilities and prepares its sampling tables once.
+    no population sums or source fits are performed at initialization. The input reconstructs probabilities and prepares its sampling tables once.
     The continuous source reference uses reciprocal forward/reverse kernels;
     finite sampling tables approximate that reference within the stated
     numerical budgets. Do not add these rotational transitions as ordinary
@@ -3701,46 +3700,36 @@ Details about the collision models can be found in the :ref:`theory section <mul
     :type: ``string``
     :optional:
 
-    Path to a ``WARPX_THERMAL_ROTATION_V3``, ``WARPX_THERMAL_ROTATION_V4`` or
-    ``WARPX_THERMAL_ROTATION_V5`` or ``WARPX_THERMAL_ROTATION_V6`` bundle, described in
-    ``Tools/CrossSections/README.md``. Generate physical data offline and store
-    them in ``warpx-data``; WarpX only reads existing bundles. V1/V2 files must
-    be regenerated for the nominal-threshold model. For V3/V4, initialization
-    sums Boltzmann populations and builds shared sampling tables for each
-    data/model/temperature pair.
-    V4 additionally permits state-resolved unchanged :math:`J\to J` entries.
-    Their Boltzmann-weighted rates are summed into one unchanged outcome on
-    the host, without additional device sampling or neutral-state bookkeeping.
-    The unchanged contribution must be nonnegative, all excitation thresholds
-    must be represented, and the omitted population must be below :math:`10^{-10}`.
-    The bundle must cover zero energy, including any finite de-excitation rate
-    coefficient there. Energies above its validity range cause a runtime error;
-    this model does not silently clamp a high-energy rotational tail.
-    Source arrays and final sampling storage are limited to 512 MiB each.
-    Source consistency and the normalization conflict in the supplied N2
-    tables are discussed in :ref:`mcc-iaa-sources`. Passing a sampler test
-    does not establish a combined model's physical accuracy.
+    Path to the rotational data file for the selected ``rotation_model``.
+    For production N2/O2 ``reciprocal_hybrid`` inputs, use
+    ``MCC_cross_sections/<gas>/IAA/reciprocal_hybrid_300K/thermal_rotation.rot``
+    from warpx-data. The gas, physical model and temperature identify the data;
+    WarpX identifies the storage layout automatically.
 
-    V5 stores the temperature-independent, factored differential weights for
-    ``iaa_spectator``. Angular functions and level couplings are already tabulated
-    offline. Initialization only reads and validates them and prepares the small
-    Boltzmann sampler. Immutable host/device data are shared across temperatures
-    and sampling modes. Its elastic rate remains supplied by ``cross_section``;
-    in particular a finite zero-energy elastic cross section gives a vanishing
-    collision rate for stationary zero-energy electrons.
+    ``reciprocal_hybrid`` reads decimal probability tables and prepares immutable
+    alias/cumulative and search tables once during initialization. Source fitting
+    and the physical reciprocal construction remain offline. The file layout is
+    described in :ref:`rotation-data-format` and the complete rotational DCS
+    construction in :ref:`rotation-dcs`. The 300 K production data cover zero
+    through 1 GeV, including the finite zero-energy superelastic rate. Queries
+    beyond the supported interval are errors, with an eight-ParticleReal-epsilon
+    endpoint allowance for roundoff. The combined rotational tables are limited
+    to 1 GiB per process and are shared by collision objects using identical data.
 
-    V7 contains readable decimal probability data for ``reciprocal_hybrid``.
-    Initialization reconstructs the stored distributions and prepares immutable
-    alias/cumulative and search tables once. Source fitting and the physical
-    reciprocal construction remain offline. V6 indices referring to prepared
-    binary parts remain supported. Both formats are documented in
-    :ref:`rotation-data-format`. The 300 K production
-    files in ``warpx-data`` cover collision energies from zero through 1 GeV,
-    including the finite zero-energy superelastic rate. Energy is measured in
-    the sampled neutral's rest frame. Queries beyond the supported interval
-    are errors, with an eight-ParticleReal-epsilon relative endpoint allowance
-    for roundoff. The loaded tables are limited to 1 GiB per process and are
-    shared when collision objects reference the same bundle.
+    ``elastic_dcs`` reads state-resolved integral rates. Initialization sums the
+    prescribed Boltzmann populations and prepares the sampling tables. The
+    state-dependent unchanged rates are collapsed to one zero-change outcome.
+    Excitation thresholds must be represented, the unchanged contribution must
+    be nonnegative, and the omitted population must be below :math:`10^{-10}`.
+    Source and sampler storage each have a 512 MiB limit. The energy domain
+    includes zero and is enforced at runtime.
+
+    ``iaa_spectator`` reads tabulated angular functions and level couplings,
+    then prepares the small Boltzmann sampler. Its elastic rate remains supplied
+    by ``cross_section``. A finite zero-energy elastic cross section therefore
+    gives a vanishing collision rate for stationary zero-energy electrons.
+    These alternative physical models are described in :ref:`mcc-iaa-sources`;
+    a sampler test alone does not establish their physical accuracy.
 
 .. pp:param:: <collision_name>.<scattering_process>_rotational_temperature
     :type: ``float``
@@ -3751,7 +3740,7 @@ Details about the collision models can be found in the :ref:`theory section <mul
     translational temperature is an expression. Zero uses the ground-state
     limit, including the lowest allowed odd O2 level. The rotational bath
     is prescribed; its populations and energy are not evolved.
-    V6 and V7 require this temperature to match the prepared bundle. Generate
+    ``reciprocal_hybrid`` requires this temperature to match the prepared bundle. Generate
     other fixed temperatures offline; WarpX does not reweight their physical
     distributions at startup.
 
@@ -3773,8 +3762,8 @@ Details about the collision models can be found in the :ref:`theory section <mul
     the virtual initial level. Both paths use the same bounded seven-outcome
     conditional calculation; neither evaluates Bessel functions on the device.
     For ``reciprocal_hybrid``, ``alias`` selects the constant-time outcome
-    sampler. V7 prepares either representation from the same readable input
-    once at initialization; V6 requires a separately prepared cumulative
+    sampler. The readable input prepares either representation once during
+    initialization; binary input requires a separately prepared cumulative
     bundle for comparisons. Both sample the same joint distribution, within
     packing precision, and retain discrete energy changes.
 

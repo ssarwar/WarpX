@@ -3,6 +3,10 @@
 Source evidence and gas-specific angular kernels
 ================================================
 
+The complete piecewise formulas, energy/angle interpolation rules and final
+channel probabilities are specified in :ref:`rotation-dcs`. This page records
+their source evidence and the assumptions needed to complete it.
+
 Source hierarchy and reproducibility
 ------------------------------------
 
@@ -35,7 +39,7 @@ transition-specific Born formula instead of scaling that one ground-state
 curve to arbitrary :math:`N`.
 
 Elastic data provenance and its low-energy limitation
-----------------------------------------------------
+-----------------------------------------------------
 
 The imported angular grids are elmolcs ``Data/dcs/N2/DCS.e-N2`` (source
 header dated 22 September 2022) and ``Data/dcs/O2/DCS.e-O2`` (12 December

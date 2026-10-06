@@ -69,7 +69,7 @@ approximately 19.5 and 18.6 percent of the respective equilibrium populations.
 A thermal sum must extend the state set, rather than renormalize those lists.
 
 IAA Eq. (11.24) constructs transitions from elementary integral rates using
-the sudden approximation. The V3/V4 rate models use the canonical internal-energy
+the sudden approximation. The angle-independent rate models use the canonical internal-energy
 threshold :math:`\Delta=E_{J'}-E_J`, without molecular recoil shifts. For
 relativistic electron momentum :math:`p(E)=\sqrt{E(E+2m_ec^2)}/c`, reverse rates
 satisfy the heavy-target integral relation
@@ -79,7 +79,7 @@ satisfy the heavy-target integral relation
   g_Jp(E+\Delta)^2\sigma_{J\to J'}(E+\Delta)
   =g_{J'}p(E)^2\sigma_{J'\to J}(E).
 
-For the V3/V4 rate models, the runtime draws a discrete rotational change
+For the angle-independent rate models, the runtime draws a discrete rotational change
 independently of the angle from the existing inclusive elastic DCS.
 At exactly zero relative momentum there
 is no incident axis, so emitted electrons use the isotropic limit. A selected
@@ -89,7 +89,7 @@ There is no angular conditioning, transition search, or rejection in the
 alias sampler, and it requires no cumulative table.
 
 The spectator relation in Eq. (11.29), :math:`J_R=kR\sin(\theta/2)`, is not a
-hard quantum selection rule. The V3/V4 models use neither this relation nor
+hard quantum selection rule. The angle-independent models use neither this relation nor
 a separate rotational DCS.
 The elastic DCS supplies the vibrationally elastic angular marginal, including
 unresolved rotations; see thesis Eq. (8.129), the end of Section 11.1 and
@@ -106,7 +106,7 @@ independent angle without rejecting outcomes or projecting angles. It does
 not claim exact four-momentum conservation in the continuation band.
 Unchanged events retain the ordinary elastic recoil implementation.
 
-Integral detailed balance in the V3/V4 reference rates does not imply differential
+Integral detailed balance in the angle-independent reference rates does not imply differential
 detailed balance for an energy-dependent elastic DCS used independently of
 rotational outcomes. This is the selected approximation. Independent tests
 cover level thresholds, unchanged/loss/gain probabilities, angular independence,
@@ -136,7 +136,7 @@ state is
   \qquad A_\lambda=\sigma_{0\to\lambda}p_\mathrm{in}/p_\mathrm{out}.
 
 Simply reusing :math:`\sigma_{0\to0}` for every initial state misses the
-second term. V4 bundles carry these state-resolved unchanged rates, which
+second term. State-resolved rate inputs carry the unchanged rates, which
 are thermally averaged and collapsed to one outcome during initialization.
 At 300 K the source-based N2 reconstruction at 2.3 eV still totals about
 :math:`5.09\times10^{-19}\,\mathrm{m^2}`; Boltzmann averaging does not cure
@@ -197,7 +197,7 @@ The optional ``--thermal-balance`` source check reports this defect separately
 from tabulation accuracy; it does not assert that the defect vanishes.
 
 ``Tools/CrossSections/thermiaa_spectator.py`` tabulates the angular basis and
-finite-threshold transition coefficients offline in a V5 bundle. Factoring
+finite-threshold transition coefficients offline in a spectator bundle. Factoring
 the differential weights avoids a large table of normalized probabilities.
 The GPU selects a virtual initial level with a small precomputed Boltzmann
 alias and evaluates only seven candidate final levels from loaded weights.

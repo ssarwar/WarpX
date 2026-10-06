@@ -73,6 +73,7 @@ isotope/statistical model and constants are:
 
 .. list-table::
    :header-rows: 1
+   :class: rotational-scattering-table
    :widths: 35 32 33
 
    * - Quantity

@@ -23,18 +23,25 @@ numerical accuracy is part of the specification below.
    :maxdepth: 2
 
    rotational_scattering/physics
+   rotational_scattering/rotational_dcs
    rotational_scattering/sources
    rotational_scattering/reciprocity
    rotational_scattering/continuations
    rotational_scattering/algorithm
    rotational_scattering/data_format
    rotational_scattering/validation
+   rotational_scattering/development
+
+For continuation in another task or checkout, start with
+:ref:`rotation-development`; it records the authoritative material, workflow
+and assumptions that must accompany any model change.
 
 Reading and using the model
 ---------------------------
 
-Start with :ref:`rotation-physics` for the physical quantities and with
-:ref:`rotation-sources` for the evidence supporting each energy range.
+Start with :ref:`rotation-physics` for the physical quantities and
+:ref:`rotation-dcs` for the complete piecewise N2/O2 angular construction.
+:ref:`rotation-sources` records the evidence supporting each energy range.
 :ref:`rotation-reciprocity` derives the reconciliation of the IAA inclusive
 elastic data with state-resolved rotational data. :ref:`rotation-continuations`
 states what is assumed outside the measured ranges. :ref:`rotation-algorithm`
@@ -61,9 +68,9 @@ or temporally varying rotational baths, evolving neutral state populations,
 spin-resolved O2, isotope mixtures and vibrationally excited rotors are outside
 this model. Additional fixed temperatures require separately prepared data.
 
-The two older options retain their meanings. ``elastic_dcs`` samples a
-rotational outcome independently of the elastic angle from V3/V4 rate data;
+The alternative ``elastic_dcs`` model samples a rotational outcome independently
+of the elastic angle from state-resolved integral rates;
 its integral balance does not guarantee differential balance.
-``iaa_spectator`` is the earlier N2 kinetic version of the thesis mean-loss
-prescription and does not impose the new coupled balance constraint.
+``iaa_spectator`` is the N2 kinetic counterpart of the thesis mean-loss
+prescription and does not impose the coupled reciprocal balance constraint.
 See :ref:`mcc-iaa-sources` before using those compatibility models.

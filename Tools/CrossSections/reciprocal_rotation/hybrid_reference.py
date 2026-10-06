@@ -239,6 +239,11 @@ class Priors:
             self.o2_cache = {}
 
     def bare(self, E, y=None):
+        """Truncated rank prior, not the final thermally recoupled spectrum.
+
+        The high-energy bank normalizes after summing the bounded rotor states;
+        its denominator cannot be replaced by this sum over elementary ranks.
+        """
         if y is None:
             y = self.y
         p = np.sqrt(E * (E + 2 * REST))
@@ -278,6 +283,12 @@ class Priors:
         return self.o2_completion(E)
 
     def amplitude(self, E):
+        """Reduced angular strengths before reciprocal inclusive normalization.
+
+        The complete piecewise formulas and joins are specified in
+        Docs/source/theory/multiphysics/rotational_scattering/rotational_dcs.rst.
+        Rank zero is a placeholder where solve() protects the changing kernels.
+        """
         arr = np.zeros((self.nr + self.ns, len(self.y)))
         inclusive = self.elastic.dcs(E, self.y)
         if E >= 1000:
@@ -289,6 +300,8 @@ class Priors:
                 low[0] = inclusive
                 for idx, L in enumerate([2, 4, 6], 1):
                     low[idx] = self.s.elementary[L].reduced(E) / (4 * np.pi)
+                # Interpolate angular multipliers linearly between Jung anchors;
+                # the separate joins to the Gote/spectator regimes use log E.
                 t = np.clip((E - 2.22) / 0.25, 0, 1)
                 h = (1 - t) * self.jung[0] + t * self.jung[1]
                 res = np.zeros_like(low)

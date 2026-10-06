@@ -157,10 +157,10 @@ directly in your Python input. All paths are resolved relative to the JSON.
 
 The elastic entries now illustrate `rotation_model = reciprocal_hybrid` for
 both gases. Replace `/path/to/warpx-data` with the data checkout location.
-The readable 300 K V7 bundles contain the elastic angular distributions and
+The readable 300 K data sets contain the elastic angular distributions and
 conditional rotational probabilities. Initialization reconstructs those
 probabilities and builds sampling tables once; source fitting and reciprocal
-normalization remain offline. Legacy V6 binary bundles are also supported.
+normalization remain offline. Previously prepared binary inputs are also supported.
 The complete model, source derivations, algorithm and data format are documented
 in [the multiphysics theory manual](../../../Docs/source/theory/multiphysics/rotational_scattering.rst). A distinct rotational temperature requires an offline-prepared bundle
 at that temperature; the translational temperature remains independent.
