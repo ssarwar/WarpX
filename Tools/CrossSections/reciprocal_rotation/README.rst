@@ -32,3 +32,57 @@ at 1 keV for N2 and 20 eV for O2; the combined model supplies the continuation.
 Generated validation reports, benchmarks, temporary temperature bundles, and
 reference checkpoints belong in build directories. Only scientific source
 inputs and validated production bundles are exported to warpx-data.
+
+After building the source reference, prepare and verify each gas separately::
+
+    python Tools/CrossSections/reciprocal_rotation/test_transition_normalization.py
+    python Tools/CrossSections/reciprocal_rotation/adaptive_low_grid.py --target N2
+    python Tools/CrossSections/reciprocal_rotation/export.py --target N2 \
+        --reference-dir "$WARPX_ROTATION_OUTPUT" \
+        --output build/production/N2/IAA/reciprocal_hybrid_300K
+    python Tools/CrossSections/reciprocal_rotation/verify.py \
+        --reference-dir "$WARPX_ROTATION_OUTPUT" \
+        --bundle build/production/N2/IAA/reciprocal_hybrid_300K/thermal_rotation.rot
+    python Tools/CrossSections/reciprocal_rotation/verify_high.py \
+        --bundle build/production/N2/IAA/reciprocal_hybrid_300K/thermal_rotation.rot \
+        --output build/reciprocal-rotation/high-N2.json
+
+Repeat with O2, then copy only the validated index and binary parts to
+warpx-data. ``verify.py`` independently evaluates intermediate source rows
+and decodes packed probabilities; it is intentionally more expensive than
+quick runtime tests. Never reuse a sampling grid built from an older source
+reference version. Use ``cumulative_reference.py`` to prepare an identical
+distribution with cumulative sampling outside warpx-data::
+
+    python Tools/CrossSections/reciprocal_rotation/cumulative_reference.py \
+        --bundle build/production/N2/IAA/reciprocal_hybrid_300K/thermal_rotation.rot \
+        --output build/cumulative/N2/IAA/reciprocal_hybrid_300K
+
+Configure runtime checks with
+``-DWarpX_RECIPROCAL_TEST_DATA=/path/to/warpx-data/MCC_cross_sections``.
+Build ``test_reciprocal_rotation``, ``test_rotation_thresholds``,
+``benchmark_reciprocal_mcc``, ``pyWarpX_1d``, ``pyWarpX_python_sources``, and
+``pyAMReX_python_sources``, then run
+``ctest --test-dir build -R 'test_1d_(reciprocal|rotation_thresholds)'``.
+The sampler and independent-moment tests require NumPy, but do not import
+elmolcs or regenerate scientific data. Each quick thermal test uses 8192
+electrons and completes within a few seconds on the development CPU.
+
+For the longer thermal campaign, prepare the additional temperatures offline
+with ``prepare_temperature_tests.py`` and run
+``Examples/Tests/collision/analysis_reciprocal_thermal.py`` with
+``--temperature-data build/reciprocal-temperatures`` and ``--integration``.
+The bounded 20 eV temporary fixtures exercise real source kernels at
+0, 100, 250, 350 and 1000 K. They are test data, not published beam bundles.
+
+``Tools/CrossSections/perlmutter_reciprocal.sbatch`` requires an explicit
+GPU allocation and the prepared production/cumulative data paths. It selects
+``gpu&hbm40g``, verifies the allocated device capacity, and compiles for
+``sm_80``. It runs independent sampler checks, Compute Sanitizer, thermal
+tests, and alternating alias/cumulative benchmarks of full MCC operators
+and PIC timesteps. Override the task/GPU count for a four-GPU MPI run, using
+a separate build directory within the checkout. Single-precision checks use
+``WARPX_ROTATION_PARTICLE_PRECISION=SINGLE`` and optionally
+``WARPX_ROTATION_REAL_PRECISION=SINGLE``. HIP/SYCL use the same portable
+sampler; compilation and execution must be reported only when those
+backends are actually available.

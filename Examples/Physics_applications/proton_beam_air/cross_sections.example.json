@@ -1,9 +1,11 @@
 {
   "N2": {
     "elastic": {
-      "cross_section": "cross_sections/e_N2_elastic.txt",
+      "cross_section": "/path/to/warpx-data/MCC_cross_sections/N2/IAA/elastic.txt",
       "scattering_angle_model": "IAA",
-      "differential_cross_section": "cross_sections/DCS.e-N2"
+      "rotation_model": "reciprocal_hybrid",
+      "rotation_file": "/path/to/warpx-data/MCC_cross_sections/N2/IAA/reciprocal_hybrid_300K/thermal_rotation.rot",
+      "rotational_temperature": 300.0
     },
     "excitation_v1": {
       "cross_section": "cross_sections/e_N2_v1.txt",
@@ -22,9 +24,11 @@
   },
   "O2": {
     "elastic": {
-      "cross_section": "cross_sections/e_O2_elastic.txt",
+      "cross_section": "/path/to/warpx-data/MCC_cross_sections/O2/IAA/elastic.txt",
       "scattering_angle_model": "IAA",
-      "differential_cross_section": "cross_sections/DCS.e-O2"
+      "rotation_model": "reciprocal_hybrid",
+      "rotation_file": "/path/to/warpx-data/MCC_cross_sections/O2/IAA/reciprocal_hybrid_300K/thermal_rotation.rot",
+      "rotational_temperature": 300.0
     },
     "excitation_v1": {
       "cross_section": "cross_sections/e_O2_v1.txt",

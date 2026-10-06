@@ -147,6 +147,83 @@ namespace
             << "PASS: independent aliases, strict thresholds and unchanged gain probabilities\n";
     }
 
+    void checkMovingRecoil ()
+    {
+        constexpr double c = PhysConst::c_v<double>;
+        constexpr double qe = PhysConst::q_e_v<double>;
+        constexpr double me = PhysConst::m_e_v<double>;
+        constexpr double rest = me * c * c / qe;
+        amrex::Vector<Case> cases;
+        for (double mass : {28.0134 * 1.66053906660e-27, 31.9988 * 1.66053906660e-27}) {
+            for (double energy : {.02, 1., 2.5e6, 1e9}) {
+                for (double loss : {-.01, 0., .01}) {
+                    for (double cosine : {-1., -.3, .3, 1.}) {
+                        cases.push_back({energy, loss, cosine, mass, 1 - cosine});
+                    }
+                }
+            }
+        }
+        amrex::Gpu::DeviceVector<Case> inputs(cases.size());
+        amrex::Gpu::DeviceVector<double> errors(cases.size());
+        amrex::Gpu::copy(amrex::Gpu::hostToDevice, cases.begin(), cases.end(), inputs.begin());
+        auto const* in = inputs.data();
+        auto* out = errors.data();
+        amrex::ParallelForRNG(
+            static_cast<int>(cases.size()),
+            [=] AMREX_GPU_DEVICE(int i, amrex::RandomEngine const& rng) noexcept {
+                auto const value = in[i];
+                // Build a moving-target initial state using the scalar Lorentz
+                // transform, then check the full laboratory four-momentum.
+                double const vx = 120, vy = -230, vz = 340;
+                double const v2 = vx * vx + vy * vy + vz * vz;
+                double const gamma = 1 / std::sqrt(1 - v2 / (c * c));
+                double const u = c * std::sqrt(value.m_energy * (value.m_energy + 2 * rest)) / rest;
+                double const coefficient = gamma * (1 + value.m_energy / rest) +
+                                           gamma * gamma / (gamma + 1) * u * vz / (c * c);
+                auto const ux = static_cast<amrex::ParticleReal>(coefficient * vx);
+                auto const uy = static_cast<amrex::ParticleReal>(coefficient * vy);
+                auto const uz = static_cast<amrex::ParticleReal>(u + coefficient * vz);
+                amrex::ParticleReal ex, ey, ez, ix, iy, iz;
+                bool const valid = BackgroundMCCElasticKinematics::computeRotation(
+                    ux, uy, uz, vx, vy, vz, me, value.m_mass, value.m_loss, value.m_cosine, rng, ex,
+                    ey, ez, ix, iy, iz, value.m_deflection);
+                if (!valid) {
+                    out[i] = 1;
+                    return;
+                }
+                double const initial_u2 = double(ux) * ux + double(uy) * uy + double(uz) * uz;
+                double const final_u2 = double(ex) * ex + double(ey) * ey + double(ez) * ez;
+                double const recoil_u2 = double(ix) * ix + double(iy) * iy + double(iz) * iz;
+                double const final_mass = value.m_mass + value.m_loss * qe / (c * c);
+                double const before =
+                    me * initial_u2 / (qe * (1 + std::sqrt(1 + initial_u2 / (c * c)))) +
+                    value.m_mass * gamma * gamma * v2 / (qe * (gamma + 1));
+                double const after =
+                    me * final_u2 / (qe * (1 + std::sqrt(1 + final_u2 / (c * c)))) +
+                    final_mass * recoil_u2 / (qe * (1 + std::sqrt(1 + recoil_u2 / (c * c)))) +
+                    value.m_loss;
+                double const px =
+                    me * (double(ex) - ux) + final_mass * ix - value.m_mass * gamma * vx;
+                double const py =
+                    me * (double(ey) - uy) + final_mass * iy - value.m_mass * gamma * vy;
+                double const pz =
+                    me * (double(ez) - uz) + final_mass * iz - value.m_mass * gamma * vz;
+                double const momentum_scale =
+                    me * std::sqrt(initial_u2) + value.m_mass * gamma * std::sqrt(v2);
+                out[i] = amrex::max(std::abs(after - before) / (before + std::abs(value.m_loss)),
+                                    std::sqrt(px * px + py * py + pz * pz) / momentum_scale);
+            });
+        amrex::Vector<double> result(cases.size());
+        amrex::Gpu::copy(amrex::Gpu::deviceToHost, errors.begin(), errors.end(), result.begin());
+        double const tolerance = sizeof(amrex::ParticleReal) == 4 ? 2e-6 : 1e-10;
+        for (double error : result) {
+            AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
+                error < tolerance,
+                "Moving-target rotational collision did not conserve laboratory four-momentum.");
+        }
+        std::cout << "PASS: moving-target rotational four-momentum conservation\n";
+    }
+
 } // namespace
 
 int
@@ -281,5 +358,6 @@ main (int argc, char *argv[])
             << "PASS: nominal thresholds, independent angles, recoil and bounded continuation\n";
     }
     checkIndependentSampler();
+    checkMovingRecoil();
     amrex::Finalize();
 }

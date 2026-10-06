@@ -3531,9 +3531,21 @@ Details about the collision models can be found in the :ref:`theory section <mul
     increasing order. Cross sections must be finite and non-negative.
     For a process with a positive energy cost, its cross section must be zero
     at and below that cost. Blank lines and comments starting with ``#`` are
-    accepted. Outside the supplied energy range, the first or last cross
-    section is held constant; supply a physically justified extension when
-    particles can leave that range.
+    accepted. Unmarked legacy tables hold the first or last cross section
+    outside the supplied energy range. New Background MCC tables can declare
+    an explicit supported domain with these comment lines::
+
+        # energy_min_eV = 0
+        # energy_max_eV = 1000000000
+        # outside_energy_range = error
+
+    The limits must be finite, ordered, and covered by the table. A known zero
+    below an excitation threshold may extend the supported domain below its
+    first zero-valued knot. Queries outside the domain fail before direct or
+    cached Background MCC selection; an eight-ParticleReal-epsilon relative
+    allowance covers endpoint roundoff only. Generate physically specified
+    continuations offline through the declared maximum. Neither a constant
+    endpoint nor an appended zero establishes a valid continuation.
 
 .. pp:param:: <collision_name>.<scattering_process>_energy
     :type: ``float``
@@ -3641,9 +3653,24 @@ Details about the collision models can be found in the :ref:`theory section <mul
 
     Enables one combined vibrationally elastic and rotational family on an
     electron Background MCC ``elastic`` process. Requires ``rotation_file``.
-    Both physical models require ``scattering_angle_model = IAA`` and the
-    usual elastic ``differential_cross_section``. ``analytic_test`` is reserved
+    Physical models require ``scattering_angle_model = IAA``.
+    ``elastic_dcs`` and ``iaa_spectator`` also require the usual elastic
+    ``differential_cross_section``. ``analytic_test`` is reserved
     for synthetic verification kernels.
+
+    ``reciprocal_hybrid`` uses the prepared N2/O2 joint model described in
+    :ref:`mcc-iaa-sources`. Its V6 bundle contains the aggregate rate coefficient,
+    the inclusive elastic angular marginal, and conditional discrete rotational
+    outcomes at one fixed temperature. Do not supply a separate
+    ``differential_cross_section`` for this option. The ordinary elastic
+    ``cross_section`` is checked for source consistency above 1 meV and its
+    runtime rate is replaced by the combined family. An unchanged rotational
+    outcome still scatters and recoils. No rotational states are evolved, and
+    no population sums or sampling tables are constructed at initialization.
+    The continuous source reference uses reciprocal forward/reverse kernels;
+    finite sampling tables approximate that reference within the stated
+    numerical budgets. Do not add these rotational transitions as ordinary
+    excitation processes.
 
     ``elastic_dcs`` selects angle-independent rotational outcomes.
     The supplied inclusive elastic rate is checked at the bundle's reference
@@ -3674,7 +3701,7 @@ Details about the collision models can be found in the :ref:`theory section <mul
     :optional:
 
     Path to a ``WARPX_THERMAL_ROTATION_V3``, ``WARPX_THERMAL_ROTATION_V4`` or
-    ``WARPX_THERMAL_ROTATION_V5`` bundle, described in
+    ``WARPX_THERMAL_ROTATION_V5`` or ``WARPX_THERMAL_ROTATION_V6`` bundle, described in
     ``Tools/CrossSections/README.md``. Generate physical data offline and store
     them in ``warpx-data``; WarpX only reads existing bundles. V1/V2 files must
     be regenerated for the nominal-threshold model. For V3/V4, initialization
@@ -3701,6 +3728,18 @@ Details about the collision models can be found in the :ref:`theory section <mul
     in particular a finite zero-energy elastic cross section gives a vanishing
     collision rate for stationary zero-energy electrons.
 
+    V6 contains the final sampling arrays for ``reciprocal_hybrid``. Its text
+    index refers to binary parts in the same directory. All preparation is
+    offline; initialization reads, validates, shares, and uploads immutable
+    arrays. The format is documented in
+    ``Tools/CrossSections/reciprocal_rotation/FORMAT.rst``. The 300 K production
+    files in ``warpx-data`` cover collision energies from zero through 1 GeV,
+    including the finite zero-energy superelastic rate. Energy is measured in
+    the sampled neutral's rest frame. Queries beyond the supported interval
+    are errors, with an eight-ParticleReal-epsilon relative endpoint allowance
+    for roundoff. The loaded V6 tables are limited to 1 GiB per process and are
+    shared when collision objects reference the same bundle.
+
 .. pp:param:: <collision_name>.<scattering_process>_rotational_temperature
     :type: ``float``
     :optional:
@@ -3710,6 +3749,8 @@ Details about the collision models can be found in the :ref:`theory section <mul
     translational temperature is an expression. Zero uses the ground-state
     limit, including the lowest allowed odd O2 level. The rotational bath
     is prescribed; its populations and energy are not evolved.
+    V6 requires this temperature to match the prepared bundle. Generate other
+    fixed temperatures offline; WarpX does not reweight a V6 bundle at startup.
 
 .. pp:param:: <collision_name>.<scattering_process>_rotation_sampling
     :type: ``string``
@@ -3728,6 +3769,10 @@ Details about the collision models can be found in the :ref:`theory section <mul
     For ``iaa_spectator``, the option selects the alias or cumulative sampler for
     the virtual initial level. Both paths use the same bounded seven-outcome
     conditional calculation; neither evaluates Bessel functions on the device.
+    For ``reciprocal_hybrid``, ``alias`` selects the prepared constant-time
+    outcome sampler. ``cumulative`` requires a separately prepared cumulative
+    bundle for comparisons. Both select the same joint distributions and retain
+    discrete energy changes. Neither constructs or converts tables at startup.
 
 .. pp:param:: <collision_name>.<scattering_process>_species
     :type: ``string``

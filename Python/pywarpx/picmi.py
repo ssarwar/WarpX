@@ -3532,8 +3532,17 @@ class MCCCollisions(picmistandard.base._ClassWithInit):
         It retains the ordinary elastic rate; angular averaging determines the
         effective rotational rates. The normalized spectator closure does not
         impose detailed balance. Neither model evolves neutral rotational states.
+        ``rotation_model="reciprocal_hybrid"`` uses prepared N2/O2 joint
+        distributions from a V6 ``rotation_file``. Its fixed temperature must
+        match ``rotational_temperature``. The bundle supplies the aggregate
+        rate and elastic angular marginal; omit ``differential_cross_section``
+        for this option. All rotational tables and samplers are constructed
+        offline. The supplied ordinary elastic ``cross_section`` remains a
+        source-consistency input. Queries outside the supported collision-energy
+        range fail instead of extrapolating an endpoint.
         ``rotation_sampling="cumulative"`` selects the explicit reference
         sampler; the default is ``"alias"``.
+        For V6 the representation must already be present in the supplied file.
         The ``"IAA"`` angle model implements IAA ionization kinematics or, for
         elastic electron scattering, samples the required
         ``differential_cross_section`` table.

@@ -155,6 +155,20 @@ Use the [Python input](inputs_rz_proton_beam_air_picmi.py) with a copy of
 a convenience used by this example; the same dictionaries can be written
 directly in your Python input. All paths are resolved relative to the JSON.
 
+The elastic entries now illustrate `rotation_model = reciprocal_hybrid` for
+both gases. Replace `/path/to/warpx-data` with the data checkout location.
+The 300 K V6 bundles contain the elastic angular distributions and the final
+conditional rotational samplers. They require no scientific generation at
+startup. A distinct rotational temperature requires an offline-prepared bundle
+at that temperature; the translational temperature remains independent.
+
+The bundle's rate replaces the ordinary elastic rate. It includes rotation,
+so add no separate rotational processes. Its collision-energy range is 0–1 GeV;
+values outside that range are errors. Source tables with
+`outside_energy_range = error` also enforce their declared limits. These bounds
+refer to the sampled neutral rest frame, including any energy gain between
+successive collisions.
+
 Supply these evaluated data:
 
 1. **Electron elastic integral cross sections for N2 and O2.** Use true integral
@@ -162,8 +176,10 @@ Supply these evaluated data:
    cross section is not the same collision frequency. An effective or total
    cross section may already include inelastic contributions; adding those
    channels again would double count them.
-2. **Electron excitation cross sections**, one file per rotational,
-   vibrational and electronic loss you include. The manifest shows only the
+2. **Electron excitation cross sections**, one file per vibrational and
+   electronic loss you include. The prepared rotational family already includes
+   unchanged, excitation, and de-excitation outcomes; do not add its rotations
+   as ordinary excitation channels. The manifest shows only the
    first vibrational excitation to illustrate syntax; it is not a complete
    air set. Add each retained channel under a unique `excitation_*` name,
    with its actual threshold. The illustrative thresholds are 0.291 eV for
@@ -183,7 +199,7 @@ Supply these evaluated data:
    changes. With collider-specific tables, use separate `attachment_*`
    entries, each with its own density. A rate coefficient in m⁶/s is not a
    cross section in m⁵ and cannot be supplied unchanged.
-5. **Elastic DCS files** if selecting `IAA`: elmolcs `DCS.e-N2` and `DCS.e-O2`
+5. **Elastic DCS files** for legacy `IAA` scattering without a V6 bundle: elmolcs `DCS.e-N2` and `DCS.e-O2`
    are supported. Each numeric row has energy in eV and equally spaced
    angular values from 0 to 180 degrees (normally 361 values at 0.5-degree
    intervals). Keep the `SPECIES: e / N2` or `O2` metadata. IAA excitation

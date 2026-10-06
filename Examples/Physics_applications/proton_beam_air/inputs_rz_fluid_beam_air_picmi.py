@@ -115,7 +115,7 @@ if args.cross_sections:
                     raise ValueError(
                         f"{target}/{name}: supply the table's third-body density [m^-3]"
                     )
-            for key in ["cross_section", "differential_cross_section"]:
+            for key in ["cross_section", "differential_cross_section", "rotation_file"]:
                 if key in process:
                     path = (manifest_path.parent / process[key]).resolve()
                     if not path.is_file():

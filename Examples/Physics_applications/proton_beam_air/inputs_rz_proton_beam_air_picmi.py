@@ -119,7 +119,7 @@ for target in ("N2", "O2"):
                     f"{target}/{process_name}: specify the third-body density in m^-3 "
                     "for the collider/mixture documented by your m^5 dataset"
                 )
-        for key in ("cross_section", "differential_cross_section"):
+        for key in ("cross_section", "differential_cross_section", "rotation_file"):
             if key in process:
                 path = (manifest_path.parent / process[key]).resolve()
                 if not path.is_file():
