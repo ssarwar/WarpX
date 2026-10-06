@@ -237,10 +237,14 @@ For Gote Table 1, ``-1`` in the source JSON means a reported contribution
 below 1%, not a negative cross section. The nominal completion uses 0.5%.
 A column is accepted when its lower/upper censored sums bracket 100% within
 0.3 percentage points. Otherwise it is interpolated from consistent
-neighboring angles; the original values remain in the source JSON. For
+neighboring angles; the original values remain in the source JSON. The final
+row at each energy is the published rotationally summed DCS, in
+:math:`10^{-16}` cm2/sr (:math:`10^{-20}` m2/sr), not a percentage. It is
+retained as source data but not used as the production absolute normalization,
+which remains the IAA residual. For
 example, the printed 200 eV, 50-degree column exceeds 100% in its first three
 entries. Fractions are interpolated in angle and :math:`\log E`. The reported
-ranks through :math:`L=10` are used in the measured interval; unreported higher
+ranks through :math:`L=8` (or 10 where provided) are used in the measured interval; unreported higher
 ranks there are zero in this completion. Outside 10--160 degrees a smooth
 blend returns to the spectator prior at 0 and 180 degrees. This completion
 is an assumption about incomplete angular measurements, not additional data.

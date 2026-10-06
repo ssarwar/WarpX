@@ -159,6 +159,36 @@ with 716.4 MiB combined binary V6 data. Human readability does not imply that
 every probability is a two-column cross section; their representation is
 specified in :ref:`rotation-data-format`.
 
+On a 40 GB Perlmutter A100, both readable alias and cumulative inputs passed
+independent 28-energy sampler checks, exact-search equivalence, threshold/range
+and malformed-input checks, and air heating/equilibrium/cooling cases. Sampler
+Compute Sanitizer runs for both gases reported zero errors. Deterministic
+GPU decoding of every probability cell reproduced the CPU encoding-error
+bounds above. This V7 campaign used double precision; the all-single CUDA and
+four-GPU results in the earlier section are from the preceding V6 campaign.
+
+First-read initialization measurements were 6.89 seconds for N2 and 18.40
+seconds for O2. Filesystem state matters: subsequent reads were much faster.
+In the repeated complete-PIC benchmark with both gases resident, median
+initialization was 6.27--6.44 seconds for V7, versus 0.84--0.93 seconds for
+prepared V6 input. No initialization work is repeated per collision.
+
+With 1048576 electrons, 4096 cells, 64 timed steps and three alternating seeds,
+the V7/V6 median full-MCC time ratios were 0.9992 (thermal), 1.0024 (resonance),
+0.9997 (50 eV), 1.0012 (2.5 MeV) and 0.9993 (mixed). The corresponding complete
+PIC ratios were 0.9906, 0.9911, 1.0013, 0.9899 and 0.9996. These measurements
+show no material collision-throughput regression from preparing aliases at
+startup. They do not establish a noise advantage: three seeds give a weak
+variance estimate, and a changed alias layout changes seeded trajectories.
+The packed second and fourth moments provide the stronger deterministic check
+that the encoding preserves physical energy diffusion and its rare tails.
+
+The isolated device allocation increments were 471859200 bytes for N2 aliases
+and 281018368 for O2, including allocator granularity: about 718 MiB together,
+below 1 GiB. The complete million-electron benchmark's measured peak device
+allocation was 1415643136 bytes for both text and binary cases; that includes
+particles, fields and other allocations as well as rotational tables.
+
 Reproducing numerical checks
 ----------------------------
 

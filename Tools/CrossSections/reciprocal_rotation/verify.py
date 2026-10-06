@@ -4,7 +4,7 @@
 #
 # License: BSD-3-Clause-LBNL
 
-"""Independent quadrature of decoded V6 distributions, without random sampling."""
+"""Independent quadrature of decoded distributions, without random sampling."""
 
 import argparse
 import json

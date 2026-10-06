@@ -190,3 +190,51 @@ an exact arbitrary-energy upper bound for every conceivable transition.
 For this model's finite rotational gaps the band occurs at low energies.
 Unchanged outcomes use the existing stable elastic two-body formula and
 retain recoil even when their internal-energy change is zero.
+
+Where the equations are implemented
+------------------------------------
+
+The source/preparation files below are under
+``Tools/CrossSections/reciprocal_rotation``; runtime classes are under
+``Source/Particles/Collision/BackgroundMCC``. This division makes it possible
+to change a numerical encoding without changing the molecular source model.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 60
+
+   * - File or function
+     - Responsibility
+   * - ``rotation_reference.py``
+     - Constants, canonical levels, populations, tail bound and momentum factors.
+   * - ``elmolcs_source.Source``
+     - Elementary source selection, reduced threshold interpolation and matched Born total.
+   * - ``prepare_jung.py``
+     - Reproduction of inferred elementary fractions from the readable thermal-branch digitization.
+   * - ``hybrid_reference.Priors``
+     - N2 Read/Jung and Gote priors, O2 Born components, and energy-dependent bridges.
+   * - ``o2_completion.Completion``
+     - Positive relative-entropy fit to integral and momentum-transfer constraints.
+   * - ``hybrid_reference.Hybrid.solve``
+     - Backward energy sweep and implicit reciprocal inclusive normalization.
+   * - ``Hybrid.interp`` and ``future_weights``
+     - Shared primitive interpolation and reverse evaluation at shifted energy.
+   * - ``rotor_basis.py`` and ``high_distribution.py``
+     - Bound-rotor recoupling, momentum-transfer quadrature and phase-averaged tails.
+   * - ``adaptive_low_grid.py`` and ``export.Exporter``
+     - Sampling-grid refinement, angular CDFs, discrete supports and probability cells.
+   * - ``text_bundle.py``
+     - Readable numerical encoding and independently checked probability reconstruction.
+   * - ``BackgroundMCCReciprocalText.H``
+     - Host text parsing, probability reconstruction and one-time alias preparation.
+   * - ``BackgroundMCCReciprocalRotation.cpp``
+     - Validation, immutable storage sharing, range checks and device upload.
+   * - ``BackgroundMCCReciprocalRotation.H``
+     - Device rate interpolation, row mixture, angle and discrete outcome sampling.
+   * - ``BackgroundMCCCollision.cpp``
+     - Combined-family rate replacement, bounded majorant and integration with the MCC selector.
+   * - ``BackgroundMCCElasticKinematics.H``
+     - Signed internal-energy update, two-body recoil and nominal-threshold continuation.
+
+Source calculations are not called by the device executor. The independent
+validation entry points are mapped in :ref:`rotation-validation`.

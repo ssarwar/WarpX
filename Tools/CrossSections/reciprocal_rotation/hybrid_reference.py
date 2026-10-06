@@ -9,7 +9,8 @@
 No production files are emitted. Rates have units m3/s/sr. The source primitive
 X_b(E,theta)=p(E)*A_b(E,theta) is shared between forward and reverse kernels.
 The cold unchanged background is explicit. State sums, special functions,
-normalization, interpolation checks, and sampling work belong offline.
+normalization and source refinement remain offline. Prepared probabilities may
+be expanded into immutable sampling tables once during WarpX initialization.
 """
 
 import json
