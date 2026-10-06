@@ -24,7 +24,7 @@ public:
      * constructor
      * @param[in] rd_name reduced diags names
      */
-    explicit ParticleNumber(const std::string& rd_name);
+    explicit ParticleNumber(const std::string& rd_name, bool charge = false);
 
     /**
      * This function computes the total number of macroparticles and physical particles of each
@@ -34,6 +34,8 @@ public:
      */
     void ComputeDiags(int step) final;
 
+private:
+    bool m_charge = false;
 };
 
 #endif // WARPX_DIAGNOSTICS_REDUCEDDIAGS_PARTICLENUMBER_H_

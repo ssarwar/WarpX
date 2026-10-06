@@ -1,6 +1,283 @@
 # Add tests (alphabetical order) ##############################################
 #
 
+set(WarpX_ELMOLCS_TEST_DATA "" CACHE PATH "Prepared offline elmolcs MCC test data")
+if(WarpX_ELMOLCS_TEST_DATA)
+    add_warpx_test(
+        test_1d_elmolcs_elastic_picmi 1 1
+        "inputs_test_1d_background_mcc_iaa_elastic_picmi.py --n2-dcs ${WarpX_ELMOLCS_TEST_DATA}/N2/IAA/elastic_dcs.txt --o2-dcs ${WarpX_ELMOLCS_TEST_DATA}/O2/IAA/elastic_dcs.txt --n2-cross-section ${WarpX_ELMOLCS_TEST_DATA}/N2/IAA/elastic.txt --o2-cross-section ${WarpX_ELMOLCS_TEST_DATA}/O2/IAA/elastic.txt --optical-depth 1"
+        "analysis_background_mcc_iaa_elastic.py" OFF OFF
+    )
+    foreach(mode IN ITEMS alias cumulative)
+        set(elmolcs_sampler_argument "")
+        if(mode STREQUAL "cumulative")
+            set(elmolcs_sampler_argument "--cumulative")
+        endif()
+        add_warpx_test(
+            test_1d_elmolcs_${mode}_picmi 1 1
+            "inputs_test_1d_background_mcc_rotation_picmi.py --elmolcs --data-dir ${WarpX_ELMOLCS_TEST_DATA} ${elmolcs_sampler_argument}"
+            OFF OFF OFF
+        )
+    endforeach()
+    add_warpx_test(
+        test_1d_elmolcs_thermal_picmi 1 1
+        "inputs_test_1d_elmolcs_thermal_picmi.py --data-dir ${WarpX_ELMOLCS_TEST_DATA}"
+        OFF OFF OFF
+    )
+endif()
+
+if(WarpX_SPECTATOR_TEST_DATA)
+    foreach(mode IN ITEMS alias cumulative)
+        set(spectator_sampler_argument "")
+        if(mode STREQUAL "cumulative")
+            set(spectator_sampler_argument "--cumulative")
+        endif()
+        add_warpx_test(
+            test_1d_spectator_${mode}_picmi 1 1
+            "inputs_test_1d_background_mcc_rotation_picmi.py --spectator --data-dir ${WarpX_SPECTATOR_TEST_DATA} --spectator-reference ${CMAKE_BINARY_DIR}/Tools/CrossSections/spectator_reference/reference.txt ${spectator_sampler_argument}"
+            OFF OFF OFF
+        )
+        if(TEST test_1d_spectator_${mode}_picmi.run)
+            set_property(TEST test_1d_spectator_${mode}_picmi.run
+                APPEND PROPERTY FIXTURES_REQUIRED spectator_reference)
+        endif()
+    endforeach()
+endif()
+
+add_warpx_test(
+    test_rz_rigid_source_recoil_picmi RZ 1
+    "inputs_test_rz_rigid_source_picmi.py --solver Yee --subcycles 2"
+    OFF OFF OFF
+)
+
+foreach(solver IN ITEMS Yee semi_implicit_em semi_implicit_mm)
+    foreach(subcycles IN ITEMS 1 4)
+        add_warpx_test(
+            test_1d_background_mcc_time_${solver}_${subcycles}_picmi 1 2
+            "inputs_test_1d_background_mcc_time_picmi.py --solver ${solver} --subcycles ${subcycles}"
+            OFF OFF OFF
+        )
+    endforeach()
+    add_warpx_test(
+        test_1d_background_mcc_time_${solver}_early_picmi 1 2
+        "inputs_test_1d_background_mcc_time_picmi.py --solver ${solver} --subcycles 4 --early"
+        OFF OFF OFF
+    )
+endforeach()
+
+foreach(solver IN ITEMS Yee PSATD semi_implicit_em semi_implicit_mm)
+    if(solver STREQUAL "PSATD" AND NOT WarpX_FFT)
+        continue()
+    endif()
+    add_warpx_test(
+        test_rz_rigid_source_${solver}_picmi RZ 2
+        "inputs_test_rz_rigid_source_picmi.py --solver ${solver} --subcycles 2"
+        "analysis_rz_prescribed_outputs.py --solver ${solver}" OFF OFF
+    )
+    add_warpx_test(
+        test_rz_rigid_source_${solver}_restart_picmi RZ 1
+        "inputs_test_rz_rigid_source_picmi.py --solver ${solver} --subcycles 2 --restart ../test_rz_rigid_source_${solver}_picmi/diags/chk000002"
+        "analysis_rz_prescribed_outputs.py --solver ${solver}" OFF "test_rz_rigid_source_${solver}_picmi"
+    )
+    if(solver STREQUAL "Yee" OR solver STREQUAL "PSATD")
+        add_warpx_test(
+            test_rz_rigid_source_${solver}_load_balance_picmi RZ 2
+            "inputs_test_rz_rigid_source_picmi.py --solver ${solver} --subcycles 2 --load-balance"
+            "analysis_rz_prescribed_outputs.py --solver ${solver}" OFF "test_rz_rigid_source_${solver}_picmi"
+        )
+    endif()
+endforeach()
+
+if(WarpX_OPENPMD)
+    add_warpx_test(
+        test_rz_prescribed_openpmd_picmi RZ 2
+        "inputs_test_rz_rigid_source_picmi.py --solver Yee --subcycles 2 --openpmd"
+        "analysis_rz_prescribed_outputs.py --openpmd" OFF OFF
+    )
+    add_warpx_test(
+        test_rz_prescribed_openpmd_restart_picmi RZ 1
+        "inputs_test_rz_rigid_source_picmi.py --solver Yee --subcycles 2 --openpmd --restart ../test_rz_prescribed_openpmd_picmi/diags/chk000002"
+        "analysis_rz_prescribed_outputs.py --openpmd" OFF "test_rz_prescribed_openpmd_picmi"
+    )
+endif()
+
+add_warpx_test(
+    test_rz_prescribed_restart_guards_picmi RZ 1
+    inputs_test_rz_prescribed_restart_guards_picmi.py
+    OFF OFF "test_rz_rigid_source_Yee_picmi"
+)
+
+foreach(kind IN ITEMS proton ionization attachment)
+    foreach(shape RANGE 1 4)
+        add_warpx_test(
+            test_rz_immobile_${kind}_${shape}_picmi
+            RZ 2
+            "inputs_test_rz_immobile_products_picmi.py --kind ${kind} --shape ${shape} --walls"
+            OFF OFF OFF
+        )
+    endforeach()
+    if(WarpX_FFT)
+        add_warpx_test(
+            test_rz_immobile_${kind}_psatd_picmi
+            RZ 2
+            "inputs_test_rz_immobile_products_picmi.py --kind ${kind} --solver PSATD"
+            OFF OFF OFF
+        )
+    endif()
+    if(WarpX_COMPUTE STREQUAL "OMP")
+        add_warpx_test(
+            test_rz_immobile_${kind}_threaded_picmi RZ 2
+            "inputs_test_rz_immobile_products_picmi.py --kind ${kind} --shape 4 --walls --small-tiles"
+            OFF OFF OFF
+        )
+        set_tests_properties(test_rz_immobile_${kind}_threaded_picmi.run PROPERTIES
+            ENVIRONMENT_MODIFICATION "OMP_NUM_THREADS=set:4"
+        )
+    endif()
+endforeach()
+
+add_warpx_test(
+    test_1d_background_mcc_attachment_picmi  # name
+    1  # dims
+    1  # nprocs
+    inputs_test_1d_background_mcc_attachment_picmi.py  # inputs
+    "analysis_background_mcc_attachment.py"  # analysis
+    OFF  # checksum
+    OFF  # dependency
+)
+
+add_warpx_test(
+    test_1d_background_mcc_bad_inputs_picmi  # name
+    1  # dims
+    1  # nprocs
+    inputs_test_1d_background_mcc_bad_inputs_picmi.py  # inputs
+    OFF  # analysis
+    OFF  # checksum
+    OFF  # dependency
+)
+
+add_warpx_test(
+    test_1d_background_mcc_iaa_elastic_picmi  # name
+    1  # dims
+    1  # nprocs
+    inputs_test_1d_background_mcc_iaa_elastic_picmi.py  # inputs
+    "analysis_background_mcc_iaa_elastic.py"  # analysis
+    OFF  # checksum
+    OFF  # dependency
+)
+
+add_warpx_test(
+    test_1d_background_mcc_loose_majorant_picmi
+    1
+    1
+    inputs_test_1d_background_mcc_loose_majorant_picmi.py
+    "analysis_background_mcc_selector.py"
+    OFF
+    OFF
+)
+
+add_warpx_test(
+    test_1d_background_mcc_many_attachment_picmi  # name
+    1  # dims
+    1  # nprocs
+    inputs_test_1d_background_mcc_many_attachment_picmi.py  # inputs
+    "analysis_background_mcc_many_attachment.py"  # analysis
+    OFF  # checksum
+    OFF  # dependency
+)
+
+add_warpx_test(
+    test_1d_background_mcc_many_excitation_picmi  # name
+    1  # dims
+    1  # nprocs
+    inputs_test_1d_background_mcc_many_excitation_picmi.py  # inputs
+    "analysis_background_mcc_many_excitation.py"  # analysis
+    OFF  # checksum
+    OFF  # dependency
+)
+
+add_warpx_test(
+    test_1d_background_mcc_nonrelativistic_majorant_picmi  # name
+    1  # dims
+    1  # nprocs
+    inputs_test_1d_background_mcc_nonrelativistic_majorant_picmi.py  # inputs
+    "analysis_background_mcc_nonrelativistic_majorant.py"  # analysis
+    OFF  # checksum
+    OFF  # dependency
+)
+
+add_warpx_test(
+    test_1d_background_mcc_relativistic  # name
+    1  # dims
+    1  # nprocs
+    inputs_test_1d_background_mcc_relativistic  # inputs
+    "analysis_background_mcc_relativistic.py"  # analysis
+    OFF  # checksum
+    OFF  # dependency
+)
+
+add_warpx_test(
+    test_1d_background_mcc_rbeq_picmi  # name
+    1  # dims
+    1  # nprocs
+    inputs_test_1d_background_mcc_rbeq_picmi.py  # inputs
+    "analysis_background_mcc_rbeq.py"  # analysis
+    OFF  # checksum
+    OFF  # dependency
+)
+
+add_warpx_test(
+    test_1d_background_mcc_selector_picmi  # name
+    1  # dims
+    1  # nprocs
+    inputs_test_1d_background_mcc_selector_picmi.py  # inputs
+    "analysis_background_mcc_selector.py"  # analysis
+    OFF  # checksum
+    OFF  # dependency
+)
+
+add_warpx_test(
+    test_1d_background_mcc_rbeq_snapshot_picmi
+    1 1
+    "inputs_test_1d_background_mcc_rbeq_picmi.py --rbeq-model elmolcs_b8643810"
+    "analysis_background_mcc_rbeq.py"
+    OFF OFF
+)
+
+add_warpx_test(
+    test_1d_background_mcc_rotation_anisotropic_picmi
+    1 1
+    "inputs_test_1d_background_mcc_rotation_picmi.py --data-dir ${CMAKE_BINARY_DIR}/Tools/CrossSections/rotation_reference --anisotropic --particles 262144"
+    "analysis_background_mcc_rotation.py"
+    OFF OFF
+)
+
+add_warpx_test(
+    test_1d_background_mcc_rotation_picmi
+    1 1
+    "inputs_test_1d_background_mcc_rotation_picmi.py --data-dir ${CMAKE_BINARY_DIR}/Tools/CrossSections/rotation_reference"
+    "analysis_background_mcc_rotation.py"
+    OFF OFF
+)
+
+add_warpx_test(
+    test_1d_background_mcc_rotation_cumulative_picmi
+    1 1
+    "inputs_test_1d_background_mcc_rotation_picmi.py --data-dir ${CMAKE_BINARY_DIR}/Tools/CrossSections/rotation_reference --cumulative"
+    "analysis_background_mcc_rotation.py"
+    OFF OFF
+)
+
+add_warpx_test(
+    test_1d_background_mcc_thermal_attachment_picmi  # name
+    1  # dims
+    1  # nprocs
+    inputs_test_1d_background_mcc_thermal_attachment_picmi.py  # inputs
+    "analysis_background_mcc_thermal_attachment.py"  # analysis
+    OFF  # checksum
+    OFF  # dependency
+)
+
 add_warpx_test(
     test_1d_collision_z  # name
     1  # dims
@@ -112,6 +389,110 @@ add_warpx_test(
 )
 
 add_warpx_test(
+    test_3d_collision_angles_picmi  # name
+    3  # dims
+    1  # nprocs
+    inputs_test_3d_collision_angles_picmi.py  # inputs
+    OFF  # analysis
+    OFF  # checksum
+    OFF  # dependency
+)
+
+add_warpx_test(
+    test_3d_proton_impact_ionization_picmi  # name
+    3  # dims
+    1  # nprocs
+    inputs_test_3d_proton_impact_ionization_picmi.py  # inputs
+    "analysis_proton_impact_ionization.py"  # analysis
+    OFF  # checksum
+    OFF  # dependency
+)
+
+add_warpx_test(
+    test_3d_proton_impact_ionization_performance_picmi  # name
+    3  # dims
+    1  # nprocs
+    inputs_test_3d_proton_impact_ionization_performance_picmi.py  # inputs
+    "analysis_proton_impact_ionization_performance.py"  # analysis
+    OFF  # checksum
+    OFF  # dependency
+)
+
+foreach(case IN ITEMS cold low_energy mixed)
+    add_warpx_test(
+        test_3d_proton_impact_ionization_${case}_picmi
+        3
+        1
+        inputs_test_3d_proton_impact_ionization_${case}_picmi.py
+        "analysis_proton_impact_ionization.py"
+        OFF
+        OFF
+    )
+endforeach()
+
+foreach(case IN ITEMS bad_inputs budget)
+    add_warpx_test(
+        test_3d_proton_impact_ionization_${case}_picmi
+        3
+        1
+        inputs_test_3d_proton_impact_ionization_${case}_picmi.py
+        OFF
+        OFF
+        OFF
+    )
+endforeach()
+
+add_warpx_test(
+    test_rz_proton_impact_ionization_budget_picmi
+    RZ
+    1
+    "inputs_test_3d_proton_impact_ionization_budget_picmi.py --rz"
+    OFF
+    OFF
+    OFF
+)
+
+add_warpx_test(
+    test_rz_rigid_source_bad_inputs_picmi
+    RZ
+    1
+    "inputs_test_3d_proton_impact_ionization_bad_inputs_picmi.py --rz"
+    OFF
+    OFF
+    OFF
+)
+
+add_warpx_test(
+    test_3d_proton_impact_ionization_checkpoint_picmi
+    3
+    1
+    "inputs_test_3d_proton_impact_ionization_budget_picmi.py --checkpoint"
+    OFF
+    OFF
+    OFF
+)
+
+add_warpx_test(
+    test_3d_proton_impact_ionization_restart_picmi
+    3
+    1
+    "inputs_test_3d_proton_impact_ionization_budget_picmi.py --restart ../test_3d_proton_impact_ionization_checkpoint_picmi/diags/chk000002 --reference ../test_3d_proton_impact_ionization_checkpoint_picmi/proton_impact_ionization_budget_results.npz"
+    OFF
+    OFF
+    test_3d_proton_impact_ionization_checkpoint_picmi
+)
+
+add_warpx_test(
+    test_3d_proton_impact_ionization_o2_performance_picmi
+    3
+    1
+    inputs_test_3d_proton_impact_ionization_o2_performance_picmi.py
+    "analysis_proton_impact_ionization_performance.py"
+    OFF
+    OFF
+)
+
+add_warpx_test(
     test_rz_collision  # name
     RZ  # dims
     1  # nprocs
@@ -180,3 +561,46 @@ add_warpx_test(
     "analysis_default_regression.py --path diags/diag1/"  # checksum
     OFF  # dependency
 )
+foreach(solver IN ITEMS Yee PSATD semi_implicit_em semi_implicit_mm)
+    if(solver STREQUAL "PSATD" AND NOT WarpX_FFT)
+        continue()
+    endif()
+    add_warpx_test(
+        test_rz_rigid_train_${solver}_picmi RZ 2
+        "inputs_test_rz_rigid_train_picmi.py --solver ${solver}"
+        OFF OFF OFF
+    )
+    add_warpx_test(
+        test_rz_rigid_train_${solver}_restart_picmi RZ 1
+        "inputs_test_rz_rigid_train_picmi.py --solver ${solver} --restart ../test_rz_rigid_train_${solver}_picmi/diags/chk000075"
+        OFF OFF "test_rz_rigid_train_${solver}_picmi"
+    )
+endforeach()
+foreach(solver IN ITEMS Yee PSATD semi_implicit_em semi_implicit_mm)
+    if(solver STREQUAL "PSATD" AND NOT WarpX_FFT)
+        continue()
+    endif()
+    add_warpx_test(
+        test_rz_attachment_checkpoint_${solver}_picmi RZ 2
+        "inputs_test_rz_immobile_products_picmi.py --kind attachment --solver ${solver}"
+        OFF OFF OFF
+    )
+    add_warpx_test(
+        test_rz_attachment_checkpoint_${solver}_restart_picmi RZ 1
+        "inputs_test_rz_immobile_products_picmi.py --kind attachment --solver ${solver} --restart ../test_rz_attachment_checkpoint_${solver}_picmi/diags/chk000002"
+        OFF OFF "test_rz_attachment_checkpoint_${solver}_picmi"
+    )
+endforeach()
+add_warpx_test(
+    test_rz_rigid_source_alpha_picmi RZ 2
+    "inputs_test_rz_rigid_source_picmi.py --alpha --subcycles 2"
+    OFF OFF OFF
+)
+
+# The fixture exports synthetic cross sections before launching the simulations.
+foreach(rotation_test IN ITEMS rotation rotation_anisotropic rotation_cumulative)
+    if(TEST test_1d_background_mcc_${rotation_test}_picmi.run)
+        set_property(TEST test_1d_background_mcc_${rotation_test}_picmi.run
+            APPEND PROPERTY FIXTURES_REQUIRED rotation_reference)
+    endif()
+endforeach()

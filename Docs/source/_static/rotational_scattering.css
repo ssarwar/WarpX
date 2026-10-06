@@ -1,0 +1,10 @@
+/* Keep physics/data tables readable in narrow documentation panels. */
+table.rotational-scattering-table th,
+table.rotational-scattering-table td {
+    white-space: normal !important;
+}
+
+table.rotational-scattering-table code {
+    white-space: normal;
+    overflow-wrap: anywhere;
+}

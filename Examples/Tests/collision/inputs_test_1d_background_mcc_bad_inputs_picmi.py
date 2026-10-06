@@ -1,0 +1,403 @@
+#!/usr/bin/env python3
+"""Check invalid Background MCC inputs in isolated subprocesses."""
+
+import argparse
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+from pywarpx import amrex, picmi
+
+CASES = {
+    "removed_secondary_angle": (
+        "The secondary_angle_model input has been removed",
+        "ionization",
+        {"secondary_angle_model": "relativistic2_66"},
+    ),
+    "legendre_elastic_unsupported": (
+        "legendre is not supported for DSMC/MCC collisions.",
+        "elastic",
+        {"scattering_angle_model": "legendre"},
+    ),
+    "legendre_ionization_unsupported": (
+        "legendre is not supported for DSMC/MCC collisions.",
+        "ionization",
+        {"scattering_angle_model": "legendre"},
+    ),
+    "runtime_majorant_elastic": (
+        "User-specified Background MCC nu_max is smaller",
+        "elastic",
+        {},
+    ),
+    "runtime_majorant_attachment": (
+        "User-specified Background MCC nu_max is smaller",
+        "attachment",
+        {"cross_section_units": "m2"},
+    ),
+    "runtime_negative_density": (
+        "Background MCC density is negative",
+        "elastic",
+        {},
+    ),
+    "runtime_excess_density": (
+        "Background MCC density is negative or exceeds max_background_density",
+        "elastic",
+        {},
+    ),
+    "runtime_negative_temperature": (
+        "Background MCC temperature is negative",
+        "elastic",
+        {},
+    ),
+    "mixed_ion_masses_implicit": (
+        "Ionization product masses imply different neutral masses.",
+        "ionization",
+        {},
+    ),
+    "mixed_ion_masses_explicit": (None, "ionization", {}),
+    "missing_cross_section_units": (
+        "Every attachment process must specify",
+        "attachment",
+        {},
+    ),
+    "missing_third_body_density": (
+        "Attachment cross sections in m5 require a positive",
+        "attachment",
+        {"cross_section_units": "m5"},
+    ),
+    "invalid_cross_section_units": (
+        "Attachment cross_section_units must be either m2 or m5.",
+        "attachment",
+        {"cross_section_units": "barn"},
+    ),
+    "density_with_m2": (
+        "Attachment third_body_density is only valid",
+        "attachment",
+        {"cross_section_units": "m2", "third_body_density": 1.0e25},
+    ),
+    "malformed_cross_section": (
+        "Each cross-section table row must contain",
+        "attachment",
+        {"cross_section_units": "m2"},
+    ),
+    "below_threshold_cross_section": (
+        "Cross-section must be zero at and below the energy cost",
+        "excitation",
+        {"energy": 10.0},
+    ),
+    "wrong_product_charge": (
+        "attachment product species must have charge -q_e",
+        "attachment",
+        {"cross_section_units": "m2"},
+    ),
+    "iaa_elastic_missing_dcs": (
+        "IAA elastic or excitation scattering requires a",
+        "elastic",
+        {"scattering_angle_model": "IAA"},
+    ),
+    "elastic_dcs_without_iaa": (
+        "<process>_differential_cross_section requires",
+        "elastic",
+        {"differential_cross_section": "valid"},
+    ),
+    "inconsistent_elastic_dcs": (
+        "Elastic differential-cross-section rows must have the same number",
+        "elastic",
+        {"scattering_angle_model": "IAA", "differential_cross_section": "inconsistent"},
+    ),
+    "zero_integral_elastic_dcs": (
+        "Every elastic differential-cross-section energy row must have a",
+        "elastic",
+        {"scattering_angle_model": "IAA", "differential_cross_section": "zero"},
+    ),
+    "trailing_garbage_elastic_dcs": (
+        "Invalid angular value in elastic differential-cross-section file",
+        "elastic",
+        {"scattering_angle_model": "IAA", "differential_cross_section": "trailing"},
+    ),
+    "nonfinite_elastic_dcs_energy": (
+        "Elastic differential-cross-section energies must be finite",
+        "elastic",
+        {"scattering_angle_model": "IAA", "differential_cross_section": "nonfinite"},
+    ),
+    "collapsed_log_elastic_dcs_energy": (
+        "strictly increasing",
+        "elastic",
+        {
+            "scattering_angle_model": "IAA",
+            "differential_cross_section": "collapsed_log",
+        },
+    ),
+    "commented_elastic_dcs": (
+        None,
+        "elastic",
+        {"scattering_angle_model": "IAA", "differential_cross_section": "commented"},
+    ),
+}
+
+
+for metadata, value in [
+    ("model", "elmolcs_b8643810"),
+    ("target", "O2"),
+    ("normalization", "raw_signed"),
+]:
+    CASES[f"rbeq_metadata_{metadata}"] = (
+        "RBEQ production tables require"
+        if metadata == "normalization"
+        else f"Cross-section rbeq_{metadata} metadata does not match",
+        "ionization",
+        {"energy_sharing_model": "RBEQ", "rbeq_target": "N2"},
+    )
+for name, error in {
+    "rotation_negative": "Negative, nonfinite or sub-threshold thermal-rotation reference rate",
+    "rotation_subthreshold": "Negative, nonfinite or sub-threshold thermal-rotation reference rate",
+    "rotation_legacy_bundle": "Invalid thermal-rotation bundle header or model mismatch",
+    "rotation_truncated": "Truncated thermal-rotation bundle",
+    "rotation_population": "Thermal-rotation bundle omits too much Boltzmann population",
+    "rotation_temperature": "Rotational temperature must be finite and nonnegative",
+    "rotation_inclusive": "does not reconstruct the supplied inclusive elastic rate",
+    "runtime_rotation_range": "outside the thermal-rotation bundle's validity range",
+}.items():
+    CASES[name] = (error, "elastic", {"rotation_model": "analytic_test"})
+
+
+def run_invalid_case(case):
+    amrex.throw_exception = 1
+    amrex.signal_handling = 0
+
+    _, process_type, process_options = CASES[case]
+    process_options = process_options.copy()
+    runtime_case = case.startswith("runtime_")
+
+    source_dir = Path(__file__).resolve().parent
+    cross_section = source_dir / "background_mcc_attachment_m2.txt"
+    if process_type == "ionization":
+        cross_section = source_dir / "background_mcc_rbeq_n2.txt"
+    elif process_type == "elastic":
+        cross_section = source_dir / "background_mcc_relativistic_elastic.txt"
+    if case == "malformed_cross_section":
+        cross_section = Path("background_mcc_malformed_cross_section.txt").resolve()
+        cross_section.write_text("0.0 1.0e-22\nnot-a-number 1.0e-22\n")
+    elif case == "below_threshold_cross_section":
+        cross_section = Path("background_mcc_below_threshold.txt").resolve()
+        cross_section.write_text("0 0\n5 1e-22\n10 0\n100 1e-22\n")
+
+    if case.startswith("rbeq_metadata_"):
+        key = case.removeprefix("rbeq_metadata_")
+        value = {
+            "model": "elmolcs_b8643810",
+            "target": "O2",
+            "normalization": "raw_signed",
+        }[key]
+        original = cross_section.read_text()
+        cross_section = Path("rbeq_metadata.txt").resolve()
+        cross_section.write_text(f"# rbeq_{key} = {value}\n" + original)
+    if "rotation" in case:
+        import struct
+
+        from analysis_rotation_reference import analytic_bundle
+
+        bundle = analytic_bundle("N2", count=64)
+        bundle_path = Path("invalid_rotation.rot").resolve()
+        bundle.write(bundle_path)
+        process_options["rotation_file"] = str(bundle_path)
+        process_options["scattering_angle_model"] = "IAA"
+        process_options["differential_cross_section"] = "valid"
+        process_options["rotational_temperature"] = (
+            1e6
+            if case == "rotation_population"
+            else -1
+            if case == "rotation_temperature"
+            else 300
+        )
+        cross_section = Path("rotation_inclusive.txt").resolve()
+        sigma = 1e-20 if case == "rotation_inclusive" else 2e-20
+        cross_section.write_text(f"0 {sigma}\n10 {sigma}\n")
+        if case == "rotation_negative":
+            payload = bytearray(bundle_path.read_bytes())
+            payload[-8:] = struct.pack("<d", -1.0)
+            bundle_path.write_bytes(payload)
+        elif case == "rotation_truncated":
+            bundle_path.write_bytes(bundle_path.read_bytes()[:-8])
+        elif case == "rotation_legacy_bundle":
+            bundle_path.write_bytes(
+                bundle_path.read_bytes().replace(b"_V3\n", b"_V2\n", 1)
+            )
+        elif case == "rotation_subthreshold":
+            payload = bytearray(bundle_path.read_bytes())
+            header = sum(len(line) + 1 for line in payload.split(b"\n", 3)[:3])
+            rates_offset = (
+                header + 8 * len(bundle.energies) + 8 * len(bundle.transitions)
+            )
+            struct.pack_into("<d", payload, rates_offset + 8, 1e-15)
+            bundle_path.write_bytes(payload)
+
+    dcs_kind = process_options.pop("differential_cross_section", None)
+    if dcs_kind is not None:
+        differential_cross_section = Path(
+            "background_mcc_invalid_elastic_dcs.txt"
+        ).resolve()
+        if dcs_kind == "valid":
+            differential_cross_section.write_text("10 1 1 1\n100 1 1 1\n")
+        elif dcs_kind == "inconsistent":
+            differential_cross_section.write_text("10 1 1 1\n100 1 1 1 1\n")
+        elif dcs_kind == "trailing":
+            differential_cross_section.write_text("10 1 1 1 nan\n100 1 1 1 nan\n")
+        elif dcs_kind == "nonfinite":
+            differential_cross_section.write_text("10 1 1 1\nnan 1 1 1\n100 1 1 1\n")
+        elif dcs_kind == "collapsed_log":
+            # Distinct double energies round to the same double logarithm.
+            # Particle-float builds reject them already on the raw energy grid.
+            differential_cross_section.write_text(
+                "100000000 1 1 1\n100000000.00000001 1 1 1\n"
+            )
+        elif dcs_kind == "commented":
+            differential_cross_section.write_text(
+                "# angular data\n10 1 1 1 # first row\n100 1 1 1 # last row\n"
+            )
+        else:
+            assert dcs_kind == "zero"
+            differential_cross_section.write_text("10 0 0 0\n100 0 0 0\n")
+        process_options["differential_cross_section"] = str(differential_cross_section)
+
+    grid = picmi.Cartesian1DGrid(
+        number_of_cells=[1],
+        lower_bound=[0.0],
+        # Keep the deterministic runtime-rejection timestep below the CFL limit.
+        upper_bound=[1.0e6 if runtime_case else 1.0],
+        lower_boundary_conditions=["periodic"],
+        upper_boundary_conditions=["periodic"],
+        lower_boundary_conditions_particles=["periodic"],
+        upper_boundary_conditions_particles=["periodic"],
+        warpx_max_grid_size=1,
+        warpx_blocking_factor=1,
+    )
+    solver = picmi.ElectromagneticSolver(grid=grid, method="Yee", cfl=0.9)
+
+    electrons = picmi.Species(
+        particle_type="electron",
+        name="electrons",
+        initial_distribution=picmi.UniformDistribution(
+            density=1.0,
+            directed_velocity=[0, 0, 1e7] if runtime_case else [0, 0, 0],
+        ),
+        warpx_do_not_deposit=True,
+        warpx_do_not_gather=True,
+    )
+    product_charge = -0.995 * picmi.constants.q_e
+    if case != "wrong_product_charge":
+        product_charge = -picmi.constants.q_e
+    if process_type == "ionization":
+        product_charge = picmi.constants.q_e
+    negative_ions = picmi.Species(
+        name="negative_ions",
+        charge=product_charge,
+        mass=32.0 * picmi.constants.m_p + picmi.constants.m_e,
+        initial_distribution=picmi.UniformDistribution(density=1.0),
+        warpx_do_not_deposit=True,
+        warpx_do_not_gather=True,
+    )
+
+    process = {"cross_section": str(cross_section), **process_options}
+    if process_type == "attachment":
+        process["species"] = negative_ions
+    processes = {process_type: process}
+    if process_type == "ionization":
+        fragment_ions = picmi.Species(
+            name="fragment_ions",
+            charge=picmi.constants.q_e,
+            mass=14.0 * picmi.constants.m_p - picmi.constants.m_e,
+            warpx_do_not_deposit=True,
+            warpx_do_not_gather=True,
+        )
+        process.update(species=negative_ions, energy=15.58)
+        processes["ionization_fragment"] = {**process, "species": fragment_ions}
+    background_density = 1.0e23 if runtime_case else 1.0e20
+    if case == "runtime_negative_density":
+        background_density = "-(1+t)"
+    elif case == "runtime_excess_density":
+        background_density = "2e23*(1+t)"
+    collision = picmi.MCCCollisions(
+        name="mcc",
+        species=electrons,
+        background_density=background_density,
+        max_background_density=1.0e23 if case == "runtime_excess_density" else None,
+        background_temperature="-(1+t)"
+        if case == "runtime_negative_temperature"
+        else 0.0,
+        background_mass=None
+        if case == "mixed_ion_masses_implicit" or "rotation" in case
+        else 32.0 * picmi.constants.m_p,
+        scattering_processes=processes,
+        nu_max=None if case == "runtime_excess_density" else 1.0e6,
+    )
+    sim = picmi.Simulation(
+        solver=solver,
+        # exp(-nu_max*dt) underflows below the rounding threshold, so every
+        # particle attempts a collision and a runtime rejection is deterministic.
+        time_step_size=1.0e-4 if runtime_case else 1.0e-9,
+        max_steps=1,
+        warpx_collisions=[collision],
+        verbose=0,
+    )
+    sim.add_species(
+        electrons,
+        layout=picmi.GriddedLayout(n_macroparticle_per_cell=[1], grid=grid),
+    )
+    sim.add_species(
+        negative_ions,
+        layout=picmi.GriddedLayout(n_macroparticle_per_cell=[1], grid=grid),
+    )
+    if process_type == "ionization":
+        sim.add_species(
+            fragment_ions,
+            layout=picmi.GriddedLayout(n_macroparticle_per_cell=[0], grid=grid),
+        )
+    sim.initialize_inputs()
+    sim.initialize_warpx()
+    sim.step(1)
+
+
+def check_invalid_cases():
+    for case, (expected_message, _, _) in CASES.items():
+        environment = os.environ.copy()
+        # A fresh MPI singleton cannot reuse the parent's launcher descriptors.
+        for key in list(environment):
+            if key.startswith(("PMI_", "PMIX_", "OMPI_")):
+                environment.pop(key)
+        environment["PYTHONFAULTHANDLER"] = "0"
+        result = subprocess.run(
+            [sys.executable, str(Path(__file__).resolve()), "--case", case],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            timeout=60,
+            env=environment,
+        )
+        Path(f"{case}.log").write_text(result.stdout)
+        if expected_message is None:
+            assert result.returncode == 0, result.stdout
+            print(f"{case}: explicit neutral mass accepted")
+            continue
+        assert result.returncode != 0, f"Invalid case {case!r} unexpectedly succeeded"
+        # WarpX wraps long diagnostic messages with a '#' continuation prefix.
+        # Compare the complete message independently of terminal line wrapping.
+        message_text = " ".join(
+            " ".join(line.lstrip("# ").split()) for line in result.stdout.splitlines()
+        )
+        assert expected_message in message_text, (
+            f"Invalid case {case!r} did not report {expected_message!r}.\n"
+            f"Output:\n{result.stdout[:8000]}\n{result.stdout[-8000:]}"
+        )
+        print(f"{case}: rejected as expected")
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--case", choices=CASES)
+args = parser.parse_args()
+if args.case is None:
+    check_invalid_cases()
+else:
+    run_invalid_case(args.case)

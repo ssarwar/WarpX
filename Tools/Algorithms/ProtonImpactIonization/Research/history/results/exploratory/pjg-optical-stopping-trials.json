@@ -1,0 +1,384 @@
+{
+  "N2": {
+    "baseline": {
+      "parameters": {
+        "j": 14.207366875560663,
+        "power": 0.807,
+        "amplitude": 1.2797595861745628,
+        "width": 11.311840333648965,
+        "broad_excess": 99.98727283070428,
+        "bethe_scale": 0.32063737268699166,
+        "center_scale": 0.7104964667914966,
+        "low_width_ratio": 1,
+        "edge_scale": 1.1244909629108701
+      },
+      "center_s": null,
+      "optical_ratio_range": [
+        0.8665593300941676,
+        1.4254897347756417
+      ],
+      "optical_log_rms": 0.1907995765185739,
+      "total_ratio_range": [
+        0.9249036158310177,
+        1.054258808496306
+      ],
+      "sdcs_log_rms": 0.12086170959668566,
+      "maximum_pair_to_pstar": 0.9671732842356574,
+      "maximum_energy_eV": 50000000.0,
+      "optical_strength": 10.89713333040738
+    },
+    "weight_0.5": {
+      "parameters": {
+        "j": 14.185300475027073,
+        "power": 0.807,
+        "amplitude": 1.1346785086008586,
+        "width": 11.662133364658542,
+        "broad_excess": 101.74474699384955,
+        "bethe_scale": 0.32063737268699166,
+        "center_scale": 0.5787123004993254,
+        "low_width_ratio": 1.0,
+        "edge_scale": 1.125887403881505
+      },
+      "center_s": null,
+      "optical_ratio_range": [
+        0.829598832295514,
+        1.2650735619172926
+      ],
+      "optical_log_rms": 0.11212470070881451,
+      "total_ratio_range": [
+        0.9158010221660362,
+        1.0559424389455296
+      ],
+      "sdcs_log_rms": 0.1271300134490708,
+      "maximum_pair_to_pstar": 0.9311870570313926,
+      "maximum_energy_eV": 35000000.0,
+      "optical_strength": 10.021283055569981
+    },
+    "weight_1": {
+      "parameters": {
+        "j": 13.824533067156615,
+        "power": 0.807,
+        "amplitude": 1.0528239060069398,
+        "width": 11.933420496856455,
+        "broad_excess": 106.35045691610343,
+        "bethe_scale": 0.32063737268699166,
+        "center_scale": 0.49803369039843404,
+        "low_width_ratio": 1.0,
+        "edge_scale": 1.1235136615629344
+      },
+      "center_s": null,
+      "optical_ratio_range": [
+        0.8390979449061237,
+        1.1754832939457824
+      ],
+      "optical_log_rms": 0.07891564439243402,
+      "total_ratio_range": [
+        0.9062930893823787,
+        1.0527549984044486
+      ],
+      "sdcs_log_rms": 0.13374481690822196,
+      "maximum_pair_to_pstar": 0.9125467943556509,
+      "maximum_energy_eV": 25000000.0,
+      "optical_strength": 9.63213640383688
+    },
+    "weight_2": {
+      "parameters": {
+        "j": 13.634372408266897,
+        "power": 0.807,
+        "amplitude": 1.0237767467797159,
+        "width": 11.915874194203676,
+        "broad_excess": 114.33026637946301,
+        "bethe_scale": 0.32063737268699166,
+        "center_scale": 0.4433812433477606,
+        "low_width_ratio": 1.0,
+        "edge_scale": 1.1118468050252854
+      },
+      "center_s": null,
+      "optical_ratio_range": [
+        0.8665871800890358,
+        1.1450870358938878
+      ],
+      "optical_log_rms": 0.06988157035535436,
+      "total_ratio_range": [
+        0.9001150768103013,
+        1.043572075171702
+      ],
+      "sdcs_log_rms": 0.14137148336949304,
+      "maximum_pair_to_pstar": 0.9019455532540698,
+      "maximum_energy_eV": 20000000.0,
+      "optical_strength": 9.51679384625164
+    },
+    "peak_1": {
+      "parameters": {
+        "j": 8.860362768469988,
+        "power": 0.807,
+        "amplitude": 1.073459302315199,
+        "width": 12.22144978067973,
+        "broad_excess": 91.22861378292576,
+        "bethe_scale": 0.32063737268699166,
+        "center_scale": 1.0,
+        "low_width_ratio": 1.0,
+        "edge_scale": 1.1944350297191826
+      },
+      "center_s": 5.188190861896991,
+      "optical_ratio_range": [
+        0.7993316770819313,
+        1.2155185341106773
+      ],
+      "optical_log_rms": 0.13756692379567503,
+      "total_ratio_range": [
+        0.8206174439890469,
+        1.0432971138965497
+      ],
+      "sdcs_log_rms": 0.14868250890197607,
+      "maximum_pair_to_pstar": 0.9462732303822246,
+      "maximum_energy_eV": 50000000.0,
+      "optical_strength": 10.222014799847784
+    },
+    "peak_2": {
+      "parameters": {
+        "j": 6.741054015029689,
+        "power": 0.807,
+        "amplitude": 1.058304094310783,
+        "width": 12.807277537769828,
+        "broad_excess": 91.94030042312772,
+        "bethe_scale": 0.32063737268699166,
+        "center_scale": 1.0,
+        "low_width_ratio": 1.0,
+        "edge_scale": 1.2198493812403706
+      },
+      "center_s": 3.234660268509706,
+      "optical_ratio_range": [
+        0.8187686801797919,
+        1.1544170682276993
+      ],
+      "optical_log_rms": 0.08249028496555964,
+      "total_ratio_range": [
+        0.7668382588395491,
+        1.0317505301331358
+      ],
+      "sdcs_log_rms": 0.17932911932601872,
+      "maximum_pair_to_pstar": 0.9184928383034697,
+      "maximum_energy_eV": 70000000.0,
+      "optical_strength": 9.650791984479294
+    }
+  },
+  "O2": {
+    "baseline": {
+      "parameters": {
+        "j": 6.960482358977703,
+        "power": 1.314,
+        "amplitude": 1.078891734817487,
+        "width": 14.154669288146122,
+        "broad_excess": 155.74550273846853,
+        "bethe_scale": 0.31496765281602096,
+        "center_scale": 0.840650653336662,
+        "low_width_ratio": 1,
+        "edge_scale": 1.1568458493597717
+      },
+      "center_s": null,
+      "optical_ratio_range": [
+        0.6522054161058952,
+        1.38655865949006
+      ],
+      "optical_log_rms": 0.22053591796676258,
+      "total_ratio_range": [
+        0.9987009667473558,
+        1.0885251644914853
+      ],
+      "sdcs_log_rms": 0.07199890358100014,
+      "maximum_pair_to_pstar": 1.0057313200361282,
+      "maximum_energy_eV": 1750000.0,
+      "optical_strength": 12.471816942523574
+    },
+    "weight_0.5": {
+      "parameters": {
+        "j": 6.903072672105694,
+        "power": 1.314,
+        "amplitude": 1.094667947708083,
+        "width": 14.260657586911647,
+        "broad_excess": 163.33788913086448,
+        "bethe_scale": 0.31496765281602096,
+        "center_scale": 0.8593457720017253,
+        "low_width_ratio": 1.0,
+        "edge_scale": 1.1498766462887327
+      },
+      "center_s": null,
+      "optical_ratio_range": [
+        0.6626164420753556,
+        1.4084721342688407
+      ],
+      "optical_log_rms": 0.21485409117160637,
+      "total_ratio_range": [
+        1.0002809202406966,
+        1.0862533817503364
+      ],
+      "sdcs_log_rms": 0.07150101286693332,
+      "maximum_pair_to_pstar": 1.014957278669225,
+      "maximum_energy_eV": 1750000.0,
+      "optical_strength": 12.891768832649925
+    },
+    "weight_1": {
+      "parameters": {
+        "j": 6.879372022457152,
+        "power": 1.314,
+        "amplitude": 1.1161278090190236,
+        "width": 14.20975756911593,
+        "broad_excess": 171.82786392611976,
+        "bethe_scale": 0.31496765281602096,
+        "center_scale": 0.8694675829896088,
+        "low_width_ratio": 1.0,
+        "edge_scale": 1.140394695139269
+      },
+      "center_s": null,
+      "optical_ratio_range": [
+        0.6759468779969762,
+        1.4368844221333459
+      ],
+      "optical_log_rms": 0.21230172697484556,
+      "total_ratio_range": [
+        0.9993476272988561,
+        1.084335804172121
+      ],
+      "sdcs_log_rms": 0.07191029929518326,
+      "maximum_pair_to_pstar": 1.0206939556889423,
+      "maximum_energy_eV": 1750000.0,
+      "optical_strength": 13.235957647447325
+    },
+    "weight_2": {
+      "parameters": {
+        "j": 6.996987109359438,
+        "power": 1.314,
+        "amplitude": 1.1283584096994776,
+        "width": 14.065345466535112,
+        "broad_excess": 186.84701827721844,
+        "bethe_scale": 0.31496765281602096,
+        "center_scale": 0.8532227735285359,
+        "low_width_ratio": 1.0,
+        "edge_scale": 1.1202645842733951
+      },
+      "center_s": null,
+      "optical_ratio_range": [
+        0.6835664355680314,
+        1.4533572651251296
+      ],
+      "optical_log_rms": 0.21137574959927138,
+      "total_ratio_range": [
+        0.995674151437227,
+        1.084411997060635
+      ],
+      "sdcs_log_rms": 0.07684621224898056,
+      "maximum_pair_to_pstar": 1.0175821508312521,
+      "maximum_energy_eV": 2250000.0,
+      "optical_strength": 13.46173731542998
+    },
+    "peak_1": {
+      "parameters": {
+        "j": 5.295710143765793,
+        "power": 1.314,
+        "amplitude": 1.345135387715674,
+        "width": 15.537163478252337,
+        "broad_excess": 134.14626912541726,
+        "bethe_scale": 0.31496765281602096,
+        "center_scale": 1.0,
+        "low_width_ratio": 1.0,
+        "edge_scale": 1.247327587055465
+      },
+      "center_s": 0.5919435210419032,
+      "optical_ratio_range": [
+        0.8063818674132741,
+        1.3717583077017388
+      ],
+      "optical_log_rms": 0.12874203102890236,
+      "total_ratio_range": [
+        0.9525896589565505,
+        1.0840942260483581
+      ],
+      "sdcs_log_rms": 0.12905832598331923,
+      "maximum_pair_to_pstar": 1.039122620769085,
+      "maximum_energy_eV": 2250000.0,
+      "optical_strength": 13.213855364956542
+    },
+    "peak_2": {
+      "parameters": {
+        "j": 5.486226657153742,
+        "power": 1.314,
+        "amplitude": 1.6753584719507737,
+        "width": 16.03800059734015,
+        "broad_excess": 110.72993541950532,
+        "bethe_scale": 0.31496765281602096,
+        "center_scale": 1.0,
+        "low_width_ratio": 1.0,
+        "edge_scale": 1.280704153776791
+      },
+      "center_s": -4.391964187697272,
+      "optical_ratio_range": [
+        0.7983108348677577,
+        1.2783218454411212
+      ],
+      "optical_log_rms": 0.10504130455379422,
+      "total_ratio_range": [
+        0.9599484172475394,
+        1.0787572512384442
+      ],
+      "sdcs_log_rms": 0.16531792095908643,
+      "maximum_pair_to_pstar": 1.040404853612845,
+      "maximum_energy_eV": 1750000.0,
+      "optical_strength": 12.812686240662009
+    },
+    "budget_peak_1": {
+      "parameters": {
+        "j": 4.635792528177829,
+        "power": 1.314,
+        "amplitude": 1.273954569526747,
+        "width": 14.871831980652335,
+        "broad_excess": 143.2587742722127,
+        "bethe_scale": 0.31496765281602096,
+        "center_scale": 1.0,
+        "low_width_ratio": 1.0,
+        "edge_scale": 1.2470515724942044
+      },
+      "center_s": 1.3526943373523912,
+      "optical_ratio_range": [
+        0.7806011317844733,
+        1.333244812634587
+      ],
+      "optical_log_rms": 0.13645137275258587,
+      "total_ratio_range": [
+        0.8950616509062342,
+        1.0842729344372406
+      ],
+      "sdcs_log_rms": 0.1443080820403877,
+      "maximum_pair_to_pstar": 0.9999999999099767,
+      "maximum_energy_eV": 2250000.0,
+      "optical_strength": 12.495212242179782
+    },
+    "budget_peak_2": {
+      "parameters": {
+        "j": 4.413809035827338,
+        "power": 1.314,
+        "amplitude": 1.4718453475888313,
+        "width": 15.026187390190444,
+        "broad_excess": 140.29423282289238,
+        "bethe_scale": 0.31496765281602096,
+        "center_scale": 1.0,
+        "low_width_ratio": 1.0,
+        "edge_scale": 1.263561750777945
+      },
+      "center_s": -1.9072633095024631,
+      "optical_ratio_range": [
+        0.7882840041503425,
+        1.2705009430355043
+      ],
+      "optical_log_rms": 0.11781093888281954,
+      "total_ratio_range": [
+        0.883599755861075,
+        1.0825511297513608
+      ],
+      "sdcs_log_rms": 0.16762674671201053,
+      "maximum_pair_to_pstar": 0.9999999998790358,
+      "maximum_energy_eV": 2250000.0,
+      "optical_strength": 12.58105943078041
+    }
+  }
+}

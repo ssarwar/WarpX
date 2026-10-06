@@ -38,7 +38,7 @@ Simulation and Grid Setup
 -------------------------
 
 .. autoclass:: pywarpx.picmi.Simulation
-    :members: step, add_species, add_laser, add_applied_field, add_interaction, add_diagnostic, write_input_file
+    :members: step, add_species, add_fluid_species, add_laser, add_applied_field, add_interaction, add_diagnostic, write_input_file
 
 .. autoclass:: pywarpx.picmi.Cartesian3DGrid
 
@@ -151,6 +151,14 @@ For instance, background plasma electrons, background plasma ions and an externa
 
 .. autoclass:: pywarpx.picmi.MultiSpecies
 
+Fluids use mesh fields and are registered with ``Simulation.add_fluid_species`` without
+a particle layout. Their model and parameters are described under
+:ref:`running-cpp-parameters-fluids`. The low-level interface exposes
+``pywarpx.new_fluid_species(name, **parameters)`` and ``pywarpx.fluids``; its parameter
+names are identical to text inputs. Finalizing a simulation clears this registry.
+
+.. autoclass:: pywarpx.picmi.FluidSpecies
+
 Particle distributions can be used for to initialize particles in a particle species.
 
 .. autoclass:: pywarpx.picmi.GaussianBunchDistribution
@@ -180,6 +188,8 @@ Other operations related to particles:
 .. autoclass:: pywarpx.picmi.DSMCCollisions
 
 .. autoclass:: pywarpx.picmi.MCCCollisions
+
+.. autoclass:: pywarpx.picmi.ProtonImpactIonizationCollisions
 
 .. autoclass:: pywarpx.picmi.FieldIonization
 

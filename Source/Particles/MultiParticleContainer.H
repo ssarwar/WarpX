@@ -98,6 +98,15 @@ public:
 
     void AllocData ();
 
+    /** Resolve collision species after both particle and fluid registries exist. */
+    void InitCollisions ();
+    void WriteCollisionCheckpoint (std::string const& directory) const
+        { collisionhandler->WriteCheckpoint(directory); }
+    void ValidateCollisionRestart (std::string const& directory) const
+        { collisionhandler->ValidateRestart(directory); }
+    void ValidateCollisionRestartState () const
+        { collisionhandler->ValidateRestartState(); }
+
     void InitData ();
 
     void InitMultiPhysicsModules ();

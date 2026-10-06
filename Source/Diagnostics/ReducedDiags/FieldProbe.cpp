@@ -22,25 +22,30 @@
 
 #include <AMReX_Array.H>
 #include <AMReX_Config.H>
+#include <AMReX_Geometry.H>
 #include <AMReX_MFIter.H>
 #include <AMReX_MultiFab.H>
+#include <AMReX_ParIter.H>
 #include <AMReX_ParallelDescriptor.H>
 #include <AMReX_ParmParse.H>
-#include <AMReX_Particles.H>
 #include <AMReX_ParticleTile.H>
-#include <AMReX_ParIter.H>
+#include <AMReX_Particles.H>
 #include <AMReX_REAL.H>
 #include <AMReX_RealVect.H>
 #include <AMReX_Reduce.H>
-#include <AMReX_Geometry.H>
 #include <AMReX_StructOfArrays.H>
+#include <AMReX_Utility.H>
 #include <AMReX_Vector.H>
 
 #include <cmath>
 #include <cstddef>
 #include <cstdlib>
+#include <fstream>
+#include <iomanip>
 #include <iostream>
+#include <limits>
 #include <ostream>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -145,6 +150,17 @@ FieldProbe::FieldProbe (const std::string& rd_name)
     utils::parser::queryWithParser(pp_rd_name, "interp_order", interp_order);
     pp_rd_name.query("do_moving_window_FP", do_moving_window_FP);
 
+    std::ostringstream config;
+    config << std::setprecision(std::numeric_limits<amrex::Real>::max_digits10)
+           << m_probe_geometry_str << ' ' << m_resolution << ' ' << interp_order
+           << ' ' << m_field_probe_integrate << ' ' << do_moving_window_FP
+           << ' ' << x_probe << ' ' << y_probe << ' ' << z_probe << ' '
+           << x1_probe << ' ' << y1_probe << ' ' << z1_probe << ' '
+           << detector_radius << ' ' << target_normal_x << ' '
+           << target_normal_y << ' ' << target_normal_z << ' ' << target_up_x
+           << ' ' << target_up_y << ' ' << target_up_z;
+    m_checkpoint_config = config.str();
+
     bool raw_fields;
     const bool raw_fields_specified = pp_rd_name.query("raw_fields", raw_fields);
     if (raw_fields_specified) {
@@ -241,6 +257,14 @@ FieldProbe::FieldProbe (const std::string& rd_name)
 void FieldProbe::InitData ()
 {
     using namespace amrex::literals;
+
+    if (!m_restart_directory.empty()) {
+        m_probe.Restart(m_restart_directory + "/ReducedDiags", m_rd_name);
+        return;
+    }
+    auto const& warpx = WarpX::GetInstance();
+    m_last_compute_time = warpx.gett_new(0);
+    m_last_compute_step = warpx.getistep(0) - 1;
 
     // create 1D vector for X, Y, and Z coordinates of "particles"
     amrex::Vector<amrex::ParticleReal> xpos;
@@ -346,6 +370,55 @@ void FieldProbe::LoadBalance ()
     m_probe.Redistribute();
 }
 
+void
+FieldProbe::WriteCheckpointData (std::string const& dir)
+{
+    std::string const base = dir + "/ReducedDiags";
+    if (amrex::ParallelDescriptor::IOProcessor()) {
+        if (!amrex::UtilCreateDirectory(base, 0755)) {
+            amrex::CreateDirectoryFailed(base);
+        }
+    }
+    amrex::ParallelDescriptor::Barrier();
+    m_probe.Checkpoint(base, m_rd_name);
+    if (amrex::ParallelDescriptor::IOProcessor()) {
+        std::ofstream header(base + "/" + m_rd_name + "/FieldProbeHeader");
+        header << "FieldProbe_v1\n"
+               << m_checkpoint_config << '\n'
+               << std::setprecision(
+                      std::numeric_limits<amrex::Real>::max_digits10)
+               << m_last_compute_step << ' ' << m_last_compute_time << '\n';
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            header.good(), "Could not checkpoint FieldProbe state.");
+    }
+}
+
+void
+FieldProbe::ReadCheckpointData (std::string const& dir)
+{
+    std::string const base = dir + "/ReducedDiags/" + m_rd_name;
+    std::ifstream header(base + "/FieldProbeHeader");
+    // Old nonintegrating, stationary probes have no cumulative state to
+    // restore.
+    if (!header.good() && !m_field_probe_integrate && !do_moving_window_FP) {
+        return;
+    }
+    std::string version, config;
+    std::getline(header, version);
+    std::getline(header, config);
+    header >> m_last_compute_step >> m_last_compute_time;
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+        header.good() && version == "FieldProbe_v1" &&
+            config == m_checkpoint_config &&
+            std::isfinite(m_last_compute_time) && m_last_compute_step >= -1 &&
+            m_last_compute_step <= WarpX::GetInstance().getistep(0) - 1 &&
+            m_last_compute_time <= WarpX::GetInstance().gett_new(0) &&
+            amrex::FileExists(base + "/Header"),
+        "Missing, invalid or incompatible FieldProbe checkpoint state for '" +
+            m_rd_name + "'.");
+    m_restart_directory = dir;
+}
+
 bool FieldProbe::ProbeInDomain () const
 {
     // get a reference to WarpX instance
@@ -387,6 +460,13 @@ void FieldProbe::ComputeDiags (int step)
 
     // get number of mesh-refinement levels
     const auto nLevel = warpx.finestLevel() + 1;
+
+    // Initial output and repeated output immediately after restart cover no
+    // physical interval. Use elapsed time instead of unconditionally adding dt.
+    amrex::Real const sample_time = warpx.gett_new(0);
+    amrex::Real const integration_dt = sample_time - m_last_compute_time;
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(integration_dt >= 0.,
+                                     "FieldProbe time moved backwards.");
 
     using ablastr::fields::Direction;
 
@@ -540,13 +620,13 @@ void FieldProbe::ComputeDiags (int step)
                     if (temp_field_probe_integrate)
                     {
                         // store values on particles
-                        part_Ex[ip] += Exp * dt; //remember to add lorentz transform
-                        part_Ey[ip] += Eyp * dt; //remember to add lorentz transform
-                        part_Ez[ip] += Ezp * dt; //remember to add lorentz transform
-                        part_Bx[ip] += Bxp * dt; //remember to add lorentz transform
-                        part_By[ip] += Byp * dt; //remember to add lorentz transform
-                        part_Bz[ip] += Bzp * dt; //remember to add lorentz transform
-                        part_S[ip] += S * dt; //remember to add lorentz transform
+                        part_Ex[ip] += Exp * integration_dt;
+                        part_Ey[ip] += Eyp * integration_dt;
+                        part_Ez[ip] += Ezp * integration_dt;
+                        part_Bx[ip] += Bxp * integration_dt;
+                        part_By[ip] += Byp * integration_dt;
+                        part_Bz[ip] += Bzp * integration_dt;
+                        part_S[ip] += S * integration_dt;
                     }
                     else
                     {
@@ -639,6 +719,7 @@ void FieldProbe::ComputeDiags (int step)
     // make sure data is in m_data on the IOProcessor
     // TODO: In the future, we want to use a parallel I/O method instead (plotfiles or openPMD)
     m_last_compute_step = step;
+    m_last_compute_time = sample_time;
 } // end void FieldProbe::ComputeDiags
 
 void FieldProbe::WriteToFile (int step) const

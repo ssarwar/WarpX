@@ -200,6 +200,7 @@ AMREX_ENUM(ScatteringAngleModel,
            Forward,    /**< Scattering angle is zero, i.e., products have the same direction as the incident particle in the center of mass frame */
            Backward,   /**< Scattering angle is pi, i.e., products have the opposite direction of the incident particle in the center of mass frame */
            Isotropic,  /**< Scattering angle is random, i.e., products are scattered isotropically in the center of mass frame */
+           IAA,  /**< IAA thesis model for electron-neutral scattering */
            Legendre, /**< Scattering angle is sampled from a Legendre expansion */
            Default = Isotropic  /**< Isotropic */
 );
@@ -209,6 +210,13 @@ AMREX_ENUM(
     FusionAngularDistributionCoefficientsFormat,
     ENDF,  /**< ENDF format defined in https://www.nndc.bnl.gov/endfdocs/ENDF-102-2023.pdf */
     IAEA   /**< IAEA format defined in https://www-nds.iaea.org/records/t5vy7-v2d27 */
+);
+
+/** \brief Energy-sharing model for the two outgoing electrons in impact ionization. */
+AMREX_ENUM(IonizationEnergySharingModel,
+           Equal,  /**< Divide the post-threshold energy equally */
+           RBEQ,  /**< Sample the RBEQ singly differential cross section */
+           Default = Equal  /**< Equal sharing */
 );
 
 #endif // WARPX_UTILS_WARPXALGORITHMSELECTION_H_
