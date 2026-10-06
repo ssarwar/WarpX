@@ -84,6 +84,9 @@ main (int argc, char** argv)
         }
         output << "# rbeq_model = " << name(model) << '\n'
                << "# rbeq_normalization = " << (positive ? "positive_part" : "raw_signed") << '\n'
+               << "# energy_min_eV = 0\n"
+               << "# energy_max_eV = " << maximum << '\n'
+               << "# outside_energy_range = error\n"
                << "# rbeq_target = " << target << '\n'
                << "# E [eV], sigma [m^2]; linear interpolation; maximum source "
                   "energy 1 GeV\n"

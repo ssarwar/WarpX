@@ -18,6 +18,12 @@ import numpy as np
 p = argparse.ArgumentParser(description=__doc__)
 p.add_argument("--data-dir", type=Path, required=True)
 p.add_argument("--cumulative-dir", type=Path, required=True)
+p.add_argument(
+    "--reference-dir", type=Path, help="Same-physics alias data without lookup indices"
+)
+p.add_argument(
+    "--samplings", nargs="+", choices=["alias", "cumulative", "reference", "disabled"]
+)
 p.add_argument("--source-dir", type=Path, required=True)
 p.add_argument("--output", type=Path, required=True)
 p.add_argument("--particles", type=int, nargs="+", default=[262144, 1048576])
@@ -25,8 +31,8 @@ p.add_argument("--targets", nargs="+", choices=["N2", "O2", "air"], default=["ai
 p.add_argument(
     "--cases",
     nargs="+",
-    choices=["thermal", "resonance", "intermediate", "broad"],
-    default=["thermal", "resonance", "intermediate", "broad"],
+    choices=["thermal", "resonance", "intermediate", "relativistic", "broad"],
+    default=["thermal", "resonance", "intermediate", "relativistic", "broad"],
 )
 p.add_argument("--steps", type=int, default=64)
 p.add_argument("--repeats", type=int, default=5)
@@ -38,6 +44,8 @@ p.add_argument(
     "--disabled", action="store_true", help="Also measure the legacy elastic baseline"
 )
 args = p.parse_args()
+if args.samplings and "reference" in args.samplings and args.reference_dir is None:
+    p.error("reference sampling requires --reference-dir")
 if args.repeats < 2:
     raise ValueError("Variance comparisons require independent repeated seeds")
 script = (
@@ -49,7 +57,15 @@ records = []
 for count in args.particles:
     for target in args.targets:
         for case in args.cases:
-            modes = ["alias", "cumulative"] + (["disabled"] if args.disabled else [])
+            modes = args.samplings or (
+                ["alias", "cumulative"] + (["disabled"] if args.disabled else [])
+            )
+            roots = {
+                "alias": args.data_dir,
+                "cumulative": args.cumulative_dir,
+                "reference": args.reference_dir,
+                "disabled": args.data_dir,
+            }
             for repeat in range(-1, args.repeats):
                 order = modes if repeat % 2 == 0 else modes[::-1]
                 for mode in order:
@@ -60,13 +76,7 @@ for count in args.particles:
                         sys.executable,
                         str(script),
                         "--data-dir",
-                        str(
-                            (
-                                args.cumulative_dir
-                                if mode == "cumulative"
-                                else args.data_dir
-                            ).resolve()
-                        ),
+                        str(roots[mode].resolve()),
                         "--source-dir",
                         str(args.source_dir.resolve()),
                         "--target",
@@ -97,7 +107,11 @@ for count in args.particles:
                                 "--mode",
                                 "mono",
                                 "--energy",
-                                "2.47" if case == "resonance" else "50",
+                                {
+                                    "resonance": "2.47",
+                                    "intermediate": "50",
+                                    "relativistic": "2500000",
+                                }[case],
                             ]
                         )
                     launcher = []
@@ -163,6 +177,9 @@ for count in args.particles:
                         device_used_bytes=device_bytes,
                     )
                     records.append(result)
+                    partial = args.output / "runs.json.tmp"
+                    partial.write_text(json.dumps(records, indent=2) + "\n")
+                    partial.replace(args.output / "runs.json")
                     print(
                         count,
                         target,
@@ -216,8 +233,22 @@ for count in args.particles:
                         ),
                         peak_host_bytes=max(r["peak_host_bytes"] for r in rows),
                         transport_variance_times_seconds=float(
-                            np.var([r["final"][5] / count for r in rows], ddof=1)
+                            np.var(
+                                [
+                                    (r["final"][4] - r["initial"][4]) / count
+                                    for r in rows
+                                ],
+                                ddof=1,
+                            )
                             * seconds.mean()
+                        ),
+                        mean_longitudinal_transfer=float(
+                            np.mean(
+                                [
+                                    (r["final"][4] - r["initial"][4]) / count
+                                    for r in rows
+                                ]
+                            )
                         ),
                     )
                 )

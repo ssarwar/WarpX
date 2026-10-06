@@ -1,0 +1,99 @@
+Validation and performance
+==========================
+
+The 300 K production data use real elmolcs inputs and the published constraints
+listed in ``SOURCES.rst``. Numerical accuracy refers to the prescribed model;
+it does not establish experimental accuracy of the low-energy O2 bridge or
+the high-J continuation. Detailed logs and temporary data belong in build
+folders, outside warpx-data.
+
+Physics and precision
+---------------------
+
+Independent source evaluations and decoded distributions gave maximum
+low-energy interpolation errors of 0.120% for N2 and 0.100% for O2, including
+angle-weighted first and second energy-transfer moments. Equilibrium power
+imbalance was below 0.0065% of heating plus cooling. The high-energy
+rate/angular interpolation error was below 0.103%; the separate
+momentum-transfer approximation was below 0.038%.
+
+CPU particle tests cover heating, cooling and equilibrium at 0, 100, 250, 300,
+350 and 1000 K for N2, O2 and their air mixture. The additional-temperature
+fixtures have a 20 eV domain and are prepared offline for thermal tests.
+Equilibrium checks include paired changes in the first three energy moments
+and several energy-distribution cutoffs. Unequal bath temperatures,
+timestep refinement, subcycling and restart are tested separately.
+
+Tests of the real combined family with real RBEQ ionization tables compare
+ionization counts to the independently computed one-event channel probability.
+They check that the created ion and electron counts agree. This exercises
+competition between the combined family and ordinary MCC processes at a
+large optical depth, where double counting the elastic contribution would
+be readily detectable.
+
+Endpoint checks cover direct lookup, cached selection and the fallback
+selector, finite majorants, malformed metadata and bundle temperature.
+Double, single-particle and all-single CPU builds pass the sampler and
+threshold tests. A seeded device test verifies that collision and sampling
+uniforms resolve the upper half interval more finely than binary32.
+
+Double particle precision is needed to retain meV transfers in MeV electrons.
+For example, a forward 10 meV loss at 2.5 MeV was stored as
+0.01000000071 eV with double particles and as zero with single particles.
+This is distinct from the accuracy of the double-energy sampling tables.
+Moving-target recoil tests check laboratory four-momentum conservation;
+stationary-target tests include tiny deflections, backward scattering, signed
+losses, and the documented narrow nominal-threshold continuation.
+
+A100 measurements
+-----------------
+
+The Perlmutter campaign uses A100-SXM4-40GB devices, CUDA compilation for
+``sm_80``, and double field/particle precision. Five independent seeds are
+measured after warmup, alternating alias, cumulative and elastic-only controls.
+Each GPU has one MPI process. Both gases are resident. Workloads include
+thermal, 2.47 eV resonance, 50 eV, 2.5 MeV, and log-uniform mixed energies from
+0.002 eV to 3 MeV within warps. Two global particle counts, 262144 and 1048576,
+are measured. The grid has 128 cells per MPI process.
+
+The full PIC timing includes gather, charge/current deposition, field advance,
+particle advance and collisions in a homogeneous periodic test. Its small
+physical electron density keeps self-fields negligible while retaining those
+operations. The complete MCC operator is timed separately, including its
+normal selection, recoil and synchronization costs. Particle observations
+and file loading are outside the timed step region.
+
+For 1048576 particles and 64 measured steps, the original V6 alias tables
+without search indices gave the following median times:
+
+=====================  ==============  =============  ==============  =============
+Distribution           MCC, one GPU    PIC, one GPU   MCC, four GPUs  PIC, four GPUs
+=====================  ==============  =============  ==============  =============
+Thermal, 300 K          35.14 ms        1300.13 ms     18.51 ms        480.52 ms
+Resonance, 2.47 eV      47.00 ms        1312.27 ms     22.72 ms        486.39 ms
+Intermediate, 50 eV     50.29 ms        1315.40 ms     24.91 ms        487.41 ms
+Relativistic, 2.5 MeV   37.17 ms        1302.81 ms     19.26 ms        480.93 ms
+Mixed energies         53.88 ms        1318.99 ms     24.43 ms        486.17 ms
+=====================  ==============  =============  ==============  =============
+
+Alias sampling was faster than the identical-physics cumulative reference in
+all these cases. At one million particles it reduced complete MCC time by
+about 1--9%, and complete PIC time by about 1--2% on one GPU. Relative to the
+elastic-only control, the added rotational physics increased complete PIC
+time by at most 1.4% across the one-GPU cases. Its additional complete-MCC
+cost was 11--41%, depending on workload; joint-distribution searches, discrete
+outcomes and signed recoil account for additional work. Comparisons of
+isolated sampler timings alone do not determine this acceptance.
+
+Compute Sanitizer checks the sampler without suppressing memory errors.
+For the isolated one-rank sampler in an MPI build, GPU-aware MPI pointer
+classification is disabled: Cray MPICH otherwise probes host addresses with
+``cuPointerGetAttribute`` and reports handled API errors to the sanitizer.
+Timed MPI simulations retain GPU-aware communication. The job script also
+provides full-MCC memcheck and endpoint checks in non-MPI CUDA builds.
+
+``benchmark_reciprocal_rotation.py`` records the variance of energy and
+longitudinal momentum transfer multiplied by elapsed step time. Transfer
+observables subtract the initial state to remove initial-sample noise.
+Five seeds give only a coarse estimate of the variance ratio; an apparent
+noise advantage should not be inferred from that small sample alone.

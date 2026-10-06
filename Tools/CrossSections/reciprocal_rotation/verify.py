@@ -15,12 +15,14 @@ from bundle import read_bundle
 from rotation_reference import KB, REST
 
 
-def cell_moments(a):
+def cell_moments(a, squared=False):
     palette = a["outcomes"].reshape(-1, 2)
     loss = palette[:, 0]
     features = np.vstack(
         (loss > 0, loss < 0, np.maximum(loss, 0), np.maximum(-loss, 0), loss**2)
     )
+    if squared:
+        features = features**2
     offsets = a["cell_offsets"]
     result = np.zeros((len(offsets) - 1, 5))
     maximum = np.zeros(len(result))
@@ -44,7 +46,7 @@ def cell_moments(a):
     return result, maximum
 
 
-def low_row(a, row, moments, maximum):
+def low_row(a, row, moments, maximum, powers=(0, 1, 2)):
     lo, hi = a["angular_offsets"][row : row + 2]
     u = a["angular_u"][lo:hi]
     d = a["deflection"][lo:hi]
@@ -58,7 +60,7 @@ def low_row(a, row, moments, maximum):
     if len(cu):
         assert np.max(maximum[cells]) <= a["energies"][row]
     edges = np.unique(np.r_[u, cu])
-    x, w = np.polynomial.legendre.leggauss(3)
+    x, w = np.polynomial.legendre.leggauss((max(powers) + 4) // 2)
     q = (edges[:-1, None] + np.diff(edges)[:, None] * (x + 1) / 2).ravel()
     measure = (np.diff(edges)[:, None] * w / 2).ravel()
     angle = np.interp(q, u, d)
@@ -68,9 +70,7 @@ def low_row(a, row, moments, maximum):
     if len(cu):
         for j in range(5):
             values[j + 1] = probability * np.interp(q, cu, moments[cells, j])
-    return (
-        a["rates"][row] * np.array([values @ (measure * angle**j) for j in range(3)]).T
-    )
+    return a["rates"][row] * np.array([values @ (measure * angle**j) for j in powers]).T
 
 
 def main():

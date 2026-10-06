@@ -50,6 +50,11 @@ p.add_argument("--seed", type=int, default=2026)
 p.add_argument("--cumulative", action="store_true")
 p.add_argument("--disabled", action="store_true")
 p.add_argument(
+    "--ionization-table",
+    type=Path,
+    help="Add one real RBEQ rate table for a channel-count check",
+)
+p.add_argument(
     "--pic",
     action="store_true",
     help="Include gather and deposition in timestep timings",
@@ -64,6 +69,17 @@ p.add_argument(
     help="Write native inputs for the complete MCC benchmark",
 )
 args = p.parse_args()
+if args.ionization_table and (
+    args.target == "air"
+    or args.mode != "mono"
+    or args.steps != 1
+    or args.warmup
+    or args.check_thermal
+    or args.translational_temperature != 0
+):
+    p.error(
+        "The ionization count check requires one gas, mono energy, one step, zero translational temperature and no warmup/thermal check"
+    )
 if args.particles % args.cells:
     raise ValueError("Particle count must be divisible by the cell count")
 grid = picmi.Cartesian1DGrid(
@@ -101,6 +117,7 @@ electron = picmi.Species(
     warpx_do_not_gather=not args.pic,
 )
 collisions = []
+ion = None
 targets = {"N2": 0.78084, "O2": 0.20946} if args.target == "air" else {args.target: 1.0}
 for gas, fraction in targets.items():
     source = (args.source_dir / gas / "IAA").resolve()
@@ -123,17 +140,37 @@ for gas, fraction in targets.items():
             rotational_temperature=args.temperature,
             rotation_sampling="cumulative" if args.cumulative else "alias",
         )
+    processes = {"elastic": process}
+    if args.ionization_table:
+        ionization_table = np.loadtxt(args.ionization_table)
+        ion = picmi.Species(
+            name="ions",
+            charge=qe,
+            mass={"N2": 28.0134, "O2": 31.9988}[gas] * 1.66053906660e-27 - me,
+            warpx_do_not_deposit=True,
+            warpx_do_not_gather=True,
+        )
+        processes["ionization"] = dict(
+            cross_section=str(args.ionization_table.resolve()),
+            energy=float(ionization_table[0, 0]),
+            energy_sharing_model="RBEQ",
+            rbeq_target=gas,
+            rbeq_model="iaa_thesis_2023",
+            scattering_angle_model="IAA",
+            species=ion,
+        )
     collisions.append(
         picmi.MCCCollisions(
             name="mcc_" + gas,
             species=electron,
+            background_mass={"N2": 28.0134, "O2": 31.9988}[gas] * 1.66053906660e-27,
             background_density=args.density * fraction,
             background_temperature=(
                 args.temperature
                 if args.translational_temperature is None
                 else args.translational_temperature
             ),
-            scattering_processes={"elastic": process},
+            scattering_processes=processes,
             ndt_subcycle=args.subcycles,
         )
     )
@@ -151,6 +188,8 @@ simulation.add_species(
         n_macroparticle_per_cell=[args.particles // args.cells], grid=grid
     ),
 )
+if ion is not None:
+    simulation.add_species(ion, layout=None)
 if args.checkpoint:
     simulation.add_diagnostic(
         picmi.Checkpoint(name="chk", period=args.steps, write_dir=str(args.checkpoint))
@@ -166,6 +205,8 @@ startup = time.perf_counter() - start
 container = simulation.particles.get("electrons")
 comm = MPI.COMM_WORLD if MPI is not None and MPI.Is_initialized() else None
 rank = comm.rank if comm is not None else 0
+if comm is not None:
+    startup = comm.allreduce(startup, op=MPI.MAX)
 if args.mode == "broad":
     generator = np.random.default_rng(args.seed + rank)
     for tile in container.iterator(level=0):
@@ -232,7 +273,31 @@ elapsed = time.perf_counter() - start
 if comm is not None:
     elapsed = comm.allreduce(elapsed, op=MPI.MAX)
 final, final_pairs = statistics()
-assert final[0] == initial[0] == args.particles
+if ion is not None:
+    elastic = np.loadtxt(args.source_dir / args.target / "IAA/elastic.txt")
+    sigma_elastic = np.interp(args.energy, elastic[:, 0], elastic[:, 1])
+    sigma_ion = np.interp(args.energy, ionization_table[:, 0], ionization_table[:, 1])
+    speed = c * np.sqrt(args.energy * (args.energy + 2 * rest)) / (args.energy + rest)
+    depth = args.density * (sigma_elastic + sigma_ion) * speed * args.dt
+    probability = -np.expm1(-depth) * sigma_ion / (sigma_elastic + sigma_ion)
+    expected = args.particles * probability
+    sigma = np.sqrt(args.particles * probability * (1 - probability))
+    # The independent inclusive source interpolation contributes at most the
+    # production 0.2% rate budget; the remaining bound is counting statistics.
+    assert abs(final[0] - initial[0] - expected) < 6 * sigma + 0.002 * expected
+    ions = simulation.particles.get("ions")
+    count = sum(len(tile["w"]) for tile in ions.iterator(level=0))
+    if comm is not None:
+        count = comm.allreduce(count)
+    assert final[0] - initial[0] == count
+    if rank == 0:
+        print(
+            "PASS: combined-family/RBEQ competition and paired product counts",
+            count,
+            expected,
+        )
+else:
+    assert final[0] == initial[0] == args.particles
 mean_initial, mean_final = initial[1] / initial[0], final[1] / final[0]
 error = np.sqrt(
     max(0, initial[2] / initial[0] - mean_initial**2) / initial[0]
@@ -252,6 +317,22 @@ if args.check_thermal:
             mean_final,
             error,
         )
+        if args.translational_temperature in (None, args.temperature):
+            # Stationarity includes the energy distribution, not only its mean.
+            # Pair particles to avoid noise from the initial Maxwellian sample.
+            before, after = initial_pairs[1], final_pairs[1]
+            changes = [after**power - before**power for power in (2, 3)]
+            if args.temperature > 0:
+                for cut in kb * args.temperature / qe * np.array([0.5, 1, 2, 4]):
+                    changes.append((after <= cut).astype(float) - (before <= cut))
+            for change in changes:
+                sigma = change.std(ddof=1) / np.sqrt(len(change))
+                assert abs(change.mean()) <= 6 * sigma, (change.mean(), sigma)
+peak_host_bytes = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * (
+    1 if sys.platform == "darwin" else 1024
+)
+if comm is not None:
+    peak_host_bytes = comm.allreduce(peak_host_bytes, op=MPI.MAX)
 report = dict(
     target=args.target,
     mode=args.mode,
@@ -269,8 +350,7 @@ report = dict(
     initial=initial.tolist(),
     final=final.tolist(),
     ranks=comm.size if comm else 1,
-    peak_host_bytes=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    * (1 if sys.platform == "darwin" else 1024),
+    peak_host_bytes=peak_host_bytes,
 )
 if rank == 0:
     args.output.write_text(json.dumps(report, indent=2) + "\n")

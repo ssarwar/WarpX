@@ -350,6 +350,15 @@ main (int argc, char *argv[])
                 throw std::runtime_error("Independent-angle recoil reference mismatch");
             }
             continued += continuation;
+            if (value.m_energy == 2.5e6 && value.m_loss == .01 &&
+                value.m_deflection == 1e-24 && value.m_mass == cases.front().m_mass) {
+                auto const stored_u = static_cast<amrex::ParticleReal>(
+                    c * std::sqrt(value.m_energy * (value.m_energy + 2 * m)) / m);
+                double const u2 = double(stored_u) * stored_u;
+                double const before = me * u2 / (qe * (1 + std::sqrt(1 + u2 / (c * c))));
+                std::cout << "Stored loss for a forward 10 meV transfer at 2.5 MeV: "
+                          << before - result[i].m_outgoing << " eV\n";
+            }
         }
         if (restricted == 0 || continued == 0) {
             throw std::runtime_error("Threshold test missed forbidden or continuation cases");

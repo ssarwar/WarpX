@@ -13,6 +13,7 @@
 #include <AMReX_Random.H>
 
 #include <cmath>
+#include <limits>
 
 namespace BackgroundMCCUtils
 {
@@ -21,9 +22,26 @@ namespace BackgroundMCCUtils
     uniformDouble (amrex::RandomEngine const& engine) noexcept
     {
 #ifdef BL_USE_FLOAT
-        auto const high = amrex::Random_int(1u << 27, engine);
-        auto const low = amrex::Random_int(1u << 26, engine);
-        return (double(high) * 67108864.0 + double(low)) * 0x1p-53;
+#if defined(__SYCL_DEVICE_ONLY__)
+        mkl::rng::device::uniform<double> distribution;
+        double const draw = mkl::rng::device::generate(distribution, *engine.engine);
+        constexpr double almost_one = 1.0 - .5 * std::numeric_limits<double>::epsilon();
+        return draw < almost_one ? draw : almost_one;
+#else
+        // Use the existing AMReX engine with a native double draw, avoiding
+        // bounded-integer range rejection in the GPU acceptance path.
+        AMREX_IF_ON_DEVICE((
+            double draw;
+            AMREX_HIP_OR_CUDA(draw = hiprand_uniform_double(engine.rand_state);,
+                              draw = curand_uniform_double(engine.rand_state);)
+            return draw == 1 ? 0 : draw;
+        ))
+        AMREX_IF_ON_HOST((
+            auto const high = amrex::Random_int(1u << 27, engine);
+            auto const low = amrex::Random_int(1u << 26, engine);
+            return (double(high) * 67108864.0 + double(low)) * 0x1p-53;
+        ))
+#endif
 #else
         return amrex::Random(engine);
 #endif

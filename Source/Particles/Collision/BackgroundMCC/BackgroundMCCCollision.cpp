@@ -212,10 +212,16 @@ BackgroundMCCCollision::BackgroundMCCCollision (
                                              "rotation_sampling must be alias or cumulative.");
             WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
                 process.scatteringAngleModel() == ScatteringAngleModel::IAA,
-                "Thermal rotation requires scattering_angle_model = IAA and the elastic DCS.");
+                "Thermal rotation requires scattering_angle_model = IAA.");
             m_rotation_process = static_cast<int>(m_processes.size());
             double rotation_mass;
             if (rotation_model == "reciprocal_hybrid") {
+                if (!has_rotation_temperature) {
+                    // Match offline metadata before rounding the translational
+                    // temperature to particle precision.
+                    utils::parser::getWithParser(
+                        pp_collision_name, "background_temperature", rotation_temperature);
+                }
                 m_reciprocal_rotation = BackgroundMCCReciprocalRotation::get(
                     rotation_file, rotation_temperature,
                     rotation_sampling == "cumulative");
@@ -455,7 +461,7 @@ BackgroundMCCCollision::BackgroundMCCCollision (
                                      "Background MCC cross sections have no "
                                      "common supported energy interval.");
     m_energy_range_error = "Background MCC " + collision_name +
-                           " requires collision energies in [" +
+                           " requires collision energies in the supported range [" +
                            std::to_string(m_minimum_collision_energy) + ", " +
                            std::to_string(m_maximum_collision_energy) +
                            "] eV. Extend the physical tables offline; endpoint "
@@ -1374,7 +1380,7 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTileImpl (
             if (idcpu[ip] == amrex::ParticleIdCpus::Invalid) {
                 return;
             }
-            if constexpr (use_reciprocal) {
+            if (use_reciprocal) {
                 if (BackgroundMCCUtils::uniformDouble(engine) >= total_collision_prob) { return; }
             } else {
                 if (amrex::Random(engine) > total_collision_prob) { return; }

@@ -8,6 +8,8 @@
 
 import argparse
 import re
+import shutil
+import struct
 import subprocess
 from pathlib import Path
 
@@ -17,12 +19,13 @@ p = argparse.ArgumentParser(description=__doc__)
 p.add_argument("--program", type=Path, required=True)
 p.add_argument("--sampler", type=Path, required=True)
 p.add_argument("--data-dir", type=Path, required=True)
+p.add_argument("--source-dir", type=Path)
 p.add_argument("--output", type=Path, required=True)
 args = p.parse_args()
 program, sampler = args.program.resolve(), args.sampler.resolve()
 root = args.output.resolve()
 root.mkdir(parents=True, exist_ok=True)
-source = args.data_dir.resolve() / "O2/IAA/rotation_1_3.txt"
+source = (args.source_dir or args.data_dir).resolve() / "O2/IAA/rotation_1_3.txt"
 raw = np.loadtxt(source)
 legacy = root / "legacy-source.txt"
 legacy.write_text(
@@ -43,6 +46,7 @@ def inputs(name, energy=1, table=source, reciprocal=False):
     directory.mkdir(exist_ok=True)
     proper = np.sqrt(energy * (energy + 2 * 510998.95069)) / 510998.95069
     text = f"""algo.maxwell_solver = Yee
+amrex.the_arena_init_size = 8388608
 algo.particle_shape = 1
 amr.blocking_factor = 1
 amr.max_grid_size = 8
@@ -87,7 +91,7 @@ benchmark.warmup = 1
     if reciprocal:
         prefix = args.data_dir.resolve() / "O2/IAA"
         text += f'''gas.scattering_processes = elastic
-gas.elastic_cross_section = "{prefix / "elastic.txt"}"
+gas.elastic_cross_section = "{source.parent / "elastic.txt"}"
 gas.elastic_scattering_angle_model = IAA
 gas.elastic_rotation_model = reciprocal_hybrid
 gas.elastic_rotation_file = "{prefix / "reciprocal_hybrid_300K/thermal_rotation.rot"}"
@@ -215,6 +219,7 @@ for name, mutate in [
             f"cross_section={source.parent / 'elastic.txt'}",
             f"output={directory / 'samples.txt'}",
             "samples=16",
+            "amrex.the_arena_init_size=8388608",
         ],
         cwd=directory,
         text=True,
@@ -223,6 +228,66 @@ for name, mutate in [
     )
     (directory / "run.log").write_text(result.stdout)
     assert result.returncode != 0, name
+
+# Only the metadata is changed in this reader fixture. It is not a physical
+# 300.15 K dataset and must never be used for the thermal reference checks.
+directory = root / "decimal-temperature-metadata"
+directory.mkdir(exist_ok=True)
+lines = list(base)
+lines[2] = "300.15 " + lines[2].split(" ", 1)[1]
+index = directory / "thermal_rotation.rot"
+index.write_text("\n".join(lines) + "\n")
+for line in base[4 + count : 4 + count + parts]:
+    filename = line.split()[0]
+    destination = directory / filename
+    if not destination.exists():
+        destination.symlink_to(bundle.parent / filename)
+path = inputs("decimal-default", reciprocal=True)
+text = path.read_text().replace("gas.elastic_rotational_temperature = 300\n", "")
+text = text.replace(
+    "gas.background_temperature = 0", "gas.background_temperature = 300.15"
+)
+text = text.replace(str(bundle), str(index))
+path.write_text(text)
+run(path)
+
+lookup = next(
+    (line for line in base[4 : 4 + count] if line.startswith("angular_lookup ")), None
+)
+if lookup is not None:
+    directory = root / "invalid-lookup"
+    directory.mkdir(exist_ok=True)
+    (directory / "thermal_rotation.rot").write_text(bundle.read_text())
+    offset = int(lookup.split()[3])
+    part, position = divmod(offset, 32 * 1024 * 1024)
+    filenames = [line.split()[0] for line in base[4 + count : 4 + count + parts]]
+    for number, filename in enumerate(filenames):
+        destination = directory / filename
+        if destination.exists() or destination.is_symlink():
+            destination.unlink()
+        if number == part:
+            shutil.copyfile(bundle.parent / filename, destination)
+        else:
+            destination.symlink_to(bundle.parent / filename)
+    with (directory / filenames[part]).open("r+b") as stream:
+        stream.seek(position)
+        stream.write(struct.pack("<I", 0xFFFFFFFF))
+    result = subprocess.run(
+        [
+            str(sampler),
+            f"file={directory / 'thermal_rotation.rot'}",
+            f"cross_section={source.parent / 'elastic.txt'}",
+            f"output={directory / 'samples.txt'}",
+            "samples=16",
+            "amrex.the_arena_init_size=8388608",
+        ],
+        cwd=directory,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+    (directory / "run.log").write_text(result.stdout)
+    assert result.returncode != 0 and "lookup" in result.stdout.lower()
 print(
     "PASS: direct, cached and fallback bounds; finite majorants; malformed inputs",
     bounds,

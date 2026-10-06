@@ -16,6 +16,7 @@
 
 #include <AMReX_Gpu.H>
 #include <AMReX_GpuLaunch.H>
+#include <AMReX_ParallelDescriptor.H>
 #include <AMReX_ParmParse.H>
 #include <AMReX_Print.H>
 #include <AMReX_Random.H>
@@ -105,11 +106,12 @@ int main (int argc, char* argv[])
         timer.record_stop_time();
         amrex::Print() << "MCC_OPERATOR_SECONDS " << timer.get_global_duration() << " STEPS "
                        << steps << '\n';
-        std::size_t device_bytes = 0;
+        amrex::Long device_bytes = 0;
 #ifdef AMREX_USE_GPU
-        device_bytes =
-            amrex::Gpu::Device::totalGlobalMem() - amrex::Gpu::Device::freeMemAvailable();
+        device_bytes = static_cast<amrex::Long>(amrex::Gpu::Device::totalGlobalMem() -
+            amrex::Gpu::Device::freeMemAvailable());
 #endif
+        amrex::ParallelDescriptor::ReduceLongMax(device_bytes);
         amrex::Print() << "DEVICE_USED_BYTES " << device_bytes << '\n';
         operators.clear();
         WarpX::Finalize();
