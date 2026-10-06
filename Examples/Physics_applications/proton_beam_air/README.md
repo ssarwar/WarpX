@@ -157,9 +157,12 @@ directly in your Python input. All paths are resolved relative to the JSON.
 
 The elastic entries now illustrate `rotation_model = reciprocal_hybrid` for
 both gases. Replace `/path/to/warpx-data` with the data checkout location.
-The 300 K V6 bundles contain the elastic angular distributions and the final
-conditional rotational samplers. They require no scientific generation at
-startup. A distinct rotational temperature requires an offline-prepared bundle
+The readable 300 K V7 bundles contain the elastic angular distributions and
+conditional rotational probabilities. Initialization reconstructs those
+probabilities and builds sampling tables once; source fitting and reciprocal
+normalization remain offline. Legacy V6 binary bundles are also supported.
+The complete model, source derivations, algorithm and data format are documented
+in [the multiphysics theory manual](../../../Docs/source/theory/multiphysics/rotational_scattering.rst). A distinct rotational temperature requires an offline-prepared bundle
 at that temperature; the translational temperature remains independent.
 
 The bundle's rate replaces the ordinary elastic rate. It includes rotation,
@@ -199,7 +202,7 @@ Supply these evaluated data:
    changes. With collider-specific tables, use separate `attachment_*`
    entries, each with its own density. A rate coefficient in m⁶/s is not a
    cross section in m⁵ and cannot be supplied unchanged.
-5. **Elastic DCS files** for legacy `IAA` scattering without a V6 bundle: elmolcs `DCS.e-N2` and `DCS.e-O2`
+5. **Elastic DCS files** for legacy `IAA` scattering without a reciprocal bundle: elmolcs `DCS.e-N2` and `DCS.e-O2`
    are supported. Each numeric row has energy in eV and equally spaced
    angular values from 0 to 180 degrees (normally 361 values at 0.5-degree
    intervals). Keep the `SPECIES: e / N2` or `O2` metadata. IAA excitation

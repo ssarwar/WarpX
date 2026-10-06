@@ -13,6 +13,10 @@ nuclear fusion) as well as collisions between kinetic particles and a fixed
 Background Monte Carlo Collisions (MCC)
 ---------------------------------------
 
+For molecular nitrogen and oxygen, see :ref:`theory-rotational-scattering`
+for the combined vibrationally elastic and rotational model, and
+:ref:`mcc-iaa-sources` for ionization source choices and legacy rotational models.
+
 Several types of collisions between simulation particles and a neutral
 background gas are supported including elastic scattering, back scattering,
 charge exchange, excitation collisions, impact ionization and electron

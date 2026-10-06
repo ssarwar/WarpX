@@ -19,7 +19,9 @@
 
 namespace BackgroundMCCElasticKinematics
 {
-    /** Rotational energy exchange with an independent elastic scattering angle.
+    /** Apply signed rotational energy exchange at a previously sampled angle.
+     * The joint distribution (or a legacy independent model) supplies the angle.
+     * The root follows Eq. rotation-recoil-equation in the multiphysics theory.
      *
      * The internal threshold is the level spacing, without a recoil shift. In
      * the small energy-only band E-change <= 2*m_e/M*E, neglect the recoil energy

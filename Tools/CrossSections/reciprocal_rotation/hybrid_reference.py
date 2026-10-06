@@ -42,6 +42,11 @@ def smooth(x):
 
 
 def cg_array(initial, final, ranks):
+    """Squared Clebsch--Gordan coupling (IAA 11.24), using the factorial 3j identity.
+
+    See theory/multiphysics/rotational_scattering/sources for the derivation.
+    A nonzero tensor rank can contribute to an unchanged final rotor state.
+    """
     i = np.asarray(initial)[:, None]
     f = np.asarray(final)[:, None]
     L = np.asarray(ranks)[None, :]
@@ -516,6 +521,9 @@ class Hybrid:
         )
 
     def future_weights(self, E, index, power=0):
+        # Reverse rates at E share the corrected forward primitive at E+Delta.
+        # Interpolation may include the unknown current row; return that term
+        # separately so solve() includes it in the implicit normalization.
         future = E + self.d_delta
         lo = np.searchsorted(self.energy, future, side="right") - 1
         hi = lo + 1

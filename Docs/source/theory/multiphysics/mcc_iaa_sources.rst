@@ -1,7 +1,7 @@
 .. _mcc-iaa-sources:
 
 Electron--air collision source audit
-===================================
+====================================
 
 The IAA models refer to A. Schmalzried's 2023 thesis, especially
 Sections 11.2 and 11.6, Table 11.12, and Eqs. (2.66), (11.119)--(11.122).
@@ -10,7 +10,7 @@ The alternative elmolcs model refers to the supplied archive with SHA256
 This identifier describes a fixed source snapshot, not an installed package version.
 
 RBEQ parameterizations
----------------------
+----------------------
 
 The original WarpX N2 and O2 shell parameters agree with thesis Table 11.12.
 The fitted elmolcs ``iaa*`` N2 block instead splits the thesis 18.72 eV shell
@@ -48,7 +48,7 @@ is enforced separately through the three-product kinematics solve.
 The omission of Coulomb interference is intentional.
 
 Rotation and inclusive elastic scattering
-----------------------------------------
+-----------------------------------------
 
 The residual elastic integral in Eq. (11.10) includes rotation. It must not
 be used unchanged alongside additional rotational channels. Its normalization
@@ -252,130 +252,13 @@ superelastic rates can remain finite. This low-energy distinction also needs
 an explicit reference-population model in a production combined family.
 
 Reciprocal hybrid rotational model
----------------------------------
+----------------------------------
 
-``rotation_model = reciprocal_hybrid`` selects the V6 production model for
-N2 and O2. The rotational bath has a fixed temperature; the 300 K bundles
-are distributed in ``warpx-data/MCC_cross_sections/{N2,O2}/IAA/reciprocal_hybrid_300K``.
-Other temperatures require an offline export. The inclusive elastic input
-remains a consistency check; the bundle supplies the complete collision
-family, including its rate and angular tables.
-
-The N2 low-energy model retains the elementary elmolcs rates and an isotropic
-leading rotational angular approximation below 1 eV. Between 1 and 1.25 eV
-it joins the Read resonance tensors with Kutz--Meyer strengths and a direct
-background constrained by Jung's vibrationally elastic data. Between 4 and
-10 eV it joins the completed Gote transfer-rank distributions, which constrain
-the model through 200 eV. O2 uses the transition-specific Born construction
-of thesis Eq. (11.21b) below 1 eV, a positive bridge to 20 eV, and
-Bhattacharyya's integral and momentum-transfer constraints through 200 eV.
-Unresolved O2 higher ranks are completed with a positive relative-entropy
-fit to those constraints and the inclusive IAA angular marginal.
-Both gases transition from 200 to 1000 eV at equal momentum transfer to a
-two-centre spectator model restricted to bound rigid-rotor levels.
-``Tools/CrossSections/reciprocal_rotation/SOURCES.rst`` and
-``IMPLEMENTATION.rst`` specify the source assumptions and completions.
-
-For an excitation :math:`i\to f` with level gap :math:`\Delta`, a common
-positive primitive :math:`X_{if}` defines both directions:
-
-.. math::
-
-   D_{if}(E,\theta) &= \frac{p(E-\Delta)}{p(E)^2}X_{if}(E,\theta),\\
-   D_{fi}(E-\Delta,\theta) &= \frac{g_i}{g_f p(E-\Delta)}X_{if}(E,\theta).
-
-This enforces :math:`g_i p(E)^2 D_{if}=g_f p(E-\Delta)^2 D_{fi}` in the
-heavy-target reference. The inclusive normalization couples forward kernels
-at :math:`E` to reverse partners evaluated at :math:`E+\Delta`. It does not
-independently rescale the two incoming-energy rows after constructing reverse
-rates. The low-energy changing rates are protected while a nonnegative
-unchanged background satisfies the inclusive constraint. A negative physical
-remainder is an export failure. The continuous reference is reciprocal;
-finite mixture and alias tables approximate it to the measured accuracy.
-
-The initial-state Boltzmann sum is extended until the omitted population is
-below :math:`10^{-10}` and transfer moments converge. Canonical double-precision
-level differences remain discrete. N2 nuclear-spin weights are 6:3 for even:odd
-levels; O2 uses odd rotational levels with unresolved electronic spin.
-The high-energy closure excludes levels at or above the model dissociation
-limit in both directions before normalization. This bounded rigid-rotor
-continuation does not resolve centrifugal distortion or vibration at high
-angular momentum. The O2 bridge below 20 eV is an interpolation model and
-does not establish a measured low-energy resonance DCS.
-
-Offline energy continuations
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The supported relative electron energy is 0--1 GeV. The inclusive residual
-elastic source extends through 6 keV and then uses the continuously matched
-elmolcs Born continuation. The angular distribution blends to screened
-Rutherford between 8 and 10 keV, retaining its energy dependence above the
-join. The short elementary rotational endpoints (1 keV for N2, 20 eV for O2)
-are source limits, not constant rotational tails. Additional upper-energy
-support for reverse evaluations is internal to the exporter.
-
-Below 1 meV a cold continuation joins the reciprocal changing kernels to an
-unchanged s-wave background. A finite zero-energy superelastic rate requires
-storing :math:`K=v\sigma` directly. It cannot be represented by a finite
-cross section at :math:`v=0`. The zero-momentum emission is isotropic.
-The inclusive rate equals the IAA rate above this join. Excitations remain
-exactly forbidden below their canonical level gaps.
-
-Queries outside the supported interval fail. The relative endpoint allowance
-is eight machine epsilons of particle precision, solely for roundoff. Marked
-ordinary tables also enforce their declared domains before either cached
-selection or direct lookup. The MCC block checks the intersection once per
-candidate collision; its majorant uses only that supported interval.
-Unmarked legacy tables retain endpoint clamping and the associated
-infinite-energy majorant bound.
-
-Sampling and storage
-~~~~~~~~~~~~~~~~~~~
-
-Below 1 keV, the collision kernel locates the energy interval, interpolates
-its rate, and chooses an endpoint row with probability proportional to its
-contribution to that rate. It samples the angle from that same row's inverse
-inclusive CDF. At the resulting angular quantile it draws unchanged/change
-and, for a change, a discrete signed gap from a prepared alias distribution.
-Mixtures interpolate probability distributions, not level energies. Above
-1 keV, the actual energy and deflection select a compact momentum-transfer
-distribution. Every unchanged event still scatters and recoils.
-
-The sampler carries :math:`1-\cos\theta` in double precision through the
-momentum-transfer and recoil calculations. The signed-loss kinematics retain
-the documented nominal-threshold continuation in the narrow recoil band;
-there is no new angular veto. Sufficient-resolution uniforms are used even
-when both field and particle precision are single. Single-precision particle
-storage can nevertheless round away meV changes in MeV electrons; table and
-sampling accuracy must be distinguished from the accuracy of stored velocities.
-
-All source evaluation, population sums, inverse CDFs, and alias construction
-are offline. Runtime initialization reads, validates, shares, and uploads
-immutable arrays, releasing bulk host staging storage. Alias entries use
-8 bytes (binary32 cutoff and two checked uint16 indices); energies remain
-binary64. The 300 K N2 and O2 payloads total 751,195,072 bytes, about 716 MiB,
-including auxiliary arrays and exact-search indices. The reader enforces a
-1 GiB combined per-process table budget. One MPI process per GPU therefore meets the table budget;
-multiple MPI processes on one GPU each own a copy.
-
-Independent intermediate-source checks of the 300 K low-energy tables found
-maximum rate/transfer-moment interpolation errors of 0.120% for N2 and 0.100%
-for O2, including angular weighting. The maximum equilibrium power imbalance
-was 0.0065% of heating plus cooling. High-energy rate/angular interpolation
-errors were below 0.103%, with the separately bounded momentum-transfer
-approximation below 0.038%. These quantify discretization of the prescribed
-model, not experimental accuracy.
-
-``Tools/CrossSections/reciprocal_rotation/README.rst`` gives the offline
-export and validation commands. The prepared cumulative reference decodes
-the alias probabilities offline and samples identical distributions. The
-particle tests exercise heating, cooling, equilibrium, endpoints, recoil,
-precision, and restart. ``benchmark_reciprocal_rotation.py`` measures warmed
-complete MCC operators and complete PIC timesteps, with repeated seeds and
-variance times computational cost. Performance conclusions require those
-complete measurements, not only isolated table lookup timings.
-Measured workloads, precision limits and performance tradeoffs are documented
-in ``Tools/CrossSections/reciprocal_rotation/VALIDATION.rst``.
+The production model, its derivation, sources, numerical algorithms and limits
+are documented in :ref:`theory-rotational-scattering`. The preceding sections
+record the source audit and legacy models; they are not the specification for
+``reciprocal_hybrid``. In particular, the legacy incident-row normalization
+must not be substituted for the coupled reciprocal normalization.
 
 Other table conversion issues
 -----------------------------

@@ -5,7 +5,7 @@ These are offline reference and export tools for a fixed N2 or O2 rotational
 bath. They implement the model described in ``IMPLEMENTATION.rst``; source
 qualifications are in ``SOURCES.rst``. They are not imported by WarpX.
 
-Install NumPy and SciPy in an environment containing the supplied elmolcs
+Install NumPy, SciPy and Numba in an environment containing the supplied elmolcs
 snapshot. Point ``WARPX_CROSS_SECTION_DATA`` to ``MCC_cross_sections`` in the
 warpx-data checkout. Numerical source constraints live there, alongside the
 production cross sections, rather than in the WarpX repository. Set
@@ -14,6 +14,7 @@ production cross sections, rather than in the WarpX repository. Set
     export PYTHONPATH=/path/to/elmolcs/src
     export WARPX_CROSS_SECTION_DATA=/path/to/warpx-data/MCC_cross_sections
     export WARPX_ROTATION_OUTPUT="$PWD/build/reciprocal-rotation"
+    python Tools/CrossSections/reciprocal_rotation/prepare_jung.py
     python Tools/CrossSections/reciprocal_rotation/source_anchor_checks.py
     python Tools/CrossSections/reciprocal_rotation/build_reference.py --target N2
     python Tools/CrossSections/reciprocal_rotation/build_reference.py --target O2
@@ -56,12 +57,30 @@ After building the source reference, prepare and verify each gas separately::
         --bundle build/production/N2/IAA/reciprocal_hybrid_300K/thermal_rotation.rot \
         --output build/reciprocal-rotation/high-N2.json
 
-Repeat with O2, then copy only the validated index and binary parts to
-warpx-data. ``verify.py`` independently evaluates intermediate source rows
+Repeat with O2. After source validation, encode the readable production inputs::
+
+    python Tools/CrossSections/reciprocal_rotation/text_bundle.py \
+        --bundle build/production/N2/IAA/reciprocal_hybrid_300K/thermal_rotation.rot \
+        --output build/readable/N2/IAA/reciprocal_hybrid_300K \
+        --report build/reciprocal-rotation/readable-N2.json
+
+Run the sampler, decoded-probability and thermal checks on the readable input
+before copying its index and text tables to warpx-data. Run the native sampler
+with ``cell_output=<path>`` and compare every decoded probability cell using
+``check_text_cells.py --reference <V6-index> --decoded <path>``. This includes
+float32 alias packing and both signs of the first, second and fourth moments. Alias construction and
+exact search-index construction now happen once at initialization; the source
+model and equilibrium construction remain offline. The probability encoding
+has an additional, independently checked numerical budget described in the
+multiphysics theory manual. Do not publish the intermediate binary cache or
+the report in warpx-data.
+
+ ``verify.py`` independently evaluates intermediate source rows
 and decodes packed probabilities; it is intentionally more expensive than
 quick runtime tests. Never reuse a sampling grid built from an older source
-reference version. Use ``cumulative_reference.py`` to prepare an identical
-distribution with cumulative sampling outside warpx-data::
+reference version. For a V6 binary reference, use ``cumulative_reference.py`` to prepare an identical
+distribution with cumulative sampling outside warpx-data. V7 selects either
+sampler from the same readable input at initialization::
 
     python Tools/CrossSections/reciprocal_rotation/cumulative_reference.py \
         --bundle build/production/N2/IAA/reciprocal_hybrid_300K/thermal_rotation.rot \

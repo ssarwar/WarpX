@@ -17,7 +17,7 @@ span the outer-shell threshold to 1 GeV and target 0.02% linear-interpolation
 error (with an absolute floor of 1e-8 of the peak). Their metadata are checked
 by WarpX. The independent check requires NumPy and SciPy.
 
-See `Docs/source/theory/mcc_iaa_sources.rst` for the source distinctions,
+See `Docs/source/theory/multiphysics/mcc_iaa_sources.rst` for the source distinctions,
 near-threshold continuation, and rotational production gates.
 
 ## Thermal rotation

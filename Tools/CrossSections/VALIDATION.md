@@ -9,7 +9,7 @@ resampling or increasing another rotational channel's rate.
 
 The angle is drawn independently from the existing elastic DCS. Recoil remains
 exact outside the small energy-only continuation band documented in
-`Docs/source/theory/mcc_iaa_sources.rst`. Inside that band, the electron retains
+`Docs/source/theory/multiphysics/mcc_iaa_sources.rst`. Inside that band, the electron retains
 `E-loss`; the virtual neutral receives the momentum difference, and its recoil
 energy is neglected in the electron update. Tests bound the resulting energy
 defect by `2*m_e/M*E`. This selected approximation does not enforce exact
