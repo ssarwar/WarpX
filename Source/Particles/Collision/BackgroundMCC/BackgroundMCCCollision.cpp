@@ -1305,6 +1305,8 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTileImpl (
     ABLASTR_PROFILE("BackgroundMCCCollision::selectAndScatter()");
     amrex::ignore_unused(product_counts, product_event_count, runtime_error);
     using namespace amrex::literals;
+    using Rate = std::conditional_t<use_reciprocal, double, amrex::ParticleReal>;
+    using Uniform = std::conditional_t<use_reciprocal, double, amrex::Real>;
     using std::sqrt;
 
     const long np = pti.numParticles();
@@ -1332,7 +1334,8 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTileImpl (
         m_differential_scattering_processes_exe.data();
     int const rotation_process = m_rotation_process;
     auto const* process_product_group = m_process_product_group.data();
-    auto const total_collision_prob = m_total_collision_prob;
+    Rate const total_collision_prob = use_reciprocal
+        ? Rate(-std::expm1(-double(m_nu_max) * double(dt))) : Rate(m_total_collision_prob);
     auto const nu_max = m_nu_max;
     auto const user_nu_max = m_user_nu_max;
     auto const max_background_density = m_max_background_density;
@@ -1371,7 +1374,11 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTileImpl (
             if (idcpu[ip] == amrex::ParticleIdCpus::Invalid) {
                 return;
             }
-            if (amrex::Random(engine) > total_collision_prob) { return; }
+            if constexpr (use_reciprocal) {
+                if (BackgroundMCCUtils::uniformDouble(engine) >= total_collision_prob) { return; }
+            } else {
+                if (amrex::Random(engine) > total_collision_prob) { return; }
+            }
 
             amrex::ParticleReal n_a = background_density;
             amrex::ParticleReal T_a = background_temperature;
@@ -1503,8 +1510,6 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTileImpl (
             }
 
             auto const ordinary_rate = total_cross_section * v_coll;
-            using Rate =
-                std::conditional_t<use_reciprocal, double, amrex::ParticleReal>;
             Rate const family_rate =
                 use_reciprocal ? Rate(reciprocal_interpolation.m_rate)
                                : Rate(rotational_interpolation.m_rate);
@@ -1538,8 +1543,9 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTileImpl (
 #endif
 
             auto const acceptance = BackgroundMCCUtils::conditionalEventProbability(
-                static_cast<amrex::ParticleReal>(collision_frequency * dt), total_collision_prob);
-            auto const process_draw = amrex::Random(engine);
+                Rate(collision_frequency * dt), total_collision_prob);
+            Uniform const process_draw = use_reciprocal
+                ? BackgroundMCCUtils::uniformDouble(engine) : amrex::Random(engine);
             if (!(process_draw < acceptance)) {
                 return;
             }

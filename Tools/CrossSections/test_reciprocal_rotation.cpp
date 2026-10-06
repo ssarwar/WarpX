@@ -82,6 +82,26 @@ int main (int argc, char* argv[])
         amrex::Vector<Result> result(samples);
         amrex::Gpu::DeviceVector<Result> device(samples);
         auto* values = device.data();
+        // Binary32 uniforms in [1/2,1) all lie on the 2^-24 grid. Verify that
+        // the actual device RNG used for rare acceptance and outcome tails
+        // resolves that interval more finely, including in all-single builds.
+        amrex::ParallelForRNG(samples, [=] AMREX_GPU_DEVICE (
+            int i, amrex::RandomEngine const& rng) noexcept {
+            double const draw = BackgroundMCCUtils::uniformDouble(rng);
+            double const coordinate = draw * 16777216.0;
+            values[i].m_valid = draw >= 0 && draw < 1;
+            values[i].m_values[0] = draw >= .5 && coordinate != std::floor(coordinate) ? 1 : 0;
+        });
+        amrex::Gpu::copy(amrex::Gpu::deviceToHost, device.begin(), device.end(), result.begin());
+        int resolved = 0;
+        for (auto const& value : result) {
+            AMREX_ALWAYS_ASSERT(value.m_valid);
+            resolved += int(value.m_values[0]);
+        }
+        if (samples >= 4096) {
+            AMREX_ALWAYS_ASSERT_WITH_MESSAGE(resolved > .4 * samples,
+                "Reciprocal sampling uniforms lost resolution in the upper half interval.");
+        }
         std::ofstream stream(output);
         stream << std::setprecision(17);
         for (double e : energy) {
