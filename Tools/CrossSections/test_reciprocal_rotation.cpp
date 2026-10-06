@@ -44,10 +44,12 @@ int main (int argc, char* argv[])
         pp.get("output", output);
         int samples = 32768;
         int timing_repetitions = 0;
+        bool lookup_check = false;
         bool cumulative = false;
         double temperature = 300;
         pp.query("samples", samples);
         pp.query("timing_repetitions", timing_repetitions);
+        pp.query("lookup_check", lookup_check);
         pp.query("cumulative", cumulative);
         pp.query("temperature", temperature);
         auto const free_before = amrex::Gpu::Device::freeMemAvailable();
@@ -158,6 +160,31 @@ int main (int argc, char* argv[])
                 stream << ' ' << mean << ' ' << std::sqrt(variance / samples);
             }
             stream << '\n';
+            if (lookup_check && (executor.m_angular_lookup || executor.m_conditional_lookup)) {
+                auto reference = executor;
+                reference.m_angular_lookup = nullptr;
+                reference.m_conditional_lookup = nullptr;
+                amrex::ParallelForRNG(samples, [=] AMREX_GPU_DEVICE (
+                    int i, amrex::RandomEngine const& rng) noexcept {
+                    auto const state = executor.interpolate(e);
+                    double const angle = BackgroundMCCUtils::uniformDouble(rng);
+                    double const outcome = BackgroundMCCUtils::uniformDouble(rng);
+                    auto const fast = executor.sample(state, angle, outcome);
+                    auto const slow = reference.sample(state, angle, outcome);
+                    values[i].m_valid = fast.m_valid == slow.m_valid &&
+                        fast.m_deflection == slow.m_deflection &&
+                        fast.m_outcome.m_loss == slow.m_outcome.m_loss &&
+                        fast.m_outcome.m_initial_energy == slow.m_outcome.m_initial_energy;
+                });
+                amrex::Gpu::copy(amrex::Gpu::deviceToHost, device.begin(), device.end(), result.begin());
+                for (auto const& value : result) {
+                    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(value.m_valid,
+                        "Quantile lookup changed a sampled event.");
+                }
+            }
+        }
+        if (lookup_check) {
+            amrex::Print() << "PASS: indexed and full searches agree for identical uniforms.\n";
         }
         amrex::Print() << "Reciprocal tables: " << model->tableBytes()
                        << " bytes; valid samples and shared storage verified.\n";

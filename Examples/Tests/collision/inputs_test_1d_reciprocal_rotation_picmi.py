@@ -41,6 +41,7 @@ p.add_argument("--mode", choices=["thermal", "mono", "broad"], default="thermal"
 p.add_argument("--energy", type=float, default=2.47)
 p.add_argument("--particles", type=int, default=32768)
 p.add_argument("--cells", type=int, default=128)
+p.add_argument("--max-grid-size", type=int, default=32)
 p.add_argument("--steps", type=int, default=128)
 p.add_argument("--subcycles", type=int, default=1)
 p.add_argument("--warmup", type=int, default=0)
@@ -90,7 +91,7 @@ grid = picmi.Cartesian1DGrid(
     upper_boundary_conditions=["periodic"],
     lower_boundary_conditions_particles=["periodic"],
     upper_boundary_conditions_particles=["periodic"],
-    warpx_max_grid_size=32,
+    warpx_max_grid_size=args.max_grid_size,
     warpx_blocking_factor=1,
 )
 c, me, qe, kb = (

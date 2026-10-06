@@ -39,6 +39,7 @@ public:
 
     struct Executor
     {
+        static constexpr int lookup_bins = 256;
         struct Interpolation
         {
             int m_index = 0;
@@ -114,6 +115,23 @@ public:
             return m_outcomes[outcome];
         }
 
+        /** Use optional offline bounds to shorten an exact CDF-grid search. */
+        [[nodiscard]] AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE std::uint32_t
+        quantileInterval (double const* coordinates, std::uint32_t const* lookup, int row,
+                          std::uint32_t first, std::uint32_t last, double quantile) const noexcept
+        {
+            if (quantile >= 1) {
+                return last - 1;
+            }
+            if (lookup != nullptr) {
+                auto const bin = static_cast<int>(quantile * lookup_bins);
+                auto const offset = row * (lookup_bins + 1) + bin;
+                first = lookup[offset];
+                last = lookup[offset + 1] + 1;
+            }
+            return amrex::bisect(coordinates, first, last, quantile);
+        }
+
         /** The row mixture and its conditional uniform share a single draw.
          * The unchanged outcome still produces the sampled deflection.
          */
@@ -150,7 +168,7 @@ public:
                 auto const first = m_angular_offsets[row];
                 auto const last = m_angular_offsets[row + 1] - 1;
                 auto const index =
-                    quantile >= 1 ? last - 1 : amrex::bisect(m_angular_u, first, last, quantile);
+                    quantileInterval(m_angular_u, m_angular_lookup, row, first, last, quantile);
                 double const fraction =
                     (quantile - m_angular_u[index]) / (m_angular_u[index + 1] - m_angular_u[index]);
                 deflection =
@@ -172,9 +190,8 @@ public:
             } else if (outcome_draw < changing) {
                 auto const first = m_conditional_offsets[row];
                 auto const last = m_conditional_offsets[row + 1] - 1;
-                auto const index = quantile >= 1
-                                       ? last - 1
-                                       : amrex::bisect(m_conditional_u, first, last, quantile);
+                auto const index = quantileInterval(m_conditional_u, m_conditional_lookup, row,
+                                                    first, last, quantile);
                 double const fraction = (quantile - m_conditional_u[index]) /
                                         (m_conditional_u[index + 1] - m_conditional_u[index]);
                 double draw = outcome_draw / changing;
@@ -200,6 +217,8 @@ public:
         std::uint32_t const *m_conditional_offsets = nullptr;
         double const *m_conditional_u = nullptr;
         std::uint32_t const *m_conditional_cells = nullptr;
+        std::uint32_t const* m_angular_lookup = nullptr;
+        std::uint32_t const* m_conditional_lookup = nullptr;
         std::uint32_t const *m_cell_offsets = nullptr;
         Alias const *m_aliases = nullptr;
         double const *m_cdf = nullptr;

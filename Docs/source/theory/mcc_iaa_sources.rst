@@ -353,9 +353,9 @@ All source evaluation, population sums, inverse CDFs, and alias construction
 are offline. Runtime initialization reads, validates, shares, and uploads
 immutable arrays, releasing bulk host staging storage. Alias entries use
 8 bytes (binary32 cutoff and two checked uint16 indices); energies remain
-binary64. The 300 K N2 and O2 payloads total 743,345,256 bytes, about 709 MiB,
-including auxiliary arrays. The reader enforces a 1 GiB combined per-process
-table budget. One MPI process per GPU therefore meets the table budget;
+binary64. The 300 K N2 and O2 payloads total 751,195,072 bytes, about 716 MiB,
+including auxiliary arrays and exact-search indices. The reader enforces a
+1 GiB combined per-process table budget. One MPI process per GPU therefore meets the table budget;
 multiple MPI processes on one GPU each own a copy.
 
 Independent intermediate-source checks of the 300 K low-energy tables found
@@ -374,6 +374,8 @@ precision, and restart. ``benchmark_reciprocal_rotation.py`` measures warmed
 complete MCC operators and complete PIC timesteps, with repeated seeds and
 variance times computational cost. Performance conclusions require those
 complete measurements, not only isolated table lookup timings.
+Measured workloads, precision limits and performance tradeoffs are documented
+in ``Tools/CrossSections/reciprocal_rotation/VALIDATION.rst``.
 
 Other table conversion issues
 -----------------------------

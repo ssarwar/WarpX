@@ -33,6 +33,15 @@ Generated validation reports, benchmarks, temporary temperature bundles, and
 reference checkpoints belong in build directories. Only scientific source
 inputs and validated production bundles are exported to warpx-data.
 
+The exporter includes small quantile lookup arrays to shorten exact searches
+of the adaptive CDF grids. ``lookup_index.py`` can append these arrays to an
+existing V6 bundle without recomputing or changing its physical arrays. Compare
+indexed and unindexed alias data with ``benchmark_reciprocal_rotation.py
+--reference-dir ... --samplings alias reference``. The ``lookup_check=1``
+sampler test requires event-by-event equality for identical random uniforms.
+GPU particle sorting can change ordering between separate PIC runs; those
+runs need statistical comparisons.
+
 After building the source reference, prepare and verify each gas separately::
 
     python Tools/CrossSections/reciprocal_rotation/test_transition_normalization.py
@@ -86,3 +95,8 @@ a separate build directory within the checkout. Single-precision checks use
 ``WARPX_ROTATION_REAL_PRECISION=SINGLE``. HIP/SYCL use the same portable
 sampler; compilation and execution must be reported only when those
 backends are actually available.
+
+The performance report in ``VALIDATION.rst`` includes two particle layouts.
+To reproduce the less concentrated layout, pass ``--cells-per-rank 4096
+--max-grid-size 1024`` to the benchmark driver. The default 128-cell layout
+has much longer per-cell linked lists in the CUDA deposition sorter.

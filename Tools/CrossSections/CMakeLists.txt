@@ -33,7 +33,7 @@ if(TARGET lib_1d)
                 COMMAND test_reciprocal_rotation
                     file=${reciprocal_bundle}
                     cross_section=${WarpX_RECIPROCAL_TEST_DATA}/${gas}/IAA/elastic.txt
-                    output=${reciprocal_output}/${gas}.txt samples=32768)
+                    output=${reciprocal_output}/${gas}.txt samples=32768 lookup_check=1)
             set_tests_properties(test_1d_reciprocal_sampler_${gas} PROPERTIES
                 FIXTURES_SETUP reciprocal_sampler_${gas})
             add_test(NAME test_1d_reciprocal_moments_${gas}

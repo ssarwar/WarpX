@@ -44,6 +44,13 @@ Scientific arrays
   bank. Its dimensionless coordinate is k R sin(theta/2).
 * Alias bundles contain ``aliases``. Offline cumulative reference bundles
   instead contain ``cdf`` (f64) and ``outcome_ids`` (u16).
+* Optional ``angular_lookup`` and ``conditional_lookup`` (u32) contain 257
+  absolute grid indices per energy row, at quantiles ``j/256``. Each is the
+  lower interpolation index at that quantile, capped at the penultimate
+  node. Empty rows contain zeros. The two bounding indices restrict an
+  otherwise unchanged binary search. They do not replace, interpolate or
+  coarsen any physical data. The reader verifies every bound; older V6
+  bundles without these arrays use the full-grid search.
 
 The angular and conditional offset arrays contain one sentinel after the last
 energy row. Cell offsets likewise have a final sentinel. Angular rows above

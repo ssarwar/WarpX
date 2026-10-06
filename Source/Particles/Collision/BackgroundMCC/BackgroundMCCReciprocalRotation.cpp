@@ -93,7 +93,7 @@ struct BackgroundMCCReciprocalRotation::Data
     amrex::Gpu::DeviceVector<double> m_energies, m_rates, m_angular_u, m_deflection,
         m_conditional_u, m_high_edges, m_cdf;
     amrex::Gpu::DeviceVector<std::uint32_t> m_coordinates, m_angular_offsets, m_conditional_offsets,
-        m_conditional_cells, m_cell_offsets, m_high_cells;
+        m_conditional_cells, m_cell_offsets, m_high_cells, m_angular_lookup, m_conditional_lookup;
     amrex::Gpu::DeviceVector<float> m_changing;
     amrex::Gpu::DeviceVector<Alias> m_aliases;
     amrex::Gpu::DeviceVector<std::uint16_t> m_outcome_ids;
@@ -287,6 +287,35 @@ BackgroundMCCReciprocalRotation::BackgroundMCCReciprocalRotation (std::string co
                                              "V6 angular support is incomplete.");
         }
     }
+    std::vector<std::uint32_t> angular_lookup, conditional_lookup;
+    auto read_lookup = [&] (std::string const& name, auto const& offsets, auto const& grid) {
+        std::vector<std::uint32_t> lookup;
+        if (arrays.count(name) == 0) {
+            return lookup;
+        }
+        lookup = read_uint(name);
+        constexpr int bins = Executor::lookup_bins;
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(lookup.size() == n * (bins + 1),
+                                         "Invalid V6 quantile lookup dimensions.");
+        for (std::size_t row = 0; row < n; ++row) {
+            auto const first = offsets[row], end = offsets[row + 1];
+            for (int bin = 0; bin <= bins; ++bin) {
+                auto const i = lookup[row * (bins + 1) + bin];
+                if (first == end) {
+                    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(i == 0, "Invalid empty V6 lookup row.");
+                    continue;
+                }
+                double const quantile = double(bin) / bins;
+                WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                    i >= first && i < end - 1 && grid[i] <= quantile &&
+                        (bin == bins ? i == end - 2 : grid[i + 1] > quantile),
+                    "V6 lookup does not bracket its quantile bin.");
+            }
+        }
+        return lookup;
+    };
+    angular_lookup = read_lookup("angular_lookup", ao, au);
+    conditional_lookup = read_lookup("conditional_lookup", co, cu);
     std::vector<Outcome> outcomes(outcomes_raw.size() / 2);
     double const rotational_constant =
         target == "N2" ? 0.0002477204284695341 : 0.00017828927734694198;
@@ -400,6 +429,12 @@ BackgroundMCCReciprocalRotation::BackgroundMCCReciprocalRotation (std::string co
     e.m_conditional_offsets = upload(co, d.m_conditional_offsets);
     e.m_conditional_u = upload(cu, d.m_conditional_u);
     e.m_conditional_cells = upload(cc, d.m_conditional_cells);
+    if (!angular_lookup.empty()) {
+        e.m_angular_lookup = upload(angular_lookup, d.m_angular_lookup);
+    }
+    if (!conditional_lookup.empty()) {
+        e.m_conditional_lookup = upload(conditional_lookup, d.m_conditional_lookup);
+    }
     e.m_cell_offsets = upload(cells, d.m_cell_offsets);
     e.m_outcomes = upload(outcomes, d.m_outcomes);
     e.m_high_edges = upload(high_edges, d.m_high_edges);

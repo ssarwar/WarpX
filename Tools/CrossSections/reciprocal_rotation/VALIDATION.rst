@@ -34,8 +34,11 @@ be readily detectable.
 Endpoint checks cover direct lookup, cached selection and the fallback
 selector, finite majorants, malformed metadata and bundle temperature.
 Double, single-particle and all-single CPU builds pass the sampler and
-threshold tests. A seeded device test verifies that collision and sampling
-uniforms resolve the upper half interval more finely than binary32.
+threshold tests. Double and all-single CUDA runs also pass the 28-energy
+sampler checks, heating/cooling/equilibrium cases and RBEQ competition checks.
+The all-single CUDA run additionally passes the direct/cached/fallback endpoint
+checks. A seeded device test verifies that collision and sampling uniforms
+resolve the upper half interval more finely than binary32.
 
 Double particle precision is needed to retain meV transfers in MeV electrons.
 For example, a forward 10 meV loss at 2.5 MeV was stored as
@@ -89,11 +92,41 @@ Compute Sanitizer checks the sampler without suppressing memory errors.
 For the isolated one-rank sampler in an MPI build, GPU-aware MPI pointer
 classification is disabled: Cray MPICH otherwise probes host addresses with
 ``cuPointerGetAttribute`` and reports handled API errors to the sanitizer.
-Timed MPI simulations retain GPU-aware communication. The job script also
-provides full-MCC memcheck and endpoint checks in non-MPI CUDA builds.
+Timed MPI simulations retain GPU-aware communication. Sampler and full-MCC
+memcheck runs reported zero errors, including the all-single CUDA build.
+HIP and SYCL toolchains/hardware were unavailable for this campaign; those
+backends have not been compiled or executed here.
 
 ``benchmark_reciprocal_rotation.py`` records the variance of energy and
 longitudinal momentum transfer multiplied by elapsed step time. Transfer
 observables subtract the initial state to remove initial-sample noise.
 Five seeds give only a coarse estimate of the variance ratio; an apparent
 noise advantage should not be inferred from that small sample alone.
+
+Exact search indices
+~~~~~~~~~~~~~~~~~~~~
+
+The production bundles include optional quantile lookup bounds. They add
+7,849,816 bytes, including alignment, bringing both gases to 751,195,072 bytes
+(716.4 MiB). All existing physical arrays remain bitwise unchanged. The CPU
+and GPU tests compare indexed and full searches with identical random draws
+and require identical angles and discrete outcomes for each event.
+
+At one million particles, the indices reduced complete MCC time by about
+4--9% for the thermal, resonance, intermediate and mixed-energy cases.
+The 2.5 MeV case changed by less than 1%, because it uses the analytic
+Rutherford angle and the momentum-transfer bank. Startup performs validation
+and upload only; these indices are constructed offline.
+
+Full PIC timing depends on particle layout. In the 128-cell test, indexed
+alias runs took about 1--2% longer overall, with the difference in current
+deposition; sorting time was unchanged. Sorting uses atomic linked lists,
+so separate GPU runs do not promise identical particle ordering or seeded
+particle trajectories. A second test kept four particle tiles but used 4096
+cells (256 particles per cell). With five alternating seeds, indexed/full
+search PIC-time ratios were 0.993 (thermal), 0.989 (resonance), 0.992
+(intermediate), 1.003 (2.5 MeV), and 0.978 (mixed). Thus the collision search
+improvement is measured, while an end-to-end speedup is workload dependent.
+No unexplained regression above 5% remained against the same-physics
+reference. The original full-grid lookup remains supported for V6 bundles
+without the optional indices.

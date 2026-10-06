@@ -5,6 +5,7 @@
 #SBATCH --ntasks=1
 #SBATCH --gpus-per-task=1
 #SBATCH --cpus-per-task=32
+#SBATCH --mem=32G
 #SBATCH --time=00:30:00
 
 # Copyright 2026 The WarpX Community

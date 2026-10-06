@@ -37,6 +37,8 @@ p.add_argument(
 p.add_argument("--steps", type=int, default=64)
 p.add_argument("--repeats", type=int, default=5)
 p.add_argument("--mpi-ranks", type=int, default=0)
+p.add_argument("--cells-per-rank", type=int, default=128)
+p.add_argument("--max-grid-size", type=int, default=32)
 p.add_argument(
     "--mcc-program", type=Path, help="Time the complete MCC operator separately"
 )
@@ -84,7 +86,9 @@ for count in args.particles:
                         "--particles",
                         str(count),
                         "--cells",
-                        str(128 * max(1, args.mpi_ranks)),
+                        str(args.cells_per_rank * max(1, args.mpi_ranks)),
+                        "--max-grid-size",
+                        str(args.max_grid_size),
                         "--steps",
                         str(args.steps),
                         "--warmup",

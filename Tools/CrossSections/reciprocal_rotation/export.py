@@ -15,6 +15,7 @@ from build_reference import build_reference
 from bundle import ALIAS, write_bundle
 from high_distribution import high_tables
 from hybrid_reference import REFERENCE_VERSION, REST, C, Hybrid, cg_array
+from lookup_index import lookup_arrays
 from numba import njit
 from rotation_reference import MASSES, weights
 
@@ -309,6 +310,7 @@ class Exporter:
                     ("outcome_ids", "u16", np.concatenate(self.outcome_ids)),
                 ]
             )
+        arrays.extend(lookup_arrays({name: values for name, _, values in arrays}))
         target = self.model.target
         metadata = [
             f"{target} reciprocal_hybrid {self.sampling}",
