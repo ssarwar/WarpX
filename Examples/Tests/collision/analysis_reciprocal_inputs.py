@@ -189,7 +189,7 @@ for name, replacement in [
 
 bundle = args.data_dir.resolve() / "O2/IAA/reciprocal_hybrid_300K/thermal_rotation.rot"
 base = bundle.read_text().splitlines()
-text_format = base[0] == "WARPX_THERMAL_ROTATION_V7"
+text_format = base[0] in ("WARPX_RECIPROCAL_ROTATION", "WARPX_THERMAL_ROTATION_V7")
 if text_format:
     count = int(base[3])
     payloads = [line.split()[3] for line in base[4:]]
@@ -296,7 +296,7 @@ if text_format:
     for name, filename, replacement in [
         ("bad-copy", "rates.txt", "copy 1 0\n"),
         ("bad-scalar", "coordinates.txt", "values 1\n0.5\n"),
-        ("bad-factor", "probabilities.txt", "WARPX_PROBABILITY_FACTORS_V1 1 1\n"),
+        ("bad-factor", "probabilities.txt", "WARPX_ROTATIONAL_PROBABILITIES 1 1\n"),
     ]:
         directory = root / name
         directory.mkdir(exist_ok=True)

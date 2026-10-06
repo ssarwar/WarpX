@@ -78,7 +78,8 @@ BackgroundMCCSpectator::Data::Data (std::string const& file)
     int maximum_j = 0, energy_count = 0, angle_count = 0, reserved = 0;
     input >> magic >> target >> model >> maximum_j >> reserved >> energy_count >> angle_count;
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-        input && magic == "WARPX_THERMAL_ROTATION_V5" && target == "N2" &&
+        input && (magic == "WARPX_IAA_SPECTATOR" || magic == "WARPX_THERMAL_ROTATION_V5") &&
+            target == "N2" &&
             model == "iaa_spectator" && reserved == 0 && maximum_j >= 8 && maximum_j <= 4096 &&
             energy_count >= 2 && energy_count <= 100000 && angle_count >= 2 * energy_count,
         "Invalid IAA spectator bundle header.");

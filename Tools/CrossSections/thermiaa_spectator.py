@@ -237,7 +237,7 @@ class ConditionalBundle:
         with Path(path).open("wb") as output:
             output.write(
                 (
-                    "WARPX_THERMAL_ROTATION_V5\n"
+                    "WARPX_IAA_SPECTATOR\n"
                     f"N2 iaa_spectator {self.maximum_j} 0\n"
                     f"{len(self.energies)} {len(self.angles)}\n"
                 ).encode("ascii")
@@ -254,8 +254,11 @@ class ConditionalBundle:
     @classmethod
     def read(cls, path):
         with Path(path).open("rb") as source:
-            if source.readline() != b"WARPX_THERMAL_ROTATION_V5\n":
-                raise ValueError("Expected a conditional V5 bundle")
+            if source.readline() not in (
+                b"WARPX_IAA_SPECTATOR\n",
+                b"WARPX_THERMAL_ROTATION_V5\n",
+            ):
+                raise ValueError("Expected IAA spectator rotational data")
             target, model, maximum_j, reserved = source.readline().decode().split()
             if (target, model, reserved) != ("N2", "iaa_spectator", "0"):
                 raise ValueError("Unknown conditional model")

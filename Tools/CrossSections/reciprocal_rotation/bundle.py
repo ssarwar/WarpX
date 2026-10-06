@@ -4,7 +4,7 @@
 #
 # License: BSD-3-Clause-LBNL
 
-"""V6 scientific arrays, split into ordinary Git-sized binary files."""
+"""Prepared scientific arrays and readable rotational probability data."""
 
 from pathlib import Path
 
@@ -52,7 +52,7 @@ def write_bundle(directory, metadata, arrays):
         if old.name not in parts:
             old.unlink()
     index = [
-        "WARPX_THERMAL_ROTATION_V6",
+        "WARPX_RECIPROCAL_ROTATION_BINARY",
         *metadata,
         f"{len(descriptions)} {len(parts)} {offset}",
         *descriptions,
@@ -66,24 +66,27 @@ def read_bundle(index):
     """Read packed data for offline verification; no source-model imports."""
     index = Path(index)
     lines = index.read_text().splitlines()
-    if lines[0] == "WARPX_THERMAL_ROTATION_V7":
+    if lines[0] in ("WARPX_RECIPROCAL_ROTATION", "WARPX_THERMAL_ROTATION_V7"):
         from text_bundle import read_text_bundle
 
         return read_text_bundle(index)
-    if lines[0] != "WARPX_THERMAL_ROTATION_V6":
-        raise ValueError("Not a reciprocal V6 bundle")
+    if lines[0] not in (
+        "WARPX_RECIPROCAL_ROTATION_BINARY",
+        "WARPX_THERMAL_ROTATION_V6",
+    ):
+        raise ValueError("Not prepared reciprocal rotational data")
     count, parts, size = map(int, lines[3].split())
     if len(lines) != 4 + count + parts:
-        raise ValueError("Invalid V6 index length")
+        raise ValueError("Invalid rotational index length")
     payload = bytearray()
     for line in lines[4 + count :]:
         filename, expected = line.split()
         path = index.parent / filename
         if path.parent != index.parent or path.stat().st_size != int(expected):
-            raise ValueError("Invalid V6 part")
+            raise ValueError("Invalid rotational part")
         payload.extend(path.read_bytes())
     if len(payload) != size:
-        raise ValueError("Invalid V6 payload size")
+        raise ValueError("Invalid rotational payload size")
     arrays = {}
     end = 0
     for line in lines[4 : 4 + count]:
@@ -91,11 +94,11 @@ def read_bundle(index):
         n, offset = int(n), int(offset)
         dtype = TYPES[kind]
         if name in arrays or offset < end or offset % 8:
-            raise ValueError("Invalid V6 array layout")
+            raise ValueError("Invalid rotational array layout")
         end = offset + n * dtype.itemsize
         if end > size:
-            raise ValueError("Truncated V6 array")
+            raise ValueError("Truncated rotational array")
         arrays[name] = np.frombuffer(payload, dtype=dtype, count=n, offset=offset)
     if end != size:
-        raise ValueError("Trailing V6 bytes")
+        raise ValueError("Trailing rotational bytes")
     return lines[1:3], arrays

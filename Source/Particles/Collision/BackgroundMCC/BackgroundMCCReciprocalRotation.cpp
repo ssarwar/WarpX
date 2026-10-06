@@ -43,14 +43,14 @@ readArray (std::filesystem::path const& directory,
            std::string const& type, std::size_t total) {
     auto const it = arrays.find(name);
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(it != arrays.end(),
-                                     "Missing V6 array: " + name);
+                                     "Missing rotational array: " + name);
     auto const entry = it->second;
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
         entry.m_type == type && entry.m_offset % 8 == 0 &&
             entry.m_count <= maximum_bytes / sizeof(T) &&
             entry.m_offset <= total &&
             entry.m_count * sizeof(T) <= total - entry.m_offset,
-        "Invalid V6 array: " + name);
+        "Invalid rotational array: " + name);
     if (!entry.m_file.empty()) {
         if constexpr (!std::is_same_v<T,
                                       BackgroundMCCReciprocalRotation::Alias>) {
@@ -69,12 +69,12 @@ readArray (std::filesystem::path const& directory,
         auto const position = offset % part_bytes;
         auto const count = std::min(remaining, part_bytes - position);
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(part < parts.size(),
-                                         "Truncated V6 part list.");
+                                         "Truncated rotational part list.");
         std::ifstream input(directory / parts[part], std::ios::binary);
         input.seekg(static_cast<std::streamoff>(position));
         input.read(output, static_cast<std::streamsize>(count));
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(input.good(),
-                                         "Truncated V6 array: " + name);
+                                         "Truncated rotational array: " + name);
         output += count;
         offset += count;
         remaining -= count;
@@ -96,12 +96,12 @@ template <typename T>
 void
 checkIncreasing (std::vector<T> const& values, std::string const& name) {
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(values.size() >= 2,
-                                     "V6 grid needs two nodes: " + name);
+                                     "Rotational grid needs two nodes: " + name);
     double previous = -1;
     for (auto value : values) {
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(std::isfinite(value) &&
                                              value > previous,
-                                         "Invalid V6 grid: " + name);
+                                         "Invalid rotational grid: " + name);
         previous = value;
     }
 }
@@ -160,20 +160,24 @@ BackgroundMCCReciprocalRotation::BackgroundMCCReciprocalRotation (
     index >> magic >> target >> model >> sampling >> table_temperature >>
         m_neutral_mass >> e.m_maximum_energy >> e.m_high_energy >>
         e.m_rutherford_energy >> e.m_separation >> e.m_screening_radius;
-    bool const text_format = magic == "WARPX_THERMAL_ROTATION_V7";
+    // File identifiers select storage layout; users select the physical model.
+    // Keep archival identifiers readable without exposing them as user options.
+    bool const text_format = magic == "WARPX_RECIPROCAL_ROTATION" ||
+                             magic == "WARPX_THERMAL_ROTATION_V7";
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-        index && (text_format || magic == "WARPX_THERMAL_ROTATION_V6") &&
+        index && (text_format || magic == "WARPX_RECIPROCAL_ROTATION_BINARY" ||
+                  magic == "WARPX_THERMAL_ROTATION_V6") &&
             (target == "N2" || target == "O2") &&
             model == "reciprocal_hybrid" &&
             sampling == (text_format ? "probabilities"
                                      : (cumulative ? "cumulative" : "alias")),
-        "Invalid V6 model/representation. Prepare the requested sampling "
-        "tables offline.");
+        "Invalid rotational model/representation. Use data matching the selected "
+        "model and sampling representation.");
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
         std::isfinite(temperature) && temperature >= 0 &&
             std::abs(table_temperature - temperature) <=
                 1e-10 * std::max(1.0, temperature),
-        "V6 rotational_temperature does not match the fixed-temperature "
+        "The requested rotational_temperature does not match the fixed-temperature "
         "bundle.");
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
         std::isfinite(e.m_maximum_energy) && e.m_maximum_energy > 0 &&
@@ -181,18 +185,18 @@ BackgroundMCCReciprocalRotation::BackgroundMCCReciprocalRotation (
             e.m_rutherford_energy > e.m_high_energy && e.m_high_energy > 0 &&
             e.m_separation > 0 && e.m_screening_radius > 0 &&
             std::isfinite(m_neutral_mass) && m_neutral_mass > 0,
-        "Invalid V6 physical metadata.");
+        "Invalid rotational physical metadata.");
     double const expected_mass =
         (target == "N2" ? 28.0134 : 31.9988) * 1.66053906660e-27;
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
         std::abs(m_neutral_mass / expected_mass - 1) < 1e-12 &&
             std::isfinite(e.m_separation) &&
             std::isfinite(e.m_screening_radius),
-        "V6 molecular constants do not match the target.");
+        "Rotational molecular constants do not match the target.");
     std::uint32_t endian = 1;
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
         (text_format || *reinterpret_cast<unsigned char*>(&endian) == 1) && sizeof(double) == 8,
-        "V6 files require a little-endian binary64 host.");
+        "Rotational files require a little-endian binary64 host.");
     std::size_t array_count = 0, part_count = 0, total = 0;
     std::map<std::string, Array> arrays;
     auto const directory = std::filesystem::path(file).parent_path();
@@ -201,7 +205,7 @@ BackgroundMCCReciprocalRotation::BackgroundMCCReciprocalRotation (
         index >> array_count;
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(index && array_count > 0 &&
                                              array_count < 32,
-                                         "Invalid V7 array count.");
+                                         "Invalid rotational array count.");
         for (std::size_t i = 0; i <= array_count; ++i) {
             std::string name;
             Array value;
@@ -209,7 +213,7 @@ BackgroundMCCReciprocalRotation::BackgroundMCCReciprocalRotation (
             if (i == array_count) {
                 WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
                     name == "probabilities" && value.m_type == "alias",
-                    "Missing V7 probability table.");
+                    "Missing rotational probability table.");
                 name = "aliases";
             }
             std::size_t const width =
@@ -225,19 +229,19 @@ BackgroundMCCReciprocalRotation::BackgroundMCCReciprocalRotation (
                         value.m_file &&
                     value.m_file != "." && value.m_file != ".." &&
                     arrays.emplace(name, value).second,
-                "Invalid V7 array directory.");
+                "Invalid rotational array directory.");
             total = value.m_offset + width * value.m_count;
         }
         std::string trailing;
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(!(index >> trailing),
-                                         "Unexpected V7 index fields.");
+                                         "Unexpected rotational index fields.");
     } else {
         index >> array_count >> part_count >> total;
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
             index && array_count <= 32 && part_count > 0 &&
                 part_count <= maximum_bytes / part_bytes &&
                 total <= maximum_bytes,
-            "Invalid V6 bundle dimensions.");
+            "Invalid rotational bundle dimensions.");
         std::size_t previous_end = 0;
         for (std::size_t i = 0; i < array_count; ++i) {
             std::string name;
@@ -255,11 +259,11 @@ BackgroundMCCReciprocalRotation::BackgroundMCCReciprocalRotation (
                     value.m_offset <= total &&
                     width * value.m_count <= total - value.m_offset &&
                     arrays.emplace(name, value).second,
-                "Invalid V6 array directory.");
+                "Invalid rotational array directory.");
             previous_end = value.m_offset + width * value.m_count;
         }
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(previous_end == total,
-                                         "Unexpected V6 trailing bytes.");
+                                         "Unexpected rotational trailing bytes.");
         std::size_t part_total = 0;
         for (std::size_t i = 0; i < part_count; ++i) {
             std::string name;
@@ -270,14 +274,14 @@ BackgroundMCCReciprocalRotation::BackgroundMCCReciprocalRotation (
                     bytes > 0 && bytes <= part_bytes &&
                     (i + 1 == part_count || bytes == part_bytes) &&
                     std::filesystem::file_size(directory / name) == bytes,
-                "Missing or invalid V6 binary part.");
+                "Missing or invalid rotational binary part.");
             parts.push_back(name);
             part_total += bytes;
         }
         std::string trailing;
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
             part_total == total && !(index >> trailing),
-            "V6 index has inconsistent length or trailing fields.");
+            "Rotational index has inconsistent length or trailing fields.");
     }
     m_table_bytes = total;
     auto read_double = [&] (std::string const& name) {
@@ -296,12 +300,12 @@ BackgroundMCCReciprocalRotation::BackgroundMCCReciprocalRotation (
         n <= 100000 && m_energies.front() == 0 &&
             m_energies.back() == e.m_maximum_energy && m_rates.size() == n &&
             m_coordinates.size() == n,
-        "V6 rate grids do not match the supported energy interval.");
+        "Rotational rate grids do not match the supported energy interval.");
     for (std::size_t i = 0; i < n; ++i) {
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
             std::isfinite(m_rates[i]) && m_rates[i] >= 0 &&
                 m_coordinates[i] <= 1,
-            "Invalid V6 rate or interpolation coordinate.");
+            "Invalid rotational rate or interpolation coordinate.");
     }
     auto ao = read_uint("angular_offsets");
     auto au = read_double("angular_u");
@@ -328,7 +332,7 @@ BackgroundMCCReciprocalRotation::BackgroundMCCReciprocalRotation (
             std::is_sorted(cells.begin(), cells.end()) &&
             outcomes_raw.size() >= 2 && outcomes_raw.size() % 2 == 0 &&
             outcomes_raw.size() / 2 <= 65535,
-        "Invalid V6 sampling dimensions.");
+        "Invalid rotational sampling dimensions.");
     for (std::size_t row = 0; row < n; ++row) {
         for (int kind = 0; kind < 2; ++kind) {
             auto const& offsets = kind == 0 ? ao : co;
@@ -337,17 +341,17 @@ BackgroundMCCReciprocalRotation::BackgroundMCCReciprocalRotation (
             if (last == first) {
                 WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
                     kind != 0 || m_energies[row] > e.m_rutherford_energy,
-                    "V6 angular row is missing.");
+                    "Rotational angular row is missing.");
                 continue;
             }
             WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
                 last - first >= 2 && grid[first] == 0 && grid[last - 1] == 1,
-                "V6 quantile row is missing its endpoints.");
+                "Rotational quantile row is missing its endpoints.");
             for (auto i = first; i < last; ++i) {
                 WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
                     std::isfinite(grid[i]) &&
                         (i == first || grid[i] > grid[i - 1]),
-                    "Invalid V6 quantile row.");
+                    "Invalid rotational quantile row.");
             }
         }
         for (auto i = ao[row]; i < ao[row + 1]; ++i) {
@@ -358,12 +362,12 @@ BackgroundMCCReciprocalRotation::BackgroundMCCReciprocalRotation (
                     std::isfinite(changing[i]) && changing[i] >= 0 &&
                     changing[i] <= 1 &&
                     (changing[i] == 0 || co[row + 1] > co[row]),
-                "Invalid V6 angular probabilities.");
+                "Invalid rotational angular probabilities.");
         }
         if (ao[row + 1] > ao[row]) {
             WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
                 deflection[ao[row]] == 0 && deflection[ao[row + 1] - 1] == 2,
-                "V6 angular support is incomplete.");
+                "Rotational angular support is incomplete.");
         }
     }
     std::vector<std::uint32_t> angular_lookup, conditional_lookup;
@@ -395,21 +399,21 @@ BackgroundMCCReciprocalRotation::BackgroundMCCReciprocalRotation (
         }
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
             lookup.size() == n * (bins + 1),
-            "Invalid V6 quantile lookup dimensions.");
+            "Invalid rotational quantile lookup dimensions.");
         for (std::size_t row = 0; row < n; ++row) {
             auto const first = offsets[row], end = offsets[row + 1];
             for (int bin = 0; bin <= bins; ++bin) {
                 auto const i = lookup[row * (bins + 1) + bin];
                 if (first == end) {
                     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-                        i == 0, "Invalid empty V6 lookup row.");
+                        i == 0, "Invalid empty rotational lookup row.");
                     continue;
                 }
                 double const quantile = double(bin) / bins;
                 WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
                     i >= first && i < end - 1 && grid[i] <= quantile &&
                         (bin == bins ? i == end - 2 : grid[i + 1] > quantile),
-                    "V6 lookup does not bracket its quantile bin.");
+                    "Rotational lookup does not bracket its quantile bin.");
             }
         }
         return lookup;
@@ -424,7 +428,7 @@ BackgroundMCCReciprocalRotation::BackgroundMCCReciprocalRotation (
     auto level = [&] (double energy) {
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
             std::isfinite(energy) && energy >= -1e-12 && energy < dissociation,
-            "V6 rotational level is outside the bound manifold.");
+            "Rotational rotational level is outside the bound manifold.");
         double const value =
             energy / rotational_constant + ground * (ground + 1);
         int const j =
@@ -434,7 +438,7 @@ BackgroundMCCReciprocalRotation::BackgroundMCCReciprocalRotation (
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
             j >= ground && (target == "N2" || j % 2 == 1) &&
                 std::abs(energy - canonical) <= 1e-12 && energy < dissociation,
-            "V6 outcome is not a canonical bound rotational level.");
+            "Rotational outcome is not a canonical bound rotational level.");
         return j;
     };
     for (std::size_t i = 0; i < outcomes.size(); ++i) {
@@ -444,13 +448,13 @@ BackgroundMCCReciprocalRotation::BackgroundMCCReciprocalRotation (
                 std::isfinite(outcomes[i].m_initial_energy) &&
                 outcomes[i].m_initial_energy >= 0 &&
                 outcomes[i].m_initial_energy + outcomes[i].m_loss >= -1e-12,
-            "Invalid V6 rotational energy change.");
+            "Invalid rotational rotational energy change.");
         int const initial = level(outcomes[i].m_initial_energy);
         int const final =
             level(outcomes[i].m_initial_energy + outcomes[i].m_loss);
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
             (initial - final) % 2 == 0,
-            "V6 outcome changes homonuclear rotational parity.");
+            "Rotational outcome changes homonuclear rotational parity.");
     }
     checkIncreasing(high_edges, "momentum transfer");
     constexpr double electron_rest_energy = 510998.95069;
@@ -462,17 +466,17 @@ BackgroundMCCReciprocalRotation::BackgroundMCCReciprocalRotation (
         (fine_structure * electron_rest_energy);
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
         high_edges.back() >= maximum_q,
-        "V6 momentum-transfer tables do not cover the supported energy range.");
+        "Rotational momentum-transfer tables do not cover the supported energy range.");
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
         high_edges.front() == 0 && high_cells.size() + 1 == high_edges.size(),
-        "Invalid V6 momentum-transfer cells.");
+        "Invalid rotational momentum-transfer cells.");
     for (auto cell : cc) {
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(cell + 1 < cells.size(),
-                                         "Invalid V6 conditional cell.");
+                                         "Invalid rotational conditional cell.");
     }
     for (auto cell : high_cells) {
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(cell + 1 < cells.size(),
-                                         "Invalid V6 high-energy cell.");
+                                         "Invalid rotational high-energy cell.");
     }
     auto& d = *m_data;
     std::vector<double> largest_loss(cells.size() - 1, 0);
@@ -481,7 +485,7 @@ BackgroundMCCReciprocalRotation::BackgroundMCCReciprocalRotation (
         auto const item = arrays.find("aliases");
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
             item != arrays.end() && item->second.m_count == cells.back(),
-            "V7 probability length does not match its cells.");
+            "Rotational probability length does not match its cells.");
         prepared = BackgroundMCCReciprocalText::readProbabilities(
             (directory / item->second.m_file).string(), cells, outcomes.size());
         arrays.erase(item);
@@ -525,18 +529,18 @@ BackgroundMCCReciprocalRotation::BackgroundMCCReciprocalRotation (
         }
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(cdf.size() == ids.size() &&
                                              cells.back() == cdf.size(),
-                                         "Invalid V6 cumulative table.");
+                                         "Invalid rotational cumulative table.");
         for (std::size_t c = 0; c + 1 < cells.size(); ++c) {
             WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
                 cells[c + 1] > cells[c] && cells[c + 1] - cells[c] <= 65535 &&
                     cdf[cells[c + 1] - 1] == 1,
-                "Invalid V6 cumulative cell.");
+                "Invalid rotational cumulative cell.");
             double previous = 0;
             for (auto i = cells[c]; i < cells[c + 1]; ++i) {
                 WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
                     std::isfinite(cdf[i]) && cdf[i] >= previous &&
                         cdf[i] <= 1 && ids[i] < outcomes.size(),
-                    "Invalid V6 cumulative entry.");
+                    "Invalid rotational cumulative entry.");
                 previous = cdf[i];
                 largest_loss[c] =
                     std::max(largest_loss[c], outcomes[ids[i]].m_loss);
@@ -550,11 +554,11 @@ BackgroundMCCReciprocalRotation::BackgroundMCCReciprocalRotation (
                            : readArray<Alias>(directory, parts, arrays,
                                               "aliases", "alias", total);
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(cells.back() == aliases.size(),
-                                         "Invalid V6 alias length.");
+                                         "Invalid rotational alias length.");
         for (std::size_t c = 0; c + 1 < cells.size(); ++c) {
             auto const count = cells[c + 1] - cells[c];
             WARPX_ALWAYS_ASSERT_WITH_MESSAGE(count > 0 && count <= 65535,
-                                             "Invalid V6 alias cell size.");
+                                             "Invalid rotational alias cell size.");
             for (auto i = cells[c]; i < cells[c + 1]; ++i) {
                 auto const entry = aliases[i];
                 WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
@@ -562,14 +566,14 @@ BackgroundMCCReciprocalRotation::BackgroundMCCReciprocalRotation (
                         entry.m_probability >= 0 && entry.m_probability <= 1 &&
                         entry.m_alternate < count &&
                         entry.m_outcome < outcomes.size(),
-                    "Invalid V6 alias entry.");
+                    "Invalid rotational alias entry.");
                 largest_loss[c] =
                     std::max(largest_loss[c], outcomes[entry.m_outcome].m_loss);
             }
         }
         e.m_aliases = upload(aliases, d.m_aliases);
     }
-    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(arrays.empty(), "Unknown V6 arrays.");
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(arrays.empty(), "Unknown rotational arrays.");
     for (std::size_t row = 0; row < n && m_energies[row] <= e.m_high_energy;
          ++row) {
         double const minimum_energy = row == 0 ? 0 : m_energies[row - 1];
@@ -578,7 +582,7 @@ BackgroundMCCReciprocalRotation::BackgroundMCCReciprocalRotation (
             // Its support must therefore be open at that interval's lower end.
             WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
                 largest_loss[cc[j]] <= minimum_energy,
-                "V6 row mixtures would permit a subthreshold rotational "
+                "Rotational row mixtures would permit a subthreshold rotational "
                 "excitation.");
         }
     }

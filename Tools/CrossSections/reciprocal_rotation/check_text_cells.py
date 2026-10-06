@@ -6,8 +6,8 @@
 
 """Compare every native decoded cell with the original production probabilities.
 
-Use test_reciprocal_rotation cell_output=<path> with a readable V7 input.
-The reference is its validated V6 input retained outside warpx-data during
+Use test_reciprocal_rotation cell_output=<path> with a readable probability input.
+The reference is its validated binary input retained outside warpx-data during
 conversion. This deterministic check includes float32 alias packing.
 """
 

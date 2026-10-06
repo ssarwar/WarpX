@@ -138,7 +138,8 @@ BackgroundMCCThermalRotation::BackgroundMCCThermalRotation (std::string const& f
     double reference_temperature = 0;
     input >> magic >> target >> source_model >> maximum_j >> reference_temperature >>
         energy_count >> transition_count;
-    bool const state_resolved_elastic = magic == "WARPX_THERMAL_ROTATION_V4";
+    bool const state_resolved_elastic = magic == "WARPX_THERMAL_ROTATION_RATES" ||
+                                        magic == "WARPX_THERMAL_ROTATION_V4";
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
         input && (magic == "WARPX_THERMAL_ROTATION_V3" || state_resolved_elastic) &&
             (target == "N2" || target == "O2") &&

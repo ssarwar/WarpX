@@ -171,7 +171,9 @@ def write_text_bundle(source, directory):
         stream.write(
             "# Signed factors are not cross sections. See README.md for reconstruction.\n"
         )
-        stream.write(f"WARPX_PROBABILITY_FACTORS_V1 {count} {len(arrays['aliases'])}\n")
+        stream.write(
+            f"WARPX_ROTATIONAL_PROBABILITIES {count} {len(arrays['aliases'])}\n"
+        )
         for first in range(0, count, BLOCK_CELLS):
             last = min(count, first + BLOCK_CELLS)
             ids, probability = spectra(arrays, first, last)
@@ -198,7 +200,7 @@ def write_text_bundle(source, directory):
             if first % (BLOCK_CELLS * 32) == 0:
                 print(first, count, maximum_l1, maximum_moments, flush=True)
     header = [
-        "WARPX_THERMAL_ROTATION_V7",
+        "WARPX_RECIPROCAL_ROTATION",
         metadata[0].rsplit(" ", 1)[0] + " probabilities",
         metadata[1],
         str(len(descriptions)),
@@ -217,7 +219,10 @@ def write_text_bundle(source, directory):
 
 def read_probabilities(path, offsets):
     tokens = iter(numeric_tokens(path))
-    if next(tokens) != "WARPX_PROBABILITY_FACTORS_V1":
+    if next(tokens) not in (
+        "WARPX_ROTATIONAL_PROBABILITIES",
+        "WARPX_PROBABILITY_FACTORS_V1",
+    ):
         raise ValueError("Invalid probability factors")
     cells, entries = int(next(tokens)), int(next(tokens))
     if cells + 1 != len(offsets) or entries != offsets[-1]:

@@ -118,8 +118,10 @@ readProbabilities (std::string const& file,
                    std::size_t outcome_count) {
     using Alias = BackgroundMCCReciprocalRotation::Alias;
     Input input(file);
+    auto const identifier = input.next<std::string>();
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-        input.next<std::string>() == "WARPX_PROBABILITY_FACTORS_V1",
+        identifier == "WARPX_ROTATIONAL_PROBABILITIES" ||
+            identifier == "WARPX_PROBABILITY_FACTORS_V1",
         "Invalid rotational probability encoding.");
     auto const cells = input.next<std::size_t>();
     auto const entries = input.next<std::size_t>();

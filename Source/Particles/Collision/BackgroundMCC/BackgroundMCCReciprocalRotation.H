@@ -24,7 +24,7 @@
 class ScatteringProcess;
 
 /** Immutable thermal rotational distributions and their elastic marginal.
- * V7 text inputs prepare the sampling representation once on the host; V6
+ * Text inputs prepare the sampling representation once on the host; binary
  * inputs contain prepared arrays. See theory/multiphysics/rotational_scattering.
  */
 class BackgroundMCCReciprocalRotation
@@ -36,7 +36,7 @@ public:
         std::uint16_t m_alternate;
         std::uint16_t m_outcome;
     };
-    static_assert(sizeof(Alias) == 8, "The V6 alias layout requires eight bytes.");
+    static_assert(sizeof(Alias) == 8, "The packed alias layout requires eight bytes.");
     using Outcome = BackgroundMCCThermalRotation::Outcome;
 
     struct Executor
