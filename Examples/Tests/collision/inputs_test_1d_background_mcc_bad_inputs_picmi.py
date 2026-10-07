@@ -152,7 +152,7 @@ for metadata, value in [
 for name, error in {
     "rotation_negative": "Negative, nonfinite or sub-threshold thermal-rotation reference rate",
     "rotation_subthreshold": "Negative, nonfinite or sub-threshold thermal-rotation reference rate",
-    "rotation_legacy_bundle": "Invalid thermal-rotation bundle header or model mismatch",
+    "rotation_invalid_identifier": "Invalid thermal-rotation bundle header or model mismatch",
     "rotation_truncated": "Truncated thermal-rotation bundle",
     "rotation_population": "Thermal-rotation bundle omits too much Boltzmann population",
     "rotation_temperature": "Rotational temperature must be finite and nonnegative",
@@ -220,10 +220,10 @@ def run_invalid_case(case):
             bundle_path.write_bytes(payload)
         elif case == "rotation_truncated":
             bundle_path.write_bytes(bundle_path.read_bytes()[:-8])
-        elif case == "rotation_legacy_bundle":
-            bundle_path.write_bytes(
-                bundle_path.read_bytes().replace(b"_V3\n", b"_V2\n", 1)
-            )
+        elif case == "rotation_invalid_identifier":
+            header, payload = bundle_path.read_bytes().split(b"\n", 1)
+            assert header == b"WARPX_THERMAL_ROTATION_RATES"
+            bundle_path.write_bytes(b"WARPX_UNSUPPORTED_ROTATION\n" + payload)
         elif case == "rotation_subthreshold":
             payload = bytearray(bundle_path.read_bytes())
             header = sum(len(line) + 1 for line in payload.split(b"\n", 3)[:3])

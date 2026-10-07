@@ -42,10 +42,13 @@ if args.continue_output:
     MPI.COMM_WORLD.Barrier()
 dt, magnetic_field = 1e-13, 0.01
 rmax, length = 0.016, 0.064
+# A nonzero centroid makes the strict relative restart comparison well posed.
+# Uniform fields and their exact volume/surface integrals are translation invariant.
+z_center = length / 4
 grid = picmi.CylindricalGrid(
     number_of_cells=[16, 128],
-    lower_bound=[0, -length / 2],
-    upper_bound=[rmax, length / 2],
+    lower_bound=[0, z_center - length / 2],
+    upper_bound=[rmax, z_center + length / 2],
     lower_boundary_conditions=["none", "periodic"],
     upper_boundary_conditions=["none", "periodic"],
     warpx_max_grid_size=16,
@@ -157,9 +160,9 @@ for integrate in [False, True]:
             period=1,
             probe_geometry="Line",
             x_probe=0.003,
-            z_probe=-0.01,
+            z_probe=z_center - 0.01,
             x1_probe=0.013,
-            z1_probe=0.01,
+            z1_probe=z_center + 0.01,
             resolution=9,
             interp_order=2,
             integrate=integrate,
@@ -183,6 +186,8 @@ if MPI.COMM_WORLD.rank == 0:
         path.stem: np.loadtxt(path, skiprows=1, ndmin=2)
         for path in directory.glob("*.txt")
     }
+    # The fixed gridded electrons also have an exact weighted longitudinal mean.
+    np.testing.assert_allclose(data["BeamRelevant"][:, 4], z_center, rtol=2e-13)
     np.savez("diagnostics.npz", **data)
     # A line probe writes one row per probe and step. Retain every probe,
     # including the initialization/restart sample, when checking exact fields.
