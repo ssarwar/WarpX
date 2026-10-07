@@ -1313,7 +1313,6 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTileImpl (
     amrex::ignore_unused(product_counts, product_event_count, runtime_error);
     using namespace amrex::literals;
     using Rate = std::conditional_t<use_reciprocal, double, amrex::ParticleReal>;
-    using Uniform = std::conditional_t<use_reciprocal, double, amrex::Real>;
     using std::sqrt;
 
     const long np = pti.numParticles();
@@ -1380,11 +1379,9 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTileImpl (
             if (idcpu[ip] == amrex::ParticleIdCpus::Invalid) {
                 return;
             }
-            if (use_reciprocal) {
-                if (BackgroundMCCUtils::uniformDouble(engine) >= total_collision_prob) { return; }
-            } else {
-                if (amrex::Random(engine) > total_collision_prob) { return; }
-            }
+            // Fine subcycling can make ordinary MCC attempts rare too. A
+            // binary32 uniform would quantize those probabilities to 2^-24.
+            if (BackgroundMCCUtils::uniformDouble(engine) >= total_collision_prob) { return; }
 
             amrex::ParticleReal n_a = background_density;
             amrex::ParticleReal T_a = background_temperature;
@@ -1550,8 +1547,7 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTileImpl (
 
             auto const acceptance = BackgroundMCCUtils::conditionalEventProbability(
                 Rate(collision_frequency * dt), total_collision_prob);
-            Uniform const process_draw = use_reciprocal
-                ? BackgroundMCCUtils::uniformDouble(engine) : amrex::Random(engine);
+            double const process_draw = BackgroundMCCUtils::uniformDouble(engine);
             if (!(process_draw < acceptance)) {
                 return;
             }
