@@ -5,16 +5,16 @@ project(BackgroundMCCPhysics LANGUAGES C CXX)
 find_package(AMReX REQUIRED CONFIG)
 if(AMReX_CUDA_FOUND)
     enable_language(CUDA)
-    set_source_files_properties(test_kinematics.cpp test_interpolation.cpp
+    set_source_files_properties(test_kinematics.cpp test_interpolation.cpp test_elastic_angles.cpp
                                 PROPERTIES LANGUAGE CUDA)
 elseif(AMReX_HIP_FOUND)
     enable_language(HIP)
-    set_source_files_properties(test_kinematics.cpp test_interpolation.cpp
+    set_source_files_properties(test_kinematics.cpp test_interpolation.cpp test_elastic_angles.cpp
                                 PROPERTIES LANGUAGE HIP)
 endif()
 
 enable_testing()
-foreach(test IN ITEMS kinematics interpolation)
+foreach(test IN ITEMS kinematics interpolation elastic_angles)
     add_executable(test_mcc_${test} test_${test}.cpp)
     target_compile_features(test_mcc_${test} PRIVATE cxx_std_17)
     target_include_directories(test_mcc_${test} PRIVATE ../../../Source)
