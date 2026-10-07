@@ -133,7 +133,7 @@ public:
     amrex::ParticleReal m_background_temperature = 0;
     amrex::ParticleReal m_max_background_density = 0;
     amrex::ParticleReal m_background_mass = -1;
-    amrex::ParticleReal m_total_collision_prob = 0;
+    double m_total_collision_prob = 0;
     amrex::ParticleReal m_nu_max = 0;
 
     amrex::Parser m_background_density_parser;

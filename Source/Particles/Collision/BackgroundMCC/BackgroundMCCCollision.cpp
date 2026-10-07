@@ -1063,9 +1063,10 @@ BackgroundMCCCollision::doCollisions (
         init_flag = true;
     }
 
-    auto const coll_n = m_nu_max*dt;
-    m_total_collision_prob = static_cast<amrex::ParticleReal>(
-        -std::expm1(-static_cast<double>(coll_n)));
+    auto const coll_n = static_cast<double>(m_nu_max)*static_cast<double>(dt);
+    // Share this probability across tiles. Keep the reciprocal path in double
+    // precision, including the host's zero-probability early return.
+    m_total_collision_prob = -std::expm1(-coll_n);
 
     if (coll_n > 0.1_prt && !m_warned_large_dt)
     {
@@ -1340,8 +1341,7 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTileImpl (
         m_differential_scattering_processes_exe.data();
     int const rotation_process = m_rotation_process;
     auto const* process_product_group = m_process_product_group.data();
-    Rate const total_collision_prob = use_reciprocal
-        ? Rate(-std::expm1(-double(m_nu_max) * double(dt))) : Rate(m_total_collision_prob);
+    Rate const total_collision_prob = static_cast<Rate>(m_total_collision_prob);
     auto const nu_max = m_nu_max;
     auto const user_nu_max = m_user_nu_max;
     auto const max_background_density = m_max_background_density;
@@ -1636,7 +1636,7 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTileImpl (
             }
             if (integral_rotation ||
                 (spectator.enabled() && chosen_process == rotation_process)) {
-                double const angle_draw = amrex::Random(engine);
+                double const angle_draw = BackgroundMCCUtils::uniformDouble(engine);
                 // A zero relative momentum has no incident axis. Superelastic
                 // emission then uses the rotationally invariant angular limit.
                 double const cosine =
@@ -1728,7 +1728,7 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTileImpl (
             {
                 auto const cosine =
                     differential_scattering_processes[chosen_process].sampleCosine(
-                        E_coll, amrex::Random(engine));
+                        E_coll, BackgroundMCCUtils::uniformDouble(engine));
                 if (process.m_type == ScatteringProcessType::ELASTIC)
                 {
                     BackgroundMCCElasticKinematics::compute(
