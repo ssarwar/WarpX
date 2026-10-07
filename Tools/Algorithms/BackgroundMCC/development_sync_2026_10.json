@@ -403,7 +403,12 @@
           "rms_relative_error": 0.049314402314327425,
           "analysis_returncode": 0
         }
-      ]
+      ],
+      "original_mpi_ranks": 1,
+      "original_warpx_random_seed": "default",
+      "refinement_mpi_ranks": 2,
+      "interpretation": "Refinement runs also changed MPI rank count and the random seed relative to the original coarse run; they do not isolate the effect of resolution alone. Original failure retained.",
+      "followup_audit": "dsmc_branch_audit_2026_10.json"
     },
     "timing": {
       "job_id": "59476427",

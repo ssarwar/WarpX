@@ -329,10 +329,15 @@ error reduction support marginal stochastic/numerical variation; they do not
 erase the first failed run.
 
 The coarse DSMC discharge comparison gives 7.54% RMS error on integration
-versus the unchanged 6.50% bound (development gives 5.09%). Independent
-integration refinements retain the same reference and assertion: timestep
-4.93%, particles 4.60%, joint 3.67%. All pass. This remains a coarse-run
-failure, with convergence evidence rather than a changed tolerance.
+versus the unchanged 6.50% bound (development gives 5.09%). The integration
+refinement runs retain the same reference and assertion: timestep 4.93%,
+particles 4.60%, joint 3.67%. All pass. A subsequent audit found that these
+refinement runs used two MPI ranks and explicit random seed 1, whereas the
+original coarse test used one MPI rank and the default seed. They therefore
+do not isolate the effect of refinement alone. The original coarse failure
+remains recorded; no assertion tolerance was changed. The subsequent
+`DSMC branch audit <dsmc_branch_audit_2026_10.rst>`_ provides matched
+one-rank ensembles, repeated default-seed runs, and diagnostic ablations.
 
 GPU subcycle timing
 ~~~~~~~~~~~~~~~~~~~
