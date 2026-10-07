@@ -20,8 +20,13 @@ parser.add_argument(
     "--solver", choices=["Yee", "semi_implicit_em", "semi_implicit_mm"], default="Yee"
 )
 parser.add_argument("--subcycles", type=int, default=4)
+parser.add_argument("--start-step", type=int, default=0)
+parser.add_argument("--supercycles", type=int)
+parser.add_argument("--check-schedule", action="store_true")
 parser.add_argument("--early", action="store_true")
 args = parser.parse_args()
+if args.check_schedule and not args.supercycles:
+    parser.error("--check-schedule requires --supercycles")
 dt = 1e-12
 grid = picmi.Cartesian1DGrid(
     number_of_cells=[8],
@@ -48,22 +53,29 @@ MPI.COMM_WORLD.Barrier()
 # Future gas is identically absent over the entire simulated interval [0,dt].
 # Early gas instead checks that implicit subcycling samples the elapsed step,
 # rather than evaluating every substep at the end of the field push.
-condition = f"t < {0.625 * dt:.17g}" if args.early else f"t > {1.125 * dt:.17g}"
+condition = (
+    f"t < {(args.start_step + 0.625) * dt:.17g}"
+    if args.early
+    else f"t > {(args.start_step + 1.125) * dt:.17g}"
+)
 collision = picmi.MCCCollisions(
     name="scatter",
     species=electrons,
-    background_density=f"if({condition},1e30,0)",
+    background_density=1e30 if args.check_schedule else f"if({condition},1e30,0)",
     max_background_density=1e30,
     background_temperature=0,
     background_mass=28 * 1.66053906660e-27,
-    ndt_subcycle=args.subcycles,
+    ndt_subcycle=None if args.supercycles else args.subcycles,
+    ndt_supercycle=args.supercycles,
+    start_step=args.start_step,
     scattering_processes={"elastic": {"cross_section": "elastic.txt"}},
 )
 implicit = args.solver != "Yee"
 mass_matrices = args.solver == "semi_implicit_mm"
+steps = args.start_step + (2 * args.supercycles + 1 if args.check_schedule else 1)
 sim = picmi.Simulation(
     solver=picmi.ElectromagneticSolver(grid=grid, method="Yee"),
-    max_steps=1,
+    max_steps=steps,
     time_step_size=dt,
     particle_shape=1,
     verbose=0,
@@ -84,17 +96,30 @@ sim = picmi.Simulation(
 sim.add_species(
     electrons, picmi.GriddedLayout(grid=grid, n_macroparticle_per_cell=[64])
 )
-sim.step(1)
-scattered = 0
-for tile in sim.particles.get("electrons").iterator(level=0):
-    values = tile["ux"]
-    values = values.get() if hasattr(values, "get") else np.asarray(values)
-    scattered += np.count_nonzero(values)
-scattered = MPI.COMM_WORLD.allreduce(scattered)
+for step in range(steps):
+    sim.step(1)
+    scattered = 0
+    for tile in sim.particles.get("electrons").iterator(level=0):
+        values = tile["ux"]
+        values = values.get() if hasattr(values, "get") else np.asarray(values)
+        scattered += np.count_nonzero(values)
+        if args.check_schedule:
+            # Reset the incident direction so every scheduled call is visible.
+            tile["ux"][:] = 0
+            tile["uy"][:] = 0
+            tile["uz"][:] = 1e6
+    scattered = MPI.COMM_WORLD.allreduce(scattered)
+    if step < args.start_step:
+        assert scattered == 0, "Collisions executed before start_step"
+    if args.check_schedule:
+        scheduled = (
+            step >= args.start_step and (step - args.start_step) % args.supercycles == 0
+        )
+        assert (scattered > 0) == scheduled, (step, scattered, scheduled)
 sim.finalize()
-if args.early:
+if not args.check_schedule and args.early:
     assert scattered > 0, "Substeps did not sample gas present during the elapsed step"
-else:
+elif not args.check_schedule:
     assert scattered == 0, "Collisions sampled gas after the simulated interval"
 if MPI.COMM_WORLD.rank == 0:
     print("PASS: collision substep placement stays inside the physical step")

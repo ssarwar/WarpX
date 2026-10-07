@@ -232,6 +232,9 @@ ProtonImpactIonizationCollision::ProtonImpactIonizationCollision (
             << m_background_temperature << '\n';
         if (!m_constant_density) { configuration << m_background_density_parser.expr() << '\n'; }
         if (!m_constant_temperature) { configuration << m_background_temperature_parser.expr() << '\n'; }
+        // Preserve the metadata of checkpoints made before start_step existed
+        // when its default value is used, and guard non-default source timing.
+        if (m_start_step != 0) { configuration << "start_step " << m_start_step << '\n'; }
         if (m_fluid_projectile) { configuration << "quiet_sampler 2\n"; }
         m_configuration = configuration.str();
     }

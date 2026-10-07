@@ -3258,6 +3258,10 @@ Details about the collision models can be found in the :ref:`theory section <mul
     for explicit evolution and the right substep endpoints for implicit evolution,
     where collisions follow the field/particle push. Both sample the physical PIC
     interval being advanced; a single substep retains the unsplit placement time.
+    Collision instances are interleaved in substep-time order, including when
+    their subcycle counts differ. Coincident endpoints retain the order in
+    ``collisions.collision_names``. Subcycle all strongly coupled processes,
+    including particle sources, to resolve their interaction within a PIC step.
     Useful when a large PIC time step is desired but collisions require finer time resolution.
 
 .. pp:param:: <collision_name>.start_step

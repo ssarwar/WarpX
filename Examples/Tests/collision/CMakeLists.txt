@@ -51,6 +51,16 @@ add_warpx_test(
 )
 
 foreach(solver IN ITEMS Yee semi_implicit_em semi_implicit_mm)
+    add_warpx_test(
+        test_1d_background_mcc_start_subcycle_${solver}_picmi 1 2
+        "inputs_test_1d_background_mcc_time_picmi.py --solver ${solver} --subcycles 4 --start-step 2 --early"
+        OFF OFF OFF
+    )
+    add_warpx_test(
+        test_1d_background_mcc_start_supercycle_${solver}_picmi 1 2
+        "inputs_test_1d_background_mcc_time_picmi.py --solver ${solver} --supercycles 3 --start-step 2 --check-schedule"
+        OFF OFF OFF
+    )
     foreach(subcycles IN ITEMS 1 4)
         add_warpx_test(
             test_1d_background_mcc_time_${solver}_${subcycles}_picmi 1 2
@@ -63,6 +73,22 @@ foreach(solver IN ITEMS Yee semi_implicit_em semi_implicit_mm)
         "inputs_test_1d_background_mcc_time_picmi.py --solver ${solver} --subcycles 4 --early"
         OFF OFF OFF
     )
+endforeach()
+
+foreach(solver IN ITEMS Yee semi_implicit_em)
+    foreach(order IN ITEMS forward reverse mixed)
+        set(coupled_options "")
+        if(order STREQUAL reverse)
+            set(coupled_options "--reverse")
+        elseif(order STREQUAL mixed)
+            set(coupled_options "--attachment-subcycles 96")
+        endif()
+        add_warpx_test(
+            test_1d_mcc_coupled_subcycling_${solver}_${order}_picmi 1 2
+            "inputs_test_1d_mcc_coupled_subcycling_picmi.py --solver ${solver} ${coupled_options}"
+            OFF OFF OFF
+        )
+    endforeach()
 endforeach()
 
 foreach(solver IN ITEMS Yee PSATD semi_implicit_em semi_implicit_mm)
@@ -130,9 +156,11 @@ foreach(kind IN ITEMS proton ionization attachment)
             "inputs_test_rz_immobile_products_picmi.py --kind ${kind} --shape 4 --walls --small-tiles"
             OFF OFF OFF
         )
-        set_tests_properties(test_rz_immobile_${kind}_threaded_picmi.run PROPERTIES
-            ENVIRONMENT_MODIFICATION "OMP_NUM_THREADS=set:4"
-        )
+        if(TEST test_rz_immobile_${kind}_threaded_picmi.run)
+            set_tests_properties(test_rz_immobile_${kind}_threaded_picmi.run PROPERTIES
+                ENVIRONMENT_MODIFICATION "OMP_NUM_THREADS=set:4"
+            )
+        endif()
     endif()
 endforeach()
 

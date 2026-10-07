@@ -32,6 +32,8 @@
 #include <AMReX_ParallelDescriptor.H>
 #include <AMReX_VisMF.H>
 
+#include <algorithm>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <vector>
@@ -92,6 +94,7 @@ CollisionHandler::CollisionHandler(MultiParticleContainer const * const mypc)
     auto const ncollisions = collision_names.size();
     collision_types.resize(ncollisions);
     allcollisions.resize(ncollisions);
+    m_schedule.reserve(ncollisions);
     for (int i = 0; i < static_cast<int>(ncollisions); ++i) {
         const amrex::ParmParse pp_collision_name(collision_names[i]);
 
@@ -216,34 +219,53 @@ void CollisionHandler::doCollisions ( int step, amrex::Real cur_time, amrex::Rea
         mypc->GenerateGlobalDebyeLength();
     }
 
-    for (auto& collision : allcollisions) {
+    bool const after_push = WarpX::GetInstance().evolve_scheme != EvolveScheme::Explicit;
+    auto const start_time = after_push ? cur_time-dt : cur_time;
+    m_schedule.clear();
+    for (int i = 0; i < static_cast<int>(allcollisions.size()); ++i) {
+        auto const& collision = allcollisions[i];
         // Skip collisions before their start step
         const int start_step = collision->get_start_step();
         if (step < start_step) { continue; }
 
         const int ndt = collision->get_ndt();
-        const auto collision_stepping_mode = collision->get_collision_stepping_mode();
-        bool const after_push =
-            WarpX::GetInstance().evolve_scheme != EvolveScheme::Explicit;
-        auto const start_time = after_push ? cur_time-dt : cur_time;
+        if (collision->get_collision_stepping_mode() == CollisionSteppingMode::Subcycle) {
+            m_schedule.push_back({i, 0, ndt});
+        } else if ((step - start_step) % ndt == 0) {
+            m_schedule.push_back({i, 0, 1});
+        }
+    }
 
-        if (collision_stepping_mode == CollisionSteppingMode::Subcycle) {
-            // Subcycle: run ndt times per PIC step, each with dt_collision = dt / ndt
+    // Interleave coupled operators at their substep endpoints. Advancing every
+    // substep of one gas before the next retains a full-PIC-step splitting error.
+    // Integer fractions preserve coincident endpoints and input order, even for
+    // different subcycle counts. The heap stores one entry per collision object
+    // and reuses its allocation across PIC steps.
+    auto later = [after_push] (CollisionStep const& a, CollisionStep const& b) {
+        auto const left = (std::int64_t(a.m_substep) + int(after_push)) * b.m_subcycles;
+        auto const right = (std::int64_t(b.m_substep) + int(after_push)) * a.m_subcycles;
+        return left != right ? left > right : a.m_collision > b.m_collision;
+    };
+    std::make_heap(m_schedule.begin(), m_schedule.end(), later);
+    while (!m_schedule.empty()) {
+        std::pop_heap(m_schedule.begin(), m_schedule.end(), later);
+        auto next = m_schedule.back();
+        m_schedule.pop_back();
+        auto& collision = allcollisions[next.m_collision];
+        const int ndt = collision->get_ndt();
+        if (collision->get_collision_stepping_mode() == CollisionSteppingMode::Subcycle) {
             const amrex::Real dt_sub = dt / ndt;
-            for (int i_sub = 0; i_sub < ndt; ++i_sub) {
-                // Explicit collisions precede the push and use left endpoints;
-                // implicit collisions follow it and use right endpoints of the
-                // same physical interval. A single substep retains cur_time.
-                int const offset = after_push ? i_sub + 1 - ndt : i_sub;
-                const amrex::Real sub_time = cur_time + offset * dt_sub;
-                collision->doCollisionsInInterval(sub_time, start_time+i_sub*dt_sub, dt_sub, mypc);
-            }
+            // Explicit collisions use left endpoints; implicit collisions use
+            // right endpoints. Both advance the same physical interval.
+            int const offset = after_push ? next.m_substep + 1 - ndt : next.m_substep;
+            collision->doCollisionsInInterval(cur_time + offset*dt_sub,
+                start_time + next.m_substep*dt_sub, dt_sub, mypc);
         } else {
-            // Supercycle: run once every ndt PIC steps (counted from start_step),
-            // with dt_collision = dt * ndt
-            if ( (step - start_step) % ndt == 0 ) {
-                collision->doCollisionsInInterval(cur_time, start_time, dt*ndt, mypc);
-            }
+            collision->doCollisionsInInterval(cur_time, start_time, dt*ndt, mypc);
+        }
+        if (++next.m_substep < next.m_subcycles) {
+            m_schedule.push_back(next);
+            std::push_heap(m_schedule.begin(), m_schedule.end(), later);
         }
     }
 

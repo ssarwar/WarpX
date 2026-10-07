@@ -28,6 +28,7 @@ cases = {
     ),
     "beam": (None, "prescribed-fluid species, models"),
     "source": (None, "immutable physics/sampling configuration changed"),
+    "start_step": (None, "immutable physics/sampling configuration changed"),
     "particle_diagnostic": (None, "requires kinetic species"),
     "load_balance": (None, "require fixed MPI ownership during a run"),
 }

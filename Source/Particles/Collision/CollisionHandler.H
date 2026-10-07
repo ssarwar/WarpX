@@ -41,6 +41,14 @@ private:
     amrex::Vector<std::string> collision_types;
     amrex::Vector< std::unique_ptr<CollisionBase> > allcollisions;
 
+    struct CollisionStep
+    {
+        int m_collision;
+        int m_substep;
+        int m_subcycles;
+    };
+    amrex::Vector<CollisionStep> m_schedule;
+
     bool m_use_global_debye_length = false;
 
 };

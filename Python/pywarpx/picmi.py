@@ -3705,6 +3705,10 @@ class ProtonImpactIonizationCollisions(picmistandard.base._ClassWithInit):
     ndt_subcycle: integer, optional
         Run ``ndt_subcycle`` times per PIC step.
 
+    start_step: integer, optional
+        First PIC step on which to apply the collision, defaulting to zero.
+        Supercycle steps are counted from this offset.
+
     source_sampling_points: integer, optional
         Subintervals per longitudinal cell in the rigid beam's spatial sampling
         CDF, with a default of 8. This does not change the integrated cell yield
@@ -3737,6 +3741,7 @@ class ProtonImpactIonizationCollisions(picmistandard.base._ClassWithInit):
         source_sampling_points=None,
         gas_quadrature_points=None,
         sampling_seed=None,
+        start_step=None,
         **kw,
     ):
         self.name = name
@@ -3754,6 +3759,7 @@ class ProtonImpactIonizationCollisions(picmistandard.base._ClassWithInit):
         self.source_sampling_points = source_sampling_points
         self.gas_quadrature_points = gas_quadrature_points
         self.sampling_seed = sampling_seed
+        self.start_step = start_step
 
         if len(product_species) != 2:
             raise ValueError(
@@ -3796,6 +3802,7 @@ class ProtonImpactIonizationCollisions(picmistandard.base._ClassWithInit):
         collision.source_sampling_points = self.source_sampling_points
         collision.gas_quadrature_points = self.gas_quadrature_points
         collision.sampling_seed = self.sampling_seed
+        collision.start_step = self.start_step
 
 
 class DSMCCollisions(picmistandard.base._ClassWithInit):

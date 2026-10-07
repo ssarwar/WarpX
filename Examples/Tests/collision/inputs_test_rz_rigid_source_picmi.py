@@ -35,7 +35,11 @@ parser.add_argument("--cells-z", type=int, default=64)
 parser.add_argument("--bad-density", action="store_true")
 parser.add_argument("--bad-temperature", action="store_true")
 args = parser.parse_args()
-if os.environ.get("WARPX_TEST_RESTART_MUTATION") or args.bad_density or args.bad_temperature:
+if (
+    os.environ.get("WARPX_TEST_RESTART_MUTATION")
+    or args.bad_density
+    or args.bad_temperature
+):
     amrex.throw_exception = 1
     amrex.signal_handling = 0
 qe, mp, me, c = (
@@ -207,6 +211,8 @@ if mutation == "beam":
     beam.fluid.peak_current *= 2
 elif mutation == "source":
     warpx.get_bucket("N2_immobile").fixed_product_weight = 0.75
+elif mutation == "start_step":
+    warpx.get_bucket("N2_immobile").start_step = 3
 elif mutation == "remove":
     warpx.get_bucket("fluids").species_names = ["beam"]
 elif mutation == "particle_diagnostic":
@@ -264,7 +270,10 @@ def state():
             result[electron.name + "_cell_counts"] = np.histogram2d(
                 positions[:, 0],
                 positions[:, 2],
-                bins=[np.linspace(0, rmax, 17), np.linspace(zmin, zmax, args.cells_z + 1)],
+                bins=[
+                    np.linspace(0, rmax, 17),
+                    np.linspace(zmin, zmax, args.cells_z + 1),
+                ],
             )[0]
     for kind in ["Efield_fp", "Bfield_fp", "current_fp"]:
         for direction in ["r", "theta", "z"]:
