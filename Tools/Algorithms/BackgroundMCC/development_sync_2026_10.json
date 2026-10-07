@@ -1,0 +1,460 @@
+{
+  "provenance": {
+    "development_remote": "63fa5a0c157373a673cbbce16647721633b8d1dd",
+    "feature_commit": "97faee560e9b8973f5270aacef0b58b4b33ad062",
+    "amrex_commit": "b552c85c432defab450688581a1c87aead7b461d",
+    "data_commit": "61a3947b6ebf365e6b78b63afdc30306791e3898",
+    "picmi_declared_git_commit": "a2fc467f3125d57ea0183562e69f414b84abe675",
+    "picmi_runtime_version": "0.34.0 (release required by Python/setup.py)",
+    "picmi_git_smoke_check": "FAIL: both GriddedLayout spellings raise KeyError in upstream deprecation handler",
+    "final_code_commit": "30c2d90f3b33d7fdcb0f9cb7fe1bd66b7871c7c5",
+    "cpp_physics_tested_commit": "ac0125555f55a9c0d016d7a3b09b39d07d2ccea5",
+    "local_development_observed_at_start": "c904424bbe8f6871320ec96da72af40aaef3dc98",
+    "local_development_observed_at_finish": "63fa5a0c157373a673cbbce16647721633b8d1dd",
+    "fork_development_not_pushed_by_this_task": true
+  },
+  "cpu": {
+    "main": {
+      "stages": 942,
+      "failures": [
+        "test_3d_diff_lumi_diag_leptons.analysis",
+        "test_3d_diff_lumi_diag_leptons_mr.analysis",
+        "test_2d_field_probe.analysis",
+        "test_3d_focusing_gaussian_beam.analysis",
+        "test_3d_focusing_gaussian_beam_photons.analysis",
+        "test_3d_rotated_gaussian_beam.analysis",
+        "test_rz_ohm_solver_em_modes_picmi.analysis",
+        "test_1d_ohm_solver_ion_beam_picmi.analysis",
+        "test_3d_acceleration_psatd_time_avg_restart.analysis",
+        "test_3d_effective_potential_electrostatic_picmi.analysis",
+        "test_1d_background_mcc_picmi.analysis",
+        "test_rz_spacecraft_charging_picmi.analysis"
+      ],
+      "skipped": 0
+    },
+    "checksums": {
+      "stages": 380,
+      "skipped": 0,
+      "failed_stages": 180,
+      "passed_stages": 200
+    },
+    "checksum_policy": "Differences ignored as requested; no local benchmark resets.",
+    "stock_controls": {
+      "stages": 26,
+      "failures": [
+        "test_3d_diff_lumi_diag_leptons.analysis",
+        "test_3d_diff_lumi_diag_leptons_mr.analysis",
+        "test_2d_field_probe.analysis",
+        "test_3d_focusing_gaussian_beam.analysis",
+        "test_3d_focusing_gaussian_beam_photons.analysis",
+        "test_3d_rotated_gaussian_beam.analysis",
+        "test_rz_ohm_solver_em_modes_picmi.analysis",
+        "test_1d_ohm_solver_ion_beam_picmi.analysis",
+        "test_3d_acceleration_psatd_time_avg_restart.analysis",
+        "test_3d_effective_potential_electrostatic_picmi.analysis",
+        "test_rz_spacecraft_charging_picmi.analysis"
+      ],
+      "skipped": 0
+    },
+    "all_single": {
+      "stages": 51,
+      "failures": [],
+      "skipped": 0
+    },
+    "all_single_kernels": {
+      "stages": 3,
+      "failures": [],
+      "skipped": 0
+    },
+    "radial": {
+      "stages": 6,
+      "failures": [],
+      "skipped": 0
+    },
+    "standalone": {
+      "mcc": {
+        "stages": 3,
+        "failures": [],
+        "skipped": 0
+      },
+      "proton": {
+        "stages": 5,
+        "failures": [],
+        "skipped": 0
+      },
+      "fluid": {
+        "stages": 4,
+        "failures": [],
+        "skipped": 0
+      }
+    },
+    "python": {
+      "proton_source_tests_passed": 64,
+      "fluid_audit_tests_passed": 3
+    },
+    "production_elastic": {
+      "cases": 22,
+      "particles_per_case": 65536,
+      "energy_eV": [
+        0.001,
+        1000000000.0
+      ],
+      "result": "pass"
+    },
+    "helium_mcc": {
+      "coarse_rms_relative_error_rounded": 0.0682,
+      "unchanged_bound": 0.065,
+      "refinements": [
+        {
+          "name": "joint",
+          "seed": 1,
+          "rms_relative_error": 0.031316869496985485,
+          "analysis_returncode": 0
+        },
+        {
+          "name": "particles",
+          "seed": 1,
+          "rms_relative_error": 0.04422729777095022,
+          "analysis_returncode": 0
+        },
+        {
+          "name": "timestep",
+          "seed": 1,
+          "rms_relative_error": 0.03433686627270636,
+          "analysis_returncode": 0
+        }
+      ]
+    },
+    "timing": {
+      "repeats": 3,
+      "particles": 262144,
+      "pic_steps": 16,
+      "omp_threads": 2,
+      "results": [
+        {
+          "case": "thermal",
+          "sampler": "alias",
+          "pic_ms_per_step": 17.17099999950733,
+          "mcc_ms_per_step": 6.9498125
+        },
+        {
+          "case": "thermal",
+          "sampler": "cumulative",
+          "pic_ms_per_step": 17.177273435663665,
+          "mcc_ms_per_step": 6.9634375
+        },
+        {
+          "case": "broad",
+          "sampler": "alias",
+          "pic_ms_per_step": 20.077210934687173,
+          "mcc_ms_per_step": 8.427999999999999
+        },
+        {
+          "case": "broad",
+          "sampler": "cumulative",
+          "pic_ms_per_step": 20.240359375748085,
+          "mcc_ms_per_step": 9.8638125
+        }
+      ]
+    }
+  },
+  "data": {
+    "tracked_files_sha256_verified_unchanged": 94,
+    "manifest_sha256": "597ac4bcde83a3a0881cb54505b5a7a0e35be434e1f02f1f38e6abd1cef980d4"
+  },
+  "gpu": {
+    "status": "complete",
+    "configuration": {
+      "device": "NVIDIA A100-SXM4-80GB",
+      "compiler": "GCC 13.2.1",
+      "cuda": "13.2",
+      "driver": "580.178.04",
+      "geometries": [
+        "1D",
+        "2D",
+        "3D",
+        "RZ"
+      ],
+      "precision": "double fields/double particles; separate single/single 1D MCC build",
+      "gpu_aware_mpi": true,
+      "gpu_ipc": true,
+      "binding_validation": "Distinct CUDA UUIDs and 4096-element int64 GPU-buffer Sendrecv verified before tests"
+    },
+    "main": {
+      "stages": 939,
+      "passed": 920,
+      "failed": [
+        "test_1d_dsmc_picmi.analysis",
+        "test_1d_ohm_solver_ion_beam_picmi.analysis",
+        "test_2d_collisions_split_momentum_push_electromagnetic_vay.analysis",
+        "test_2d_field_probe.analysis",
+        "test_2d_langmuir_multi_mr_psatd.analysis",
+        "test_2d_langmuir_multi_mr_psatd.run",
+        "test_2d_particle_reflection_picmi.run",
+        "test_2d_pml_x_psatd.analysis",
+        "test_2d_pml_x_psatd_restart.analysis",
+        "test_2d_theta_implicit_jfnk_vandb.analysis",
+        "test_2d_theta_implicit_jfnk_vandb.run",
+        "test_2d_theta_implicit_jfnk_vandb_filtered.analysis",
+        "test_2d_theta_implicit_jfnk_vandb_filtered.run",
+        "test_3d_acceleration_psatd_restart.analysis",
+        "test_3d_acceleration_psatd_time_avg_restart.analysis",
+        "test_3d_diff_lumi_diag_photons.analysis",
+        "test_3d_galilean_psatd_current_correction.analysis",
+        "test_rz_ohm_solver_em_modes_picmi.analysis",
+        "test_rz_spacecraft_charging_picmi.analysis"
+      ],
+      "reproduced_on_unchanged_development": [
+        "test_1d_ohm_solver_ion_beam_picmi.analysis",
+        "test_2d_field_probe.analysis",
+        "test_2d_langmuir_multi_mr_psatd.analysis",
+        "test_2d_langmuir_multi_mr_psatd.run",
+        "test_2d_particle_reflection_picmi.run",
+        "test_2d_pml_x_psatd.analysis",
+        "test_2d_pml_x_psatd_restart.analysis",
+        "test_2d_theta_implicit_jfnk_vandb.analysis",
+        "test_2d_theta_implicit_jfnk_vandb.run",
+        "test_2d_theta_implicit_jfnk_vandb_filtered.analysis",
+        "test_2d_theta_implicit_jfnk_vandb_filtered.run",
+        "test_3d_acceleration_psatd_restart.analysis",
+        "test_3d_acceleration_psatd_time_avg_restart.analysis",
+        "test_3d_diff_lumi_diag_photons.analysis",
+        "test_3d_galilean_psatd_current_correction.analysis",
+        "test_rz_ohm_solver_em_modes_picmi.analysis",
+        "test_rz_spacecraft_charging_picmi.analysis"
+      ],
+      "not_reproduced_on_development": [
+        "test_1d_dsmc_picmi.analysis",
+        "test_2d_collisions_split_momentum_push_electromagnetic_vay.analysis"
+      ]
+    },
+    "checksums": {
+      "stages": 380,
+      "passed": 337,
+      "failed": 43,
+      "policy": "Ignored as instructed; no reset or manual benchmark edits"
+    },
+    "single_precision": {
+      "stages": 72,
+      "passed": 72,
+      "failed": []
+    },
+    "single_precision_kernels": {
+      "stages": 3,
+      "passed": 3,
+      "failed": []
+    },
+    "double_precision_kernels": {
+      "mcc": {
+        "stages": 3,
+        "passed": 3,
+        "failed": []
+      },
+      "proton": {
+        "stages": 5,
+        "passed": 5,
+        "failed": []
+      },
+      "fluid": {
+        "stages": 4,
+        "passed": 4,
+        "failed": []
+      }
+    },
+    "memory_checks": {
+      "reciprocal_N2_errors": 0,
+      "reciprocal_O2_errors": 0,
+      "single_coupled_excitation_attachment_errors": 0
+    },
+    "production_elastic": {
+      "cases": 22,
+      "particles_per_case": 65536,
+      "energy_eV": [
+        0.001,
+        1000000000.0
+      ],
+      "result": "pass"
+    },
+    "scraper_final": {
+      "stages": 2,
+      "passed": 2,
+      "failed": []
+    },
+    "four_gpu_decomposition_controls": [
+      {
+        "configuration": "integration",
+        "case": "test_2d_theta_implicit_jfnk_vandb",
+        "ranks": 4,
+        "run_returncode": 0,
+        "analysis_returncode": 0
+      },
+      {
+        "configuration": "integration",
+        "case": "test_2d_theta_implicit_jfnk_vandb_filtered",
+        "ranks": 4,
+        "run_returncode": 0,
+        "analysis_returncode": 0
+      },
+      {
+        "configuration": "development",
+        "case": "test_2d_theta_implicit_jfnk_vandb",
+        "ranks": 4,
+        "run_returncode": 0,
+        "analysis_returncode": 0
+      },
+      {
+        "configuration": "development",
+        "case": "test_2d_theta_implicit_jfnk_vandb_filtered",
+        "ranks": 4,
+        "run_returncode": 0,
+        "analysis_returncode": 0
+      },
+      {
+        "configuration": "integration",
+        "case": "test_2d_langmuir_multi_mr_psatd",
+        "ranks": 4,
+        "run_returncode": 0,
+        "analysis_returncode": 0
+      },
+      {
+        "configuration": "development",
+        "case": "test_2d_langmuir_multi_mr_psatd",
+        "ranks": 4,
+        "run_returncode": 0,
+        "analysis_returncode": 0
+      }
+    ],
+    "vay_controls": {
+      "original_failure": 6.014896922695446e-05,
+      "unchanged_bound": 6e-05,
+      "original_failure_retained": true,
+      "additional_runs": [
+        {
+          "configuration": "integration",
+          "case": "repeat0",
+          "max_relative_energy_error": 5.448254273132669e-05,
+          "analysis_returncode": 0
+        },
+        {
+          "configuration": "integration",
+          "case": "repeat1",
+          "max_relative_energy_error": 5.625297818645514e-05,
+          "analysis_returncode": 0
+        },
+        {
+          "configuration": "integration",
+          "case": "repeat2",
+          "max_relative_energy_error": 5.170905130480463e-05,
+          "analysis_returncode": 0
+        },
+        {
+          "configuration": "integration",
+          "case": "half_dt",
+          "max_relative_energy_error": 1.3661949169296861e-05,
+          "analysis_returncode": 0
+        },
+        {
+          "configuration": "development",
+          "case": "repeat0",
+          "max_relative_energy_error": 5.248009915903573e-05,
+          "analysis_returncode": 0
+        },
+        {
+          "configuration": "development",
+          "case": "repeat1",
+          "max_relative_energy_error": 5.2891912398322916e-05,
+          "analysis_returncode": 0
+        },
+        {
+          "configuration": "development",
+          "case": "repeat2",
+          "max_relative_energy_error": 5.7525463327268156e-05,
+          "analysis_returncode": 0
+        },
+        {
+          "configuration": "development",
+          "case": "half_dt",
+          "max_relative_energy_error": 1.3081989144847483e-05,
+          "analysis_returncode": 0
+        }
+      ]
+    },
+    "dsmc_controls": {
+      "coarse_integration_rms_rounded": 0.0754,
+      "coarse_development_rms_rounded": 0.0509,
+      "unchanged_bound": 0.065,
+      "coarse_failure_retained": true,
+      "refinements": [
+        {
+          "refinement": "joint",
+          "seed": 1,
+          "rms_relative_error": 0.03670960042297345,
+          "analysis_returncode": 0
+        },
+        {
+          "refinement": "particles",
+          "seed": 1,
+          "rms_relative_error": 0.045966688467307025,
+          "analysis_returncode": 0
+        },
+        {
+          "refinement": "timestep",
+          "seed": 1,
+          "rms_relative_error": 0.049314402314327425,
+          "analysis_returncode": 0
+        }
+      ]
+    },
+    "timing": {
+      "job_id": "59476427",
+      "warmup_then_repeats": 3,
+      "devices_used_per_run": 1,
+      "results": [
+        {
+          "case": "thermal",
+          "sampling": "alias",
+          "particles": 1048576,
+          "pic_steps": 8,
+          "subcycles": 64,
+          "median_seconds": 0.2932465490885079,
+          "standard_deviation_seconds": 0.001541794353772669,
+          "median_pic_step_seconds": 0.036655818636063486,
+          "particle_gas_substeps_per_second": 3661566785.142022
+        },
+        {
+          "case": "thermal",
+          "sampling": "cumulative",
+          "particles": 1048576,
+          "pic_steps": 8,
+          "subcycles": 64,
+          "median_seconds": 0.2940161710139364,
+          "standard_deviation_seconds": 0.0007103852239361901,
+          "median_pic_step_seconds": 0.03675202137674205,
+          "particle_gas_substeps_per_second": 3651982203.213933
+        },
+        {
+          "case": "broad",
+          "sampling": "alias",
+          "particles": 1048576,
+          "pic_steps": 8,
+          "subcycles": 64,
+          "median_seconds": 0.41691010096110404,
+          "standard_deviation_seconds": 0.0006564371481365564,
+          "median_pic_step_seconds": 0.052113762620138004,
+          "particle_gas_substeps_per_second": 2575475675.750479
+        },
+        {
+          "case": "broad",
+          "sampling": "cumulative",
+          "particles": 1048576,
+          "pic_steps": 8,
+          "subcycles": 64,
+          "median_seconds": 0.4526330539956689,
+          "standard_deviation_seconds": 0.0013280618439206172,
+          "median_pic_step_seconds": 0.05657913174945861,
+          "particle_gas_substeps_per_second": 2372212578.2052903
+        }
+      ]
+    }
+  }
+}
