@@ -20,6 +20,11 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--solver", choices=["theta", "semi"], required=True)
 args = parser.parse_args()
 comm = MPI.COMM_WORLD
+if comm.rank == 0:
+    # The nonlinear diagnostic appends to existing files, including on reruns.
+    Path("picard.txt").unlink(missing_ok=True)
+    Path("substep_result.json").unlink(missing_ok=True)
+comm.Barrier()
 c, me, qe, eps0, mu0 = (
     picmi.constants.c,
     picmi.constants.m_e,

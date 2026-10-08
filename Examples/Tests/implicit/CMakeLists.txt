@@ -14,6 +14,15 @@ if(WarpX_PRECISION STREQUAL "DOUBLE" AND WarpX_PARTICLE_PRECISION STREQUAL "DOUB
             OFF
         )
     endforeach()
+    add_warpx_test(
+        test_rz_semi_implicit_rollback_storage_picmi
+        RZ
+        2
+        inputs_test_rz_semi_implicit_rollback_storage_picmi.py
+        OFF
+        OFF
+        OFF
+    )
 endif()
 
 add_warpx_test(
