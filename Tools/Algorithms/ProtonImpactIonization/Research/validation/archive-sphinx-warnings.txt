@@ -1,0 +1,118 @@
+WARNING: autodoc: failed to import class 'picmi.Simulation' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.Cartesian3DGrid' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.Cartesian2DGrid' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.Cartesian1DGrid' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.CylindricalGrid' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.EmbeddedBoundary' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.ElectromagneticSolver' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.ElectrostaticSolver' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.HybridPICSolver' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.BinomialSmoother' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.ExplicitEvolveScheme' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.ThetaImplicitEMEvolveScheme' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.SemiImplicitEMEvolveScheme' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.PicardNonlinearSolver' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.NewtonNonlinearSolver' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.GMRESLinearSolver' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.PETScKSPLinearSolver' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.CurlCurlMLMGPreconditioner' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.JacobiPreconditioner' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.PETScPreconditioner' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.AnalyticInitialField' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.ConstantAppliedField' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.AnalyticAppliedField' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.LoadInitialField' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.PlasmaLens' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.Mirror' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.ParticleDiagnostic' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.FieldDiagnostic' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.TimeAveragedFieldDiagnostic' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.ElectrostaticFieldDiagnostic' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.Checkpoint' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.ReducedDiagnostic' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.LabFrameParticleDiagnostic' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.LabFrameFieldDiagnostic' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.Species' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.MultiSpecies' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.GaussianBunchDistribution' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.UniformDistribution' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.AnalyticDistribution' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.UniformFluxDistribution' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.AnalyticFluxDistribution' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.ParticleListDistribution' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.FromFileDistribution' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.GriddedLayout' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.PseudoRandomLayout' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.CoulombCollisions' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.DSMCCollisions' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.MCCCollisions' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.FieldIonization' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.GaussianLaser' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.AnalyticLaser' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'picmi.LaserAntenna' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import module 'callbacks' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import class 'particle_containers.ParticleBoundaryBufferWrapper' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import function 'extensions.WarpXParticleContainer.add_particles' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+WARNING: autodoc: failed to import function 'picmi.Simulation.extension.finalize' from module 'pywarpx'; the following exception was raised:
+No module named 'pywarpx'
+/Users/ssarwar/.codex/worktrees/9932/warpx-myfork/Docs/source/usage/workflows/python_extend.rst:84: WARNING: toctree contains reference to document 'usage/workflows/python_callbacks' that doesn't have a title: no link will be generated
+/Users/ssarwar/.codex/worktrees/9932/warpx-myfork/Docs/source/usage/workflows/python_extend.rst:84: WARNING: toctree contains reference to document 'usage/workflows/python_callbacks' that doesn't have a title: no link will be generated
+/Users/ssarwar/.codex/worktrees/9932/warpx-myfork/Docs/source/usage/workflows/python_extend.rst:84: WARNING: toctree contains reference to document 'usage/workflows/python_callbacks' that doesn't have a title: no link will be generated
+/Users/ssarwar/.codex/worktrees/9932/warpx-myfork/Docs/source/usage/workflows/python_extend.rst:84: WARNING: toctree contains reference to document 'usage/workflows/python_callbacks' that doesn't have a title: no link will be generated
+/Users/ssarwar/.codex/worktrees/9932/warpx-myfork/Docs/source/usage/workflows/python_extend.rst:84: WARNING: toctree contains reference to document 'usage/workflows/python_callbacks' that doesn't have a title: no link will be generated
+/Users/ssarwar/.codex/worktrees/9932/warpx-myfork/Docs/source/usage/workflows/python_extend.rst:84: WARNING: toctree contains reference to document 'usage/workflows/python_callbacks' that doesn't have a title: no link will be generated

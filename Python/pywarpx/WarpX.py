@@ -18,6 +18,7 @@ from .Collisions import collisions, collisions_list
 from .Constants import my_constants
 from .Diagnostics import diagnostics, reduced_diagnostics
 from .EB2 import eb2
+from .Fluids import fluids, fluids_list
 from .Geometry import geometry
 from .HybridPICModel import external_vector_potential, hybridpicmodel
 from .Interpolation import interpolation
@@ -59,6 +60,10 @@ class WarpX(Bucket):
         argv += particles.attrlist()
         for particle in particles_list:
             argv += particle.attrlist()
+
+        argv += fluids.attrlist()
+        for fluid in fluids_list:
+            argv += fluid.attrlist()
 
         argv += collisions.attrlist()
         for collision in collisions_list:
@@ -207,6 +212,7 @@ class WarpX(Bucket):
         del collisions_list[:]
         del lasers_list[:]
         del particles_list[:]
+        del fluids_list[:]
 
         for bucket in [
             algo,
@@ -217,6 +223,7 @@ class WarpX(Bucket):
             diagnostics,
             eb2,
             external_vector_potential,
+            fluids,
             geometry,
             hybridpicmodel,
             interpolation,

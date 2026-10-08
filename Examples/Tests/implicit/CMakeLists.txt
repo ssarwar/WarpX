@@ -1,6 +1,21 @@
 # Add tests (alphabetical order) ##############################################
 #
 
+# The convergence and integral checks require double field and particle precision.
+if(WarpX_PRECISION STREQUAL "DOUBLE" AND WarpX_PARTICLE_PRECISION STREQUAL "DOUBLE")
+    foreach(solver IN ITEMS semi theta)
+        add_warpx_test(
+            test_1d_${solver}_implicit_substeps_picmi
+            1
+            2
+            "inputs_test_1d_implicit_substeps_picmi.py --solver ${solver}"
+            OFF
+            OFF
+            OFF
+        )
+    endforeach()
+endif()
+
 add_warpx_test(
     test_1d_theta_implicit_planar_pinch  # name
     1  # dims

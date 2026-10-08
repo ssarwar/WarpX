@@ -1,0 +1,5154 @@
+{
+  "date": "2026-09-21",
+  "hardware": "Perlmutter A100-SXM4-40GB",
+  "compiler": "CUDA 13.2, GCC 13.2",
+  "confidence": "Two-sided 99% Student intervals across runs; timestep statistic is the mean of per-run medians after two warm-up steps.",
+  "ensembles": {
+    "fields": {
+      "settings": {
+        "beam": "fluid",
+        "ions": "fluid",
+        "mode": "fields",
+        "solver": "Yee",
+        "cells": [
+          64,
+          256
+        ],
+        "radial_sigmas": 8.0,
+        "longitudinal_sigmas": 12.0,
+        "ppc": 1,
+        "electron_ppc": 4,
+        "seed": 41,
+        "steps": 20,
+        "dt": 5e-13,
+        "weight": 100.0,
+        "cap": 8,
+        "gas_density": 1e+23,
+        "temperature": 300.0,
+        "shape": 3,
+        "implicit_deposition": "villasenor",
+        "source_resolution": 8,
+        "subcycles": 1,
+        "mcc": false,
+        "no_self_fields": false,
+        "checkpoint": false,
+        "profile": false,
+        "output": "result.json"
+      },
+      "revision": [
+        "d6da20fe353c8e924d130dab058002c487e0a9a8"
+      ],
+      "backend": [
+        "CUDA"
+      ],
+      "groups": [
+        {
+          "beam": "fluid",
+          "ions": "fluid",
+          "ppc": 1,
+          "timestep_s": {
+            "mean": 0.00119383234414272,
+            "ci99_half_width": 4.776208385793901e-05,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 0.2658564320105749,
+            "ci99_half_width": 0.5526941350452573,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 682112.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "continuum_Er_relative_rms_error": {
+            "mean": 0.008039918477285564,
+            "ci99_half_width": 3.128103958578816e-18,
+            "samples": 6
+          },
+          "continuum_Ez_relative_rms_error": {
+            "mean": 0.21352488853224513,
+            "ci99_half_width": 5.0049663337261053e-17,
+            "samples": 6
+          },
+          "continuum_Btheta_relative_rms_error": {
+            "mean": 0.007623580068070055,
+            "ci99_half_width": 1.564051979289408e-18,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 9.87019785191586e-17,
+          "Er_relative_rms_error": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 9.358218367001188e-17,
+          "Ez_relative_rms_error": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 9.273838843408321e-17,
+          "Btheta_relative_rms_error": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 9.334668852916365e-17,
+          "beam_number": {
+            "mean": 234677146.8361393,
+            "ci99_half_width": 5.374041680233661e-08,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          }
+        },
+        {
+          "beam": "quiet",
+          "ions": "fluid",
+          "ppc": 16,
+          "timestep_s": {
+            "mean": 0.001691737745810921,
+            "ci99_half_width": 1.9458232992955796e-05,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 0.19256166315365894,
+            "ci99_half_width": 0.018533616893246264,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 11173888.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 511584.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "continuum_Er_relative_rms_error": {
+            "mean": 0.00808652407831479,
+            "ci99_half_width": 1.4157075334239213e-15,
+            "samples": 6
+          },
+          "continuum_Ez_relative_rms_error": {
+            "mean": 0.21349911894185478,
+            "ci99_half_width": 2.0656226316282875e-15,
+            "samples": 6
+          },
+          "continuum_Btheta_relative_rms_error": {
+            "mean": 0.007669416668825726,
+            "ci99_half_width": 1.447798291694928e-15,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 0.0007829186883982447,
+            "ci99_half_width": 8.929675890570692e-18,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 3.696586877950593e-16,
+          "Er_relative_rms_error": {
+            "mean": 6.0750502637075766e-05,
+            "ci99_half_width": 1.4555989044182183e-15,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 3.285212144441897e-15,
+          "Ez_relative_rms_error": {
+            "mean": 3.700500282770107e-05,
+            "ci99_half_width": 5.2316142023388415e-15,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 1.5968568430429047e-14,
+          "Btheta_relative_rms_error": {
+            "mean": 6.0766378364247825e-05,
+            "ci99_half_width": 1.3534823812993734e-15,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 2.5825065455794886e-15,
+          "beam_number": {
+            "mean": 234686696.68975237,
+            "ci99_half_width": 4.387886657673877e-08,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          }
+        },
+        {
+          "beam": "quiet",
+          "ions": "fluid",
+          "ppc": 256,
+          "timestep_s": {
+            "mean": 0.005851913747998576,
+            "ci99_half_width": 1.3346874211953164e-05,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 0.24398190301144496,
+            "ci99_half_width": 0.052249044519672286,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 178913280.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 511584.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "continuum_Er_relative_rms_error": {
+            "mean": 0.008042816076815352,
+            "ci99_half_width": 2.150697919038308e-15,
+            "samples": 6
+          },
+          "continuum_Ez_relative_rms_error": {
+            "mean": 0.213523271363517,
+            "ci99_half_width": 2.047963076105121e-15,
+            "samples": 6
+          },
+          "continuum_Btheta_relative_rms_error": {
+            "mean": 0.007626427702738403,
+            "ci99_half_width": 2.0705692346465372e-15,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 4.8054440963191943e-05,
+            "ci99_half_width": 3.396732686273192e-17,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 1.4253197370149518e-15,
+          "Er_relative_rms_error": {
+            "mean": 3.7971197073104397e-06,
+            "ci99_half_width": 1.6175780162604251e-15,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 3.1149790146080905e-15,
+          "Ez_relative_rms_error": {
+            "mean": 2.322237459001991e-06,
+            "ci99_half_width": 4.331321956328676e-15,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 1.6553020728115048e-14,
+          "Btheta_relative_rms_error": {
+            "mean": 3.7981077712532036e-06,
+            "ci99_half_width": 1.116573316459827e-15,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 2.406325204993207e-15,
+          "beam_number": {
+            "mean": 234677743.65417346,
+            "ci99_half_width": 6.205408821438347e-08,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          }
+        },
+        {
+          "beam": "quiet",
+          "ions": "fluid",
+          "ppc": 64,
+          "timestep_s": {
+            "mean": 0.0025621546616700166,
+            "ci99_half_width": 2.1875371843155784e-05,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 0.19515834532406492,
+            "ci99_half_width": 0.016989503574348048,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 44761088.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 511584.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "continuum_Er_relative_rms_error": {
+            "mean": 0.008051521104316586,
+            "ci99_half_width": 1.787610377826965e-15,
+            "samples": 6
+          },
+          "continuum_Ez_relative_rms_error": {
+            "mean": 0.2135184251114668,
+            "ci99_half_width": 2.414950281393631e-15,
+            "samples": 6
+          },
+          "continuum_Btheta_relative_rms_error": {
+            "mean": 0.007634984364825378,
+            "ci99_half_width": 1.7265116096964475e-15,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 0.00019291776178032146,
+            "ci99_half_width": 1.176668568126346e-17,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 7.256031812977936e-16,
+          "Er_relative_rms_error": {
+            "mean": 1.5188209323044062e-05,
+            "ci99_half_width": 1.8306834574187913e-15,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 3.2627760921769536e-15,
+          "Ez_relative_rms_error": {
+            "mean": 9.281416811750001e-06,
+            "ci99_half_width": 3.071785212520749e-15,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 1.6311918899502068e-14,
+          "Btheta_relative_rms_error": {
+            "mean": 1.5192164939785084e-05,
+            "ci99_half_width": 1.2611725167944307e-15,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 2.626130799214956e-15,
+          "beam_number": {
+            "mean": 234679534.14652583,
+            "ci99_half_width": 5.374041680233661e-08,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          }
+        },
+        {
+          "beam": "random",
+          "ions": "fluid",
+          "ppc": 16,
+          "timestep_s": {
+            "mean": 0.0017353887524222955,
+            "ci99_half_width": 1.6294669867490443e-05,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 0.19526865133472407,
+            "ci99_half_width": 0.01610128351036787,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 11183829.333333334,
+            "ci99_half_width": 1670.6308062833248,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 511584.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "continuum_Er_relative_rms_error": {
+            "mean": 0.010282666932327215,
+            "ci99_half_width": 0.0011286383343392776,
+            "samples": 6
+          },
+          "continuum_Ez_relative_rms_error": {
+            "mean": 0.2139732580643621,
+            "ci99_half_width": 0.0009363744192327731,
+            "samples": 6
+          },
+          "continuum_Btheta_relative_rms_error": {
+            "mean": 0.009215726919154503,
+            "ci99_half_width": 0.0009650252840200674,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 0.05507133222232081,
+            "ci99_half_width": 0.003331244288529782,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 0.054711245638530796,
+          "Er_relative_rms_error": {
+            "mean": 0.00561002324719001,
+            "ci99_half_width": 0.0010474268621973092,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 0.005527399343036892,
+          "Ez_relative_rms_error": {
+            "mean": 0.02030500676467632,
+            "ci99_half_width": 0.004006524263176446,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 0.020051498664071302,
+          "Btheta_relative_rms_error": {
+            "mean": 0.006509908168592014,
+            "ci99_half_width": 0.0009479112776926095,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 0.006409446054989391,
+          "beam_number": {
+            "mean": 234697924.88181105,
+            "ci99_half_width": 233138.1765824081,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          }
+        },
+        {
+          "beam": "random",
+          "ions": "fluid",
+          "ppc": 256,
+          "timestep_s": {
+            "mean": 0.006023811249178834,
+            "ci99_half_width": 1.5706274630098727e-05,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 0.22658930400696894,
+            "ci99_half_width": 0.02465741362208868,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 178954133.33333334,
+            "ci99_half_width": 15306.460981006541,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 511584.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "continuum_Er_relative_rms_error": {
+            "mean": 0.008210797618841423,
+            "ci99_half_width": 0.00011777521592404641,
+            "samples": 6
+          },
+          "continuum_Ez_relative_rms_error": {
+            "mean": 0.21354693360540308,
+            "ci99_half_width": 0.000113220550058112,
+            "samples": 6
+          },
+          "continuum_Btheta_relative_rms_error": {
+            "mean": 0.007747391396479129,
+            "ci99_half_width": 0.00011129747031382405,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 0.014050407513256346,
+            "ci99_half_width": 0.0006827782181007259,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 0.013970657272649114,
+          "Er_relative_rms_error": {
+            "mean": 0.0013649603272581799,
+            "ci99_half_width": 9.917528970007143e-05,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 0.0013559173903459557,
+          "Ez_relative_rms_error": {
+            "mean": 0.004923878450866527,
+            "ci99_half_width": 0.00045824519262225937,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 0.004967318320198879,
+          "Btheta_relative_rms_error": {
+            "mean": 0.0016247555765453447,
+            "ci99_half_width": 0.0002014127197304161,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 0.0016072324932285493,
+          "beam_number": {
+            "mean": 234685391.29717863,
+            "ci99_half_width": 27740.369079311116,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          }
+        },
+        {
+          "beam": "random",
+          "ions": "fluid",
+          "ppc": 64,
+          "timestep_s": {
+            "mean": 0.0026451150042703375,
+            "ci99_half_width": 4.113733869247258e-05,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 0.19823426467094882,
+            "ci99_half_width": 0.014170523335903493,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 44739061.333333336,
+            "ci99_half_width": 6046.625303542168,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 511584.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "continuum_Er_relative_rms_error": {
+            "mean": 0.008851090400030587,
+            "ci99_half_width": 0.00041650002412486003,
+            "samples": 6
+          },
+          "continuum_Ez_relative_rms_error": {
+            "mean": 0.21353020095724426,
+            "ci99_half_width": 0.00041965267087364175,
+            "samples": 6
+          },
+          "continuum_Btheta_relative_rms_error": {
+            "mean": 0.00824929160695524,
+            "ci99_half_width": 0.0003879390070434945,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 0.027606429171516043,
+            "ci99_half_width": 0.00095159285634128,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 0.02762971298794663,
+          "Er_relative_rms_error": {
+            "mean": 0.002835941506978442,
+            "ci99_half_width": 0.0001297494174061759,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 0.00289079501526528,
+          "Ez_relative_rms_error": {
+            "mean": 0.010505267276408341,
+            "ci99_half_width": 0.0012389004914079588,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 0.010671335853845436,
+          "Btheta_relative_rms_error": {
+            "mean": 0.003241571990919384,
+            "ci99_half_width": 0.00018318039749705276,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 0.0033016519311138397,
+          "beam_number": {
+            "mean": 234724859.41078687,
+            "ci99_half_width": 89567.0725319615,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          }
+        }
+      ]
+    },
+    "push": {
+      "settings": {
+        "beam": "fluid",
+        "ions": "fluid",
+        "mode": "push",
+        "solver": "Yee",
+        "cells": [
+          64,
+          256
+        ],
+        "radial_sigmas": 8.0,
+        "longitudinal_sigmas": 12.0,
+        "ppc": 1,
+        "electron_ppc": 4,
+        "seed": 41,
+        "steps": 20,
+        "dt": 5e-13,
+        "weight": 100.0,
+        "cap": 8,
+        "gas_density": 1e+23,
+        "temperature": 300.0,
+        "shape": 3,
+        "implicit_deposition": "villasenor",
+        "source_resolution": 8,
+        "subcycles": 1,
+        "mcc": false,
+        "no_self_fields": true,
+        "checkpoint": false,
+        "profile": false,
+        "output": "result.json"
+      },
+      "revision": [
+        "d6da20fe353c8e924d130dab058002c487e0a9a8"
+      ],
+      "backend": [
+        "CUDA"
+      ],
+      "groups": [
+        {
+          "beam": "fluid",
+          "ions": "fluid",
+          "ppc": 1,
+          "timestep_s": {
+            "mean": 0.0015406508318847045,
+            "ci99_half_width": 4.518481045257685e-05,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 0.19529410716495477,
+            "ci99_half_width": 0.4598367048408398,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 65536.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 4194304.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 682112.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 9.87019785191586e-17,
+          "electrons_relative_rms_error": {
+            "mean": 7.537074492293277e-15,
+            "ci99_half_width": 6.080314761664715e-15,
+            "samples": 6
+          },
+          "electrons_relative_seed_noise": 6.367542567768054e-15,
+          "Er_relative_rms_error": {
+            "mean": 1.4457733966032486e-16,
+            "ci99_half_width": 1.4515716444882303e-16,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 1.6784265452860901e-16,
+          "Ez_relative_rms_error": {
+            "mean": 2.673455736362329e-17,
+            "ci99_half_width": 2.7358941575407248e-17,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 9.784998952992847e-17,
+          "Btheta_relative_rms_error": {
+            "mean": 3.3591054329832686e-17,
+            "ci99_half_width": 3.1452119033069373e-17,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 9.163633192734542e-17,
+          "beam_number": {
+            "mean": 234677146.8361393,
+            "ci99_half_width": 5.374041680233661e-08,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 1216269.8229498025,
+            "ci99_half_width": 2.423987820874354e-10,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 2.576788821293567e-19,
+            "ci99_half_width": 6.139265544179329e-35,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": -1.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "electron_cdf_distance_to_fluid": 0.0
+        },
+        {
+          "beam": "quiet",
+          "ions": "fluid",
+          "ppc": 16,
+          "timestep_s": {
+            "mean": 0.0020391695046176514,
+            "ci99_half_width": 4.311420875371476e-05,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 0.07907256283215247,
+            "ci99_half_width": 0.013726917314043284,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 65536.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 15368192.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 511584.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 0.0007829186883982448,
+            "ci99_half_width": 1.514092324360309e-17,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 3.5204105280918837e-16,
+          "electrons_relative_rms_error": {
+            "mean": 1.3701364951505164e-10,
+            "ci99_half_width": 1.4323345610878838e-18,
+            "samples": 6
+          },
+          "electrons_relative_seed_noise": 6.368060951305627e-15,
+          "Er_relative_rms_error": {
+            "mean": 0.0002606826491999123,
+            "ci99_half_width": 1.429694872426244e-17,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 1.0196826538358903e-15,
+          "Ez_relative_rms_error": {
+            "mean": 6.705473784034085e-05,
+            "ci99_half_width": 3.5039517574475804e-18,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 1.954328745189435e-16,
+          "Btheta_relative_rms_error": {
+            "mean": 0.00014771451773025465,
+            "ci99_half_width": 1.335565126181935e-17,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 2.2105101741888176e-16,
+          "beam_number": {
+            "mean": 234686696.68975237,
+            "ci99_half_width": 6.205408821438347e-08,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 1216269.8229498025,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 2.577061628822998e-19,
+            "ci99_half_width": 7.925757736850519e-35,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": -1.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "electron_cdf_distance_to_fluid": 1.2516975400611585e-06
+        },
+        {
+          "beam": "quiet",
+          "ions": "fluid",
+          "ppc": 256,
+          "timestep_s": {
+            "mean": 0.00615460732660722,
+            "ci99_half_width": 4.911989574151506e-05,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 0.12827922067178102,
+            "ci99_half_width": 0.05971924654061508,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 65536.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 183107584.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 511584.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 4.8054440963191245e-05,
+            "ci99_half_width": 2.95206057102367e-17,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 1.4106233442083345e-15,
+          "electrons_relative_rms_error": {
+            "mean": 8.49298046589895e-12,
+            "ci99_half_width": 3.9517547496552495e-18,
+            "samples": 6
+          },
+          "electrons_relative_seed_noise": 6.367300126043469e-15,
+          "Er_relative_rms_error": {
+            "mean": 1.6244154665282655e-05,
+            "ci99_half_width": 3.194189099535639e-17,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 1.9978274966034754e-15,
+          "Ez_relative_rms_error": {
+            "mean": 4.189122232012987e-06,
+            "ci99_half_width": 1.5203085248321323e-17,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 3.394163538609283e-16,
+          "Btheta_relative_rms_error": {
+            "mean": 9.196422372735492e-06,
+            "ci99_half_width": 2.862265884933809e-17,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 3.830706729958168e-16,
+          "beam_number": {
+            "mean": 234677743.65417346,
+            "ci99_half_width": 5.374041680233661e-08,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 1216269.8229498025,
+            "ci99_half_width": 1.714018225653858e-10,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 2.5768059378845136e-19,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": -1.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "electron_cdf_distance_to_fluid": 0.0
+        },
+        {
+          "beam": "quiet",
+          "ions": "fluid",
+          "ppc": 64,
+          "timestep_s": {
+            "mean": 0.002966888244069802,
+            "ci99_half_width": 1.4824679714446856e-05,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 0.08821153898801033,
+            "ci99_half_width": 0.012959181320832208,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 65536.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 48955392.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 511584.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 0.0001929177617803242,
+            "ci99_half_width": 9.819701869686402e-18,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 7.356825861398516e-16,
+          "electrons_relative_rms_error": {
+            "mean": 3.402801238810017e-11,
+            "ci99_half_width": 1.371716114593836e-18,
+            "samples": 6
+          },
+          "electrons_relative_seed_noise": 6.366112169694582e-15,
+          "Er_relative_rms_error": {
+            "mean": 6.501476994155533e-05,
+            "ci99_half_width": 2.3727369438855805e-17,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 1.2932496470973768e-15,
+          "Ez_relative_rms_error": {
+            "mean": 1.6757806876383534e-05,
+            "ci99_half_width": 9.072518026314074e-18,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 2.3108274659709934e-16,
+          "Btheta_relative_rms_error": {
+            "mean": 3.681378676566719e-05,
+            "ci99_half_width": 1.5756839065944976e-17,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 2.610607708177177e-16,
+          "beam_number": {
+            "mean": 234679534.14652583,
+            "ci99_half_width": 4.905806422061569e-08,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 1216269.8229498025,
+            "ci99_half_width": 1.714018225653858e-10,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 2.576857234779775e-19,
+            "ci99_half_width": 6.139265544179329e-35,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": -1.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "electron_cdf_distance_to_fluid": 0.0
+        },
+        {
+          "beam": "random",
+          "ions": "fluid",
+          "ppc": 16,
+          "timestep_s": {
+            "mean": 0.002128804655512795,
+            "ci99_half_width": 2.1922207290453023e-05,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 0.07683601532092628,
+            "ci99_half_width": 0.008548639039469008,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 65536.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 15378133.333333334,
+            "ci99_half_width": 1670.6308062833248,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 511584.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 0.05507133222232081,
+            "ci99_half_width": 0.0033312442885297744,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 0.054711245638530796,
+          "electrons_relative_rms_error": {
+            "mean": 6.301682472210686e-08,
+            "ci99_half_width": 6.581053749940707e-09,
+            "samples": 6
+          },
+          "electrons_relative_seed_noise": 6.200820751745917e-08,
+          "Er_relative_rms_error": {
+            "mean": 0.1324307521839617,
+            "ci99_half_width": 0.021664204855342765,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 0.1307217923903863,
+          "Ez_relative_rms_error": {
+            "mean": 0.009087167244608388,
+            "ci99_half_width": 0.0016194851906009145,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 0.00903345233711959,
+          "Btheta_relative_rms_error": {
+            "mean": 0.015534360663980859,
+            "ci99_half_width": 0.002594914470647114,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 0.015293887937438388,
+          "beam_number": {
+            "mean": 234697924.88181105,
+            "ci99_half_width": 233138.1765824081,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 1216269.8229498025,
+            "ci99_half_width": 1.714018225653858e-10,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 2.5774271569770825e-19,
+            "ci99_half_width": 7.13581716193955e-22,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": -1.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "electron_cdf_distance_to_fluid": 2.3961067199484987e-05
+        },
+        {
+          "beam": "random",
+          "ions": "fluid",
+          "ppc": 256,
+          "timestep_s": {
+            "mean": 0.006371321151770341,
+            "ci99_half_width": 2.5388921301519407e-05,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 0.10675564868142828,
+            "ci99_half_width": 0.027751421972713658,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 65536.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 183148437.33333334,
+            "ci99_half_width": 15306.460981006541,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 511584.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 0.01405040751325628,
+            "ci99_half_width": 0.0006827782181008009,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 0.013970657272648993,
+          "electrons_relative_rms_error": {
+            "mean": 1.580407824064703e-08,
+            "ci99_half_width": 1.2956033528251074e-09,
+            "samples": 6
+          },
+          "electrons_relative_seed_noise": 1.5753002380183277e-08,
+          "Er_relative_rms_error": {
+            "mean": 0.032852731508769356,
+            "ci99_half_width": 0.0023212416369737506,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 0.032749031634287516,
+          "Ez_relative_rms_error": {
+            "mean": 0.002295592645639026,
+            "ci99_half_width": 0.00024538982150409933,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 0.0023118463236186312,
+          "Btheta_relative_rms_error": {
+            "mean": 0.0038954160471839443,
+            "ci99_half_width": 0.00043925337396781794,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 0.0038469067694108217,
+          "beam_number": {
+            "mean": 234685391.2971786,
+            "ci99_half_width": 27740.369079292435,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 1216269.8229498025,
+            "ci99_half_width": 2.968766651931539e-10,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 2.577011494797526e-19,
+            "ci99_half_width": 9.92737806479077e-23,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": -1.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "electron_cdf_distance_to_fluid": 8.702278137207031e-06
+        },
+        {
+          "beam": "random",
+          "ions": "fluid",
+          "ppc": 64,
+          "timestep_s": {
+            "mean": 0.0030465797414459908,
+            "ci99_half_width": 4.884334644068609e-05,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 0.07907706266269088,
+            "ci99_half_width": 0.0011095301437312253,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 65536.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 48933365.333333336,
+            "ci99_half_width": 6046.625303542168,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 511584.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 0.02760642917151607,
+            "ci99_half_width": 0.0009515928563412461,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 0.027629712987946663,
+          "electrons_relative_rms_error": {
+            "mean": 3.2106340389390945e-08,
+            "ci99_half_width": 2.1771277723967125e-09,
+            "samples": 6
+          },
+          "electrons_relative_seed_noise": 3.240269010637395e-08,
+          "Er_relative_rms_error": {
+            "mean": 0.06587966389192854,
+            "ci99_half_width": 0.0025354611801585063,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 0.06725765665660638,
+          "Ez_relative_rms_error": {
+            "mean": 0.004694899505124665,
+            "ci99_half_width": 0.0007784890050762462,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 0.004822070816692719,
+          "Btheta_relative_rms_error": {
+            "mean": 0.007615629814468359,
+            "ci99_half_width": 0.0004689820385383325,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 0.007772245110904623,
+          "beam_number": {
+            "mean": 234724859.41078687,
+            "ci99_half_width": 89567.07253198003,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 1216269.8229498025,
+            "ci99_half_width": 2.968766651931539e-10,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 2.5781676127806067e-19,
+            "ci99_half_width": 3.536782841389598e-22,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": -1.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "electron_cdf_distance_to_fluid": 1.3907750447406109e-05
+        }
+      ]
+    },
+    "source": {
+      "settings": {
+        "beam": "fluid",
+        "ions": "fluid",
+        "mode": "source",
+        "solver": "Yee",
+        "cells": [
+          64,
+          256
+        ],
+        "radial_sigmas": 8.0,
+        "longitudinal_sigmas": 12.0,
+        "ppc": 1,
+        "electron_ppc": 4,
+        "seed": 41,
+        "steps": 20,
+        "dt": 5e-13,
+        "weight": 100.0,
+        "cap": 8,
+        "gas_density": 1e+23,
+        "temperature": 300.0,
+        "shape": 3,
+        "implicit_deposition": "villasenor",
+        "source_resolution": 8,
+        "subcycles": 1,
+        "mcc": false,
+        "no_self_fields": false,
+        "checkpoint": false,
+        "profile": false,
+        "output": "result.json"
+      },
+      "revision": [
+        "d6da20fe353c8e924d130dab058002c487e0a9a8"
+      ],
+      "backend": [
+        "CUDA"
+      ],
+      "groups": [
+        {
+          "beam": "fluid",
+          "ions": "fluid",
+          "ppc": 1,
+          "timestep_s": {
+            "mean": 0.0027050345815951005,
+            "ci99_half_width": 0.00010046185814159267,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 0.2791836466737247,
+            "ci99_half_width": 0.5527317636352111,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 53895.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 3449280.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 682112.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "continuum_Er_relative_rms_error": {
+            "mean": 0.008039918477285564,
+            "ci99_half_width": 3.128103958578816e-18,
+            "samples": 6
+          },
+          "continuum_Ez_relative_rms_error": {
+            "mean": 0.21352488853224513,
+            "ci99_half_width": 5.0049663337261053e-17,
+            "samples": 6
+          },
+          "continuum_Btheta_relative_rms_error": {
+            "mean": 0.007623580068070055,
+            "ci99_half_width": 1.564051979289408e-18,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 9.87019785191586e-17,
+          "electrons_relative_rms_error": {
+            "mean": 0.01631216777746744,
+            "ci99_half_width": 0.01316471837933671,
+            "samples": 6
+          },
+          "electrons_relative_seed_noise": 0.013659333040059701,
+          "Er_relative_rms_error": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 9.358218367001188e-17,
+          "Ez_relative_rms_error": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 9.273838843408321e-17,
+          "Btheta_relative_rms_error": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 9.334668852916365e-17,
+          "beam_number": {
+            "mean": 234677146.8361393,
+            "ci99_half_width": 5.374041680233661e-08,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 5389500.0,
+            "ci99_half_width": 1.3712145805230865e-09,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 4258000.0,
+            "ci99_half_width": 6.856072902615432e-10,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 1131500.0,
+            "ci99_half_width": 1.714018225653858e-10,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 5.714908868868395e-11,
+            "ci99_half_width": 7.820006565242314e-12,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": 8.640157478573882e-17,
+            "ci99_half_width": 1.5580183923119211e-16,
+            "samples": 6
+          },
+          "N2_primary_yield_relative_error": {
+            "mean": 0.00015146085085767277,
+            "ci99_half_width": 1.492192668535424e-16,
+            "samples": 6
+          },
+          "O2_primary_yield_relative_error": {
+            "mean": 0.00015105437484082737,
+            "ci99_half_width": 1.492192668535424e-16,
+            "samples": 6
+          },
+          "electron_cdf_distance_to_fluid": 0.0
+        },
+        {
+          "beam": "fluid",
+          "ions": "frozen",
+          "ppc": 1,
+          "timestep_s": {
+            "mean": 0.0030945202549143382,
+            "ci99_half_width": 3.481257715014252e-05,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 0.14033103184192441,
+            "ci99_half_width": 0.0038795342700240964,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 53895.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 6898560.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 170528.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "continuum_Er_relative_rms_error": {
+            "mean": 0.008039918477285564,
+            "ci99_half_width": 3.128103958578816e-18,
+            "samples": 6
+          },
+          "continuum_Ez_relative_rms_error": {
+            "mean": 0.21352488853224513,
+            "ci99_half_width": 5.0049663337261053e-17,
+            "samples": 6
+          },
+          "continuum_Btheta_relative_rms_error": {
+            "mean": 0.007623580068070055,
+            "ci99_half_width": 1.564051979289408e-18,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 9.87019785191586e-17,
+          "electrons_relative_rms_error": {
+            "mean": 0.016312167777467603,
+            "ci99_half_width": 0.013164718379336025,
+            "samples": 6
+          },
+          "electrons_relative_seed_noise": 0.013659333040059696,
+          "Er_relative_rms_error": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 9.358218367001188e-17,
+          "Ez_relative_rms_error": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 9.273838843408321e-17,
+          "Btheta_relative_rms_error": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 9.334668852916365e-17,
+          "beam_number": {
+            "mean": 234677146.8361393,
+            "ci99_half_width": 5.374041680233661e-08,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 5389500.0,
+            "ci99_half_width": 1.3712145805230865e-09,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 4258000.0,
+            "ci99_half_width": 1.1875066607726156e-09,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 1131499.9999999998,
+            "ci99_half_width": 2.423987820874354e-10,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 5.7149088688683954e-11,
+            "ci99_half_width": 7.82000656524232e-12,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": 2.880052492857961e-17,
+            "ci99_half_width": 2.141291466052355e-16,
+            "samples": 6
+          },
+          "N2_primary_yield_relative_error": {
+            "mean": 0.00015146085085759875,
+            "ci99_half_width": 2.0019865334904421e-16,
+            "samples": 6
+          },
+          "O2_primary_yield_relative_error": {
+            "mean": 0.00015105437484071635,
+            "ci99_half_width": 1.8874910119317734e-16,
+            "samples": 6
+          },
+          "electron_cdf_distance_to_fluid": 0.0
+        },
+        {
+          "beam": "quiet",
+          "ions": "fluid",
+          "ppc": 16,
+          "timestep_s": {
+            "mean": 0.0037199281699334583,
+            "ci99_half_width": 2.303907245614533e-05,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 1.8916448883343644,
+            "ci99_half_width": 0.011270518580963288,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 53918.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 14624640.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 511584.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "continuum_Er_relative_rms_error": {
+            "mean": 0.008086524078314332,
+            "ci99_half_width": 2.4352414883363557e-15,
+            "samples": 6
+          },
+          "continuum_Ez_relative_rms_error": {
+            "mean": 0.21349911894185514,
+            "ci99_half_width": 2.311243381033095e-15,
+            "samples": 6
+          },
+          "continuum_Btheta_relative_rms_error": {
+            "mean": 0.0076694166688252826,
+            "ci99_half_width": 2.3726249242086047e-15,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 0.0007829186883982466,
+            "ci99_half_width": 1.2517251649124167e-17,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 3.62709681179814e-16,
+          "electrons_relative_rms_error": {
+            "mean": 0.029378492674967376,
+            "ci99_half_width": 0.0008053757616769644,
+            "samples": 6
+          },
+          "electrons_relative_seed_noise": 0.024338291419369686,
+          "Er_relative_rms_error": {
+            "mean": 6.075050263689111e-05,
+            "ci99_half_width": 1.855209778742975e-15,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 3.34588427601843e-15,
+          "Ez_relative_rms_error": {
+            "mean": 3.7005002827419995e-05,
+            "ci99_half_width": 4.619196350573535e-15,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 1.6490997847875685e-14,
+          "Btheta_relative_rms_error": {
+            "mean": 6.076637836389759e-05,
+            "ci99_half_width": 1.3476304330367263e-15,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 2.587548114204809e-15,
+          "beam_number": {
+            "mean": 234686696.68975234,
+            "ci99_half_width": 8.20898426250614e-08,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 5391799.999999996,
+            "ci99_half_width": 6.856072902615432e-10,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 4259400.0,
+            "ci99_half_width": 1.1875066607726156e-09,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 1132400.0,
+            "ci99_half_width": 2.968766651931539e-10,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 5.60652775900225e-11,
+            "ci99_half_width": 1.1593926961162816e-11,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": 5.757647876500606e-16,
+            "ci99_half_width": 1.4682872272371829e-16,
+            "samples": 6
+          },
+          "N2_primary_yield_relative_error": {
+            "mean": 0.0001921605958939976,
+            "ci99_half_width": 2.0019865334904421e-16,
+            "samples": 6
+          },
+          "O2_primary_yield_relative_error": {
+            "mean": 0.00019175410333638343,
+            "ci99_half_width": 2.0019865334904421e-16,
+            "samples": 6
+          },
+          "electron_cdf_distance_to_fluid": 0.0007894263822519967
+        },
+        {
+          "beam": "quiet",
+          "ions": "fluid",
+          "ppc": 256,
+          "timestep_s": {
+            "mean": 0.016366510166941833,
+            "ci99_half_width": 0.00015697686207287906,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 1.9251911118335556,
+            "ci99_half_width": 0.06025497991135592,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 53921.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 182364224.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 511584.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "continuum_Er_relative_rms_error": {
+            "mean": 0.008042816076815429,
+            "ci99_half_width": 1.4037875511596905e-15,
+            "samples": 6
+          },
+          "continuum_Ez_relative_rms_error": {
+            "mean": 0.21352327136351668,
+            "ci99_half_width": 1.4039205643255814e-15,
+            "samples": 6
+          },
+          "continuum_Btheta_relative_rms_error": {
+            "mean": 0.007626427702738494,
+            "ci99_half_width": 1.3639551110755082e-15,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 4.805444096317961e-05,
+            "ci99_half_width": 4.539040659523111e-17,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 1.438920876878582e-15,
+          "electrons_relative_rms_error": {
+            "mean": 0.03095581182010801,
+            "ci99_half_width": 0.0012959018977994315,
+            "samples": 6
+          },
+          "electrons_relative_seed_noise": 0.026368018861533036,
+          "Er_relative_rms_error": {
+            "mean": 3.7971197073549446e-06,
+            "ci99_half_width": 1.0372451156848416e-15,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 3.1002673056190206e-15,
+          "Ez_relative_rms_error": {
+            "mean": 2.322237457881139e-06,
+            "ci99_half_width": 5.945206723892952e-15,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 1.6415287670965072e-14,
+          "Btheta_relative_rms_error": {
+            "mean": 3.798107771448415e-06,
+            "ci99_half_width": 8.958446076806085e-16,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 2.444341362257975e-15,
+          "beam_number": {
+            "mean": 234677743.65417346,
+            "ci99_half_width": 4.387886657673877e-08,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 5392099.999999999,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 4258999.999999999,
+            "ci99_half_width": 1.1875066607726156e-09,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 1133100.0,
+            "ci99_half_width": 1.714018225653858e-10,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 5.617105741243991e-11,
+            "ci99_half_width": 1.1833765350768178e-11,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": 8.635991307797321e-17,
+            "ci99_half_width": 1.5572671362484184e-16,
+            "samples": 6
+          },
+          "N2_primary_yield_relative_error": {
+            "mean": 0.0001540043811368852,
+            "ci99_half_width": 2.0019865334904421e-16,
+            "samples": 6
+          },
+          "O2_primary_yield_relative_error": {
+            "mean": 0.00015359790408649618,
+            "ci99_half_width": 1.492192668535424e-16,
+            "samples": 6
+          },
+          "electron_cdf_distance_to_fluid": 0.0008916977063710696
+        },
+        {
+          "beam": "quiet",
+          "ions": "fluid",
+          "ppc": 64,
+          "timestep_s": {
+            "mean": 0.006259889007196762,
+            "ci99_half_width": 1.8748952768655584e-05,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 1.8974759196668554,
+            "ci99_half_width": 0.034366390216228476,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 53920.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 48211968.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 511584.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "continuum_Er_relative_rms_error": {
+            "mean": 0.00805152110431698,
+            "ci99_half_width": 1.175186373925898e-15,
+            "samples": 6
+          },
+          "continuum_Ez_relative_rms_error": {
+            "mean": 0.21351842511146657,
+            "ci99_half_width": 9.494057474348434e-16,
+            "samples": 6
+          },
+          "continuum_Btheta_relative_rms_error": {
+            "mean": 0.0076349843648257365,
+            "ci99_half_width": 1.085534329728076e-15,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 0.0001929177617803257,
+            "ci99_half_width": 1.8447607610726214e-17,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 7.440119993239466e-16,
+          "electrons_relative_rms_error": {
+            "mean": 0.02994052141126752,
+            "ci99_half_width": 0.002072856727669847,
+            "samples": 6
+          },
+          "electrons_relative_seed_noise": 0.025612983937541276,
+          "Er_relative_rms_error": {
+            "mean": 1.5188209323152464e-05,
+            "ci99_half_width": 8.189476212291044e-16,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 2.973764950423903e-15,
+          "Ez_relative_rms_error": {
+            "mean": 9.281416814580196e-06,
+            "ci99_half_width": 4.964873046848701e-15,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 1.5657323973974524e-14,
+          "Btheta_relative_rms_error": {
+            "mean": 1.5192164939886098e-05,
+            "ci99_half_width": 6.460103829186854e-16,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 2.259426684451598e-15,
+          "beam_number": {
+            "mean": 234679534.14652583,
+            "ci99_half_width": 4.387886657673877e-08,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 5392000.0,
+            "ci99_half_width": 9.695951283497417e-10,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 4259000.0,
+            "ci99_half_width": 9.695951283497417e-10,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 1133000.0,
+            "ci99_half_width": 2.423987820874354e-10,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 5.6010632770004834e-11,
+            "ci99_half_width": 1.1777981159203916e-11,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": 4.108650548026103e-33,
+            "ci99_half_width": 1.798210549610055e-16,
+            "samples": 6
+          },
+          "N2_primary_yield_relative_error": {
+            "mean": 0.00016163513498749596,
+            "ci99_half_width": 1.8874910119317734e-16,
+            "samples": 6
+          },
+          "O2_primary_yield_relative_error": {
+            "mean": 0.00016122865483573592,
+            "ci99_half_width": 1.8874910119317734e-16,
+            "samples": 6
+          },
+          "electron_cdf_distance_to_fluid": 0.000898551605867326
+        },
+        {
+          "beam": "quiet",
+          "ions": "frozen",
+          "ppc": 16,
+          "timestep_s": {
+            "mean": 0.004206485003426981,
+            "ci99_half_width": 6.947136627523386e-05,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 1.893809475674061,
+            "ci99_half_width": 0.06765598329944966,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 53918.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 18075392.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "continuum_Er_relative_rms_error": {
+            "mean": 0.00808652407831483,
+            "ci99_half_width": 1.6236275869429677e-15,
+            "samples": 6
+          },
+          "continuum_Ez_relative_rms_error": {
+            "mean": 0.21349911894185444,
+            "ci99_half_width": 2.404728773728915e-15,
+            "samples": 6
+          },
+          "continuum_Btheta_relative_rms_error": {
+            "mean": 0.007669416668825779,
+            "ci99_half_width": 1.5907966966023792e-15,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 0.0007829186883982477,
+            "ci99_half_width": 9.587130451518854e-18,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 3.751591171059803e-16,
+          "electrons_relative_rms_error": {
+            "mean": 0.029644241045949968,
+            "ci99_half_width": 0.0009490477186712838,
+            "samples": 6
+          },
+          "electrons_relative_seed_noise": 0.02473355372863024,
+          "Er_relative_rms_error": {
+            "mean": 6.075050263752479e-05,
+            "ci99_half_width": 1.736565756919293e-15,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 3.3026790688381116e-15,
+          "Ez_relative_rms_error": {
+            "mean": 3.7005002829255814e-05,
+            "ci99_half_width": 5.096247424882352e-15,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 1.5903275008341072e-14,
+          "Btheta_relative_rms_error": {
+            "mean": 6.076637836430499e-05,
+            "ci99_half_width": 1.3427879240332814e-15,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 2.596019725052057e-15,
+          "beam_number": {
+            "mean": 234686696.68975237,
+            "ci99_half_width": 6.205408821438347e-08,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 5391799.999999996,
+            "ci99_half_width": 9.695951283497417e-10,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 4259399.999999999,
+            "ci99_half_width": 9.695951283497417e-10,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 1132400.0,
+            "ci99_half_width": 1.714018225653858e-10,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 5.60652775900225e-11,
+            "ci99_half_width": 1.159392696116282e-11,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": 4.030353513550425e-16,
+            "ci99_half_width": 2.3215659487013583e-16,
+            "samples": 6
+          },
+          "N2_primary_yield_relative_error": {
+            "mean": 0.00019216059589381254,
+            "ci99_half_width": 1.8874910119317734e-16,
+            "samples": 6
+          },
+          "O2_primary_yield_relative_error": {
+            "mean": 0.00019175410333653145,
+            "ci99_half_width": 1.492192668535424e-16,
+            "samples": 6
+          },
+          "electron_cdf_distance_to_fluid": 0.0007894263822519967
+        },
+        {
+          "beam": "quiet",
+          "ions": "frozen",
+          "ppc": 256,
+          "timestep_s": {
+            "mean": 0.016843421656327944,
+            "ci99_half_width": 9.217280558386479e-05,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 1.9132647423151259,
+            "ci99_half_width": 0.028287275536186925,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 53921.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 185815168.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "continuum_Er_relative_rms_error": {
+            "mean": 0.00804281607681587,
+            "ci99_half_width": 1.8005433592227958e-15,
+            "samples": 6
+          },
+          "continuum_Ez_relative_rms_error": {
+            "mean": 0.21352327136351626,
+            "ci99_half_width": 2.047453366279634e-15,
+            "samples": 6
+          },
+          "continuum_Btheta_relative_rms_error": {
+            "mean": 0.007626427702738911,
+            "ci99_half_width": 1.743585944165253e-15,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 4.8054440963186556e-05,
+            "ci99_half_width": 2.5160323432280254e-17,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 1.464326845994356e-15,
+          "electrons_relative_rms_error": {
+            "mean": 0.029865747958681174,
+            "ci99_half_width": 0.0023634390580224525,
+            "samples": 6
+          },
+          "electrons_relative_seed_noise": 0.025290201874253553,
+          "Er_relative_rms_error": {
+            "mean": 3.7971197077922338e-06,
+            "ci99_half_width": 1.7054321925883494e-15,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 3.1884734227780933e-15,
+          "Ez_relative_rms_error": {
+            "mean": 2.3222374601222844e-06,
+            "ci99_half_width": 3.420365964588357e-15,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 1.6240390329751357e-14,
+          "Btheta_relative_rms_error": {
+            "mean": 3.798107771744502e-06,
+            "ci99_half_width": 1.2025229445420218e-15,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 2.4900321412545574e-15,
+          "beam_number": {
+            "mean": 234677743.65417346,
+            "ci99_half_width": 5.804628438671742e-08,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 5392100.0,
+            "ci99_half_width": 1.8139463870849193e-09,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 4258999.999999999,
+            "ci99_half_width": 6.856072902615432e-10,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 1133100.0,
+            "ci99_half_width": 3.428036451307716e-10,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 5.617105741243991e-11,
+            "ci99_half_width": 1.1833765350768184e-11,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": 1.232595164407831e-32,
+            "ci99_half_width": 2.54300658467589e-16,
+            "samples": 6
+          },
+          "N2_primary_yield_relative_error": {
+            "mean": 0.00015400438113681117,
+            "ci99_half_width": 1.492192668535424e-16,
+            "samples": 6
+          },
+          "O2_primary_yield_relative_error": {
+            "mean": 0.00015359790408638516,
+            "ci99_half_width": 1.8874910119317734e-16,
+            "samples": 6
+          },
+          "electron_cdf_distance_to_fluid": 0.0008916977063710696
+        },
+        {
+          "beam": "quiet",
+          "ions": "frozen",
+          "ppc": 64,
+          "timestep_s": {
+            "mean": 0.006726248340176729,
+            "ci99_half_width": 4.1999282914758355e-05,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 1.9911447258200496,
+            "ci99_half_width": 0.4584746747252394,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 53920.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 51662848.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "continuum_Er_relative_rms_error": {
+            "mean": 0.00805152110431718,
+            "ci99_half_width": 2.0572395300598863e-15,
+            "samples": 6
+          },
+          "continuum_Ez_relative_rms_error": {
+            "mean": 0.2135184251114668,
+            "ci99_half_width": 2.923160288487568e-15,
+            "samples": 6
+          },
+          "continuum_Btheta_relative_rms_error": {
+            "mean": 0.007634984364825917,
+            "ci99_half_width": 1.96918067741614e-15,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 0.00019291776178032496,
+            "ci99_half_width": 1.5561391519273436e-17,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 7.373205284544295e-16,
+          "electrons_relative_rms_error": {
+            "mean": 0.030304217538673548,
+            "ci99_half_width": 0.001462847712371172,
+            "samples": 6
+          },
+          "electrons_relative_seed_noise": 0.02481465472058587,
+          "Er_relative_rms_error": {
+            "mean": 1.5188209323118181e-05,
+            "ci99_half_width": 2.216295544214793e-15,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 3.627118224305861e-15,
+          "Ez_relative_rms_error": {
+            "mean": 9.28141681152696e-06,
+            "ci99_half_width": 6.2737824754642016e-15,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 1.6717708998539963e-14,
+          "Btheta_relative_rms_error": {
+            "mean": 1.5192164939874531e-05,
+            "ci99_half_width": 1.686920258719518e-15,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 2.931449985232434e-15,
+          "beam_number": {
+            "mean": 234679534.14652583,
+            "ci99_half_width": 5.374041680233661e-08,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 5392000.0,
+            "ci99_half_width": 1.679388025073019e-09,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 4259000.0,
+            "ci99_half_width": 9.695951283497417e-10,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 1132999.9999999998,
+            "ci99_half_width": 1.714018225653858e-10,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 5.6010632770004834e-11,
+            "ci99_half_width": 1.1777981159203919e-11,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": 2.0543252740130517e-32,
+            "ci99_half_width": 2.5430537472609175e-16,
+            "samples": 6
+          },
+          "N2_primary_yield_relative_error": {
+            "mean": 0.00016163513498749596,
+            "ci99_half_width": 1.8874910119317734e-16,
+            "samples": 6
+          },
+          "O2_primary_yield_relative_error": {
+            "mean": 0.0001612286548356249,
+            "ci99_half_width": 1.492192668535424e-16,
+            "samples": 6
+          },
+          "electron_cdf_distance_to_fluid": 0.000898551605867326
+        },
+        {
+          "beam": "random",
+          "ions": "fluid",
+          "ppc": 16,
+          "timestep_s": {
+            "mean": 0.003897397327818908,
+            "ci99_half_width": 3.3069310697890916e-05,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 1.8887196966582753,
+            "ci99_half_width": 0.015264021182848473,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 53892.166666666664,
+            "ci99_half_width": 49.49764597126974,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 14632928.0,
+            "ci99_half_width": 2463.2858376541562,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 511584.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "continuum_Er_relative_rms_error": {
+            "mean": 0.010282666932326559,
+            "ci99_half_width": 0.0011286383343395278,
+            "samples": 6
+          },
+          "continuum_Ez_relative_rms_error": {
+            "mean": 0.2139732580643627,
+            "ci99_half_width": 0.0009363744192335974,
+            "samples": 6
+          },
+          "continuum_Btheta_relative_rms_error": {
+            "mean": 0.009215726919153837,
+            "ci99_half_width": 0.0009650252840201627,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 0.05507133222232081,
+            "ci99_half_width": 0.003331244288529763,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 0.05471124563853079,
+          "electrons_relative_rms_error": {
+            "mean": 0.04053887899332891,
+            "ci99_half_width": 0.001731757183161422,
+            "samples": 6
+          },
+          "electrons_relative_seed_noise": 0.03749217814878194,
+          "Er_relative_rms_error": {
+            "mean": 0.005610023247190042,
+            "ci99_half_width": 0.0010474268621969648,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 0.005527399343036896,
+          "Ez_relative_rms_error": {
+            "mean": 0.020305006764676305,
+            "ci99_half_width": 0.004006524263176619,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 0.020051498664071365,
+          "Btheta_relative_rms_error": {
+            "mean": 0.006509908168592062,
+            "ci99_half_width": 0.0009479112776924453,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 0.006409446054989438,
+          "beam_number": {
+            "mean": 234697924.8818111,
+            "ci99_half_width": 233138.17658239484,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 5390363.533516285,
+            "ci99_half_width": 4788.310237329059,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 4258130.200182952,
+            "ci99_half_width": 3675.308953943615,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 1132233.3333333333,
+            "ci99_half_width": 2017.8627595602295,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 6.229026851707931e-11,
+            "ci99_half_width": 1.930048587524901e-11,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": 8.636407557007151e-17,
+            "ci99_half_width": 1.5573423282176862e-16,
+            "samples": 6
+          },
+          "N2_primary_yield_relative_error": {
+            "mean": 0.00024001311515988352,
+            "ci99_half_width": 0.0009935926485923697,
+            "samples": 6
+          },
+          "O2_primary_yield_relative_error": {
+            "mean": 0.00023960660315428908,
+            "ci99_half_width": 0.0009935922447817,
+            "samples": 6
+          },
+          "electron_cdf_distance_to_fluid": 0.0009531399142392594
+        },
+        {
+          "beam": "random",
+          "ions": "fluid",
+          "ppc": 256,
+          "timestep_s": {
+            "mean": 0.01714525442124189,
+            "ci99_half_width": 0.00010118408764230402,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 1.926668643175314,
+            "ci99_half_width": 0.046541179820568,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 53897.666666666664,
+            "ci99_half_width": 18.816667256591067,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 182403584.0,
+            "ci99_half_width": 14447.35980652932,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 511584.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "continuum_Er_relative_rms_error": {
+            "mean": 0.008210797618840884,
+            "ci99_half_width": 0.00011777521592463613,
+            "samples": 6
+          },
+          "continuum_Ez_relative_rms_error": {
+            "mean": 0.21354693360540286,
+            "ci99_half_width": 0.00011322055005631463,
+            "samples": 6
+          },
+          "continuum_Btheta_relative_rms_error": {
+            "mean": 0.007747391396478571,
+            "ci99_half_width": 0.00011129747031455847,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 0.014050407513256325,
+            "ci99_half_width": 0.0006827782181007859,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 0.013970657272649067,
+          "electrons_relative_rms_error": {
+            "mean": 0.03129658077213314,
+            "ci99_half_width": 0.00253963085728628,
+            "samples": 6
+          },
+          "electrons_relative_seed_noise": 0.027379969099775473,
+          "Er_relative_rms_error": {
+            "mean": 0.0013649603272580385,
+            "ci99_half_width": 9.917528970005782e-05,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 0.0013559173903458007,
+          "Ez_relative_rms_error": {
+            "mean": 0.004923878450866188,
+            "ci99_half_width": 0.0004582451926210678,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 0.004967318320198418,
+          "Btheta_relative_rms_error": {
+            "mean": 0.0016247555765452999,
+            "ci99_half_width": 0.00020141271973041726,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 0.0016072324932285215,
+          "beam_number": {
+            "mean": 234685391.29717863,
+            "ci99_half_width": 27740.369079311935,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 5389766.666666667,
+            "ci99_half_width": 1881.6667256591513,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 4257283.333333333,
+            "ci99_half_width": 1318.6059726864196,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 1132483.3333333333,
+            "ci99_half_width": 962.191695668161,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 6.277004530669252e-11,
+            "ci99_half_width": 8.01613637400303e-12,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": 5.760265471911527e-17,
+            "ci99_half_width": 2.322194881723573e-16,
+            "samples": 6
+          },
+          "N2_primary_yield_relative_error": {
+            "mean": 0.00018659724936783326,
+            "ci99_half_width": 0.00011822442463291658,
+            "samples": 6
+          },
+          "O2_primary_yield_relative_error": {
+            "mean": 0.0001861907590712993,
+            "ci99_half_width": 0.00011822437658509488,
+            "samples": 6
+          },
+          "electron_cdf_distance_to_fluid": 0.0008935830891802082
+        },
+        {
+          "beam": "random",
+          "ions": "fluid",
+          "ppc": 64,
+          "timestep_s": {
+            "mean": 0.006597944656580997,
+            "ci99_half_width": 7.488393840844732e-05,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 1.8967461269930936,
+            "ci99_half_width": 0.02029648390051625,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 53903.333333333336,
+            "ci99_half_width": 16.581430528900167,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 48188874.666666664,
+            "ci99_half_width": 6389.339646893611,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 511584.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "continuum_Er_relative_rms_error": {
+            "mean": 0.008851090400030376,
+            "ci99_half_width": 0.0004165000241252266,
+            "samples": 6
+          },
+          "continuum_Ez_relative_rms_error": {
+            "mean": 0.21353020095724404,
+            "ci99_half_width": 0.0004196526708736261,
+            "samples": 6
+          },
+          "continuum_Btheta_relative_rms_error": {
+            "mean": 0.008249291606955011,
+            "ci99_half_width": 0.00038793900704378966,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 0.02760642917151608,
+            "ci99_half_width": 0.0009515928563412727,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 0.027629712987946673,
+          "electrons_relative_rms_error": {
+            "mean": 0.03390097009007564,
+            "ci99_half_width": 0.001432919176758907,
+            "samples": 6
+          },
+          "electrons_relative_seed_noise": 0.02984174881427857,
+          "Er_relative_rms_error": {
+            "mean": 0.002835941506978429,
+            "ci99_half_width": 0.0001297494174061381,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 0.002890795015265248,
+          "Ez_relative_rms_error": {
+            "mean": 0.010505267276407826,
+            "ci99_half_width": 0.0012389004914077632,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 0.01067133585384481,
+          "Btheta_relative_rms_error": {
+            "mean": 0.0032415719909193335,
+            "ci99_half_width": 0.0001831803974970898,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 0.0033016519311138007,
+          "beam_number": {
+            "mean": 234724859.41078687,
+            "ci99_half_width": 89567.07253197847,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 5390380.825129812,
+            "ci99_half_width": 1648.6763592716845,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 4258080.825129812,
+            "ci99_half_width": 1485.3355157988244,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 1132300.0,
+            "ci99_half_width": 1076.9168780250077,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 5.862419693821407e-11,
+            "ci99_half_width": 1.7578759455247636e-11,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": 8.638260098731382e-17,
+            "ci99_half_width": 1.557676257543595e-16,
+            "samples": 6
+          },
+          "N2_primary_yield_relative_error": {
+            "mean": 0.00035480319534290466,
+            "ci99_half_width": 0.00038171862767496183,
+            "samples": 6
+          },
+          "O2_primary_yield_relative_error": {
+            "mean": 0.00035439663668486904,
+            "ci99_half_width": 0.0003817184725389966,
+            "samples": 6
+          },
+          "electron_cdf_distance_to_fluid": 0.0024002429161257277
+        },
+        {
+          "beam": "random",
+          "ions": "frozen",
+          "ppc": 16,
+          "timestep_s": {
+            "mean": 0.00436938658337264,
+            "ci99_half_width": 4.944858439342647e-05,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 1.8735731543274596,
+            "ci99_half_width": 0.013007620962611726,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 53892.166666666664,
+            "ci99_half_width": 49.49764597126974,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 18082026.666666668,
+            "ci99_half_width": 5423.5676315812,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "continuum_Er_relative_rms_error": {
+            "mean": 0.010282666932327296,
+            "ci99_half_width": 0.0011286383343396854,
+            "samples": 6
+          },
+          "continuum_Ez_relative_rms_error": {
+            "mean": 0.21397325806436218,
+            "ci99_half_width": 0.000936374419232736,
+            "samples": 6
+          },
+          "continuum_Btheta_relative_rms_error": {
+            "mean": 0.00921572691915456,
+            "ci99_half_width": 0.0009650252840204476,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 0.0550713322223208,
+            "ci99_half_width": 0.0033312442885298065,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 0.054711245638530796,
+          "electrons_relative_rms_error": {
+            "mean": 0.041613014318907786,
+            "ci99_half_width": 0.003486434190918603,
+            "samples": 6
+          },
+          "electrons_relative_seed_noise": 0.03841834028060694,
+          "Er_relative_rms_error": {
+            "mean": 0.005610023247190042,
+            "ci99_half_width": 0.0010474268621973048,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 0.005527399343036894,
+          "Ez_relative_rms_error": {
+            "mean": 0.020305006764675764,
+            "ci99_half_width": 0.004006524263176392,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 0.020051498664070782,
+          "Btheta_relative_rms_error": {
+            "mean": 0.006509908168592121,
+            "ci99_half_width": 0.0009479112776925343,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 0.0064094460549894905,
+          "beam_number": {
+            "mean": 234697924.8818111,
+            "ci99_half_width": 233138.17658239484,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 5390363.533516285,
+            "ci99_half_width": 4788.310237329365,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 4258130.200182952,
+            "ci99_half_width": 3675.3089539433413,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 1132233.3333333333,
+            "ci99_half_width": 2017.86275956039,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 6.229026851707931e-11,
+            "ci99_half_width": 1.9300485875249014e-11,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": 2.880076068270995e-17,
+            "ci99_half_width": 2.14043843030585e-16,
+            "samples": 6
+          },
+          "N2_primary_yield_relative_error": {
+            "mean": 0.00024001311515979099,
+            "ci99_half_width": 0.0009935926485923102,
+            "samples": 6
+          },
+          "O2_primary_yield_relative_error": {
+            "mean": 0.00023960660315421509,
+            "ci99_half_width": 0.0009935922447817888,
+            "samples": 6
+          },
+          "electron_cdf_distance_to_fluid": 0.0009531399142392594
+        },
+        {
+          "beam": "random",
+          "ions": "frozen",
+          "ppc": 256,
+          "timestep_s": {
+            "mean": 0.017523555075361703,
+            "ci99_half_width": 0.00010190830990442789,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 1.9187820766528603,
+            "ci99_half_width": 0.047106719432490285,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 53897.666666666664,
+            "ci99_half_width": 18.816667256591067,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 185853034.66666666,
+            "ci99_half_width": 13640.571087249982,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "continuum_Er_relative_rms_error": {
+            "mean": 0.008210797618841062,
+            "ci99_half_width": 0.00011777521592375597,
+            "samples": 6
+          },
+          "continuum_Ez_relative_rms_error": {
+            "mean": 0.213546933605403,
+            "ci99_half_width": 0.00011322055005740826,
+            "samples": 6
+          },
+          "continuum_Btheta_relative_rms_error": {
+            "mean": 0.0077473913964787545,
+            "ci99_half_width": 0.00011129747031329237,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 0.014050407513256319,
+            "ci99_half_width": 0.0006827782181007606,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 0.013970657272649067,
+          "electrons_relative_rms_error": {
+            "mean": 0.03140422190302653,
+            "ci99_half_width": 0.0008992813818376708,
+            "samples": 6
+          },
+          "electrons_relative_seed_noise": 0.027432852671448276,
+          "Er_relative_rms_error": {
+            "mean": 0.0013649603272581033,
+            "ci99_half_width": 9.917528970000033e-05,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 0.0013559173903459024,
+          "Ez_relative_rms_error": {
+            "mean": 0.004923878450866016,
+            "ci99_half_width": 0.0004582451926213061,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 0.004967318320198151,
+          "Btheta_relative_rms_error": {
+            "mean": 0.0016247555765453127,
+            "ci99_half_width": 0.00020141271973052357,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 0.0016072324932285742,
+          "beam_number": {
+            "mean": 234685391.2971786,
+            "ci99_half_width": 27740.369079305096,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 5389766.666666666,
+            "ci99_half_width": 1881.666725659044,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 4257283.333333333,
+            "ci99_half_width": 1318.605972685992,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 1132483.3333333333,
+            "ci99_half_width": 962.191695668161,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 6.277004530669252e-11,
+            "ci99_half_width": 8.016136374003034e-12,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": 2.880426652558975e-17,
+            "ci99_half_width": 2.1409807925669472e-16,
+            "samples": 6
+          },
+          "N2_primary_yield_relative_error": {
+            "mean": 0.00018659724936779623,
+            "ci99_half_width": 0.00011822442463285225,
+            "samples": 6
+          },
+          "O2_primary_yield_relative_error": {
+            "mean": 0.0001861907590712993,
+            "ci99_half_width": 0.00011822437658509488,
+            "samples": 6
+          },
+          "electron_cdf_distance_to_fluid": 0.0008935830891802082
+        },
+        {
+          "beam": "random",
+          "ions": "frozen",
+          "ppc": 64,
+          "timestep_s": {
+            "mean": 0.007076753424674583,
+            "ci99_half_width": 0.00012579154407849866,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 1.8880256296833977,
+            "ci99_half_width": 0.04204254894659292,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 53903.333333333336,
+            "ci99_half_width": 16.581430528900167,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 51638688.0,
+            "ci99_half_width": 6880.260504468164,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "continuum_Er_relative_rms_error": {
+            "mean": 0.008851090400029819,
+            "ci99_half_width": 0.00041650002412488144,
+            "samples": 6
+          },
+          "continuum_Ez_relative_rms_error": {
+            "mean": 0.21353020095724493,
+            "ci99_half_width": 0.0004196526708743302,
+            "samples": 6
+          },
+          "continuum_Btheta_relative_rms_error": {
+            "mean": 0.008249291606954484,
+            "ci99_half_width": 0.00038793900704336623,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 0.027606429171516077,
+            "ci99_half_width": 0.0009515928563412796,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 0.02762971298794666,
+          "electrons_relative_rms_error": {
+            "mean": 0.03419356516525204,
+            "ci99_half_width": 0.0020282584467740095,
+            "samples": 6
+          },
+          "electrons_relative_seed_noise": 0.03023457441614527,
+          "Er_relative_rms_error": {
+            "mean": 0.0028359415069783476,
+            "ci99_half_width": 0.00012974941740612214,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 0.002890795015265251,
+          "Ez_relative_rms_error": {
+            "mean": 0.010505267276407786,
+            "ci99_half_width": 0.00123890049140706,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 0.010671335853844862,
+          "Btheta_relative_rms_error": {
+            "mean": 0.003241571990919336,
+            "ci99_half_width": 0.00018318039749701012,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 0.0033016519311138306,
+          "beam_number": {
+            "mean": 234724859.41078687,
+            "ci99_half_width": 89567.07253195698,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 5390380.825129812,
+            "ci99_half_width": 1648.676359271629,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 4258080.825129812,
+            "ci99_half_width": 1485.33551579892,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 1132300.0,
+            "ci99_half_width": 1076.9168780248554,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 5.862419693821407e-11,
+            "ci99_half_width": 1.7578759455247645e-11,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": 2.879277072622991e-17,
+            "ci99_half_width": 1.160965684608823e-16,
+            "samples": 6
+          },
+          "N2_primary_yield_relative_error": {
+            "mean": 0.00035480319534286764,
+            "ci99_half_width": 0.0003817186276749954,
+            "samples": 6
+          },
+          "O2_primary_yield_relative_error": {
+            "mean": 0.00035439663668498006,
+            "ci99_half_width": 0.0003817184725390526,
+            "samples": 6
+          },
+          "electron_cdf_distance_to_fluid": 0.0024002429161257277
+        }
+      ]
+    },
+    "coupled": {
+      "settings": {
+        "beam": "fluid",
+        "ions": "fluid",
+        "mode": "coupled",
+        "solver": "Yee",
+        "cells": [
+          64,
+          256
+        ],
+        "radial_sigmas": 8.0,
+        "longitudinal_sigmas": 12.0,
+        "ppc": 1,
+        "electron_ppc": 4,
+        "seed": 41,
+        "steps": 20,
+        "dt": 5e-13,
+        "weight": 100.0,
+        "cap": 8,
+        "gas_density": 1e+23,
+        "temperature": 300.0,
+        "shape": 3,
+        "implicit_deposition": "villasenor",
+        "source_resolution": 8,
+        "subcycles": 1,
+        "mcc": true,
+        "no_self_fields": false,
+        "checkpoint": false,
+        "profile": false,
+        "output": "result.json"
+      },
+      "revision": [
+        "d6da20fe353c8e924d130dab058002c487e0a9a8"
+      ],
+      "backend": [
+        "CUDA"
+      ],
+      "groups": [
+        {
+          "beam": "fluid",
+          "ions": "fluid",
+          "ppc": 1,
+          "timestep_s": {
+            "mean": 0.0038934529099302986,
+            "ci99_half_width": 9.327017966113415e-05,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 1.909757691018361,
+            "ci99_half_width": 0.5576604076580584,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 54275.0,
+            "ci99_half_width": 49.449265179484534,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 3473600.0,
+            "ci99_half_width": 3164.75297148701,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 682112.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "continuum_Er_relative_rms_error": {
+            "mean": 0.008039918477285564,
+            "ci99_half_width": 3.128103958578816e-18,
+            "samples": 6
+          },
+          "continuum_Ez_relative_rms_error": {
+            "mean": 0.21352488853224513,
+            "ci99_half_width": 5.0049663337261053e-17,
+            "samples": 6
+          },
+          "continuum_Btheta_relative_rms_error": {
+            "mean": 0.007623580068070055,
+            "ci99_half_width": 1.564051979289408e-18,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 9.87019785191586e-17,
+          "electrons_relative_rms_error": {
+            "mean": 0.01839827719902844,
+            "ci99_half_width": 0.014840140789217214,
+            "samples": 6
+          },
+          "electrons_relative_seed_noise": 0.015423160824578497,
+          "Er_relative_rms_error": {
+            "mean": 5.353235945499739e-06,
+            "ci99_half_width": 4.329869625128627e-06,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 4.753685288852777e-06,
+          "Ez_relative_rms_error": {
+            "mean": 1.580020287244792e-05,
+            "ci99_half_width": 1.28899152749961e-05,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 1.370022178837383e-05,
+          "Btheta_relative_rms_error": {
+            "mean": 1.3386758309550013e-06,
+            "ci99_half_width": 1.0839083863570314e-06,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 1.2041357725752785e-06,
+          "beam_number": {
+            "mean": 234677146.8361393,
+            "ci99_half_width": 5.374041680233661e-08,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 5427500.0,
+            "ci99_half_width": 4944.926517948627,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 4300216.666666667,
+            "ci99_half_width": 5431.1001933814605,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 1143983.3333333333,
+            "ci99_half_width": 2070.2261021714157,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 16700.0,
+            "ci99_half_width": 2750.540258907196,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 5.2301134521148716e-11,
+            "ci99_half_width": 8.911009581212858e-12,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": 2.861628057641307e-17,
+            "ci99_half_width": 1.1538493494163173e-16,
+            "samples": 6
+          },
+          "electron_cdf_distance_to_fluid": 0.0
+        },
+        {
+          "beam": "fluid",
+          "ions": "frozen",
+          "ppc": 1,
+          "timestep_s": {
+            "mean": 0.003927552830039834,
+            "ci99_half_width": 4.328168257909134e-05,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 1.7440750815051917,
+            "ci99_half_width": 0.006410612655011638,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 54268.833333333336,
+            "ci99_half_width": 32.448383777020126,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 6966656.0,
+            "ci99_half_width": 4495.431613258674,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 170528.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "continuum_Er_relative_rms_error": {
+            "mean": 0.008039918477285564,
+            "ci99_half_width": 3.128103958578816e-18,
+            "samples": 6
+          },
+          "continuum_Ez_relative_rms_error": {
+            "mean": 0.21352488853224513,
+            "ci99_half_width": 5.0049663337261053e-17,
+            "samples": 6
+          },
+          "continuum_Btheta_relative_rms_error": {
+            "mean": 0.007623580068070055,
+            "ci99_half_width": 1.564051979289408e-18,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 9.87019785191586e-17,
+          "electrons_relative_rms_error": {
+            "mean": 0.01965012514653873,
+            "ci99_half_width": 0.009682318637179166,
+            "samples": 6
+          },
+          "electrons_relative_seed_noise": 0.01549258915983771,
+          "Er_relative_rms_error": {
+            "mean": 5.502844692986637e-06,
+            "ci99_half_width": 3.922787027352906e-06,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 4.753195645500742e-06,
+          "Ez_relative_rms_error": {
+            "mean": 1.6094513668874287e-05,
+            "ci99_half_width": 1.1723256137010974e-05,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 1.3701353975615444e-05,
+          "Btheta_relative_rms_error": {
+            "mean": 1.3898021864007106e-06,
+            "ci99_half_width": 9.261446890932519e-07,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 1.213089854027849e-06,
+          "beam_number": {
+            "mean": 234677146.8361393,
+            "ci99_half_width": 5.374041680233661e-08,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 5426883.333333333,
+            "ci99_half_width": 3244.8383777025315,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 4298883.333333333,
+            "ci99_half_width": 2681.535084964149,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 1143816.6666666665,
+            "ci99_half_width": 1118.4705628711192,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 15816.666666666666,
+            "ci99_half_width": 3388.6264400803166,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 5.3253285193142027e-11,
+            "ci99_half_width": 6.296146409038452e-12,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": 8.583828501662006e-17,
+            "ci99_half_width": 2.9628034723619356e-16,
+            "samples": 6
+          },
+          "electron_cdf_distance_to_fluid": 0.00023930221135931573
+        },
+        {
+          "beam": "quiet",
+          "ions": "fluid",
+          "ppc": 16,
+          "timestep_s": {
+            "mean": 0.005004211416235194,
+            "ci99_half_width": 6.711377064089286e-05,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 3.4869530593277887,
+            "ci99_half_width": 0.0296360037810712,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 54294.833333333336,
+            "ci99_half_width": 26.592111199131732,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 14648757.333333334,
+            "ci99_half_width": 1701.895116744431,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 511584.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "continuum_Er_relative_rms_error": {
+            "mean": 0.008086524078315326,
+            "ci99_half_width": 8.980909402028891e-16,
+            "samples": 6
+          },
+          "continuum_Ez_relative_rms_error": {
+            "mean": 0.21349911894185414,
+            "ci99_half_width": 8.91811411709327e-16,
+            "samples": 6
+          },
+          "continuum_Btheta_relative_rms_error": {
+            "mean": 0.007669416668826211,
+            "ci99_half_width": 8.967895893837543e-16,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 0.0007829186883982482,
+            "ci99_half_width": 9.940757237262708e-18,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 3.695666143231055e-16,
+          "electrons_relative_rms_error": {
+            "mean": 0.031706895739532934,
+            "ci99_half_width": 0.0016639288795521803,
+            "samples": 6
+          },
+          "electrons_relative_seed_noise": 0.02530841068028032,
+          "Er_relative_rms_error": {
+            "mean": 6.152666141197478e-05,
+            "ci99_half_width": 7.748299743162969e-07,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 5.309006782507866e-06,
+          "Ez_relative_rms_error": {
+            "mean": 4.179046518007203e-05,
+            "ci99_half_width": 1.8106865368172015e-06,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 1.5033515030108222e-05,
+          "Btheta_relative_rms_error": {
+            "mean": 6.081124279494251e-05,
+            "ci99_half_width": 1.6101965514537477e-07,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 1.2953902386975933e-06,
+          "beam_number": {
+            "mean": 234686696.68975237,
+            "ci99_half_width": 6.581829986510815e-08,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 5429483.333333333,
+            "ci99_half_width": 2659.211119913613,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 4300766.666666667,
+            "ci99_half_width": 2160.533099618329,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 1145000.0,
+            "ci99_half_width": 1076.916878024902,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 16283.333333333334,
+            "ci99_half_width": 3196.036817889367,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 5.5124896856838425e-11,
+            "ci99_half_width": 1.2232261698668126e-11,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": 5.717143070607148e-17,
+            "ci99_half_width": 1.457957926647029e-16,
+            "samples": 6
+          },
+          "electron_cdf_distance_to_fluid": 0.0009678977698677482
+        },
+        {
+          "beam": "quiet",
+          "ions": "fluid",
+          "ppc": 256,
+          "timestep_s": {
+            "mean": 0.01751604541398895,
+            "ci99_half_width": 0.0001222814895208198,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 3.5328488448479525,
+            "ci99_half_width": 0.0644415725744891,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 54301.5,
+            "ci99_half_width": 27.67726699284985,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 182388576.0,
+            "ci99_half_width": 1771.3450875423905,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 511584.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "continuum_Er_relative_rms_error": {
+            "mean": 0.008042816076814334,
+            "ci99_half_width": 1.7399964040704376e-15,
+            "samples": 6
+          },
+          "continuum_Ez_relative_rms_error": {
+            "mean": 0.21352327136351798,
+            "ci99_half_width": 2.3078991873061146e-15,
+            "samples": 6
+          },
+          "continuum_Btheta_relative_rms_error": {
+            "mean": 0.00762642770273744,
+            "ci99_half_width": 1.6065657652553606e-15,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 4.805444096318319e-05,
+            "ci99_half_width": 2.3082286637825602e-17,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 1.4121652801440638e-15,
+          "electrons_relative_rms_error": {
+            "mean": 0.03218956477908693,
+            "ci99_half_width": 0.00104494625176283,
+            "samples": 6
+          },
+          "electrons_relative_seed_noise": 0.025871373231288353,
+          "Er_relative_rms_error": {
+            "mean": 8.074911899306525e-06,
+            "ci99_half_width": 2.144088900721158e-07,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 5.280827298904535e-06,
+          "Ez_relative_rms_error": {
+            "mean": 2.0322700533202864e-05,
+            "ci99_half_width": 1.5815319468650418e-06,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 1.5027226994252205e-05,
+          "Btheta_relative_rms_error": {
+            "mean": 4.2105512634492365e-06,
+            "ci99_half_width": 1.4814108932784226e-07,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 1.4570515962693348e-06,
+          "beam_number": {
+            "mean": 234677743.6541735,
+            "ci99_half_width": 3.80002131447237e-08,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 5430150.0,
+            "ci99_half_width": 2767.726699285076,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 4298483.333333333,
+            "ci99_half_width": 3274.763231423995,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 1146566.6666666667,
+            "ci99_half_width": 2170.5433451837202,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 14899.999999999998,
+            "ci99_half_width": 1944.9256689998788,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 5.318531492487747e-11,
+            "ci99_half_width": 1.0689558351822207e-11,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": 8.574451156430245e-17,
+            "ci99_half_width": 2.9617414846396316e-16,
+            "samples": 6
+          },
+          "electron_cdf_distance_to_fluid": 0.0010350789221852952
+        },
+        {
+          "beam": "quiet",
+          "ions": "fluid",
+          "ppc": 64,
+          "timestep_s": {
+            "mean": 0.007518994088362281,
+            "ci99_half_width": 5.587463295693717e-05,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 3.4926345529966056,
+            "ci99_half_width": 0.02610309478338466,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 54304.666666666664,
+            "ci99_half_width": 57.63441867191488,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 48236586.666666664,
+            "ci99_half_width": 3688.6027950025514,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 511584.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "continuum_Er_relative_rms_error": {
+            "mean": 0.008051521104316055,
+            "ci99_half_width": 1.6728031303972645e-15,
+            "samples": 6
+          },
+          "continuum_Ez_relative_rms_error": {
+            "mean": 0.21351842511146754,
+            "ci99_half_width": 1.6603367624041146e-15,
+            "samples": 6
+          },
+          "continuum_Btheta_relative_rms_error": {
+            "mean": 0.007634984364824875,
+            "ci99_half_width": 1.6466761344348021e-15,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 0.00019291776178032436,
+            "ci99_half_width": 1.5973972099978616e-17,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 7.388921018681124e-16,
+          "electrons_relative_rms_error": {
+            "mean": 0.03307230567565408,
+            "ci99_half_width": 0.002617990438069945,
+            "samples": 6
+          },
+          "electrons_relative_seed_noise": 0.026800836116079942,
+          "Er_relative_rms_error": {
+            "mean": 1.7128224546090766e-05,
+            "ci99_half_width": 8.516147689275505e-07,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 5.481906798436721e-06,
+          "Ez_relative_rms_error": {
+            "mean": 2.2060903264062737e-05,
+            "ci99_half_width": 1.7706657232359907e-06,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 1.525738569338292e-05,
+          "Btheta_relative_rms_error": {
+            "mean": 1.5316184692233296e-05,
+            "ci99_half_width": 1.9610442373095708e-07,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 1.3470617937241797e-06,
+          "beam_number": {
+            "mean": 234679534.14652583,
+            "ci99_half_width": 5.374041680233661e-08,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 5430466.666666667,
+            "ci99_half_width": 5763.441867191515,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 4302216.666666667,
+            "ci99_half_width": 3791.667794454738,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 1145316.6666666665,
+            "ci99_half_width": 2501.698408737118,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 17066.666666666668,
+            "ci99_half_width": 1437.56563264931,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 5.577005490921324e-11,
+            "ci99_half_width": 1.2038147682399887e-11,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": 2.8558385060440455e-17,
+            "ci99_half_width": 2.125055062636837e-16,
+            "samples": 6
+          },
+          "electron_cdf_distance_to_fluid": 0.0008617004725285371
+        },
+        {
+          "beam": "quiet",
+          "ions": "frozen",
+          "ppc": 16,
+          "timestep_s": {
+            "mean": 0.005049679903701569,
+            "ci99_half_width": 3.901152643008877e-05,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 3.474669922647687,
+            "ci99_half_width": 0.01904485399261226,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 54292.5,
+            "ci99_half_width": 64.3102578856309,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 18143594.666666668,
+            "ci99_half_width": 6648.888664070201,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "continuum_Er_relative_rms_error": {
+            "mean": 0.0080865240783146,
+            "ci99_half_width": 1.800649328653961e-15,
+            "samples": 6
+          },
+          "continuum_Ez_relative_rms_error": {
+            "mean": 0.21349911894185522,
+            "ci99_half_width": 1.635125897105429e-15,
+            "samples": 6
+          },
+          "continuum_Btheta_relative_rms_error": {
+            "mean": 0.007669416668825557,
+            "ci99_half_width": 1.7365372667842021e-15,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 0.0007829186883982499,
+            "ci99_half_width": 8.781122333116581e-18,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 3.6313156986887417e-16,
+          "electrons_relative_rms_error": {
+            "mean": 0.03195986841083587,
+            "ci99_half_width": 0.0010362568321554708,
+            "samples": 6
+          },
+          "electrons_relative_seed_noise": 0.025826246188216623,
+          "Er_relative_rms_error": {
+            "mean": 6.165520972655084e-05,
+            "ci99_half_width": 9.73756967008522e-07,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 5.378133739134807e-06,
+          "Ez_relative_rms_error": {
+            "mean": 4.195539525264682e-05,
+            "ci99_half_width": 1.7251209004108277e-06,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 1.5746423316341908e-05,
+          "Btheta_relative_rms_error": {
+            "mean": 6.081389708443365e-05,
+            "ci99_half_width": 1.9955841167465362e-07,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 1.3364797396830522e-06,
+          "beam_number": {
+            "mean": 234686696.68975237,
+            "ci99_half_width": 4.387886657673877e-08,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 5429249.999999999,
+            "ci99_half_width": 6431.025788562729,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 4299499.999999999,
+            "ci99_half_width": 4777.706621792447,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 1145583.3333333333,
+            "ci99_half_width": 1943.299573799858,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 15833.333333333334,
+            "ci99_half_width": 2294.348803620547,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 5.549627796828867e-11,
+            "ci99_half_width": 1.3660488230853367e-11,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": -8.57534846861664e-17,
+            "ci99_half_width": 2.3625913200463063e-16,
+            "samples": 6
+          },
+          "electron_cdf_distance_to_fluid": 0.0011323814023759815
+        },
+        {
+          "beam": "quiet",
+          "ions": "frozen",
+          "ppc": 256,
+          "timestep_s": {
+            "mean": 0.017605575572815724,
+            "ci99_half_width": 0.00012916991165237582,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 3.516780196504745,
+            "ci99_half_width": 0.02778418850750504,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 54293.666666666664,
+            "ci99_half_width": 15.289096001742461,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 185883776.0,
+            "ci99_half_width": 2144.6189857213076,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "continuum_Er_relative_rms_error": {
+            "mean": 0.008042816076815102,
+            "ci99_half_width": 2.6871414415786127e-15,
+            "samples": 6
+          },
+          "continuum_Ez_relative_rms_error": {
+            "mean": 0.21352327136351743,
+            "ci99_half_width": 2.7027590562432684e-15,
+            "samples": 6
+          },
+          "continuum_Btheta_relative_rms_error": {
+            "mean": 0.007626427702738174,
+            "ci99_half_width": 2.6246046624267204e-15,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 4.80544409631815e-05,
+            "ci99_half_width": 2.4757842638209297e-17,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 1.385689746387429e-15,
+          "electrons_relative_rms_error": {
+            "mean": 0.032731839871045054,
+            "ci99_half_width": 0.0010473187284984861,
+            "samples": 6
+          },
+          "electrons_relative_seed_noise": 0.027177449933476316,
+          "Er_relative_rms_error": {
+            "mean": 8.069695932094484e-06,
+            "ci99_half_width": 4.205695673132982e-07,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 5.352063939783035e-06,
+          "Ez_relative_rms_error": {
+            "mean": 2.004829410858569e-05,
+            "ci99_half_width": 2.4141032328704e-06,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 1.5061565228131754e-05,
+          "Btheta_relative_rms_error": {
+            "mean": 4.191370182109813e-06,
+            "ci99_half_width": 1.0512135899513614e-07,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 1.404325895992995e-06,
+          "beam_number": {
+            "mean": 234677743.65417346,
+            "ci99_half_width": 6.205408821438347e-08,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 5429366.666666667,
+            "ci99_half_width": 1528.909600174587,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 4299866.666666667,
+            "ci99_half_width": 1658.1430528905444,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 1145833.3333333333,
+            "ci99_half_width": 1114.8306200896234,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 16333.333333333334,
+            "ci99_half_width": 695.7962222978316,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 5.225137709845888e-11,
+            "ci99_half_width": 1.0578654832612246e-11,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": 8.576188160879781e-17,
+            "ci99_half_width": 2.362341920975951e-16,
+            "samples": 6
+          },
+          "electron_cdf_distance_to_fluid": 0.0008932836137870437
+        },
+        {
+          "beam": "quiet",
+          "ions": "frozen",
+          "ppc": 64,
+          "timestep_s": {
+            "mean": 0.007600101312467207,
+            "ci99_half_width": 2.9709213097416188e-05,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 3.4724200333293993,
+            "ci99_half_width": 0.014213520032693721,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 54291.5,
+            "ci99_half_width": 40.38522163753279,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 51731434.666666664,
+            "ci99_half_width": 3802.976052764073,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "continuum_Er_relative_rms_error": {
+            "mean": 0.008051521104317486,
+            "ci99_half_width": 1.4751445329156935e-15,
+            "samples": 6
+          },
+          "continuum_Ez_relative_rms_error": {
+            "mean": 0.21351842511146654,
+            "ci99_half_width": 1.9582363846750216e-15,
+            "samples": 6
+          },
+          "continuum_Btheta_relative_rms_error": {
+            "mean": 0.007634984364826222,
+            "ci99_half_width": 1.4539027656323242e-15,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 0.00019291776178032458,
+            "ci99_half_width": 2.223881932166272e-17,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 7.641427107485894e-16,
+          "electrons_relative_rms_error": {
+            "mean": 0.03192208718464735,
+            "ci99_half_width": 0.001122796856820036,
+            "samples": 6
+          },
+          "electrons_relative_seed_noise": 0.026783761454601054,
+          "Er_relative_rms_error": {
+            "mean": 1.7080444358330248e-05,
+            "ci99_half_width": 9.285786269829648e-07,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 5.323007793255833e-06,
+          "Ez_relative_rms_error": {
+            "mean": 2.2228467404005414e-05,
+            "ci99_half_width": 2.9363734351122927e-06,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 1.5473865054479633e-05,
+          "Btheta_relative_rms_error": {
+            "mean": 1.53231657279464e-05,
+            "ci99_half_width": 1.628973915743109e-07,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 1.3385131517172725e-06,
+          "beam_number": {
+            "mean": 234679534.14652586,
+            "ci99_half_width": 7.276486833055438e-08,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 5429150.0,
+            "ci99_half_width": 4038.5221637533223,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 4299866.666666667,
+            "ci99_half_width": 2595.787192925525,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 1145716.6666666665,
+            "ci99_half_width": 1590.5825957207608,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 16433.333333333332,
+            "ci99_half_width": 3150.3513852839787,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 5.3467473562737174e-11,
+            "ci99_half_width": 1.0205237323197776e-11,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": 1.1435552055407558e-16,
+            "ci99_half_width": 1.4581198205396637e-16,
+            "samples": 6
+          },
+          "electron_cdf_distance_to_fluid": 0.0008851600182584463
+        },
+        {
+          "beam": "random",
+          "ions": "fluid",
+          "ppc": 16,
+          "timestep_s": {
+            "mean": 0.0052002075826749206,
+            "ci99_half_width": 6.56455940088392e-05,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 3.468830548498469,
+            "ci99_half_width": 0.007270865954901533,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 54275.833333333336,
+            "ci99_half_width": 83.04267841210928,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 14657482.666666666,
+            "ci99_half_width": 5845.784031271715,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 511584.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "continuum_Er_relative_rms_error": {
+            "mean": 0.010282666932327248,
+            "ci99_half_width": 0.0011286383343402993,
+            "samples": 6
+          },
+          "continuum_Ez_relative_rms_error": {
+            "mean": 0.21397325806436188,
+            "ci99_half_width": 0.0009363744192340671,
+            "samples": 6
+          },
+          "continuum_Btheta_relative_rms_error": {
+            "mean": 0.009215726919154536,
+            "ci99_half_width": 0.0009650252840209658,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 0.05507133222232082,
+            "ci99_half_width": 0.0033312442885297887,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 0.054711245638530796,
+          "electrons_relative_rms_error": {
+            "mean": 0.04242877115562942,
+            "ci99_half_width": 0.002972005203798648,
+            "samples": 6
+          },
+          "electrons_relative_seed_noise": 0.03905056679126955,
+          "Er_relative_rms_error": {
+            "mean": 0.005609955817183473,
+            "ci99_half_width": 0.001047679012147079,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 0.005527438864341069,
+          "Ez_relative_rms_error": {
+            "mean": 0.020304910737415575,
+            "ci99_half_width": 0.004006092091703516,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 0.020051460243209054,
+          "Btheta_relative_rms_error": {
+            "mean": 0.006509929190925095,
+            "ci99_half_width": 0.0009479142834702673,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 0.0064094607780305285,
+          "beam_number": {
+            "mean": 234697924.8818111,
+            "ci99_half_width": 233138.17658239484,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 5428733.036819865,
+            "ci99_half_width": 8129.285046802971,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 4299403.366602176,
+            "ci99_half_width": 6563.535073809771,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 1144687.035572369,
+            "ci99_half_width": 3022.169699361218,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 15357.36535467879,
+            "ci99_half_width": 1486.241960031813,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 5.0241652080504206e-11,
+            "ci99_half_width": 5.741593341350623e-12,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": 5.72141400935901e-17,
+            "ci99_half_width": 1.4590471290484335e-16,
+            "samples": 6
+          },
+          "electron_cdf_distance_to_fluid": 0.0018898244154876842
+        },
+        {
+          "beam": "random",
+          "ions": "fluid",
+          "ppc": 256,
+          "timestep_s": {
+            "mean": 0.018299242175999098,
+            "ci99_half_width": 9.771776476942396e-05,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 3.5157832393209296,
+            "ci99_half_width": 0.03619041446292532,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 54263.666666666664,
+            "ci99_half_width": 45.064697476925076,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 182427008.0,
+            "ci99_half_width": 14531.466795502707,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 511584.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "continuum_Er_relative_rms_error": {
+            "mean": 0.008210797618841758,
+            "ci99_half_width": 0.00011777521592317248,
+            "samples": 6
+          },
+          "continuum_Ez_relative_rms_error": {
+            "mean": 0.21354693360540244,
+            "ci99_half_width": 0.0001132205500568268,
+            "samples": 6
+          },
+          "continuum_Btheta_relative_rms_error": {
+            "mean": 0.007747391396479494,
+            "ci99_half_width": 0.0001112974703130294,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 0.01405040751325625,
+            "ci99_half_width": 0.0006827782181008673,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 0.01397065727264901,
+          "electrons_relative_rms_error": {
+            "mean": 0.03388574610435743,
+            "ci99_half_width": 0.002275919895544095,
+            "samples": 6
+          },
+          "electrons_relative_seed_noise": 0.028515202122804898,
+          "Er_relative_rms_error": {
+            "mean": 0.001364858907823329,
+            "ci99_half_width": 9.885354911649263e-05,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 0.00135581868361201,
+          "Ez_relative_rms_error": {
+            "mean": 0.004924244674341765,
+            "ci99_half_width": 0.00045895467449238124,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 0.004967630624530764,
+          "Btheta_relative_rms_error": {
+            "mean": 0.0016247434373113188,
+            "ci99_half_width": 0.0002012107161694558,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 0.0016072055067771988,
+          "beam_number": {
+            "mean": 234685391.2971786,
+            "ci99_half_width": 27740.369079305787,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 5426366.666666666,
+            "ci99_half_width": 4506.469747692508,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 4298583.333333333,
+            "ci99_half_width": 4117.811970026061,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 1144883.3333333333,
+            "ci99_half_width": 2381.8481384932516,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 17100.0,
+            "ci99_half_width": 2218.289487583391,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 5.675171457845664e-11,
+            "ci99_half_width": 6.885763413620587e-12,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": 1.1442612854321367e-16,
+            "ci99_half_width": 1.45902023683237e-16,
+            "samples": 6
+          },
+          "electron_cdf_distance_to_fluid": 0.001094632719145061
+        },
+        {
+          "beam": "random",
+          "ions": "fluid",
+          "ppc": 64,
+          "timestep_s": {
+            "mean": 0.007850067083685039,
+            "ci99_half_width": 9.053373937342958e-05,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 3.4916303103382234,
+            "ci99_half_width": 0.04570641938822921,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 54283.333333333336,
+            "ci99_half_width": 66.49708912434926,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 48213194.666666664,
+            "ci99_half_width": 6721.853549574276,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 511584.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "continuum_Er_relative_rms_error": {
+            "mean": 0.00885109040003018,
+            "ci99_half_width": 0.0004165000241251173,
+            "samples": 6
+          },
+          "continuum_Ez_relative_rms_error": {
+            "mean": 0.2135302009572445,
+            "ci99_half_width": 0.0004196526708748926,
+            "samples": 6
+          },
+          "continuum_Btheta_relative_rms_error": {
+            "mean": 0.008249291606954859,
+            "ci99_half_width": 0.00038793900704357873,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 0.027606429171516036,
+            "ci99_half_width": 0.0009515928563413201,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 0.02762971298794662,
+          "electrons_relative_rms_error": {
+            "mean": 0.0348572960208558,
+            "ci99_half_width": 0.001531654729229923,
+            "samples": 6
+          },
+          "electrons_relative_seed_noise": 0.029806194534701038,
+          "Er_relative_rms_error": {
+            "mean": 0.002835990166968146,
+            "ci99_half_width": 0.00012983360706433192,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 0.0028907935496456376,
+          "Ez_relative_rms_error": {
+            "mean": 0.010505358400497955,
+            "ci99_half_width": 0.0012390707051662543,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 0.010671123317200487,
+          "Btheta_relative_rms_error": {
+            "mean": 0.0032415609060716406,
+            "ci99_half_width": 0.00018340755816151336,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 0.003301644443259946,
+          "beam_number": {
+            "mean": 234724859.41078687,
+            "ci99_half_width": 89567.07253198003,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 5428380.825129812,
+            "ci99_half_width": 6689.337942279008,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 4300297.491796479,
+            "ci99_half_width": 4707.475877215348,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 1144466.6666666665,
+            "ci99_half_width": 2109.7695562983386,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 16383.33333333333,
+            "ci99_half_width": 2991.0723047424553,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 5.962879646130678e-11,
+            "ci99_half_width": 1.3768293427256036e-11,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": 5.723678480056907e-17,
+            "ci99_half_width": 1.4596245713312758e-16,
+            "samples": 6
+          },
+          "electron_cdf_distance_to_fluid": 0.0011136197393413205
+        },
+        {
+          "beam": "random",
+          "ions": "frozen",
+          "ppc": 16,
+          "timestep_s": {
+            "mean": 0.005296831829279351,
+            "ci99_half_width": 0.00017909858570220268,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 3.4750574030040298,
+            "ci99_half_width": 0.0192107712064677,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 54250.5,
+            "ci99_half_width": 72.56923943944467,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 18148309.333333332,
+            "ci99_half_width": 11021.319849537816,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "continuum_Er_relative_rms_error": {
+            "mean": 0.010282666932326672,
+            "ci99_half_width": 0.0011286383343381366,
+            "samples": 6
+          },
+          "continuum_Ez_relative_rms_error": {
+            "mean": 0.21397325806436218,
+            "ci99_half_width": 0.0009363744192325603,
+            "samples": 6
+          },
+          "continuum_Btheta_relative_rms_error": {
+            "mean": 0.009215726919153936,
+            "ci99_half_width": 0.000965025284018852,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 0.05507133222232081,
+            "ci99_half_width": 0.0033312442885297866,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 0.054711245638530796,
+          "electrons_relative_rms_error": {
+            "mean": 0.042438339424947985,
+            "ci99_half_width": 0.0020511859789835597,
+            "samples": 6
+          },
+          "electrons_relative_seed_noise": 0.038672096662779945,
+          "Er_relative_rms_error": {
+            "mean": 0.005610109971947508,
+            "ci99_half_width": 0.0010476026523778411,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 0.005527579435735454,
+          "Ez_relative_rms_error": {
+            "mean": 0.02030525411457312,
+            "ci99_half_width": 0.004006054398102025,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 0.020051723991524495,
+          "Btheta_relative_rms_error": {
+            "mean": 0.006509941632466948,
+            "ci99_half_width": 0.0009479435086023407,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 0.0064094533188562425,
+          "beam_number": {
+            "mean": 234697924.88181105,
+            "ci99_half_width": 233138.1765824081,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 5426206.096435209,
+            "ci99_half_width": 7054.157076826222,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 4297938.052752786,
+            "ci99_half_width": 6834.520391432531,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 1144219.1076897848,
+            "ci99_half_width": 2459.2631467133215,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 15951.064007363064,
+            "ci99_half_width": 2759.0499496614066,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 5.326857928183604e-11,
+            "ci99_half_width": 7.158785767629448e-12,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": -2.864318116186874e-17,
+            "ci99_half_width": 1.1549340194853035e-16,
+            "samples": 6
+          },
+          "electron_cdf_distance_to_fluid": 0.0014457656251021245
+        },
+        {
+          "beam": "random",
+          "ions": "frozen",
+          "ppc": 256,
+          "timestep_s": {
+            "mean": 0.018369127506351408,
+            "ci99_half_width": 4.540006757991034e-05,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 3.5033318508358207,
+            "ci99_half_width": 0.01573541813307639,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 54289.833333333336,
+            "ci99_half_width": 42.409975202002734,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 185923797.33333334,
+            "ci99_half_width": 15522.899721934127,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "continuum_Er_relative_rms_error": {
+            "mean": 0.0082107976188415,
+            "ci99_half_width": 0.00011777521592378978,
+            "samples": 6
+          },
+          "continuum_Ez_relative_rms_error": {
+            "mean": 0.21354693360540256,
+            "ci99_half_width": 0.00011322055005695366,
+            "samples": 6
+          },
+          "continuum_Btheta_relative_rms_error": {
+            "mean": 0.007747391396479214,
+            "ci99_half_width": 0.00011129747031345894,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 0.014050407513256332,
+            "ci99_half_width": 0.0006827782181007125,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 0.013970657272649066,
+          "electrons_relative_rms_error": {
+            "mean": 0.03416590453075494,
+            "ci99_half_width": 0.0021311112149280556,
+            "samples": 6
+          },
+          "electrons_relative_seed_noise": 0.028896386214040268,
+          "Er_relative_rms_error": {
+            "mean": 0.0013648782335123827,
+            "ci99_half_width": 9.881267418872374e-05,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 0.0013558595315143168,
+          "Ez_relative_rms_error": {
+            "mean": 0.004924375576820382,
+            "ci99_half_width": 0.00045938530081212454,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 0.004967838737954956,
+          "Btheta_relative_rms_error": {
+            "mean": 0.001624751646956488,
+            "ci99_half_width": 0.0002013117596034777,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 0.0016072254444036518,
+          "beam_number": {
+            "mean": 234685391.2971786,
+            "ci99_half_width": 27740.36907931518,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 5428983.333333333,
+            "ci99_half_width": 4240.997520199742,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 4299750.0,
+            "ci99_half_width": 3483.7808714433468,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 1145300.0,
+            "ci99_half_width": 1450.0773187954762,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 16066.666666666664,
+            "ci99_half_width": 2747.9119350781516,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 5.4514690818065354e-11,
+            "ci99_half_width": 9.053155611390175e-12,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": 2.857413738496001e-17,
+            "ci99_half_width": 1.1521500756790965e-16,
+            "samples": 6
+          },
+          "electron_cdf_distance_to_fluid": 0.001021421803761191
+        },
+        {
+          "beam": "random",
+          "ions": "frozen",
+          "ppc": 64,
+          "timestep_s": {
+            "mean": 0.007902501830055067,
+            "ci99_half_width": 5.649468691967121e-05,
+            "samples": 6
+          },
+          "initialization_s": {
+            "mean": 3.5696218570131655,
+            "ci99_half_width": 0.37558259242283165,
+            "samples": 6
+          },
+          "electron_macroparticles": {
+            "mean": 54283.666666666664,
+            "ci99_half_width": 26.103606348176946,
+            "samples": 6
+          },
+          "particle_payload_bytes": {
+            "mean": 51708832.0,
+            "ci99_half_width": 7298.578290760742,
+            "samples": 6
+          },
+          "fluid_density_bytes": {
+            "mean": 0.0,
+            "ci99_half_width": 0.0,
+            "samples": 6
+          },
+          "continuum_Er_relative_rms_error": {
+            "mean": 0.008851090400029913,
+            "ci99_half_width": 0.00041650002412501973,
+            "samples": 6
+          },
+          "continuum_Ez_relative_rms_error": {
+            "mean": 0.21353020095724484,
+            "ci99_half_width": 0.00041965267087529587,
+            "samples": 6
+          },
+          "continuum_Btheta_relative_rms_error": {
+            "mean": 0.008249291606954536,
+            "ci99_half_width": 0.0003879390070434942,
+            "samples": 6
+          },
+          "beam_relative_rms_error": {
+            "mean": 0.02760642917151604,
+            "ci99_half_width": 0.0009515928563411657,
+            "samples": 6
+          },
+          "beam_relative_seed_noise": 0.02762971298794662,
+          "electrons_relative_rms_error": {
+            "mean": 0.036339464825391916,
+            "ci99_half_width": 0.0016382991133133068,
+            "samples": 6
+          },
+          "electrons_relative_seed_noise": 0.031040247990484774,
+          "Er_relative_rms_error": {
+            "mean": 0.0028360276774262363,
+            "ci99_half_width": 0.00012978880704765764,
+            "samples": 6
+          },
+          "Er_relative_seed_noise": 0.0028907880115194152,
+          "Ez_relative_rms_error": {
+            "mean": 0.010505675797570162,
+            "ci99_half_width": 0.001239162042187481,
+            "samples": 6
+          },
+          "Ez_relative_seed_noise": 0.010671471682797102,
+          "Btheta_relative_rms_error": {
+            "mean": 0.0032415645291654555,
+            "ci99_half_width": 0.0001833601951611823,
+            "samples": 6
+          },
+          "Btheta_relative_seed_noise": 0.003301629646790349,
+          "beam_number": {
+            "mean": 234724859.41078687,
+            "ci99_half_width": 89567.07253195992,
+            "samples": 6
+          },
+          "electrons_number": {
+            "mean": 5428415.013083597,
+            "ci99_half_width": 2608.847977477387,
+            "samples": 6
+          },
+          "N2plus_number": {
+            "mean": 4299498.346416931,
+            "ci99_half_width": 3283.8075755891614,
+            "samples": 6
+          },
+          "O2plus_number": {
+            "mean": 1145683.3333333333,
+            "ci99_half_width": 1912.3772122425041,
+            "samples": 6
+          },
+          "Ominus_number": {
+            "mean": 16766.666666666668,
+            "ci99_half_width": 1364.0593971683131,
+            "samples": 6
+          },
+          "electron_energy_J": {
+            "mean": 5.317922536359777e-11,
+            "ci99_half_width": 1.4764494421278678e-11,
+            "samples": 6
+          },
+          "pair_charge_residual": {
+            "mean": 2.8633064224549514e-17,
+            "ci99_half_width": 3.3023671059236913e-16,
+            "samples": 6
+          },
+          "electron_cdf_distance_to_fluid": 0.002139717271786634
+        }
+      ]
+    }
+  },
+  "build_configuration": {
+    "WarpX_COMPUTE": "CUDA",
+    "WarpX_DIMS": "RZ",
+    "WarpX_FFT": "ON",
+    "WarpX_MPI": "ON",
+    "WarpX_OPENPMD": "ON",
+    "WarpX_PARTICLE_PRECISION": "DOUBLE",
+    "WarpX_PRECISION": "DOUBLE",
+    "WarpX_PYTHON": "ON"
+  },
+  "identical_primary_events": {
+    "maximum_density_difference_over_peak": 6.28363469008401e-15,
+    "maximum_histogram_weight_difference": 0.0,
+    "maximum_electron_energy_budget_relative_error": 2.886579864025407e-15,
+    "maximum_discarded_recoil_relative_error": 1.2445600106048005e-12
+  },
+  "storage": [
+    {
+      "steps": 20,
+      "ions": "fluid",
+      "electron_macroparticles": {
+        "mean": 53895.0,
+        "ci99_half_width": 0.0,
+        "samples": 3
+      },
+      "ion_density_bytes": {
+        "mean": 511584.0,
+        "ci99_half_width": 0.0,
+        "samples": 3
+      },
+      "ion_particle_payload_bytes": {
+        "mean": 0.0,
+        "ci99_half_width": 0.0,
+        "samples": 3
+      },
+      "checkpoint_bytes": {
+        "mean": 8022368.0,
+        "ci99_half_width": 11.460221787430001,
+        "samples": 3
+      },
+      "checkpoint_step_s": {
+        "mean": 0.04400695897250747,
+        "ci99_half_width": 0.02148489560781816,
+        "samples": 3
+      }
+    },
+    {
+      "steps": 20,
+      "ions": "frozen",
+      "electron_macroparticles": {
+        "mean": 53895.0,
+        "ci99_half_width": 0.0,
+        "samples": 3
+      },
+      "ion_density_bytes": {
+        "mean": 0.0,
+        "ci99_half_width": 0.0,
+        "samples": 3
+      },
+      "ion_particle_payload_bytes": {
+        "mean": 3449280.0,
+        "ci99_half_width": 0.0,
+        "samples": 3
+      },
+      "checkpoint_bytes": {
+        "mean": 10959358.0,
+        "ci99_half_width": 11.460221787430001,
+        "samples": 3
+      },
+      "checkpoint_step_s": {
+        "mean": 0.05113475899755334,
+        "ci99_half_width": 0.003755587228912581,
+        "samples": 3
+      }
+    },
+    {
+      "steps": 100,
+      "ions": "fluid",
+      "electron_macroparticles": {
+        "mean": 276474.0,
+        "ci99_half_width": 0.0,
+        "samples": 3
+      },
+      "ion_density_bytes": {
+        "mean": 511584.0,
+        "ci99_half_width": 0.0,
+        "samples": 3
+      },
+      "ion_particle_payload_bytes": {
+        "mean": 0.0,
+        "ci99_half_width": 0.0,
+        "samples": 3
+      },
+      "checkpoint_bytes": {
+        "mean": 22267430.0,
+        "ci99_half_width": 11.460221787430001,
+        "samples": 3
+      },
+      "checkpoint_step_s": {
+        "mean": 0.06452661100775003,
+        "ci99_half_width": 0.01581871470400594,
+        "samples": 3
+      }
+    },
+    {
+      "steps": 100,
+      "ions": "frozen",
+      "electron_macroparticles": {
+        "mean": 276474.0,
+        "ci99_half_width": 0.0,
+        "samples": 3
+      },
+      "ion_density_bytes": {
+        "mean": 0.0,
+        "ci99_half_width": 0.0,
+        "samples": 3
+      },
+      "ion_particle_payload_bytes": {
+        "mean": 17694336.0,
+        "ci99_half_width": 0.0,
+        "samples": 3
+      },
+      "checkpoint_bytes": {
+        "mean": 39449481.0,
+        "ci99_half_width": 11.460221787430001,
+        "samples": 3
+      },
+      "checkpoint_step_s": {
+        "mean": 0.09337320597842336,
+        "ci99_half_width": 0.006499319860650742,
+        "samples": 3
+      }
+    }
+  ],
+  "source_profile_including_startup": [
+    {
+      "case": "fluid-fluid-ppc1-seed41",
+      "collision_calls": 40,
+      "inclusive_source_time_s": 0.0896,
+      "first_step_s": 0.1750846829963848,
+      "ordinary_step_median_s": 0.0032998114766087383,
+      "initialization_s": 1.0294301279936917,
+      "beam_macroparticles": 0,
+      "electron_macroparticles": 53895,
+      "revision": "d6da20fe353c8e924d130dab058002c487e0a9a8",
+      "warpx_version": "9723d0a12389"
+    },
+    {
+      "case": "fluid-frozen-ppc1-seed41",
+      "collision_calls": 40,
+      "inclusive_source_time_s": 0.03316,
+      "first_step_s": 0.01980202499544248,
+      "ordinary_step_median_s": 0.0035718290018849075,
+      "initialization_s": 0.2014679650310427,
+      "beam_macroparticles": 0,
+      "electron_macroparticles": 53895,
+      "revision": "d6da20fe353c8e924d130dab058002c487e0a9a8",
+      "warpx_version": "9723d0a12389"
+    },
+    {
+      "case": "quiet-fluid-ppc16-seed41",
+      "collision_calls": 40,
+      "inclusive_source_time_s": 0.04982,
+      "first_step_s": 0.04597262502647936,
+      "ordinary_step_median_s": 0.0043424580071587116,
+      "initialization_s": 1.959707783011254,
+      "beam_macroparticles": 174592,
+      "electron_macroparticles": 53918,
+      "revision": "d6da20fe353c8e924d130dab058002c487e0a9a8",
+      "warpx_version": "9723d0a12389"
+    },
+    {
+      "case": "quiet-fluid-ppc256-seed41",
+      "collision_calls": 40,
+      "inclusive_source_time_s": 0.2125,
+      "first_step_s": 0.06830891297431663,
+      "ordinary_step_median_s": 0.0169008715020027,
+      "initialization_s": 1.976262915006373,
+      "beam_macroparticles": 2795520,
+      "electron_macroparticles": 53921,
+      "revision": "d6da20fe353c8e924d130dab058002c487e0a9a8",
+      "warpx_version": "9723d0a12389"
+    },
+    {
+      "case": "quiet-fluid-ppc64-seed41",
+      "collision_calls": 40,
+      "inclusive_source_time_s": 0.07819,
+      "first_step_s": 0.03991950198542327,
+      "ordinary_step_median_s": 0.006825290503911674,
+      "initialization_s": 1.9976667650043964,
+      "beam_macroparticles": 699392,
+      "electron_macroparticles": 53920,
+      "revision": "d6da20fe353c8e924d130dab058002c487e0a9a8",
+      "warpx_version": "9723d0a12389"
+    },
+    {
+      "case": "quiet-frozen-ppc16-seed41",
+      "collision_calls": 40,
+      "inclusive_source_time_s": 0.04301,
+      "first_step_s": 0.03177469299407676,
+      "ordinary_step_median_s": 0.0047153300256468356,
+      "initialization_s": 1.9652069929870777,
+      "beam_macroparticles": 174592,
+      "electron_macroparticles": 53918,
+      "revision": "d6da20fe353c8e924d130dab058002c487e0a9a8",
+      "warpx_version": "9723d0a12389"
+    },
+    {
+      "case": "quiet-frozen-ppc256-seed41",
+      "collision_calls": 40,
+      "inclusive_source_time_s": 0.2044,
+      "first_step_s": 0.05529988498892635,
+      "ordinary_step_median_s": 0.017416465503629297,
+      "initialization_s": 1.9661549029988237,
+      "beam_macroparticles": 2795520,
+      "electron_macroparticles": 53921,
+      "revision": "d6da20fe353c8e924d130dab058002c487e0a9a8",
+      "warpx_version": "9723d0a12389"
+    },
+    {
+      "case": "quiet-frozen-ppc64-seed41",
+      "collision_calls": 40,
+      "inclusive_source_time_s": 0.07666,
+      "first_step_s": 0.037317437992896885,
+      "ordinary_step_median_s": 0.007351881475187838,
+      "initialization_s": 1.9606377570307814,
+      "beam_macroparticles": 699392,
+      "electron_macroparticles": 53920,
+      "revision": "d6da20fe353c8e924d130dab058002c487e0a9a8",
+      "warpx_version": "9723d0a12389"
+    }
+  ],
+  "source_profile_eager_module_loading": [
+    {
+      "case": "fluid-fluid-ppc1-seed41",
+      "collision_calls": 40,
+      "inclusive_source_time_s": 0.03351,
+      "first_step_s": 0.007695029955357313,
+      "ordinary_step_median_s": 0.0031878434820100665,
+      "initialization_s": 3.5317101780092344,
+      "beam_macroparticles": 0,
+      "electron_macroparticles": 53895,
+      "revision": "d6da20fe353c8e924d130dab058002c487e0a9a8",
+      "warpx_version": "9723d0a12389"
+    },
+    {
+      "case": "fluid-frozen-ppc1-seed41",
+      "collision_calls": 40,
+      "inclusive_source_time_s": 0.02891,
+      "first_step_s": 0.0038833440048620105,
+      "ordinary_step_median_s": 0.003613377019064501,
+      "initialization_s": 1.0502103820326738,
+      "beam_macroparticles": 0,
+      "electron_macroparticles": 53895,
+      "revision": "d6da20fe353c8e924d130dab058002c487e0a9a8",
+      "warpx_version": "9723d0a12389"
+    },
+    {
+      "case": "quiet-fluid-ppc16-seed41",
+      "collision_calls": 40,
+      "inclusive_source_time_s": 0.04038,
+      "first_step_s": 0.005573163973167539,
+      "ordinary_step_median_s": 0.0042424239800311625,
+      "initialization_s": 2.7343340720399283,
+      "beam_macroparticles": 174592,
+      "electron_macroparticles": 53918,
+      "revision": "d6da20fe353c8e924d130dab058002c487e0a9a8",
+      "warpx_version": "9723d0a12389"
+    },
+    {
+      "case": "quiet-fluid-ppc256-seed41",
+      "collision_calls": 40,
+      "inclusive_source_time_s": 0.2028,
+      "first_step_s": 0.029218217998277396,
+      "ordinary_step_median_s": 0.01692959453794174,
+      "initialization_s": 2.781476324016694,
+      "beam_macroparticles": 2795520,
+      "electron_macroparticles": 53921,
+      "revision": "d6da20fe353c8e924d130dab058002c487e0a9a8",
+      "warpx_version": "9723d0a12389"
+    },
+    {
+      "case": "quiet-fluid-ppc64-seed41",
+      "collision_calls": 40,
+      "inclusive_source_time_s": 0.07106,
+      "first_step_s": 0.009035784984007478,
+      "ordinary_step_median_s": 0.006789648497942835,
+      "initialization_s": 2.778586914006155,
+      "beam_macroparticles": 699392,
+      "electron_macroparticles": 53920,
+      "revision": "d6da20fe353c8e924d130dab058002c487e0a9a8",
+      "warpx_version": "9723d0a12389"
+    },
+    {
+      "case": "quiet-frozen-ppc16-seed41",
+      "collision_calls": 40,
+      "inclusive_source_time_s": 0.03885,
+      "first_step_s": 0.0056844300124794245,
+      "ordinary_step_median_s": 0.004802347510121763,
+      "initialization_s": 2.747107870003674,
+      "beam_macroparticles": 174592,
+      "electron_macroparticles": 53918,
+      "revision": "d6da20fe353c8e924d130dab058002c487e0a9a8",
+      "warpx_version": "9723d0a12389"
+    },
+    {
+      "case": "quiet-frozen-ppc256-seed41",
+      "collision_calls": 40,
+      "inclusive_source_time_s": 0.2007,
+      "first_step_s": 0.029198515985626727,
+      "ordinary_step_median_s": 0.017418588016880676,
+      "initialization_s": 2.851595265965443,
+      "beam_macroparticles": 2795520,
+      "electron_macroparticles": 53921,
+      "revision": "d6da20fe353c8e924d130dab058002c487e0a9a8",
+      "warpx_version": "9723d0a12389"
+    },
+    {
+      "case": "quiet-frozen-ppc64-seed41",
+      "collision_calls": 40,
+      "inclusive_source_time_s": 0.06912,
+      "first_step_s": 0.009180225024465472,
+      "ordinary_step_median_s": 0.007203314016805962,
+      "initialization_s": 2.749690257012844,
+      "beam_macroparticles": 699392,
+      "electron_macroparticles": 53920,
+      "revision": "d6da20fe353c8e924d130dab058002c487e0a9a8",
+      "warpx_version": "9723d0a12389"
+    }
+  ],
+  "module_loading_comparison": {
+    "identical_product_counts_and_energy_histograms": true,
+    "maximum_density_difference_over_peak": {
+      "fluid": 2.490519615353816e-15,
+      "quiet": 0.4424112388504483
+    },
+    "particle_positions": "Kinetic projectile selection depends on unordered GPU dense-bin entries. Paired spatial snapshots require statistical comparisons."
+  }
+}

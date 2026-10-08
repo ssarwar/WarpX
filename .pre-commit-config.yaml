@@ -20,19 +20,34 @@ ci:
 
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
+- repo: local
+  hooks:
+  - id: pjg-research-archive
+    name: Verify frozen PJG research archive
+    entry: python Tools/Algorithms/ProtonImpactIonization/verify_research_archive.py
+    language: python
+    pass_filenames: false
+    files: '^Tools/Algorithms/ProtonImpactIonization/(Research/|verify_research_archive.py$)'
+
 - repo: https://github.com/pre-commit/pre-commit-hooks
   rev: v6.0.0
   hooks:
   - id: trailing-whitespace
     args: [--markdown-linebreak-ext=md]
+    # Preserve the byte-identical, attributed numerical source snapshots.
+    exclude: '^Tools/Algorithms/ProtonImpactIonization/Research/inputs/'
   - id: end-of-file-fixer
-    exclude: '.json$'
+    exclude: '.json$|^Tools/Algorithms/ProtonImpactIonization/Research/inputs/'
   - id: mixed-line-ending
+    exclude: '^Tools/Algorithms/ProtonImpactIonization/Research/inputs/'
   - id: check-json
   - id: check-toml
   - id: check-yaml
   - id: check-added-large-files
     args: ['--maxkb=40']
+    # Frozen scientific data, figures and compressed diagnostics are intentional.
+    # verify_research_archive.py checks their complete file/member manifest.
+    exclude: '^Tools/Algorithms/ProtonImpactIonization/Research/'
   - id: requirements-txt-fixer
 #  - id: fix-encoding-pragma
 #    exclude: ^noxfile.py$
@@ -55,7 +70,7 @@ repos:
   rev: v1.5.6
   hooks:
   - id: remove-tabs
-    exclude: 'Make.WarpX|Make.package|Makefile|GNUmake'
+    exclude: 'Make.WarpX|Make.package|Makefile|GNUmake|^Tools/Algorithms/ProtonImpactIonization/Research/inputs/'
 
 # CMake formatting
 #- repo: https://github.com/cheshirekow/cmake-format-precommit
