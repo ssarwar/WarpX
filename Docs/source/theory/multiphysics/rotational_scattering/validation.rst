@@ -133,6 +133,92 @@ No unexplained regression above 5% remained against the same-physics
 reference. The original full-grid lookup remains supported for prepared binary bundles
 without the optional indices.
 
+Subcycled MCC runtime optimization
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The October 2026 integration adds exact energy-search bounds, resolves alias
+alternates to outcome identifiers at initialization, and specializes kernels
+for scalar/parser backgrounds and mutually exclusive rotational models.
+Pure scattering retains its device error flag across successful calls and
+omits redundant iterator exit synchronization. The host still checks the
+flag after every call; the RNG kernel synchronization and iterator entry
+synchronization remain. Empty ranks skip only pure scattering. Product
+operators still participate in fluid-increment commits on every rank.
+
+On an A100-SXM4-80GB, with both gases resident, 4096 cells, four particle
+boxes and 64 subcycles per gas, the following times are medians of three
+seed medians. Each seed has 20 synchronized blocks of eight PIC steps,
+after four warmup steps. Variant order alternates between seeds. Positions
+and momenta are restored outside each block. The baseline is integration
+commit ``305e203ff``; the acceptance law and physical tables are identical.
+
+.. list-table:: Time per PIC step, milliseconds
+   :header-rows: 1
+   :widths: 46 18 18 18
+
+   * - Workload
+     - Baseline
+     - Optimized
+     - Reduction
+   * - 1048576 electrons, thermal MCC
+     - 35.005
+     - 32.038
+     - 8.5%
+   * - 32768 electrons, thermal MCC
+     - 14.879
+     - 13.080
+     - 12.1%
+   * - 1048576 electrons, mixed energies, full PIC
+     - 51.860
+     - 47.843
+     - 7.8%
+   * - Thermal MCC with inactive ionization product channels
+     - 43.751
+     - 42.158
+     - 3.6%
+   * - Mixed-energy MCC with parser-defined backgrounds
+     - 55.264
+     - 43.126
+     - 22.0%
+
+The product-channel control uses zero ionization cross sections to retain a
+fixed population while exercising product buffers. The parser expressions
+have constant values. The MCC workloads disable particle push, gather and
+deposition in the normal PIC-step driver; field-driver work and bookkeeping
+remain in the timed region. These controls isolate implementation costs; they are
+not evolving air-plasma performance predictions. The full-PIC case includes
+push, gather, deposition and field advance, with negligible self-fields.
+Mixed energies are log-uniform from 0.002 eV to 3 MeV within warps. The PIC
+timestep is 6.4e-13 s. A separate ordinary-elastic control improved by 2.4%.
+The isolated ablation campaign also covers 2.47 eV, 50 eV and 2.5 MeV.
+
+Alias remains the fastest tested sampler. The cumulative option additionally
+uses exact cell-search bounds; it remains a useful independent search path,
+but has greater memory use. Both-gas table storage is 716.425 MiB for alias
+and 909.993 MiB for indexed cumulative sampling, below the combined 1 GiB
+budget. The energy index adds 30728 bytes across the two gases; the optional
+cumulative-cell indices add 27.738 MiB. In the repeated sampler comparison,
+median initialization changed from 6.95 to 7.07 s for aliases and 7.67 to
+7.87 s for cumulative tables. These are warm-filesystem measurements.
+
+CPU and CUDA comparisons reproduce every decoded cell and the seeded
+28-energy sample output byte for byte, comparing each sampler to its own
+unoptimized implementation. Indexed energy interpolation agrees exactly
+with the original search at 50439 N2 and 49539 O2 queries, including every
+physical knot and adjacent floating-point values. Cumulative lookup checks
+edge draws in all 223733 cells and retains the original strict upper-bound
+search. Signed recoil, moving-target four-momentum conservation, analytic
+Rutherford transport moments, thermal evolution, subcycling and product
+creation remain separately tested. The implementation introduces no new
+physical approximation or change in random-draw count.
+
+The reproducible timing driver and the complete audit are in
+``Tools/Algorithms/BackgroundMCC/benchmark_rotational_subcycling.py`` and
+``Tools/Algorithms/BackgroundMCC/rotation_optimization_2026_10.rst``.
+HIP and SYCL execution remain unverified. Nsight Systems captured CUDA
+kernel/API activity; Nsight Compute could not acquire the driver's profiling
+resource, so these results do not claim measured cache-hit rates or occupancy.
+
 Readable-data validation
 ------------------------
 

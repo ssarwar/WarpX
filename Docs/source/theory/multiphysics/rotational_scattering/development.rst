@@ -32,8 +32,10 @@ Authoritative material
 Repository locations and working branches
 -----------------------------------------
 
-The implementation is maintained on WarpX's
-``codex/rigid-beam-immobile-ions-development-sync`` branch; production numerical
+The original implementation is on WarpX's
+``codex/rigid-beam-immobile-ions-development-sync`` branch. The October 2026
+development integration and subsequent optimizations are maintained on
+``codex/beam-air-development-sync-2026-10``; production numerical
 inputs are on warpx-data's ``codex/elmolcs-elastic-rotation`` branch. Before
 editing, check each checkout's status and fetch its requested branch. Preserve
 local work and other active worktrees. The physical data directories are

@@ -118,3 +118,12 @@ without product creation. All cases pass in `58714986`, as do the tight/loose
 majorant, RBEQ spectrum and thermal/two-/three-body attachment analyses. CuPy
 particle IDs are copied to the host before calling the host-only ID unpacker.
 These repairs do not change collision probabilities, spectra or tolerances.
+
+## Rotational subcycling optimization
+
+The [October 2026 optimization audit](rotation_optimization_2026_10.rst)
+records exact sampler comparisons, complete regression results and measured
+A100 speedups. The default alias sampler retains the original physical model.
+The accompanying [timing driver](benchmark_rotational_subcycling.py) compares
+complete MCC or PIC steps with repeated, synchronized blocks and both gases
+resident. Use `--help` for the fixed-population controls and configuration.
