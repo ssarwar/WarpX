@@ -37,6 +37,7 @@
 #include <AMReX_Utility.H>
 #include <AMReX_Vector.H>
 
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdlib>
@@ -44,6 +45,7 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <memory>
 #include <ostream>
 #include <sstream>
 #include <string>
@@ -487,9 +489,33 @@ void FieldProbe::ComputeDiags (int step)
         }
 
         // get MultiFab data at lev
-        const amrex::MultiFab &Ex = *warpx.m_fields.get(FieldType::Efield_aux, Direction{0}, lev);
-        const amrex::MultiFab &Ey = *warpx.m_fields.get(FieldType::Efield_aux, Direction{1}, lev);
-        const amrex::MultiFab &Ez = *warpx.m_fields.get(FieldType::Efield_aux, Direction{2}, lev);
+        // Under the semi-implicit Darwin scheme, Efield_aux only holds the
+        // electrostatic E-field at this point in the step; the inductive
+        // component E = -dA/dt is recovered from dA_fp, whose ghost cells
+        // SemiImplicitDarwin::ComputeInductiveEfromdA() leaves filled (see also
+        // DarwinEfieldFunctor).
+        std::array<std::unique_ptr<amrex::MultiFab>, 3> E_total;
+        if (warpx.evolve_scheme == EvolveScheme::Semi_Implicit_Darwin)
+        {
+            for (int idir = 0; idir < 3; ++idir)
+            {
+                const amrex::MultiFab &E_aux =
+                    *warpx.m_fields.get(FieldType::Efield_aux, Direction{idir}, lev);
+                const amrex::MultiFab &dA =
+                    *warpx.m_fields.get(FieldType::dA_fp, Direction{idir}, lev);
+                const amrex::IntVect ngrow = amrex::elemwiseMin(E_aux.nGrowVect(), dA.nGrowVect());
+                E_total[idir] = std::make_unique<amrex::MultiFab>(
+                    E_aux.boxArray(), E_aux.DistributionMap(), E_aux.nComp(), ngrow);
+                amrex::MultiFab::LinComb(*E_total[idir], 1.0_rt, E_aux, 0,
+                                         -1.0_rt/dt, dA, 0, 0, E_aux.nComp(), ngrow);
+            }
+        }
+        const amrex::MultiFab &Ex = E_total[0] ?
+            *E_total[0] : *warpx.m_fields.get(FieldType::Efield_aux, Direction{0}, lev);
+        const amrex::MultiFab &Ey = E_total[1] ?
+            *E_total[1] : *warpx.m_fields.get(FieldType::Efield_aux, Direction{1}, lev);
+        const amrex::MultiFab &Ez = E_total[2] ?
+            *E_total[2] : *warpx.m_fields.get(FieldType::Efield_aux, Direction{2}, lev);
         const amrex::MultiFab &Bx = *warpx.m_fields.get(FieldType::Bfield_aux, Direction{0}, lev);
         const amrex::MultiFab &By = *warpx.m_fields.get(FieldType::Bfield_aux, Direction{1}, lev);
         const amrex::MultiFab &Bz = *warpx.m_fields.get(FieldType::Bfield_aux, Direction{2}, lev);
