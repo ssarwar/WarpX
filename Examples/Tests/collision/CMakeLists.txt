@@ -133,6 +133,14 @@ add_warpx_test(
     OFF OFF "test_rz_rigid_source_Yee_picmi"
 )
 
+foreach(kind IN ITEMS ionization attachment)
+    add_warpx_test(
+        test_rz_immobile_${kind}_empty_rank_picmi RZ 2
+        "inputs_test_rz_immobile_products_picmi.py --kind ${kind} --empty-rank"
+        OFF OFF OFF
+    )
+endforeach()
+
 foreach(kind IN ITEMS proton ionization attachment)
     foreach(shape RANGE 1 4)
         add_warpx_test(

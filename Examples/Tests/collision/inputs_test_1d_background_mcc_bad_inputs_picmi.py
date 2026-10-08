@@ -40,6 +40,11 @@ CASES = {
         "elastic",
         {},
     ),
+    "runtime_delayed_negative_density": (
+        "Background MCC density is negative",
+        "elastic",
+        {},
+    ),
     "runtime_excess_density": (
         "Background MCC density is negative or exceeds max_background_density",
         "elastic",
@@ -316,6 +321,10 @@ def run_invalid_case(case):
     background_density = 1.0e23 if runtime_case else 1.0e20
     if case == "runtime_negative_density":
         background_density = "-(1+t)"
+    elif case == "runtime_delayed_negative_density":
+        # First call succeeds with zero density; the next call must still
+        # detect the invalid input when device error storage is reused.
+        background_density = "-t"
     elif case == "runtime_excess_density":
         background_density = "2e23*(1+t)"
     collision = picmi.MCCCollisions(
@@ -337,7 +346,7 @@ def run_invalid_case(case):
         # exp(-nu_max*dt) underflows below the rounding threshold, so every
         # particle attempts a collision and a runtime rejection is deterministic.
         time_step_size=1.0e-4 if runtime_case else 1.0e-9,
-        max_steps=1,
+        max_steps=2 if case == "runtime_delayed_negative_density" else 1,
         warpx_collisions=[collision],
         verbose=0,
     )
@@ -357,6 +366,9 @@ def run_invalid_case(case):
     sim.initialize_inputs()
     sim.initialize_warpx()
     sim.step(1)
+    if case == "runtime_delayed_negative_density":
+        print("Initial zero-density collision call completed", flush=True)
+        sim.step(1)
 
 
 def check_invalid_cases():
@@ -382,6 +394,8 @@ def check_invalid_cases():
             print(f"{case}: explicit neutral mass accepted")
             continue
         assert result.returncode != 0, f"Invalid case {case!r} unexpectedly succeeded"
+        if case == "runtime_delayed_negative_density":
+            assert "Initial zero-density collision call completed" in result.stdout
         # WarpX wraps long diagnostic messages with a '#' continuation prefix.
         # Compare the complete message independently of terminal line wrapping.
         message_text = " ".join(

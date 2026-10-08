@@ -80,7 +80,7 @@ public:
         int* product_event_count, int* runtime_error);
 
     // NVCC requires public access to functions enclosing extended device lambdas.
-    template <bool use_reciprocal>
+    template <bool use_reciprocal, bool constant_background>
     void doBackgroundCollisionsWithinTileImpl (
         WarpXParIter& pti, amrex::Real t, amrex::Real dt,
         BackgroundMCCProductEvent* product_events, int* product_counts,
@@ -114,6 +114,9 @@ public:
     std::shared_ptr<BackgroundMCCSpectator> m_spectator_rotation;
     int m_rotation_process = -1;
     amrex::Vector<ProductGroup> m_product_groups;
+    // A successful scattering call leaves this zero; retain its device storage
+    // across subcycles instead of allocating and uploading a zero every call.
+    amrex::Gpu::DeviceVector<int> m_scattering_runtime_error;
     amrex::Gpu::DeviceVector<int> m_process_product_group;
     std::unique_ptr<SmartCopyFactory> m_electron_copy_factory;
     std::vector<std::unique_ptr<SmartCopyFactory>> m_product_copy_factories;

@@ -19,8 +19,9 @@
 #include "Utils/WarpXAlgorithmSelection.H"
 #include "WarpX.H"
 
+#include <AMReX_Gpu.H>
 #include <AMReX_GpuAtomic.H>
-#include <AMReX_GpuMemory.H>
+#include <AMReX_MFIter.H>
 #include <AMReX_ParmParse.H>
 #include <AMReX_ParticleUtil.H>
 #include <AMReX_REAL.H>
@@ -1116,36 +1117,57 @@ BackgroundMCCCollision::doCollisions (
 
     if (m_product_groups.empty())
     {
-        amrex::Gpu::DeviceScalar<int> runtime_error(0);
+        // This host-only tile count needs no particle scan or communication.
+        // Product-producing operators must still commit fluid increments on
+        // empty ranks, so their path below must not take this shortcut.
+        if (species1.TotalNumberOfParticles(false, true) == 0) { return; }
+        if (m_scattering_runtime_error.empty()) {
+            m_scattering_runtime_error.resize(1, 0);
+        }
         for (int lev = 0; lev <= finest_level; ++lev)
         {
             auto* cost = WarpX::getCosts(lev);
 #ifdef _OPENMP
 #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
 #endif
-            for (WarpXParIter pti(species1, lev); pti.isValid(); ++pti)
             {
-                if (cost && WarpX::load_balance_costs_update_algo ==
-                            LoadBalanceCostsUpdateAlgo::Timers)
+                amrex::MFItInfo info;
+                // ParallelForRNG waits for each tile's kernel to protect its
+                // random-state pool. The iterator's additional exit fences
+                // are redundant here. Preserve its entry synchronization.
+                info.DisableDeviceSyncPost();
+                for (WarpXParIter pti(species1, lev, info); pti.isValid(); ++pti)
                 {
-                    amrex::Gpu::synchronize();
-                }
-                auto wt = static_cast<amrex::Real>(amrex::second());
+                    if (cost && WarpX::load_balance_costs_update_algo ==
+                                LoadBalanceCostsUpdateAlgo::Timers)
+                    {
+                        amrex::Gpu::synchronize();
+                    }
+                    auto wt = static_cast<amrex::Real>(amrex::second());
 
-                doBackgroundCollisionsWithinTile(pti, cur_time, dt, nullptr,
-                                                 nullptr, nullptr,
-                                                 runtime_error.dataPtr());
+                    doBackgroundCollisionsWithinTile(pti, cur_time, dt, nullptr,
+                                                     nullptr, nullptr,
+                                                     m_scattering_runtime_error.data());
 
-                if (cost && WarpX::load_balance_costs_update_algo ==
-                            LoadBalanceCostsUpdateAlgo::Timers)
-                {
-                    amrex::Gpu::synchronize();
-                    wt = static_cast<amrex::Real>(amrex::second()) - wt;
-                    amrex::HostDevice::Atomic::Add(&(*cost)[pti.index()], wt);
+                    if (cost && WarpX::load_balance_costs_update_algo ==
+                                LoadBalanceCostsUpdateAlgo::Timers)
+                    {
+                        amrex::Gpu::synchronize();
+                        wt = static_cast<amrex::Real>(amrex::second()) - wt;
+                        amrex::HostDevice::Atomic::Add(&(*cost)[pti.index()], wt);
+                    }
                 }
             }
         }
-        CheckRuntimeInputs(runtime_error.dataValue());
+        int runtime_error = 0;
+        amrex::Gpu::copy(amrex::Gpu::deviceToHost,
+                         m_scattering_runtime_error.begin(), m_scattering_runtime_error.end(),
+                         &runtime_error);
+        if (runtime_error != 0) {
+            // Reinitialize if a caller catches a host-side assertion exception.
+            m_scattering_runtime_error.clear();
+        }
+        CheckRuntimeInputs(runtime_error);
         return;
     }
 
@@ -1291,18 +1313,26 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTile (
     BackgroundMCCProductEvent* product_events, int* product_counts,
     int* product_event_count, int* runtime_error)
 {
+    bool const constant_background = m_background_density_is_constant &&
+                                     m_background_temperature_is_constant;
     if (m_reciprocal_rotation) {
-        doBackgroundCollisionsWithinTileImpl<true>(
-            pti, t, dt, product_events, product_counts, product_event_count,
-            runtime_error);
+        if (constant_background) {
+            doBackgroundCollisionsWithinTileImpl<true, true>(
+                pti, t, dt, product_events, product_counts, product_event_count, runtime_error);
+        } else {
+            doBackgroundCollisionsWithinTileImpl<true, false>(
+                pti, t, dt, product_events, product_counts, product_event_count, runtime_error);
+        }
+    } else if (constant_background) {
+        doBackgroundCollisionsWithinTileImpl<false, true>(
+            pti, t, dt, product_events, product_counts, product_event_count, runtime_error);
     } else {
-        doBackgroundCollisionsWithinTileImpl<false>(
-            pti, t, dt, product_events, product_counts, product_event_count,
-            runtime_error);
+        doBackgroundCollisionsWithinTileImpl<false, false>(
+            pti, t, dt, product_events, product_counts, product_event_count, runtime_error);
     }
 }
 
-template <bool use_reciprocal>
+template <bool use_reciprocal, bool constant_background>
 void
 BackgroundMCCCollision::doBackgroundCollisionsWithinTileImpl (
     WarpXParIter& pti, amrex::Real t, amrex::Real dt,
@@ -1370,6 +1400,10 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTileImpl (
         [=] AMREX_GPU_DEVICE (
             long ip, amrex::RandomEngine const& engine)
         {
+            // NVCC requires first capture outside a discarded constexpr branch.
+            amrex::ignore_unused(GetPosition, n_a_func, T_a_func, t,
+                background_density_is_constant, background_temperature_is_constant,
+                differential_scattering_processes);
 #ifndef AMREX_USE_GPU
             if (product_events != nullptr)
             {
@@ -1385,8 +1419,7 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTileImpl (
 
             amrex::ParticleReal n_a = background_density;
             amrex::ParticleReal T_a = background_temperature;
-            if (!background_density_is_constant ||
-                !background_temperature_is_constant)
+            if constexpr (!constant_background)
             {
                 amrex::ParticleReal x, y, z;
                 GetPosition(ip, x, y, z);
@@ -1481,18 +1514,22 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTileImpl (
                              "range. Extend the physical tables offline.");
 #endif
             }
-            if ((rotation.enabled() && !rotation.inRange(E_coll)) ||
-                (spectator.enabled() && !spectator.inRange(rotation_energy))) {
+            BackgroundMCCThermalRotation::Executor::Interpolation rotational_interpolation{};
+            // Construction permits only one rotational family per MCC object.
+            if constexpr (!use_reciprocal) {
+                if ((rotation.enabled() && !rotation.inRange(E_coll)) ||
+                    (spectator.enabled() && !spectator.inRange(rotation_energy))) {
 #ifdef AMREX_USE_GPU
-                amrex::Gpu::Atomic::Max(runtime_error, 4);
+                    amrex::Gpu::Atomic::Max(runtime_error, 4);
 #else
-                amrex::Abort("Electron energy is outside the thermal-rotation "
-                             "bundle's validity range.");
+                    amrex::Abort("Electron energy is outside the thermal-rotation "
+                                 "bundle's validity range.");
 #endif
-                return;
+                    return;
+                }
+                rotational_interpolation = rotation.interpolate(E_coll);
+                rotational_interpolation.m_energy = rotation_energy;
             }
-            auto rotational_interpolation = rotation.interpolate(E_coll);
-            rotational_interpolation.m_energy = rotation_energy;
             auto const reciprocal_interpolation =
                 use_reciprocal ? reciprocal.interpolate(rotation_energy)
                                : BackgroundMCCReciprocalRotation::Executor::
@@ -1557,7 +1594,8 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTileImpl (
             bool const reciprocal_event =
                 use_reciprocal && rate_draw < family_rate;
             bool const integral_rotation =
-                rotation.enabled() && rate_draw < rotational_interpolation.m_rate;
+                !use_reciprocal && rotation.enabled() &&
+                rate_draw < rotational_interpolation.m_rate;
             int chosen_process = rotation_process;
             if (!integral_rotation && !reciprocal_event) {
                 if (v_coll <= 0.0_prt) {
@@ -1630,47 +1668,49 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTileImpl (
                 }
                 return;
             }
-            if (integral_rotation ||
-                (spectator.enabled() && chosen_process == rotation_process)) {
-                double const angle_draw = BackgroundMCCUtils::uniformDouble(engine);
-                // A zero relative momentum has no incident axis. Superelastic
-                // emission then uses the rotationally invariant angular limit.
-                double const cosine =
-                    rotation_energy == 0
-                        ? 1 - 2 * angle_draw
-                        : differential_scattering_processes[rotation_process].sampleCosine(
-                              E_coll, angle_draw);
-                auto const outcome = integral_rotation
-                    ? rotation.sample(rotational_interpolation, amrex::Random(engine),
-                                      amrex::Random(engine))
-                    : spectator.sample(rotation_energy, cosine, amrex::Random(engine),
-                                       amrex::Random(engine), amrex::Random(engine));
-                amrex::ParticleReal ex, ey, ez, nx, ny, nz;
-                bool physical = true;
-                if (outcome.m_loss == 0) {
-                    BackgroundMCCElasticKinematics::compute(ux[ip], uy[ip], uz[ip], ua_x, ua_y,
-                                                            ua_z, m, M, cosine, engine, ex, ey, ez,
-                                                            nx, ny, nz);
-                } else {
-                    physical = BackgroundMCCElasticKinematics::computeRotation(
-                        ux[ip], uy[ip], uz[ip], ua_x, ua_y, ua_z, m,
-                        static_cast<double>(M) + outcome.m_initial_energy *
-                                                     PhysConst::q_e_v<double> /
-                                                     PhysConst::c2_v<double>,
-                        outcome.m_loss, cosine, engine, ex, ey, ez, nx, ny, nz);
-                }
-                if (physical) {
-                    ux[ip] = ex;
-                    uy[ip] = ey;
-                    uz[ip] = ez;
-                } else {
+            if constexpr (!use_reciprocal) {
+                if (integral_rotation ||
+                    (spectator.enabled() && chosen_process == rotation_process)) {
+                    double const angle_draw = BackgroundMCCUtils::uniformDouble(engine);
+                    // A zero relative momentum has no incident axis. Superelastic
+                    // emission then uses the rotationally invariant angular limit.
+                    double const cosine =
+                        rotation_energy == 0
+                            ? 1 - 2 * angle_draw
+                            : differential_scattering_processes[rotation_process].sampleCosine(
+                                  E_coll, angle_draw);
+                    auto const outcome = integral_rotation
+                        ? rotation.sample(rotational_interpolation, amrex::Random(engine),
+                                          amrex::Random(engine))
+                        : spectator.sample(rotation_energy, cosine, amrex::Random(engine),
+                                           amrex::Random(engine), amrex::Random(engine));
+                    amrex::ParticleReal ex, ey, ez, nx, ny, nz;
+                    bool physical = true;
+                    if (outcome.m_loss == 0) {
+                        BackgroundMCCElasticKinematics::compute(ux[ip], uy[ip], uz[ip], ua_x, ua_y,
+                                                                ua_z, m, M, cosine, engine, ex, ey, ez,
+                                                                nx, ny, nz);
+                    } else {
+                        physical = BackgroundMCCElasticKinematics::computeRotation(
+                            ux[ip], uy[ip], uz[ip], ua_x, ua_y, ua_z, m,
+                            static_cast<double>(M) + outcome.m_initial_energy *
+                                                         PhysConst::q_e_v<double> /
+                                                         PhysConst::c2_v<double>,
+                            outcome.m_loss, cosine, engine, ex, ey, ez, nx, ny, nz);
+                    }
+                    if (physical) {
+                        ux[ip] = ex;
+                        uy[ip] = ey;
+                        uz[ip] = ez;
+                    } else {
 #ifdef AMREX_USE_GPU
-                    amrex::Gpu::Atomic::Max(runtime_error, 5);
+                        amrex::Gpu::Atomic::Max(runtime_error, 5);
 #else
-                    amrex::Abort("Thermal-rotation recoil produced invalid kinematics.");
+                        amrex::Abort("Thermal-rotation recoil produced invalid kinematics.");
 #endif
+                    }
+                    return;
                 }
-                return;
             }
             auto const& process = processes[chosen_process];
 

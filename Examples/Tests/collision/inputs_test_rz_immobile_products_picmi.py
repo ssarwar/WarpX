@@ -22,6 +22,7 @@ parser.add_argument(
 parser.add_argument("--walls", action="store_true")
 parser.add_argument("--restart")
 parser.add_argument("--small-tiles", action="store_true")
+parser.add_argument("--empty-rank", action="store_true")
 parser.add_argument("--max-grid-size", type=int, default=16)
 parser.add_argument("--cells-z", type=int, default=32)
 args = parser.parse_args()
@@ -167,6 +168,15 @@ fluid.model = "immobile"
 fluid.charge = -qe if args.kind == "attachment" else qe
 fluid.mass = mi
 sim.initialize_warpx()
+if args.empty_rank:
+    assert args.kind != "proton" and args.restart is None
+    assert MPI.COMM_WORLD.size == 2
+    if MPI.COMM_WORLD.rank == 1:
+        sim.particles.get("electrons").clear_particles()
+    counts = MPI.COMM_WORLD.allgather(
+        sim.particles.get("electrons").total_number_of_particles(False, True)
+    )
+    assert counts[0] > 0 and counts[1] == 0, counts
 
 
 def host(array):
