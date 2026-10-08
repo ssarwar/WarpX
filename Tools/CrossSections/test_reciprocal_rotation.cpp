@@ -115,9 +115,7 @@ main (int argc, char* argv[]) {
                             outcome =
                                 part == 0
                                     ? entry.m_outcome
-                                    : executor
-                                          .m_aliases[first + entry.m_alternate]
-                                          .m_outcome;
+                                    : entry.m_alternate;
                         }
                         double const loss = executor.m_outcomes[outcome].m_loss;
                         sum[0] += probability;
@@ -157,6 +155,101 @@ main (int argc, char* argv[]) {
         AMREX_ALWAYS_ASSERT(!host.inRange(-1));
         AMREX_ALWAYS_ASSERT(
             !host.inRange(std::numeric_limits<double>::quiet_NaN()));
+        if (lookup_check && host.m_energy_lookup != nullptr) {
+            // Compare the accelerated device interpolation with the original
+            // full search at every physical knot and dyadic lookup boundary,
+            // their adjacent floating-point values, and a broad energy sweep.
+            std::vector<double> queries;
+            auto add_query = [&] (double value) {
+                if (std::isfinite(value) && value >= 0 && value <= host.m_maximum_energy) {
+                    queries.push_back(value);
+                }
+            };
+            auto add_neighbors = [&] (double value) {
+                add_query(std::nextafter(value, -std::numeric_limits<double>::infinity()));
+                add_query(value);
+                add_query(std::nextafter(value, std::numeric_limits<double>::infinity()));
+            };
+            for (double value : model->energies()) { add_neighbors(value); }
+            int const bins = BackgroundMCCReciprocalRotation::Executor::energy_lookup_bins;
+            for (int bin = 0; bin < host.m_energy_lookup_size; ++bin) {
+                add_neighbors(std::ldexp(1.0 + double(bin % bins) / bins,
+                    host.m_energy_lookup_min_exponent - 1 + bin / bins));
+            }
+            for (int i = 0; i < 32768; ++i) {
+                double const fraction = (i + 0.5) / 32768;
+                add_query(std::exp((1 - fraction) * std::log(model->energies()[1]) +
+                                   fraction * std::log(host.m_maximum_energy)));
+            }
+            amrex::Gpu::DeviceVector<double> device_queries(queries.size());
+            amrex::Gpu::copy(amrex::Gpu::hostToDevice, queries.begin(), queries.end(),
+                             device_queries.begin());
+            amrex::Gpu::DeviceVector<int> device_valid(queries.size());
+            auto const* input = device_queries.data();
+            auto* valid = device_valid.data();
+            auto reference = executor;
+            reference.m_energy_lookup = nullptr;
+            amrex::ParallelFor(static_cast<amrex::Long>(queries.size()),
+                [=] AMREX_GPU_DEVICE (amrex::Long i) noexcept {
+                    auto const fast = executor.interpolate(input[i]);
+                    auto const full = reference.interpolate(input[i]);
+                    valid[i] = fast.m_index == full.m_index &&
+                               fast.m_fraction == full.m_fraction &&
+                               fast.m_rate == full.m_rate && fast.m_energy == full.m_energy;
+                });
+            std::vector<int> valid_queries(queries.size());
+            amrex::Gpu::copy(amrex::Gpu::deviceToHost, device_valid.begin(), device_valid.end(),
+                             valid_queries.begin());
+            for (int value : valid_queries) {
+                AMREX_ALWAYS_ASSERT_WITH_MESSAGE(value,
+                    "Energy lookup changed the exact rotational interpolation.");
+            }
+            amrex::Print() << "PASS: exact energy lookup agrees with full search at "
+                           << queries.size() << " boundary/energy queries.\n";
+        }
+        if (lookup_check && executor.m_cell_lookup != nullptr) {
+            std::ifstream index(file);
+            std::string line;
+            int cells = 0;
+            while (std::getline(index, line)) {
+                std::istringstream fields(line);
+                std::string name, type;
+                if (fields >> name >> type && name == "cell_offsets") {
+                    fields >> cells;
+                    --cells;
+                    break;
+                }
+            }
+            AMREX_ALWAYS_ASSERT(cells > 0);
+            amrex::Gpu::DeviceVector<int> device_valid(cells);
+            auto* valid = device_valid.data();
+            auto reference = executor;
+            reference.m_cell_lookup = nullptr;
+            amrex::ParallelFor(cells, [=] AMREX_GPU_DEVICE (int cell) noexcept {
+                constexpr int bins = BackgroundMCCReciprocalRotation::Executor::cell_lookup_bins;
+                double const boundary = double(cell % bins) / bins;
+                double const draws[]{0, 0.5, std::nextafter(1.0, 0.0),
+                    std::nextafter(boundary, 0.0), boundary,
+                    std::nextafter(boundary, 1.0)};
+                bool same = true;
+                for (double draw : draws) {
+                    auto const fast = executor.sampleCell(cell, draw);
+                    auto const full = reference.sampleCell(cell, draw);
+                    same = same && fast.m_loss == full.m_loss &&
+                                   fast.m_initial_energy == full.m_initial_energy;
+                }
+                valid[cell] = same;
+            });
+            std::vector<int> valid_cells(cells);
+            amrex::Gpu::copy(amrex::Gpu::deviceToHost, device_valid.begin(), device_valid.end(),
+                             valid_cells.begin());
+            for (int value : valid_cells) {
+                AMREX_ALWAYS_ASSERT_WITH_MESSAGE(value,
+                    "Outcome CDF lookup changed a sampled rotational state.");
+            }
+            amrex::Print() << "PASS: exact outcome CDF bounds agree in all "
+                           << cells << " cells.\n";
+        }
         std::vector<double> energy{
             0,     1e-9,  0.0001, 0.001, 0.0015, 0.003,
             0.01,  0.025, 0.1,    1,     1.25,   2.22,
@@ -258,10 +351,12 @@ main (int argc, char* argv[]) {
             }
             stream << '\n';
             if (lookup_check &&
-                (executor.m_angular_lookup || executor.m_conditional_lookup)) {
+                (executor.m_angular_lookup || executor.m_conditional_lookup ||
+                 executor.m_cell_lookup)) {
                 auto reference = executor;
                 reference.m_angular_lookup = nullptr;
                 reference.m_conditional_lookup = nullptr;
+                reference.m_cell_lookup = nullptr;
                 amrex::ParallelForRNG(
                     samples,
                     [=] AMREX_GPU_DEVICE(

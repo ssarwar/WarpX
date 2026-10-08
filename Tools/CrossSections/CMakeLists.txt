@@ -44,6 +44,21 @@ if(TARGET lib_1d)
             set_tests_properties(test_1d_reciprocal_moments_${gas} PROPERTIES
                 FIXTURES_REQUIRED reciprocal_sampler_${gas}
                 ENVIRONMENT "OPENBLAS_NUM_THREADS=1")
+            add_test(NAME test_1d_reciprocal_cumulative_sampler_${gas}
+                COMMAND test_reciprocal_rotation cumulative=1
+                    file=${reciprocal_bundle}
+                    cross_section=${WarpX_RECIPROCAL_TEST_DATA}/${gas}/IAA/elastic.txt
+                    output=${reciprocal_output}/${gas}-cumulative.txt samples=32768 lookup_check=1)
+            set_tests_properties(test_1d_reciprocal_cumulative_sampler_${gas} PROPERTIES
+                FIXTURES_SETUP reciprocal_cumulative_sampler_${gas})
+            add_test(NAME test_1d_reciprocal_cumulative_moments_${gas}
+                COMMAND ${Python_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/reciprocal_rotation/sampling_reference.py
+                    --bundle ${reciprocal_bundle} --sampler ${reciprocal_output}/${gas}-cumulative.txt
+                    --samples 32768)
+            set_tests_properties(test_1d_reciprocal_cumulative_moments_${gas} PROPERTIES
+                FIXTURES_REQUIRED reciprocal_cumulative_sampler_${gas}
+                ENVIRONMENT "OPENBLAS_NUM_THREADS=1")
         endforeach()
         if(WarpX_PYTHON)
             foreach(gas IN ITEMS N2 O2 air)

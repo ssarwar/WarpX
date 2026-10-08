@@ -110,12 +110,12 @@ checkIncreasing (std::vector<T> const& values, std::string const& name) {
 struct BackgroundMCCReciprocalRotation::Data {
     amrex::Gpu::DeviceVector<double> m_energies, m_rates, m_angular_u,
         m_deflection, m_conditional_u, m_high_edges, m_cdf;
-    amrex::Gpu::DeviceVector<std::uint32_t> m_coordinates, m_angular_offsets,
+    amrex::Gpu::DeviceVector<std::uint32_t> m_coordinates, m_energy_lookup, m_angular_offsets,
         m_conditional_offsets, m_conditional_cells, m_cell_offsets,
         m_high_cells, m_angular_lookup, m_conditional_lookup;
     amrex::Gpu::DeviceVector<float> m_changing;
     amrex::Gpu::DeviceVector<Alias> m_aliases;
-    amrex::Gpu::DeviceVector<std::uint16_t> m_outcome_ids;
+    amrex::Gpu::DeviceVector<std::uint16_t> m_outcome_ids, m_cell_lookup;
     amrex::Gpu::DeviceVector<Outcome> m_outcomes;
 };
 
@@ -306,6 +306,30 @@ BackgroundMCCReciprocalRotation::BackgroundMCCReciprocalRotation (
             std::isfinite(m_rates[i]) && m_rates[i] >= 0 &&
                 m_coordinates[i] <= 1,
             "Invalid rotational rate or interpolation coordinate.");
+    }
+    // Keep the original grid and every interpolation operation. Each lookup
+    // bin stores the lower interval at its exact dyadic boundary, so the next
+    // bin supplies a conservative upper bound for the same binary search.
+    // Small grids do not benefit from the extra indirection.
+    if (n > 32) {
+        int last_exponent;
+        std::frexp(m_energies[1], &e.m_energy_lookup_min_exponent);
+        std::frexp(m_energies.back(), &last_exponent);
+        int const bins = Executor::energy_lookup_bins;
+        int const count = (last_exponent - e.m_energy_lookup_min_exponent + 1) * bins;
+        m_energy_lookup.resize(count + 1);
+        std::size_t interval = 0;
+        for (int bin = 0; bin <= count; ++bin) {
+            double const boundary = std::ldexp(
+                1.0 + double(bin % bins) / bins,
+                e.m_energy_lookup_min_exponent - 1 + bin / bins);
+            while (interval + 1 < n - 1 && m_energies[interval + 1] <= boundary) {
+                ++interval;
+            }
+            m_energy_lookup[bin] = static_cast<std::uint32_t>(interval);
+        }
+        e.m_energy_lookup_size = static_cast<int>(m_energy_lookup.size());
+        m_table_bytes += m_energy_lookup.size() * sizeof(std::uint32_t);
     }
     auto ao = read_uint("angular_offsets");
     auto au = read_double("angular_u");
@@ -546,6 +570,28 @@ BackgroundMCCReciprocalRotation::BackgroundMCCReciprocalRotation (
                     std::max(largest_loss[c], outcomes[ids[i]].m_loss);
             }
         }
+        // A small inverse-CDF index keeps frequent outcomes near the first
+        // search interval instead of repeatedly probing the large rare tail.
+        // The CDF and the final strict upper-bound search remain unchanged.
+        constexpr std::size_t bins = Executor::cell_lookup_bins;
+        auto const cell_count = cells.size() - 1;
+        constexpr auto row_bytes = (bins + 1) * sizeof(std::uint16_t);
+        if (m_table_bytes <= maximum_bytes &&
+            cell_count <= (maximum_bytes - m_table_bytes) / row_bytes) {
+            std::vector<std::uint16_t> lookup(cell_count * (bins + 1));
+            for (std::size_t cell = 0; cell < cell_count; ++cell) {
+                auto index = cells[cell];
+                auto const last = cells[cell + 1] - 1;
+                for (std::size_t bin = 0; bin <= bins; ++bin) {
+                    double const boundary = double(bin) / bins;
+                    while (index < last && cdf[index] <= boundary) { ++index; }
+                    lookup[cell * (bins + 1) + bin] =
+                        static_cast<std::uint16_t>(index - cells[cell]);
+                }
+            }
+            m_table_bytes += lookup.size() * sizeof(std::uint16_t);
+            e.m_cell_lookup = upload(lookup, d.m_cell_lookup);
+        }
         e.m_cdf = upload(cdf, d.m_cdf);
         e.m_outcome_ids = upload(ids, d.m_outcome_ids);
     } else {
@@ -569,6 +615,11 @@ BackgroundMCCReciprocalRotation::BackgroundMCCReciprocalRotation (
                     "Invalid rotational alias entry.");
                 largest_loss[c] =
                     std::max(largest_loss[c], outcomes[entry.m_outcome].m_loss);
+                // Resolve the alternate outcome once instead of following a
+                // second, dependent table load for each sampled alias. Primary
+                // outcome IDs stay unchanged, so conversion is safe in place
+                // and needs no additional table-sized host allocation.
+                aliases[i].m_alternate = aliases[cells[c] + entry.m_alternate].m_outcome;
             }
         }
         e.m_aliases = upload(aliases, d.m_aliases);
@@ -592,6 +643,9 @@ BackgroundMCCReciprocalRotation::BackgroundMCCReciprocalRotation (
     e.m_energies = upload(m_energies, d.m_energies);
     e.m_rates = upload(m_rates, d.m_rates);
     e.m_coordinates = upload(m_coordinates, d.m_coordinates);
+    if (!m_energy_lookup.empty()) {
+        e.m_energy_lookup = upload(m_energy_lookup, d.m_energy_lookup);
+    }
     e.m_angular_offsets = upload(ao, d.m_angular_offsets);
     e.m_angular_u = upload(au, d.m_angular_u);
     e.m_deflection = upload(deflection, d.m_deflection);
@@ -617,6 +671,9 @@ BackgroundMCCReciprocalRotation::BackgroundMCCReciprocalRotation (
     m_host_executor.m_energies = m_energies.data();
     m_host_executor.m_rates = m_rates.data();
     m_host_executor.m_coordinates = m_coordinates.data();
+    m_host_executor.m_energy_lookup = m_energy_lookup.empty() ? nullptr : m_energy_lookup.data();
+    m_host_executor.m_energy_lookup_min_exponent = e.m_energy_lookup_min_exponent;
+    m_host_executor.m_energy_lookup_size = e.m_energy_lookup_size;
     m_host_executor.m_energy_count = e.m_energy_count;
     m_host_executor.m_maximum_energy = e.m_maximum_energy;
 }

@@ -90,6 +90,13 @@ entire excitation support is already open at the lower edge of its interval.
 Thus row mixing cannot select a subthreshold excitation. This is an input
 consistency check, not an event-time angular veto.
 
+For grids larger than 32 nodes, an exact search index narrows the energy
+bracket before the original binary search. ``frexp`` identifies the binary
+exponent and one of 64 mantissa bins; initialization stores interval bounds
+at the corresponding power-of-two-scaled boundaries. This retains every
+physical knot and the same interpolation operations. It introduces no
+energy rounding or new interpolation approximation.
+
 Angle and discrete rotational outcome
 -------------------------------------
 
@@ -111,12 +118,18 @@ All zeros and discrete level spacings retain their meanings.
 
 For an alias cell with :math:`n` entries and a uniform :math:`r`, compute
 :math:`x=nr`, :math:`j=\lfloor x\rfloor`, :math:`f=x-j`. Select entry
-:math:`j` if :math:`f<a_j`, otherwise its stored alternate. Entry indices
-then address a palette of :math:`(\Delta,\epsilon_i)` pairs. A cumulative
-reference instead searches the cumulative probabilities. Alias lookup has
-constant event cost and one local alternate lookup; cumulative lookup has a
-logarithmic search. The startup alias construction costs :math:`O(n)` and
-is shared across every subsequent draw from that cell.
+:math:`j` if :math:`f<a_j`, otherwise its alternate. Initialization resolves
+the alternate column to its outcome identifier, so either branch directly
+addresses the palette of :math:`(\Delta,\epsilon_i)` pairs. This removes a
+dependent alias-table read without changing a cutoff, outcome or random draw.
+The startup alias construction and conversion cost :math:`O(n)` and are
+shared across every subsequent draw from that cell.
+
+A cumulative reference instead performs a strict upper-bound search on the
+same decoded cumulative probabilities. An optional 64-bin quantile index
+narrows that search, using two uint16 row-relative bounds. The original CDF
+and comparison are unchanged, including flat intervals and boundary draws.
+The index accelerates the reference option; alias remains the default.
 
 Above 1 keV, the sampled deflection and actual energy determine
 :math:`z=R P(E)\sqrt{d/2}/(\alpha m_ec^2)` and the momentum-transfer cell.

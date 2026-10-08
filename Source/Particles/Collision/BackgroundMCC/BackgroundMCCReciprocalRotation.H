@@ -33,6 +33,7 @@ public:
     struct Alias
     {
         float m_probability;
+        // Input/preparation: alternate column. Executor: resolved outcome ID.
         std::uint16_t m_alternate;
         std::uint16_t m_outcome;
     };
@@ -42,6 +43,8 @@ public:
     struct Executor
     {
         static constexpr int lookup_bins = 256;
+        static constexpr int energy_lookup_bins = 64;
+        static constexpr int cell_lookup_bins = 64;
         struct Interpolation
         {
             int m_index = 0;
@@ -68,6 +71,28 @@ public:
             return energy >= 0 && energy <= m_maximum_energy * (1 + tolerance);
         }
 
+        /** Narrow an exact energy search using dyadic, mantissa-indexed bins.
+         * frexp and power-of-two scaling preserve the bin boundaries exactly;
+         * the lookup changes only the search bounds, not the interpolation.
+         */
+        [[nodiscard]] AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE int
+        energyInterval (double energy) const noexcept
+        {
+            if (m_energy_lookup == nullptr) {
+                return amrex::bisect(m_energies, 0, m_energy_count - 1, energy);
+            }
+            if (!(energy >= m_energies[1])) { return 0; }
+            int exponent;
+            double const mantissa = std::frexp(energy, &exponent);
+            int const bin = amrex::max(0, amrex::min(
+                (exponent - m_energy_lookup_min_exponent) * energy_lookup_bins +
+                    static_cast<int>((2 * mantissa - 1) * energy_lookup_bins),
+                m_energy_lookup_size - 2));
+            int const first = static_cast<int>(m_energy_lookup[bin]);
+            int const last = static_cast<int>(m_energy_lookup[bin + 1]) + 1;
+            return amrex::bisect(m_energies, first, last, energy);
+        }
+
         [[nodiscard]] AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE Interpolation
         interpolate (double energy) const noexcept
         {
@@ -77,7 +102,7 @@ public:
             energy = amrex::min(energy, m_maximum_energy);
             int const index = energy >= m_maximum_energy
                                   ? m_energy_count - 2
-                                  : amrex::bisect(m_energies, 0, m_energy_count - 1, energy);
+                                  : energyInterval(energy);
             double fraction =
                 (energy - m_energies[index]) / (m_energies[index + 1] - m_energies[index]);
             if (m_coordinates[index] != 0) {
@@ -100,10 +125,16 @@ public:
                 auto const entry = m_aliases[first + index];
                 outcome = coordinate - index < entry.m_probability
                               ? entry.m_outcome
-                              : m_aliases[first + entry.m_alternate].m_outcome;
+                              : entry.m_alternate;
             } else {
                 auto lo = first;
                 auto hi = first + count - 1;
+                if (m_cell_lookup != nullptr) {
+                    auto const bin = static_cast<std::size_t>(draw * cell_lookup_bins);
+                    auto const offset = std::size_t(cell) * (cell_lookup_bins + 1) + bin;
+                    lo += m_cell_lookup[offset];
+                    hi = first + m_cell_lookup[offset + 1];
+                }
                 while (lo < hi) {
                     auto const mid = lo + (hi - lo) / 2;
                     if (draw < m_cdf[mid]) {
@@ -212,6 +243,7 @@ public:
         double const *m_energies = nullptr;
         double const *m_rates = nullptr;
         std::uint32_t const *m_coordinates = nullptr;
+        std::uint32_t const *m_energy_lookup = nullptr;
         std::uint32_t const *m_angular_offsets = nullptr;
         double const *m_angular_u = nullptr;
         double const *m_deflection = nullptr;
@@ -225,10 +257,13 @@ public:
         Alias const *m_aliases = nullptr;
         double const *m_cdf = nullptr;
         std::uint16_t const *m_outcome_ids = nullptr;
+        std::uint16_t const *m_cell_lookup = nullptr;
         Outcome const *m_outcomes = nullptr;
         double const *m_high_edges = nullptr;
         std::uint32_t const *m_high_cells = nullptr;
         int m_energy_count = 0;
+        int m_energy_lookup_min_exponent = 0;
+        int m_energy_lookup_size = 0;
         int m_high_count = 0;
         double m_maximum_energy = 0;
         double m_high_energy = 1000;
@@ -270,7 +305,7 @@ private:
     Executor m_executor;
     Executor m_host_executor;
     std::vector<double> m_energies, m_rates;
-    std::vector<std::uint32_t> m_coordinates;
+    std::vector<std::uint32_t> m_coordinates, m_energy_lookup;
     double m_neutral_mass = 0;
     std::size_t m_table_bytes = 0;
 };

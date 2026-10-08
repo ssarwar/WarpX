@@ -161,7 +161,13 @@ Initialization, memory and backward compatibility
 
 Initialization additionally constructs 257 quantile-search bounds per energy
 row. These bracket the full binary search without coarsening its grid. The
-runtime validates all dimensions, monotonicity, probability bounds, canonical
+runtime also builds a small energy-bracketing index with 64 mantissa bins
+per binary exponent. Cumulative sampling can add 65 uint16 search bounds
+per probability cell, when the prepared table's memory budget permits it.
+These indices change search ranges only; all final searches and physical
+interpolation grids remain unchanged.
+
+The runtime validates all dimensions, monotonicity, probability bounds, canonical
 rotational levels, parity, molecular masses, range coverage, temperature and
 threshold accessibility. It checks the combined source rate against the
 ordinary elastic table above the cold join. No prepared file is written by
@@ -169,8 +175,12 @@ the simulation, and no Python or external numerical library is required to
 read the production data. A restart prepares the immutable arrays again; repeated collision
 objects within a process share them.
 
-The 8-byte device alias layout remains float32 cutoff, uint16 alternate
-index and uint16 outcome identifier. Energies and outcome labels remain
+The 8-byte input/preparation alias layout remains float32 cutoff, uint16
+alternate column and uint16 primary outcome identifier. After validation,
+initialization replaces the alternate column in place with that column's
+outcome identifier. Both uint16 device fields therefore address the outcome
+palette directly. Prepared binary inputs retain their original column-index
+format and remain readable. Energies and outcome labels remain
 double precision. The per-process cache enforces a combined 1 GiB table
 budget. One MPI rank per GPU shares these tables within that rank; separate
 ranks on one GPU each allocate their own copies. Choosing cumulative storage
@@ -180,6 +190,8 @@ Binary input remains supported with its little-endian binary64 host
 requirement. Its directory lists ``name type count byte_offset`` followed by
 relative binary-part filenames and byte counts. Offsets are eight-byte aligned
 within the concatenated payload. Optional binary quantile indices are accepted;
-without them the full search is used. Unmarked ordinary cross-section files
-retain their legacy endpoint behavior. The readable representation does not change any other
-rotation option or source continuation.
+without them the full angular/conditional search is used. The energy and
+cumulative-cell indices are runtime additions and require no file changes.
+Unmarked ordinary cross-section files retain their legacy endpoint behavior.
+The readable representation does not change any other rotation option or
+source continuation.
