@@ -8,14 +8,20 @@
 """Check exact magnetic-field save/restore with real/imaginary RZ modes.
 
 This exercises production buffer allocation and the same MultiFab copy
-operations as the semi-implicit retry hooks. It does not evolve the fields:
+operations as the implicit retry hooks. It does not evolve the fields:
 the existing implicit vector algebra only operates on the first component,
 so this test makes no claim about full multimode implicit plasma dynamics.
 """
 
+import argparse
+
 import numpy as np
 
 from pywarpx import picmi
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--solver", choices=["semi", "theta"], default="semi")
+args = parser.parse_args()
 
 modes = 3
 grid = picmi.CylindricalGrid(
@@ -30,9 +36,11 @@ grid = picmi.CylindricalGrid(
 )
 sim = picmi.Simulation(
     solver=picmi.ElectromagneticSolver(grid=grid, method="Yee"),
-    warpx_evolve_scheme=picmi.SemiImplicitEMEvolveScheme(
-        nonlinear_solver=picmi.PicardNonlinearSolver()
-    ),
+    warpx_evolve_scheme=(
+        picmi.SemiImplicitEMEvolveScheme
+        if args.solver == "semi"
+        else picmi.ThetaImplicitEMEvolveScheme
+    )(nonlinear_solver=picmi.PicardNonlinearSolver()),
     warpx_current_deposition_algo="direct",
     time_step_size=1e-12,
     max_steps=1,

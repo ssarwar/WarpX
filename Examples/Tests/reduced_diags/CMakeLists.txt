@@ -1,6 +1,18 @@
 # Add tests (alphabetical order) ##############################################
 #
 
+if(WarpX_OPENPMD)
+    add_warpx_test(
+        test_3d_source_weights_picmi
+        3
+        2
+        inputs_test_3d_source_weights_picmi.py
+        OFF
+        OFF
+        OFF
+    )
+endif()
+
 set(fluid_flux_solvers Yee semi_implicit_em semi_implicit_mm)
 if(WarpX_FFT)
     list(APPEND fluid_flux_solvers PSATD)

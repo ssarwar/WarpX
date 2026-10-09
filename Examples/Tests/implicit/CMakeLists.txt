@@ -23,6 +23,15 @@ if(WarpX_PRECISION STREQUAL "DOUBLE" AND WarpX_PARTICLE_PRECISION STREQUAL "DOUB
         OFF
         OFF
     )
+    add_warpx_test(
+        test_rz_theta_implicit_rollback_storage_picmi
+        RZ
+        2
+        "inputs_test_rz_semi_implicit_rollback_storage_picmi.py --solver theta"
+        OFF
+        OFF
+        OFF
+    )
 endif()
 
 add_warpx_test(
