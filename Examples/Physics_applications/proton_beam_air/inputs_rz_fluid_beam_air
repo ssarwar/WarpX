@@ -1,0 +1,167 @@
+# 800 MeV Gaussian fluid pulses and immobile ion products; proton source only.
+# Matches inputs_rz_fluid_beam_air_picmi.py --proton-only.
+# Supply the transverse Cartesian RMS width explicitly at run time:
+#   warpx.rz inputs_rz_fluid_beam_air my_constants.sigma_r=<width_in_meters>
+# For electron ionization and attachment, use the PICMI example with evaluated
+# cross sections and --write-input to produce a complete native input.
+
+my_constants.frequency = 201.25e6
+my_constants.pressure = 101325
+my_constants.temperature = 293.15
+my_constants.kb = 1.380649e-23
+
+# N2_plus
+N2_plus.charge = 1.602176634e-19
+N2_plus.density = 0.0
+N2_plus.do_not_deposit = 0
+N2_plus.mass = 4.651643414992105e-26
+N2_plus.model = "immobile"
+N2_plus.profile = "constant"
+
+# O2_minus
+O2_minus.charge = -1.602176634e-19
+O2_minus.density = 0.0
+O2_minus.do_not_deposit = 0
+O2_minus.mass = 5.313616842269147e-26
+O2_minus.model = "immobile"
+O2_minus.profile = "constant"
+
+# O2_plus
+O2_plus.charge = 1.602176634e-19
+O2_plus.density = 0.0
+O2_plus.do_not_deposit = 0
+O2_plus.mass = 5.313434654594868e-26
+O2_plus.model = "immobile"
+O2_plus.profile = "constant"
+
+# O_minus
+O_minus.charge = -1.602176634e-19
+O_minus.density = 0.0
+O_minus.do_not_deposit = 0
+O_minus.mass = 2.6568539680531425e-26
+O_minus.model = "immobile"
+O_minus.profile = "constant"
+
+# ParticleCharge
+ParticleCharge.intervals = 100
+ParticleCharge.type = "ParticleCharge"
+
+# ParticleEnergy
+ParticleEnergy.intervals = 100
+ParticleEnergy.type = "ParticleEnergy"
+
+# ParticleMomentum
+ParticleMomentum.intervals = 100
+ParticleMomentum.type = "ParticleMomentum"
+
+# ParticleNumber
+ParticleNumber.intervals = 100
+ParticleNumber.type = "ParticleNumber"
+
+# PrescribedSourceBudget
+PrescribedSourceBudget.intervals = 100
+PrescribedSourceBudget.type = "PrescribedSourceBudget"
+
+# algo
+algo.maxwell_solver = "Yee"
+algo.particle_shape = 1
+
+# amr
+amr.blocking_factor = 8
+amr.max_grid_size = 64
+amr.max_level = 0
+amr.n_cell = 64 256
+
+# beam
+beam.cutoff_r = 8.0
+beam.cutoff_z = 8.0
+beam.do_not_deposit = 0
+beam.first_pulse_time = 0.0
+beam.initialize_self_fields = 1
+beam.kinetic_energy = 800000000.0
+beam.model = "rigid_beam"
+beam.peak_current = 0.6
+beam.pulse_count = 2
+beam.pulse_period = 1/frequency
+beam.sigma_r = sigma_r
+beam.sigma_t = 2.5e-11
+beam.species_type = "proton"
+beam.z_reference = 0.03
+
+# boundary
+boundary.field_hi = pec pec
+boundary.field_lo = none pec
+boundary.particle_hi = absorbing absorbing
+boundary.particle_lo = none absorbing
+
+# checkpoint
+checkpoint.diag_type = "Full"
+checkpoint.format = "checkpoint"
+checkpoint.intervals = 100
+
+# collisions
+collisions.collision_names = p_N2 p_O2
+
+# diagnostics
+diagnostics.diags_names = fields particles checkpoint
+
+# electrons
+electrons.initialize_self_fields = 0
+electrons.species_type = "electron"
+
+# fields
+fields.diag_type = "Full"
+fields.fields_to_plot = Br Bt Bz Er Et Ez fluid_current_beamz fluid_density_N2_plus fluid_density_O2_minus fluid_density_O2_plus fluid_density_O_minus fluid_density_beam jr jt jz rho rho_beam rho_electrons
+fields.format = "plotfile"
+fields.intervals = 100
+fields.write_species = 0
+
+# fluids
+fluids.species_names = beam N2_plus O2_plus O_minus O2_minus
+
+# geometry
+geometry.dims = "RZ"
+geometry.prob_hi = 0.02 0.1
+geometry.prob_lo = 0.0 0.0
+
+# max_step
+max_step = 200
+
+# p_N2
+p_N2.background_density = 0.78084*pressure/(kb*temperature)
+p_N2.background_temperature = temperature
+p_N2.fixed_product_weight = 1000000.0
+p_N2.ionization_target = "N2"
+p_N2.max_products_per_cell = 8
+p_N2.ndt_subcycle = 1
+p_N2.product_species = electrons N2_plus
+p_N2.species = "beam"
+p_N2.type = "proton_impact_ionization"
+
+# p_O2
+p_O2.background_density = 0.20946*pressure/(kb*temperature)
+p_O2.background_temperature = temperature
+p_O2.fixed_product_weight = 1000000.0
+p_O2.ionization_target = "O2"
+p_O2.max_products_per_cell = 8
+p_O2.ndt_subcycle = 1
+p_O2.product_species = electrons O2_plus
+p_O2.species = "beam"
+p_O2.type = "proton_impact_ionization"
+
+# particles
+particles.diag_type = "Full"
+particles.electrons.variables = theta ux uy uz w x z
+particles.fields_to_plot = "none"
+particles.format = "plotfile"
+particles.intervals = 100
+particles.species = electrons
+particles.species_names = electrons
+particles.write_species = 1
+
+# warpx
+warpx.const_dt = 1e-13
+warpx.n_rz_azimuthal_modes = 1
+warpx.random_seed = 42
+warpx.reduced_diags_names = ParticleNumber ParticleCharge ParticleEnergy ParticleMomentum PrescribedSourceBudget
+warpx.verbose = 1

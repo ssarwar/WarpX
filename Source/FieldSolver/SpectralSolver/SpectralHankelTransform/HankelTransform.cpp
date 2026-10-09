@@ -31,11 +31,13 @@ HankelTransform::HankelTransform (int const hankel_order,
                                      "azimuthal_mode must be either hankel_order-1, hankel_order or hankel_order+1");
 
 #ifdef AMREX_USE_GPU
-    // BLAS setup
-    //   SYCL note: we need to double check AMReX device ID conventions and
-    //   BLAS++ device ID conventions are the same
+    // BLAS uses the AMReX stream, including its context and device with SYCL.
     int const device_id = amrex::Gpu::Device::deviceId();
+#ifdef AMREX_USE_SYCL
+    auto& stream_id = amrex::Gpu::Device::streamQueue();
+#else
     blas::Queue::stream_t stream_id = amrex::Gpu::gpuStream();
+#endif
     m_queue = std::make_unique<blas::Queue>( device_id, stream_id );
 #endif
 
@@ -197,7 +199,11 @@ HankelTransform::HankelForwardTransform (amrex::FArrayBox const& F, int const F_
     ABLASTR_PROFILE("HankelTransform::HankelForwardTransform");
 
 #ifdef AMREX_USE_GPU
+#ifdef AMREX_USE_SYCL
+    auto& stream_id = amrex::Gpu::Device::streamQueue();
+#else
     blas::Queue::stream_t stream_id = amrex::Gpu::gpuStream();
+#endif
     m_queue->set_stream(stream_id);
 #endif
 
@@ -232,7 +238,11 @@ HankelTransform::HankelInverseTransform (amrex::FArrayBox const& G, int const G_
     ABLASTR_PROFILE("HankelTransform::HankelInverseTransform");
 
 #ifdef AMREX_USE_GPU
+#ifdef AMREX_USE_SYCL
+    auto& stream_id = amrex::Gpu::Device::streamQueue();
+#else
     blas::Queue::stream_t stream_id = amrex::Gpu::gpuStream();
+#endif
     m_queue->set_stream(stream_id);
 #endif
 

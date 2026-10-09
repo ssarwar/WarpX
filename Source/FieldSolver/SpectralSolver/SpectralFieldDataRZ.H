@@ -13,8 +13,11 @@
 #include "SpectralKSpaceRZ.H"
 
 #include <ablastr/math/fft/AnyFFT.H>
+#include <ablastr/math/fft/BatchedMklFFT.H>
 
 #include <AMReX_MultiFab.H>
+
+#include <memory>
 
 /* \brief Class that stores the fields in spectral space, and performs the
  *  Fourier transforms between real space and spectral space
@@ -27,7 +30,11 @@ class SpectralFieldDataRZ
         // Define the FFTplans type, which holds one fft plan per box
         // (plans are only initialized for the boxes that are owned by
         // the local MPI rank)
+#ifdef AMREX_USE_SYCL
+        using FFTplans = amrex::LayoutData<std::unique_ptr<ablastr::math::anyfft::BatchedMklFFT>>;
+#else
         using FFTplans = amrex::LayoutData<ablastr::math::anyfft::VendorFFTPlan>;
+#endif
 
         using BinomialFilter = amrex::LayoutData<SpectralBinomialFilter>;
 

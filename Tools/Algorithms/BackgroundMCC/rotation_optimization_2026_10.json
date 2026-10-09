@@ -1,0 +1,1345 @@
+{
+ "status": "Complete: optimizations and all validation campaigns finished; original suite failures retained.",
+ "provenance": {
+  "baseline": "305e203ff6befb524e7e5f8277089113da5af0f0",
+  "data": "61a3947b6ebf365e6b78b63afdc30306791e3898",
+  "amrex": "b552c85c432defab450688581a1c87aead7b461d",
+  "source_hashes": {
+   "Source/Particles/Collision/BackgroundMCC/BackgroundMCCCollision.H": "e47cf1f7af4ce862b3d58423c81dde5708a5fb9bd152297afa6b454a920cb612",
+   "Source/Particles/Collision/BackgroundMCC/BackgroundMCCCollision.cpp": "5a999049492c48748189e7153c6ff7c11193685a14c6c2544bcb6f1dd16a9a5d",
+   "Source/Particles/Collision/BackgroundMCC/BackgroundMCCReciprocalRotation.H": "3a50139d3d37aeaf03c99a20eab9fb0fa6a95eb6f4167dc3b557a7f90b7a4a50",
+   "Source/Particles/Collision/BackgroundMCC/BackgroundMCCReciprocalRotation.cpp": "670359b65a95ed94d33196bd973938836218bf0ec176ea3dc1bde62f0dceb955",
+   "Tools/CrossSections/test_reciprocal_rotation.cpp": "6a5c2aa2ac938970ae97fd8ee780c2b5f7cda461101bedd833757a3810eb9f19"
+  },
+  "gpu": "A100-SXM4-80GB for timing, profiling and exact before/after comparisons; A100-SXM4-40GB for completed full-regression batches",
+  "cuda": "13.2",
+  "gcc": "13.2.1",
+  "job_ids": {
+   "ablation": 59519977,
+   "cumulative": 59520726,
+   "final_timing": 59521466,
+   "exactness": 59521525,
+   "regression": [
+    59522971,
+    59522973,
+    59522975,
+    59522976
+   ],
+   "remaining_checks": 59523029
+  },
+  "excluded_launcher_attempts": {
+   "jobs": [
+    59522280,
+    59522284
+   ],
+   "reason": "Relative --tests-from-file path after CTest changed directory; no tests ran; corrected to absolute path."
+  },
+  "implementation_commits": [
+   "b0522d66313d74ccf121fc91044724cfa6b5e8c9",
+   "350aee2b68cd26210d60651106b2319019a1b78e"
+  ]
+ },
+ "performance": {
+  "final_three_seeds": [
+   {
+    "case": "1048576-broad--ordinary-elastic",
+    "baseline_median_ms": 39.44575788045768,
+    "optimized_median_ms": 38.51092662080191,
+    "reduction_percent": 2.369915828436653,
+    "seed_medians_ms": {
+     "baseline": [
+      39.50535936746746,
+      39.43043263279833,
+      39.44575788045768
+     ],
+     "final": [
+      38.533202052349225,
+      38.49191094923299,
+      38.51092662080191
+     ]
+    }
+   },
+   {
+    "case": "1048576-broad--parser-background",
+    "baseline_median_ms": 55.26412095059641,
+    "optimized_median_ms": 43.12636106624268,
+    "reduction_percent": 21.963182758673263,
+    "seed_medians_ms": {
+     "baseline": [
+      55.33202670630999,
+      55.26412095059641,
+      55.2213608607417
+     ],
+     "final": [
+      43.12636106624268,
+      43.166866365936585,
+      43.06262843601871
+     ]
+    }
+   },
+   {
+    "case": "1048576-broad--pic",
+    "baseline_median_ms": 51.85980400710832,
+    "optimized_median_ms": 47.843163934885524,
+    "reduction_percent": 7.745189456697998,
+    "seed_medians_ms": {
+     "baseline": [
+      52.046015625819564,
+      51.85980400710832,
+      51.84501607436687
+     ],
+     "final": [
+      47.843163934885524,
+      48.019557623774745,
+      47.801507607800886
+     ]
+    }
+   },
+   {
+    "case": "1048576-thermal",
+    "baseline_median_ms": 35.00542356050573,
+    "optimized_median_ms": 32.038045741501264,
+    "reduction_percent": 8.476908767795521,
+    "seed_medians_ms": {
+     "baseline": [
+      35.00542356050573,
+      34.96272712072823,
+      35.18745144538116
+     ],
+     "final": [
+      32.04494468809571,
+      32.038045741501264,
+      32.03324138303287
+     ]
+    }
+   },
+   {
+    "case": "1048576-thermal--inactive-ionization",
+    "baseline_median_ms": 43.750626195105724,
+    "optimized_median_ms": 42.15751725132577,
+    "reduction_percent": 3.6413397528883173,
+    "seed_medians_ms": {
+     "baseline": [
+      43.6972856259672,
+      43.77806246338878,
+      43.750626195105724
+     ],
+     "final": [
+      42.15751725132577,
+      42.23617631942034,
+      42.07333548401948
+     ]
+    }
+   },
+   {
+    "case": "32768-thermal",
+    "baseline_median_ms": 14.87903212546371,
+    "optimized_median_ms": 13.079741693218239,
+    "reduction_percent": 12.092792172726053,
+    "seed_medians_ms": {
+     "baseline": [
+      14.825480320723727,
+      14.935240804334171,
+      14.87903212546371
+     ],
+     "final": [
+      13.079741693218239,
+      13.307512446772307,
+      13.04851405438967
+     ]
+    }
+   }
+  ],
+  "ablation": [
+   {
+    "particles": 32768,
+    "spectrum": "thermal",
+    "scope": "mcc",
+    "inactive_ionization": false,
+    "variants": {
+     "baseline": {
+      "blocks": 40,
+      "median_ms": 14.665305949165486,
+      "p25_ms": 14.638984328485094,
+      "p75_ms": 14.713066011609044
+     },
+     "alias-direct": {
+      "blocks": 40,
+      "median_ms": 14.648717071395367,
+      "p25_ms": 14.60247857903596,
+      "p75_ms": 14.793314410781022
+     },
+     "alias-energy64": {
+      "blocks": 40,
+      "median_ms": 14.38243813754525,
+      "p25_ms": 14.246488630305976,
+      "p75_ms": 14.585557793907356
+     },
+     "alias-energy64-runtime": {
+      "blocks": 40,
+      "median_ms": 13.025457577896304,
+      "p25_ms": 12.921326531795785,
+      "p75_ms": 13.193347687774803
+     },
+     "specialized": {
+      "blocks": 40,
+      "median_ms": 13.052168360445648,
+      "p25_ms": 12.947998831805307,
+      "p75_ms": 13.209607255703304
+     }
+    }
+   },
+   {
+    "particles": 1048576,
+    "spectrum": "broad",
+    "scope": "mcc",
+    "inactive_ionization": false,
+    "variants": {
+     "baseline": {
+      "blocks": 40,
+      "median_ms": 50.486695690779015,
+      "p25_ms": 50.40999768971233,
+      "p75_ms": 50.74917118326994
+     },
+     "alias-direct": {
+      "blocks": 40,
+      "median_ms": 49.870846240082756,
+      "p25_ms": 49.722027106327005,
+      "p75_ms": 50.02882196276914
+     },
+     "alias-energy64": {
+      "blocks": 40,
+      "median_ms": 48.68134157732129,
+      "p25_ms": 48.433836724143475,
+      "p75_ms": 48.865773576835636
+     },
+     "alias-energy64-runtime": {
+      "blocks": 40,
+      "median_ms": 47.127025623922236,
+      "p25_ms": 46.99850962788332,
+      "p75_ms": 47.25090791180264
+     },
+     "specialized": {
+      "blocks": 40,
+      "median_ms": 46.419583246461116,
+      "p25_ms": 46.27351227827603,
+      "p75_ms": 46.48449059459381
+     }
+    }
+   },
+   {
+    "particles": 1048576,
+    "spectrum": "resonance",
+    "scope": "mcc",
+    "inactive_ionization": false,
+    "variants": {
+     "baseline": {
+      "blocks": 40,
+      "median_ms": 45.793098499416374,
+      "p25_ms": 45.67905815929407,
+      "p75_ms": 46.00762892368948
+     },
+     "alias-direct": {
+      "blocks": 40,
+      "median_ms": 45.25999857287388,
+      "p25_ms": 45.15466422162717,
+      "p75_ms": 45.41704231087351
+     },
+     "alias-energy64": {
+      "blocks": 40,
+      "median_ms": 44.22052873997018,
+      "p25_ms": 44.07052135502454,
+      "p75_ms": 44.47623645683052
+     },
+     "alias-energy64-runtime": {
+      "blocks": 40,
+      "median_ms": 42.61785707785748,
+      "p25_ms": 42.562135058688,
+      "p75_ms": 42.86542245972669
+     },
+     "specialized": {
+      "blocks": 40,
+      "median_ms": 41.92637868982274,
+      "p25_ms": 41.85505016357638,
+      "p75_ms": 42.06305955449352
+     }
+    }
+   },
+   {
+    "particles": 1048576,
+    "spectrum": "thermal",
+    "scope": "mcc",
+    "inactive_ionization": false,
+    "variants": {
+     "baseline": {
+      "blocks": 40,
+      "median_ms": 34.86378089291975,
+      "p25_ms": 34.82180173887173,
+      "p75_ms": 35.0720570932026
+     },
+     "alias-direct": {
+      "blocks": 40,
+      "median_ms": 34.87331242649816,
+      "p25_ms": 34.834885627788026,
+      "p75_ms": 35.12809112726245
+     },
+     "alias-energy64": {
+      "blocks": 40,
+      "median_ms": 33.68088400748093,
+      "p25_ms": 33.479250050731935,
+      "p75_ms": 33.83247248711996
+     },
+     "alias-energy64-runtime": {
+      "blocks": 40,
+      "median_ms": 32.21441044297535,
+      "p25_ms": 32.10323453822639,
+      "p75_ms": 32.42910237895558
+     },
+     "specialized": {
+      "blocks": 40,
+      "median_ms": 32.027881490648724,
+      "p25_ms": 31.89552647381788,
+      "p75_ms": 32.2080888072378
+     }
+    }
+   },
+   {
+    "particles": 1048576,
+    "spectrum": "thermal",
+    "scope": "mcc",
+    "inactive_ionization": true,
+    "variants": {
+     "baseline": {
+      "blocks": 40,
+      "median_ms": 43.42889550025575,
+      "p25_ms": 43.3856165400357,
+      "p75_ms": 43.551545379159506
+     },
+     "alias-direct": {
+      "blocks": 40,
+      "median_ms": 43.53702381195035,
+      "p25_ms": 43.4895547296037,
+      "p75_ms": 43.61174515361199
+     },
+     "alias-energy64": {
+      "blocks": 40,
+      "median_ms": 42.151847257628106,
+      "p25_ms": 42.11247918283334,
+      "p75_ms": 42.2463631402934
+     },
+     "alias-energy64-runtime": {
+      "blocks": 40,
+      "median_ms": 42.16189468570519,
+      "p25_ms": 42.13949435506947,
+      "p75_ms": 42.19975872547366
+     },
+     "specialized": {
+      "blocks": 40,
+      "median_ms": 41.922644872101955,
+      "p25_ms": 41.88851784419967,
+      "p75_ms": 41.95017637539422
+     }
+    }
+   }
+  ],
+  "cumulative": [
+   {
+    "particles": 32768,
+    "spectrum": "thermal",
+    "scope": "mcc",
+    "inactive_ionization": false,
+    "variants": {
+     "baseline-alias": {
+      "blocks": 40,
+      "median_ms": 14.79833606572356,
+      "p25_ms": 14.683861394587439,
+      "p75_ms": 14.891184284351766
+     },
+     "baseline-cumulative": {
+      "blocks": 40,
+      "median_ms": 14.888838559272699,
+      "p25_ms": 14.802912752202246,
+      "p75_ms": 14.992229502240662
+     },
+     "specialized-alias": {
+      "blocks": 40,
+      "median_ms": 13.14340450335294,
+      "p25_ms": 13.021740778640378,
+      "p75_ms": 13.436866443953477
+     },
+     "indexed-cdf-alias": {
+      "blocks": 40,
+      "median_ms": 13.039166631642729,
+      "p25_ms": 12.959870517079253,
+      "p75_ms": 13.224445618106984
+     },
+     "indexed-cdf-cumulative": {
+      "blocks": 40,
+      "median_ms": 13.186205876991153,
+      "p25_ms": 13.03908279078314,
+      "p75_ms": 13.303340252605267
+     }
+    }
+   },
+   {
+    "particles": 1048576,
+    "spectrum": "broad",
+    "scope": "mcc",
+    "inactive_ionization": false,
+    "variants": {
+     "baseline-alias": {
+      "blocks": 40,
+      "median_ms": 50.296771703870036,
+      "p25_ms": 50.21789041347802,
+      "p75_ms": 50.54394420585595
+     },
+     "baseline-cumulative": {
+      "blocks": 40,
+      "median_ms": 54.891934123588726,
+      "p25_ms": 54.77878478268394,
+      "p75_ms": 55.14340789522976
+     },
+     "specialized-alias": {
+      "blocks": 40,
+      "median_ms": 46.24127424904145,
+      "p25_ms": 46.147244109306484,
+      "p75_ms": 46.4227617776487
+     },
+     "indexed-cdf-alias": {
+      "blocks": 40,
+      "median_ms": 46.28557380056009,
+      "p25_ms": 46.1669884971343,
+      "p75_ms": 46.46532440528972
+     },
+     "indexed-cdf-cumulative": {
+      "blocks": 40,
+      "median_ms": 47.70423706213478,
+      "p25_ms": 47.64377813262399,
+      "p75_ms": 47.85695377358934
+     }
+    }
+   },
+   {
+    "particles": 1048576,
+    "spectrum": "broad",
+    "scope": "pic",
+    "inactive_ionization": false,
+    "variants": {
+     "baseline-alias": {
+      "blocks": 40,
+      "median_ms": 51.776850581518374,
+      "p25_ms": 51.724277742323466,
+      "p75_ms": 51.901448612625245
+     },
+     "baseline-cumulative": {
+      "blocks": 40,
+      "median_ms": 56.52989361260552,
+      "p25_ms": 56.47899779432919,
+      "p75_ms": 56.684350602154154
+     },
+     "specialized-alias": {
+      "blocks": 40,
+      "median_ms": 47.7392219909234,
+      "p25_ms": 47.60674276622012,
+      "p75_ms": 47.87258488795487
+     },
+     "indexed-cdf-alias": {
+      "blocks": 40,
+      "median_ms": 47.81463637482375,
+      "p25_ms": 47.72178483835887,
+      "p75_ms": 48.00725929089822
+     },
+     "indexed-cdf-cumulative": {
+      "blocks": 40,
+      "median_ms": 49.29816612275317,
+      "p25_ms": 49.15890713164117,
+      "p75_ms": 49.44864649587544
+     }
+    }
+   },
+   {
+    "particles": 1048576,
+    "spectrum": "intermediate",
+    "scope": "mcc",
+    "inactive_ionization": false,
+    "variants": {
+     "baseline-alias": {
+      "blocks": 40,
+      "median_ms": 49.27151443553157,
+      "p25_ms": 49.17279424262233,
+      "p75_ms": 49.47388744039927
+     },
+     "baseline-cumulative": {
+      "blocks": 40,
+      "median_ms": 51.31715856259689,
+      "p25_ms": 51.263653054775205,
+      "p75_ms": 51.5661309909774
+     },
+     "specialized-alias": {
+      "blocks": 40,
+      "median_ms": 45.23047555994708,
+      "p25_ms": 45.11474663740955,
+      "p75_ms": 45.545797467639204
+     },
+     "indexed-cdf-alias": {
+      "blocks": 40,
+      "median_ms": 45.26364218327217,
+      "p25_ms": 45.17487968405476,
+      "p75_ms": 45.45217345003039
+     },
+     "indexed-cdf-cumulative": {
+      "blocks": 40,
+      "median_ms": 46.02646875719074,
+      "p25_ms": 45.995587192010134,
+      "p75_ms": 46.229453742853366
+     }
+    }
+   },
+   {
+    "particles": 1048576,
+    "spectrum": "relativistic",
+    "scope": "mcc",
+    "inactive_ionization": false,
+    "variants": {
+     "baseline-alias": {
+      "blocks": 40,
+      "median_ms": 38.19872006715741,
+      "p25_ms": 38.137689436553046,
+      "p75_ms": 38.31665429606801
+     },
+     "baseline-cumulative": {
+      "blocks": 40,
+      "median_ms": 40.09623412275687,
+      "p25_ms": 39.92348764586495,
+      "p75_ms": 40.38124452199554
+     },
+     "specialized-alias": {
+      "blocks": 40,
+      "median_ms": 34.75391826941632,
+      "p25_ms": 34.66275987739209,
+      "p75_ms": 34.9927514907904
+     },
+     "indexed-cdf-alias": {
+      "blocks": 40,
+      "median_ms": 34.688558254856616,
+      "p25_ms": 34.62501952162711,
+      "p75_ms": 34.868206130340695
+     },
+     "indexed-cdf-cumulative": {
+      "blocks": 40,
+      "median_ms": 35.44285874522757,
+      "p25_ms": 35.310266037413385,
+      "p75_ms": 35.53286044189008
+     }
+    }
+   },
+   {
+    "particles": 1048576,
+    "spectrum": "resonance",
+    "scope": "mcc",
+    "inactive_ionization": false,
+    "variants": {
+     "baseline-alias": {
+      "blocks": 40,
+      "median_ms": 45.70948437321931,
+      "p25_ms": 45.66445780801587,
+      "p75_ms": 45.902668905910105
+     },
+     "baseline-cumulative": {
+      "blocks": 40,
+      "median_ms": 48.84355262038298,
+      "p25_ms": 48.738599456555676,
+      "p75_ms": 48.97649948543403
+     },
+     "specialized-alias": {
+      "blocks": 40,
+      "median_ms": 41.80693662783597,
+      "p25_ms": 41.73833522509085,
+      "p75_ms": 42.04279316763859
+     },
+     "indexed-cdf-alias": {
+      "blocks": 40,
+      "median_ms": 41.878547563101165,
+      "p25_ms": 41.81946461176267,
+      "p75_ms": 42.00754412158858
+     },
+     "indexed-cdf-cumulative": {
+      "blocks": 40,
+      "median_ms": 43.117547436850145,
+      "p25_ms": 43.07428831089055,
+      "p75_ms": 43.21087528660428
+     }
+    }
+   },
+   {
+    "particles": 1048576,
+    "spectrum": "thermal",
+    "scope": "mcc",
+    "inactive_ionization": false,
+    "variants": {
+     "baseline-alias": {
+      "blocks": 40,
+      "median_ms": 34.89359907689504,
+      "p25_ms": 34.84599223884288,
+      "p75_ms": 34.98949413187802
+     },
+     "baseline-cumulative": {
+      "blocks": 40,
+      "median_ms": 35.21829636883922,
+      "p25_ms": 35.160372775862925,
+      "p75_ms": 35.39057891612174
+     },
+     "specialized-alias": {
+      "blocks": 40,
+      "median_ms": 31.933927806676365,
+      "p25_ms": 31.859139853622764,
+      "p75_ms": 32.12412851280533
+     },
+     "indexed-cdf-alias": {
+      "blocks": 40,
+      "median_ms": 32.015037737437524,
+      "p25_ms": 31.979616127500776,
+      "p75_ms": 32.127981998200994
+     },
+     "indexed-cdf-cumulative": {
+      "blocks": 40,
+      "median_ms": 32.25125354947522,
+      "p25_ms": 32.125725789228454,
+      "p75_ms": 32.41073144454276
+     }
+    }
+   },
+   {
+    "particles": 1048576,
+    "spectrum": "thermal",
+    "scope": "mcc",
+    "inactive_ionization": true,
+    "variants": {
+     "baseline-alias": {
+      "blocks": 40,
+      "median_ms": 43.72462863102555,
+      "p25_ms": 43.667967060173396,
+      "p75_ms": 43.89315009757411
+     },
+     "baseline-cumulative": {
+      "blocks": 40,
+      "median_ms": 44.076041056541726,
+      "p25_ms": 43.9761542074848,
+      "p75_ms": 44.45816507359268
+     },
+     "specialized-alias": {
+      "blocks": 40,
+      "median_ms": 42.22172999288887,
+      "p25_ms": 42.13522076315712,
+      "p75_ms": 42.425669795193244
+     },
+     "indexed-cdf-alias": {
+      "blocks": 40,
+      "median_ms": 42.32089918514248,
+      "p25_ms": 42.09616963635199,
+      "p75_ms": 42.52837222884409
+     },
+     "indexed-cdf-cumulative": {
+      "blocks": 40,
+      "median_ms": 42.41374494449701,
+      "p25_ms": 42.33623908658046,
+      "p75_ms": 42.84037507750327
+     }
+    }
+   }
+  ],
+  "cpu_control": [
+   {
+    "mode": "thermal",
+    "seed": 19,
+    "variant": "baseline",
+    "seconds": 6.845669,
+    "paired_gas_steps": 512,
+    "particles": 262144,
+    "substep_seconds": 1e-14,
+    "omp_threads": 1
+   },
+   {
+    "mode": "thermal",
+    "seed": 19,
+    "variant": "optimized",
+    "seconds": 6.649531,
+    "paired_gas_steps": 512,
+    "particles": 262144,
+    "substep_seconds": 1e-14,
+    "omp_threads": 1
+   },
+   {
+    "mode": "thermal",
+    "seed": 2026,
+    "variant": "optimized",
+    "seconds": 6.430299,
+    "paired_gas_steps": 512,
+    "particles": 262144,
+    "substep_seconds": 1e-14,
+    "omp_threads": 1
+   },
+   {
+    "mode": "thermal",
+    "seed": 2026,
+    "variant": "baseline",
+    "seconds": 7.473355,
+    "paired_gas_steps": 512,
+    "particles": 262144,
+    "substep_seconds": 1e-14,
+    "omp_threads": 1
+   },
+   {
+    "mode": "thermal",
+    "seed": 800,
+    "variant": "baseline",
+    "seconds": 7.856827,
+    "paired_gas_steps": 512,
+    "particles": 262144,
+    "substep_seconds": 1e-14,
+    "omp_threads": 1
+   },
+   {
+    "mode": "thermal",
+    "seed": 800,
+    "variant": "optimized",
+    "seconds": 6.540904,
+    "paired_gas_steps": 512,
+    "particles": 262144,
+    "substep_seconds": 1e-14,
+    "omp_threads": 1
+   },
+   {
+    "mode": "broad",
+    "seed": 19,
+    "variant": "baseline",
+    "seconds": 8.632284,
+    "paired_gas_steps": 512,
+    "particles": 262144,
+    "substep_seconds": 1e-14,
+    "omp_threads": 1
+   },
+   {
+    "mode": "broad",
+    "seed": 19,
+    "variant": "optimized",
+    "seconds": 8.343088,
+    "paired_gas_steps": 512,
+    "particles": 262144,
+    "substep_seconds": 1e-14,
+    "omp_threads": 1
+   },
+   {
+    "mode": "broad",
+    "seed": 2026,
+    "variant": "optimized",
+    "seconds": 8.073846,
+    "paired_gas_steps": 512,
+    "particles": 262144,
+    "substep_seconds": 1e-14,
+    "omp_threads": 1
+   },
+   {
+    "mode": "broad",
+    "seed": 2026,
+    "variant": "baseline",
+    "seconds": 8.653035,
+    "paired_gas_steps": 512,
+    "particles": 262144,
+    "substep_seconds": 1e-14,
+    "omp_threads": 1
+   },
+   {
+    "mode": "broad",
+    "seed": 800,
+    "variant": "baseline",
+    "seconds": 9.010565,
+    "paired_gas_steps": 512,
+    "particles": 262144,
+    "substep_seconds": 1e-14,
+    "omp_threads": 1
+   },
+   {
+    "mode": "broad",
+    "seed": 800,
+    "variant": "optimized",
+    "seconds": 7.820187,
+    "paired_gas_steps": 512,
+    "particles": 262144,
+    "substep_seconds": 1e-14,
+    "omp_threads": 1
+   }
+  ],
+  "configuration": {
+   "gpu_precision": "double fields and double particles",
+   "gases": {
+    "N2": 0.78084,
+    "O2": 0.20946
+   },
+   "density": 2.5e+25,
+   "temperature_K": 300,
+   "pic_dt": 6.4e-13,
+   "subcycles_per_gas": 64,
+   "cells": 4096,
+   "boxes": 4,
+   "seeds": [
+    19,
+    2026,
+    800
+   ],
+   "blocks_per_seed": 20,
+   "pic_steps_per_block": 8,
+   "warmup_pic_steps": 4,
+   "mixed_energy_eV": [
+    0.002,
+    3000000.0
+   ],
+   "restore_positions_and_momenta_outside_timing": true,
+   "mcc_timing_scope": "Normal PIC step with electron push/gather/deposition disabled; field-driver work and bookkeeping retained."
+  }
+ },
+ "memory": {
+  "alias_bytes": 751225792,
+  "cumulative_bytes": 954196798,
+  "energy_lookup_bytes": 30728,
+  "cumulative_lookup_bytes": 29085290,
+  "exact_cell_sharing_screen": [
+   {
+    "gas": "N2",
+    "cells": 116626,
+    "alias_bytes": 441306424,
+    "identical_moment_and_count_repeats": 467,
+    "exact_alias_deduplication_bytes_upper_bound": 11088
+   },
+   {
+    "gas": "O2",
+    "cells": 107107,
+    "alias_bytes": 254236440,
+    "identical_moment_and_count_repeats": 459,
+    "exact_alias_deduplication_bytes_upper_bound": 3720
+   }
+  ],
+  "original_text_alias_bytes": 751195064,
+  "energy_lookup_entries_per_gas": 3841
+ },
+ "cpu": {
+  "full": {
+   "stages": 948,
+   "passed": 936,
+   "failed": [
+    "test_3d_diff_lumi_diag_leptons.analysis",
+    "test_3d_diff_lumi_diag_leptons_mr.analysis",
+    "test_2d_field_probe.analysis",
+    "test_3d_focusing_gaussian_beam.analysis",
+    "test_3d_focusing_gaussian_beam_photons.analysis",
+    "test_3d_rotated_gaussian_beam.analysis",
+    "test_rz_ohm_solver_em_modes_picmi.analysis",
+    "test_1d_ohm_solver_ion_beam_picmi.analysis",
+    "test_3d_acceleration_psatd_time_avg_restart.analysis",
+    "test_3d_effective_potential_electrostatic_picmi.analysis",
+    "test_1d_background_mcc_picmi.analysis",
+    "test_rz_spacecraft_charging_picmi.analysis"
+   ],
+   "skipped": []
+  },
+  "all_single": {
+   "stages": 51,
+   "passed": 51,
+   "failed": [],
+   "skipped": []
+  },
+  "double_analytical": {
+   "stages": 3,
+   "passed": 3,
+   "failed": [],
+   "skipped": []
+  },
+  "single_analytical": {
+   "stages": 3,
+   "passed": 3,
+   "failed": [],
+   "skipped": []
+  },
+  "radial": {
+   "stages": 6,
+   "passed": 6,
+   "failed": [],
+   "skipped": []
+  },
+  "proton": {
+   "stages": 5,
+   "passed": 5,
+   "failed": [],
+   "skipped": []
+  },
+  "fluid": {
+   "stages": 4,
+   "passed": 4,
+   "failed": [],
+   "skipped": []
+  },
+  "checksums": {
+   "stages": 380,
+   "passed": 200,
+   "skipped": [],
+   "failed_count": 180,
+   "policy": "Ignored as instructed; no benchmark resets."
+  },
+  "preexisting_failure_comparison": [
+   {
+    "test": "test_3d_diff_lumi_diag_leptons.analysis",
+    "also_failed_before": true,
+    "scientific_output_identical": true
+   },
+   {
+    "test": "test_3d_diff_lumi_diag_leptons_mr.analysis",
+    "also_failed_before": true,
+    "scientific_output_identical": true
+   },
+   {
+    "test": "test_2d_field_probe.analysis",
+    "also_failed_before": true,
+    "scientific_output_identical": true
+   },
+   {
+    "test": "test_3d_focusing_gaussian_beam.analysis",
+    "also_failed_before": true,
+    "scientific_output_identical": true
+   },
+   {
+    "test": "test_3d_focusing_gaussian_beam_photons.analysis",
+    "also_failed_before": true,
+    "scientific_output_identical": true
+   },
+   {
+    "test": "test_3d_rotated_gaussian_beam.analysis",
+    "also_failed_before": true,
+    "scientific_output_identical": true
+   },
+   {
+    "test": "test_rz_ohm_solver_em_modes_picmi.analysis",
+    "also_failed_before": true,
+    "scientific_output_identical": true
+   },
+   {
+    "test": "test_1d_ohm_solver_ion_beam_picmi.analysis",
+    "also_failed_before": true,
+    "scientific_output_identical": true
+   },
+   {
+    "test": "test_3d_acceleration_psatd_time_avg_restart.analysis",
+    "also_failed_before": true,
+    "scientific_output_identical": true
+   },
+   {
+    "test": "test_3d_effective_potential_electrostatic_picmi.analysis",
+    "also_failed_before": true,
+    "scientific_output_identical": true
+   },
+   {
+    "test": "test_1d_background_mcc_picmi.analysis",
+    "also_failed_before": true,
+    "scientific_output_identical": true
+   },
+   {
+    "test": "test_rz_spacecraft_charging_picmi.analysis",
+    "also_failed_before": true,
+    "scientific_output_identical": true
+   }
+  ]
+ },
+ "gpu": {
+  "exact_comparisons": [
+   {
+    "gas": "N2",
+    "cumulative": false,
+    "hashes": {
+     "baseline": {
+      "samples.txt": "fe6181ee1d300995e5662d8bea32a4d1c24aa10a0efc7557fb129fa9bb129214",
+      "cells.txt": "8b144feb6e688e4f7a6b5b06e9bd91abdb5a7fc4c178f83746c4c3495b22b8ba"
+     },
+     "final": {
+      "samples.txt": "fe6181ee1d300995e5662d8bea32a4d1c24aa10a0efc7557fb129fa9bb129214",
+      "cells.txt": "8b144feb6e688e4f7a6b5b06e9bd91abdb5a7fc4c178f83746c4c3495b22b8ba"
+     }
+    }
+   },
+   {
+    "gas": "N2",
+    "cumulative": true,
+    "hashes": {
+     "baseline": {
+      "samples.txt": "870898f038672905587d5c673087d61591551a906a5e7f76c35b239358865677",
+      "cells.txt": "ae97de70f576fce52ce9dd9f358e203c6234dc8348f4de67a71af3ae6db486e6"
+     },
+     "final": {
+      "samples.txt": "870898f038672905587d5c673087d61591551a906a5e7f76c35b239358865677",
+      "cells.txt": "ae97de70f576fce52ce9dd9f358e203c6234dc8348f4de67a71af3ae6db486e6"
+     }
+    }
+   },
+   {
+    "gas": "O2",
+    "cumulative": false,
+    "hashes": {
+     "baseline": {
+      "samples.txt": "8a4e8cb3b030bc5dc7782f012fc857b7a076001a2787ff207313ba85b0171ff8",
+      "cells.txt": "e25e9cc666c81b1d6aafc622a5b3abf7170db76d24528ae91608d847dfb0e773"
+     },
+     "final": {
+      "samples.txt": "8a4e8cb3b030bc5dc7782f012fc857b7a076001a2787ff207313ba85b0171ff8",
+      "cells.txt": "e25e9cc666c81b1d6aafc622a5b3abf7170db76d24528ae91608d847dfb0e773"
+     }
+    }
+   },
+   {
+    "gas": "O2",
+    "cumulative": true,
+    "hashes": {
+     "baseline": {
+      "samples.txt": "a580ac5678a8058c2ba10d6ec3b43dcc693acdcdf77948dc537adc13ce73d9b9",
+      "cells.txt": "753d7f23b44f425a9c71279a8c0d0f30cbef2ba9cd68dd159ef163a2ff49a909"
+     },
+     "final": {
+      "samples.txt": "a580ac5678a8058c2ba10d6ec3b43dcc693acdcdf77948dc537adc13ce73d9b9",
+      "cells.txt": "753d7f23b44f425a9c71279a8c0d0f30cbef2ba9cd68dd159ef163a2ff49a909"
+     }
+    }
+   }
+  ],
+  "single_analytical": {
+   "stages": 3,
+   "passed": 3,
+   "failed": [],
+   "skipped": []
+  },
+  "full_mcc_memcheck_errors": 0,
+  "full": {
+   "stages": 945,
+   "passed": 926,
+   "failed": [
+    "test_2d_langmuir_multi_mr_psatd.run",
+    "test_2d_langmuir_multi_mr_psatd.analysis",
+    "test_rz_ohm_solver_em_modes_picmi.analysis",
+    "test_3d_acceleration_psatd_restart.analysis",
+    "test_2d_field_probe.analysis",
+    "test_2d_theta_implicit_jfnk_vandb.run",
+    "test_2d_theta_implicit_jfnk_vandb.analysis",
+    "test_3d_galilean_psatd_current_correction.analysis",
+    "test_3d_acceleration_psatd_time_avg_restart.analysis",
+    "test_2d_particle_reflection_picmi.run",
+    "test_2d_pml_x_psatd.analysis",
+    "test_2d_pml_x_psatd_restart.analysis",
+    "test_1d_dsmc_picmi.analysis",
+    "test_rz_spacecraft_charging_picmi.analysis",
+    "test_3d_diff_lumi_diag_photons.analysis",
+    "test_2d_theta_implicit_jfnk_vandb_filtered.run",
+    "test_2d_theta_implicit_jfnk_vandb_filtered.analysis",
+    "test_1d_ohm_solver_ion_beam_picmi.analysis",
+    "test_3d_acceleration_restart.analysis"
+   ],
+   "skipped": [],
+   "new_failures": [
+    "test_3d_acceleration_restart.analysis"
+   ],
+   "previous_failures_now_passing": [
+    "test_2d_collisions_split_momentum_push_electromagnetic_vay.analysis"
+   ],
+   "test_name_set_sha256": "eeb25b4a227363789e292094c97183db0d9a4be00af786a10e76b33345c305b3",
+   "additional_failure_classification": "test_3d_acceleration_restart.analysis reproduced in five unchanged-development controls; no MCC collisions configured."
+  },
+  "regression_batches": [
+   {
+    "job": 59522971,
+    "stages": 258,
+    "failures": 4,
+    "gpu": "A100-SXM4-40GB"
+   },
+   {
+    "job": 59522973,
+    "stages": 227,
+    "failures": 5,
+    "gpu": "A100-SXM4-40GB"
+   },
+   {
+    "job": 59522975,
+    "stages": 226,
+    "failures": 5,
+    "gpu": "A100-SXM4-40GB"
+   },
+   {
+    "job": 59522976,
+    "stages": 234,
+    "failures": 5,
+    "gpu": "A100-SXM4-40GB"
+   }
+  ],
+  "new_focused_tests": "Both empty-rank MPI tests, four cumulative sampler/moment tests, and delayed invalid-density case passed.",
+  "restart_control": {
+   "job": 59524260,
+   "development_sha": "63fa5a0c157373a673cbbce16647721633b8d1dd",
+   "original_failure_field": "jy",
+   "original_failure_error": 1.1181680226580263e-12,
+   "unchanged_tolerance": 1e-12,
+   "analysis": "Same identity-matched analysis for both builds; assertions unchanged.",
+   "records": [
+    {
+     "configuration": "development",
+     "repeat": 0,
+     "analysis_returncode": 1,
+     "maximum_reported_error": 1.1869985470030068e-12,
+     "first_failed_field": "('plasma_p', 'particle_momentum_y')"
+    },
+    {
+     "configuration": "optimized",
+     "repeat": 0,
+     "analysis_returncode": 1,
+     "maximum_reported_error": 1.0260499739168036e-12,
+     "first_failed_field": "('plasma_p', 'particle_momentum_y')"
+    },
+    {
+     "configuration": "optimized",
+     "repeat": 1,
+     "analysis_returncode": 1,
+     "maximum_reported_error": 1.3412681943033943e-12,
+     "first_failed_field": "('plasma_p', 'particle_momentum_y')"
+    },
+    {
+     "configuration": "development",
+     "repeat": 1,
+     "analysis_returncode": 1,
+     "maximum_reported_error": 1.1689756011527269e-12,
+     "first_failed_field": "('plasma_p', 'particle_momentum_y')"
+    },
+    {
+     "configuration": "development",
+     "repeat": 2,
+     "analysis_returncode": 1,
+     "maximum_reported_error": 1.5788439024239789e-12,
+     "first_failed_field": "('plasma_p', 'particle_momentum_y')"
+    },
+    {
+     "configuration": "optimized",
+     "repeat": 2,
+     "analysis_returncode": 1,
+     "maximum_reported_error": 1.4104266657045114e-12,
+     "first_failed_field": "('plasma_p', 'particle_momentum_y')"
+    },
+    {
+     "configuration": "optimized",
+     "repeat": 3,
+     "analysis_returncode": 1,
+     "maximum_reported_error": 1.1833770348792681e-12,
+     "first_failed_field": "('plasma_p', 'particle_momentum_y')"
+    },
+    {
+     "configuration": "development",
+     "repeat": 3,
+     "analysis_returncode": 1,
+     "maximum_reported_error": 1.3240067813758156e-12,
+     "first_failed_field": "('plasma_p', 'particle_momentum_y')"
+    },
+    {
+     "configuration": "development",
+     "repeat": 4,
+     "analysis_returncode": 1,
+     "maximum_reported_error": 1.411058455982456e-12,
+     "first_failed_field": "('plasma_p', 'particle_momentum_y')"
+    },
+    {
+     "configuration": "optimized",
+     "repeat": 4,
+     "analysis_returncode": 1,
+     "maximum_reported_error": 1.1069868211986132e-12,
+     "first_failed_field": "('plasma_p', 'particle_momentum_y')"
+    }
+   ],
+   "interpretation": "The precision-sensitive, non-MCC restart comparison fails in all five controls on unchanged development and all five optimized repeats. The original full-suite failure is retained."
+  },
+  "all_single": {
+   "stages": 74,
+   "passed": 73,
+   "failed": [
+    "test_1d_background_mcc_picmi.analysis"
+   ],
+   "skipped": [],
+   "additional_coverage_failure": {
+    "test": "test_1d_background_mcc_picmi.analysis",
+    "rms_percent": 7.05,
+    "bound_percent": 6.5,
+    "previous_campaign_explicitly_excluded": true
+   }
+  },
+  "double_analytical": {
+   "stages": 3,
+   "passed": 3,
+   "failed": [],
+   "skipped": []
+  },
+  "checksums": {
+   "stages": 380,
+   "passed": 338,
+   "failed_count": 42,
+   "policy": "Ignored as instructed; no benchmark resets."
+  },
+  "sampler_memcheck_errors": {
+   "sanitizer-O2-1": 0,
+   "sanitizer-O2-0": 0,
+   "sanitizer-N2-0": 0,
+   "sanitizer-N2-1": 0
+  },
+  "proton_analytical": {
+   "stages": 5,
+   "passed": 5,
+   "failed": [],
+   "skipped": []
+  },
+  "fluid_analytical": {
+   "stages": 4,
+   "passed": 4,
+   "failed": [],
+   "skipped": []
+  },
+  "single_discharge_control": {
+   "job": 59525195,
+   "original_suite_rms_percent": 7.05,
+   "unchanged_bound_percent": 6.5,
+   "helium_data_files_byte_identical": 7,
+   "cases": [
+    {
+     "timestep_divisor": 1,
+     "analysis_returncode": 0,
+     "rms_percent": 6.39,
+     "mpi_ranks": 2,
+     "particle_count_and_seed_settings": "unchanged",
+     "physical_duration_and_averaging_window": "unchanged"
+    },
+    {
+     "timestep_divisor": 2,
+     "analysis_returncode": 0,
+     "rms_percent": 5.67,
+     "mpi_ranks": 2,
+     "particle_count_and_seed_settings": "unchanged",
+     "physical_duration_and_averaging_window": "unchanged"
+    }
+   ],
+   "interpretation": "Original failure retained. Same-coarse repeat and half-timestep control pass; these checks support realization/resolution sensitivity, not an asymptotic convergence claim."
+  }
+ },
+ "exactness": {
+  "energy_queries_N2": 50439,
+  "energy_queries_O2": 49539,
+  "cdf_cells_N2": 116626,
+  "cdf_cells_O2": 107107,
+  "queries_per_cdf_cell": 6,
+  "samples_per_energy": 32768,
+  "energies": 28,
+  "cpu_alias": [
+   {
+    "gas": "N2",
+    "hashes": {
+     "local-baseline": {
+      "samples.txt": "ae9d4e6b513df47af419ca81a59bace2a7082078b0e8430e63f289ce53544259",
+      "cells.txt": "fd27d9ee1bc7e8e79d64a5bb721184d92decc786a0d8b6c3a5d28a23a320f372"
+     },
+     "local-alias": {
+      "samples.txt": "ae9d4e6b513df47af419ca81a59bace2a7082078b0e8430e63f289ce53544259",
+      "cells.txt": "fd27d9ee1bc7e8e79d64a5bb721184d92decc786a0d8b6c3a5d28a23a320f372"
+     }
+    }
+   },
+   {
+    "gas": "O2",
+    "hashes": {
+     "local-baseline": {
+      "samples.txt": "79ec35efc85384e268ad7cc5fecfe098182ab6a619505bdf3a8c268910b4378d",
+      "cells.txt": "c512f6d46df105af864ee67389b2dd1f22e47ec99023651ee8b84448588c2493"
+     },
+     "local-alias": {
+      "samples.txt": "79ec35efc85384e268ad7cc5fecfe098182ab6a619505bdf3a8c268910b4378d",
+      "cells.txt": "c512f6d46df105af864ee67389b2dd1f22e47ec99023651ee8b84448588c2493"
+     }
+    }
+   }
+  ],
+  "cpu_energy": [
+   {
+    "gas": "N2",
+    "hashes": {
+     "local-lookup": {
+      "samples.txt": "ae9d4e6b513df47af419ca81a59bace2a7082078b0e8430e63f289ce53544259",
+      "cells.txt": "fd27d9ee1bc7e8e79d64a5bb721184d92decc786a0d8b6c3a5d28a23a320f372"
+     }
+    }
+   },
+   {
+    "gas": "O2",
+    "hashes": {
+     "local-lookup": {
+      "samples.txt": "79ec35efc85384e268ad7cc5fecfe098182ab6a619505bdf3a8c268910b4378d",
+      "cells.txt": "c512f6d46df105af864ee67389b2dd1f22e47ec99023651ee8b84448588c2493"
+     }
+    }
+   }
+  ],
+  "cpu_cumulative": [
+   {
+    "gas": "N2",
+    "hashes": {
+     "local-cdf-verified": {
+      "samples.txt": "4830444e4608f71d500f427e0cd89dd0be02b3d850764479e747acdd684211e9",
+      "cells.txt": "7deabd69acb85474290cde32307ef90548af87f95b723da0d0f839caea9a62e9"
+     }
+    }
+   },
+   {
+    "gas": "O2",
+    "hashes": {
+     "local-cdf-verified": {
+      "samples.txt": "952b9c7aa20036c9289f2303cc264d83b35caebfd678e23c9b2b28dc9d9cae5e",
+      "cells.txt": "f8e2bdb16b8c506bf387e3a4e650daaf672acc5d14f4cf19dae4855fde846fd7"
+     }
+    }
+   }
+  ]
+ },
+ "limitations": [
+  "No physical model or source-data change; experimental uncertainty remains.",
+  "HIP and SYCL not compiled or executed.",
+  "Nsight Compute profiling resource unavailable; no hardware-counter conclusions.",
+  "Product performance control has zero ionization cross sections.",
+  "Parser performance control uses constant-valued expressions."
+ ],
+ "profiling": [
+  {
+   "case": "thermal",
+   "roi_start_ns": 7061682847,
+   "mcc_kernel_calls": 512,
+   "mcc_kernel_ms": 26.382401,
+   "stream_sync_calls": 3186,
+   "async_copy_calls": 271
+  },
+  {
+   "case": "resonance",
+   "roi_start_ns": 7043542576,
+   "mcc_kernel_calls": 512,
+   "mcc_kernel_ms": 37.037988,
+   "stream_sync_calls": 3186,
+   "async_copy_calls": 271
+  },
+  {
+   "case": "broad",
+   "roi_start_ns": 6907124738,
+   "mcc_kernel_calls": 512,
+   "mcc_kernel_ms": 42.213262,
+   "stream_sync_calls": 3186,
+   "async_copy_calls": 271
+  }
+ ],
+ "validation_sources": {
+  "report": "rotation_optimization_2026_10.rst",
+  "benchmark": "benchmark_rotational_subcycling.py",
+  "raw_results_directory": "build/validation/rotation-optimization",
+  "perlmutter_checkout": "/pscratch/sd/s/ssarwar/warpx-beam-air-sync-20261006"
+ }
+}

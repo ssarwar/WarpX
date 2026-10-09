@@ -46,9 +46,30 @@
 #include <AMReX_Vector.H>
 
 #include <algorithm>
+#include <array>
+#include <utility>
 #include <cmath>
 #include <memory>
 #include <vector>
+
+namespace
+{
+    // Scalar views of the extensive, cell-centered source budgets. Components
+    // represent different physical quantities, not cylindrical Fourier modes.
+    [[maybe_unused]] std::pair<amrex::MultiFab const*, int>
+    prescribedBudgetField (std::string const& name, int lev)
+    {
+        std::array<std::string, 4> const suffixes{"_emitted_number", "_electron_energy",
+                                               "_binding_energy", "_discarded_ion_energy"};
+        auto const& fields = WarpX::GetInstance().m_fields;
+        for (int comp = 0; comp < 4; ++comp) {
+            if (!name.ends_with(suffixes[comp])) { continue; }
+            auto const field = name.substr(0, name.size()-suffixes[comp].size())+"_source_budget";
+            if (fields.has(field, lev)) { return {fields.get(field, lev), comp}; }
+        }
+        return {nullptr, 0};
+    }
+}
 
 using namespace amrex::literals;
 using warpx::fields::FieldType;
@@ -459,7 +480,7 @@ FullDiagnostics::InitializeFieldFunctorsRZopenPMD (int lev)
                 if (update_varnames) {
                     AddRZModesToOutputNames(m_varnames_fields[comp], ncomp);
                 }
-            } else if ( warpx.m_fields.has(m_varnames_fields[comp].substr(0, m_varnames_fields[comp].size() - 1), lev) &&
+            } else if ( warpx.m_fields.has(m_varnames_fields[comp].substr(0, m_varnames_fields[comp].size() - 1), Direction{idir}, lev) &&
                         m_varnames_fields[comp].back() == field_names[idir].front()) {
                 // This assumes a name like fieldname + field_names[idir]
                 const std::string fieldname = m_varnames_fields[comp].substr(0, m_varnames_fields[comp].size() - 1);
@@ -586,6 +607,11 @@ FullDiagnostics::InitializeFieldFunctorsRZopenPMD (int lev)
                 // Use 1 instead of ncomp here because eb_covered is only computed/stored for mode m=0
                 AddRZModesToOutputNames(std::string("eb_covered"), 1);
             }
+        } else if (auto const [budget_mf, source_comp] = prescribedBudgetField(m_varnames_fields[comp], lev);
+                   budget_mf != nullptr) {
+            m_all_field_functors[lev][comp] = std::make_unique<CellCenterFunctor>(
+                budget_mf, lev, m_crse_ratio, false, 1, source_comp);
+            if (update_varnames) { AddRZModesToOutputNames(m_varnames_fields[comp], 1); }
         } else if ( warpx.m_fields.has(m_varnames_fields[comp], lev) ) {
             amrex::MultiFab * mf = warpx.m_fields.get(m_varnames_fields[comp], lev);
             const int mf_ncomp = mf->nComp();
@@ -959,7 +985,7 @@ FullDiagnostics::InitializeFieldFunctors (int lev)
                 std::string T_arr_str = std::string(m_varnames[comp]);
                 T_arr_str.erase(T_arr_str.begin() + 1);
                 m_all_field_functors[lev][comp] = std::make_unique<CellCenterFunctor>(warpx.m_fields.get(T_arr_str, Direction{idir}, lev), lev, m_crse_ratio);
-            } else if ( warpx.m_fields.has(m_varnames[comp].substr(0, m_varnames[comp].size() - 1), lev) &&
+            } else if ( warpx.m_fields.has(m_varnames[comp].substr(0, m_varnames[comp].size() - 1), Direction{idir}, lev) &&
                         m_varnames[comp].back() == field_names[idir].front()) {
                 // This assumes a name like fieldname + field_names[idir]
                 const std::string fieldname = m_varnames[comp].substr(0, m_varnames[comp].size() - 1);
@@ -1024,6 +1050,10 @@ FullDiagnostics::InitializeFieldFunctors (int lev)
             m_all_field_functors[lev][comp] = std::make_unique<DivEFunctor>(warpx.m_fields.get_alldirs(FieldType::Efield_aux, lev), lev, m_crse_ratio);
         } else if ( m_varnames[comp] == "eb_covered" ){
             m_all_field_functors[lev][comp] = std::make_unique<EBCoveredFunctor>(lev, m_crse_ratio);
+        } else if (auto const [budget_mf, source_comp] = prescribedBudgetField(m_varnames[comp], lev);
+                   budget_mf != nullptr) {
+            m_all_field_functors[lev][comp] = std::make_unique<CellCenterFunctor>(
+                budget_mf, lev, m_crse_ratio, false, 1, source_comp);
         } else if ( warpx.m_fields.has(m_varnames[comp], lev) ) {
             m_all_field_functors[lev][comp] = std::make_unique<CellCenterFunctor>(warpx.m_fields.get(m_varnames[comp], lev), lev, m_crse_ratio);
         } else {

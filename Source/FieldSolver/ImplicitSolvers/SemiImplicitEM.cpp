@@ -6,7 +6,9 @@
  */
 #include "Fields.H"
 #include "SemiImplicitEM.H"
+
 #include "Diagnostics/ReducedDiags/MultiReducedDiags.H"
+#include "Fluids/MultiFluidContainer.H"
 #include "WarpX.H"
 
 using warpx::fields::FieldType;
@@ -41,9 +43,14 @@ void SemiImplicitEM::Define (WarpX*  a_WarpX, bool  a_from_restart)
         const auto& ba_Bz = m_WarpX->m_fields.get(FieldType::Bfield_fp, Direction{2}, lev)->boxArray();
         const auto& dm = m_WarpX->m_fields.get(FieldType::Bfield_fp, Direction{0}, lev)->DistributionMap();
         const amrex::IntVect ngb = m_WarpX->m_fields.get(FieldType::Bfield_fp, Direction{0}, lev)->nGrowVect();
-        m_WarpX->m_fields.alloc_init(FieldType::B_old, Direction{0}, lev, ba_Bx, dm, 1, ngb, 0.0_rt);
-        m_WarpX->m_fields.alloc_init(FieldType::B_old, Direction{1}, lev, ba_By, dm, 1, ngb, 0.0_rt);
-        m_WarpX->m_fields.alloc_init(FieldType::B_old, Direction{2}, lev, ba_Bz, dm, 1, ngb, 0.0_rt);
+        // Preserve the real/imaginary components of every RZ azimuthal mode.
+        const int ncomp = m_WarpX->m_fields.get(FieldType::Bfield_fp, Direction{0}, lev)->nComp();
+        m_WarpX->m_fields.alloc_init(
+            FieldType::B_old, Direction{0}, lev, ba_Bx, dm, ncomp, ngb, 0.0_rt);
+        m_WarpX->m_fields.alloc_init(
+            FieldType::B_old, Direction{1}, lev, ba_By, dm, ncomp, ngb, 0.0_rt);
+        m_WarpX->m_fields.alloc_init(
+            FieldType::B_old, Direction{2}, lev, ba_Bz, dm, ncomp, ngb, 0.0_rt);
     }
 
     // Reconstruct the initial guess E^{n-1/2} from checkpoint fields E^{n-1} and E^n.
@@ -78,6 +85,10 @@ void SemiImplicitEM::PrintParameters () const
 
 void SemiImplicitEM::SetupStep (amrex::Real start_time)
 {
+    if (m_WarpX->DoFluidSpecies()) {
+        m_WarpX->GetFluidContainer().PrepareImmobileCharge(m_WarpX->m_fields);
+    }
+
     // Save particle position and velocity at the start of the time step
     // Copy x to x_n etc
     m_WarpX->SaveParticlesAtImplicitStepStart();
@@ -194,7 +205,8 @@ void SemiImplicitEM::ComputeRHS ( WarpXSolverVec&  a_RHS,
 
     // Update particle positions and velocities using the current state
     // of E and B. Deposit current density at time n+1/2
-    PreRHSOp( half_time, a_nl_iter, a_from_jacobian );
+    const amrex::Real dt_scale = 1.0_rt/m_nsubsteps;
+    PreRHSOp( half_time, a_nl_iter, a_from_jacobian, dt_scale );
 
     // RHS = cvac^2*0.5*dt*(curl(B^{n+1/2}) - mu0*J^{n+1/2})
     m_WarpX->ImplicitComputeRHSE(0.5_rt*m_dt, a_RHS);

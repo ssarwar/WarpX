@@ -1,0 +1,1045 @@
+{
+  "job": 58777489,
+  "slurm": "58777489|TIMEOUT|00:20:17|0:0|nid[001576-001577]\n",
+  "investigation": {
+    "restart-filesystem-stacks.log": {
+      "sha256": "aaaef649b1a477e088fb85a9dd2c9acfa151ea08ae002465c501c71462fb820a",
+      "text": "PID 426959\n    PID ELAPSED %CPU STAT WCHAN                            COMMAND\n 426959     266 84.7 Rl   -                                python3 /pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/Tools/Algorithms/PrescribedFluids/benchmark.py --mode coupled --mcc-all --beam fluid --ions fluid --cells 32 256 --max-grid-size 32 --steps 20 --subcycles 2 --solver semi_implicit_mm --seed 41 --checkpoint --checkpoint-period 10 --snapshot-particles --restart /pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build/reaudit-2026-09-21/restart-expanded-58777489/semi_implicit_mm-seed41/full/diags/chk000010 --check-restored /pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build/reaudit-2026-09-21/restart-expanded-58777489/semi_implicit_mm-seed41/full/result.npz\n[New LWP 427059]\n[New LWP 427058]\n[New LWP 427017]\n[Thread debugging using libthread_db enabled]\nUsing host libthread_db library \"/lib64/libthread_db.so.1\".\n0x00007f5b664861e7 in sched_yield () from /lib64/libc.so.6\n[Switching to thread 1 (Thread 0x7f5b6636f740 (LWP 426959))]\n#0  0x00007f5b664861e7 in sched_yield () from /lib64/libc.so.6\n#0  0x00007f5b664861e7 in sched_yield () from /lib64/libc.so.6\n#1  0x00007f5b58c4183b in MPID_Progress_wait.part.0 () from /opt/cray/pe/lib64/libmpi_gnu.so.12\n#2  0x00007f5b58c5305d in MPIR_Wait_state () from /opt/cray/pe/lib64/libmpi_gnu.so.12\n#3  0x00007f5b58c532b9 in MPIR_Wait () from /opt/cray/pe/lib64/libmpi_gnu.so.12\n#4  0x00007f5b5880952f in PMPI_Recv () from /opt/cray/pe/lib64/libmpi_gnu.so.12\n#5  0x00007f5b04d08aee in amrex::VisMF::Read(amrex::FabArray<amrex::FArrayBox>&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, char const*, int, int) () from /pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build_pm_gpu_sync/lib/libamrex_2d.so\n#6  0x00007f5ab9ea0db7 in ?? () from /pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build_pm_gpu_sync/lib/site-packages/pywarpx/warpx_pybind_rz.cpython-312-x86_64-linux-gnu.so\n#7  0x00007f5ab9c0d8c5 in ?? () from /pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build_pm_gpu_sync/lib/site-packages/pywarpx/warpx_pybind_rz.cpython-312-x86_64-linux-gnu.so\n#8  0x00007f5ab99bb6b0 in ?? () from /pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build_pm_gpu_sync/lib/site-packages/pywarpx/warpx_pybind_rz.cpython-312-x86_64-linux-gnu.so\n#9  0x00007f5ab999119a in ?? () from /pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build_pm_gpu_sync/lib/site-packages/pywarpx/warpx_pybind_rz.cpython-312-x86_64-linux-gnu.so\n#10 0x00007f5b668b12df in cfunction_vectorcall_FASTCALL_KEYWORDS (func=0x7f5b546bbb50, args=0x7f5b666805f8, nargsf=<optimized out>, kwnames=0x0) at ./Include/cpython/methodobject.h:50\n#11 0x00007f5b66890f1f in _PyObject_VectorcallTstate (tstate=0x7f5b66d099f0 <_PyRuntime+458992>, callable=0x7f5b546bbb50, args=0x7f5b666805f8, nargsf=9223372036854775809, kwnames=0x0) at ./Include/internal/pycore_call.h:92\n#12 PyObject_Vectorcall (callable=0x7f5b546bbb50, args=0x7f5b666805f8, nargsf=9223372036854775809, kwnames=0x0) at Objects/call.c:325\n#13 0x00007f5b668dc9ee in _PyEval_EvalFrameDefault (tstate=<optimized out>, frame=<optimized out>, throwflag=<optimized out>) at Python/bytecodes.c:2715\n#14 0x00007f5b6696c912 in PyEval_EvalCode (co=co@entry=0x7f5b6624d140, globals=globals@entry=0x7f5b660c6400, locals=locals@entry=0x7f5b660c6400) at Python/ceval.c:580\n#15 0x00007f5b6698bf81 in run_eval_code_obj (tstate=tstate@entry=0x7f5b66d099f0 <_PyRuntime+458992>, co=co@entry=0x7f5b6624d140, globals=globals@entry=0x7f5b660c6400, locals=locals@entry=0x7f5b660c6400) at Python/pythonrun.c:1757\n#16 0x00007f5b6698bc6b in run_mod (mod=mod@entry=0x5cfad0, filename=filename@entry=0x7f5b66271230, globals=globals@entry=0x7f5b660c6400, locals=locals@entry=0x7f5b660c6400, flags=flags@entry=0x7ffd25827c28, arena=arena@entry=0x7f5b66233e90) at Python/pythonrun.c:1778\n#17 0x00007f5b6698bbb2 in pyrun_file (fp=fp@entry=0x403490, filename=filename@entry=0x7f5b66271230, start=start@entry=257, globals=globals@entry=0x7f5b660c6400, locals=locals@entry=0x7f5b660c6400, closeit=closeit@entry=1, flags=0x7ffd25827c28) at Python/pythonrun.c:1674\n[Inferior 1 (process 426959) detached]\nPID 426964\n    PID ELAPSED %CPU STAT WCHAN                            COMMAND\n 426964     269 20.8 Sl   ldlm_completion_ast              python3 /pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/Tools/Algorithms/PrescribedFluids/benchmark.py --mode coupled --mcc-all --beam fluid --ions fluid --cells 32 256 --max-grid-size 32 --steps 20 --subcycles 2 --solver semi_implicit_mm --seed 41 --checkpoint --checkpoint-period 10 --snapshot-particles --restart /pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build/reaudit-2026-09-21/restart-expanded-58777489/semi_implicit_mm-seed41/full/diags/chk000010 --check-restored /pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build/reaudit-2026-09-21/restart-expanded-58777489/semi_implicit_mm-seed41/full/result.npz\n[New LWP 427067]\n[New LWP 427066]\n[New LWP 427015]\n[Thread debugging using libthread_db enabled]\nUsing host libthread_db library \"/lib64/libthread_db.so.1\".\n0x00007fa7207fa99c in read () from /lib64/libc.so.6\n[Switching to thread 1 (Thread 0x7fa7206d8740 (LWP 426964))]\n#0  0x00007fa7207fa99c in read () from /lib64/libc.so.6\n#0  0x00007fa7207fa99c in read () from /lib64/libc.so.6\n#1  0x00007fa71dcc60bf in std::__basic_file<char>::xsgetn(char*, long) () from /usr/lib64/libstdc++.so.6\n#2  0x00007fa71dcf2580 in std::basic_filebuf<char, std::char_traits<char> >::underflow() () from /usr/lib64/libstdc++.so.6\n#3  0x00007fa71dd2b07d in std::basic_streambuf<char, std::char_traits<char> >::xsgetn(char*, long) () from /usr/lib64/libstdc++.so.6\n#4  0x00007fa71dcf310e in std::basic_filebuf<char, std::char_traits<char> >::xsgetn(char*, long) () from /usr/lib64/libstdc++.so.6\n#5  0x00007fa71dcfff61 in std::basic_istream<char, std::char_traits<char> >::read(char*, long) () from /usr/lib64/libstdc++.so.6\n#6  0x00007fa6e98a0990 in amrex::VisMF::readFAB(amrex::FabArray<amrex::FArrayBox>&, int, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, amrex::VisMF::Header const&) () from /pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build_pm_gpu_sync/lib/libamrex_2d.so\n#7  0x00007fa6e98a301f in amrex::VisMF::Read(amrex::FabArray<amrex::FArrayBox>&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, char const*, int, int) () from /pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build_pm_gpu_sync/lib/libamrex_2d.so\n#8  0x00007fa69bca0db7 in ?? () from /pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build_pm_gpu_sync/lib/site-packages/pywarpx/warpx_pybind_rz.cpython-312-x86_64-linux-gnu.so\n#9  0x00007fa69ba0d8c5 in ?? () from /pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build_pm_gpu_sync/lib/site-packages/pywarpx/warpx_pybind_rz.cpython-312-x86_64-linux-gnu.so\n#10 0x00007fa69b7bb6b0 in ?? () from /pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build_pm_gpu_sync/lib/site-packages/pywarpx/warpx_pybind_rz.cpython-312-x86_64-linux-gnu.so\n#11 0x00007fa69b79119a in ?? () from /pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build_pm_gpu_sync/lib/site-packages/pywarpx/warpx_pybind_rz.cpython-312-x86_64-linux-gnu.so\n#12 0x00007fa720c1a2df in cfunction_vectorcall_FASTCALL_KEYWORDS (func=0x7fa70c0fa7a0, args=0x7fa7209e95f8, nargsf=<optimized out>, kwnames=0x0) at ./Include/cpython/methodobject.h:50\n#13 0x00007fa720bf9f1f in _PyObject_VectorcallTstate (tstate=0x7fa7210729f0 <_PyRuntime+458992>, callable=0x7fa70c0fa7a0, args=0x7fa7209e95f8, nargsf=9223372036854775809, kwnames=0x0) at ./Include/internal/pycore_call.h:92\n#14 PyObject_Vectorcall (callable=0x7fa70c0fa7a0, args=0x7fa7209e95f8, nargsf=9223372036854775809, kwnames=0x0) at Objects/call.c:325\n#15 0x00007fa720c459ee in _PyEval_EvalFrameDefault (tstate=<optimized out>, frame=<optimized out>, throwflag=<optimized out>) at Python/bytecodes.c:2715\n#16 0x00007fa720cd5912 in PyEval_EvalCode (co=co@entry=0x7fa7205b5140, globals=globals@entry=0x7fa72042a400, locals=locals@entry=0x7fa72042a400) at Python/ceval.c:580\n#17 0x00007fa720cf4f81 in run_eval_code_obj (tstate=tstate@entry=0x7fa7210729f0 <_PyRuntime+458992>, co=co@entry=0x7fa7205b5140, globals=globals@entry=0x7fa72042a400, locals=locals@entry=0x7fa72042a400) at Python/pythonrun.c:1757\n[Inferior 1 (process 426964) detached]\n"
+    },
+    "restart-filesystem-open-files.log": {
+      "sha256": "db02e900e2030a1e056864fc93c123105d03d78046d7f37ad9fda061c04e5433",
+      "text": "PID 426959\n/proc/426959/fd/0 pipe:[696328]\n/proc/426959/fd/1 pipe:[696329]\n/proc/426959/fd/10 /dev/nvidia-uvm\n/proc/426959/fd/11 /dev/nvidia0\n/proc/426959/fd/12 socket:[592353]\n/proc/426959/fd/13 /dev/shm/gtl-shared-mem-setup-kvs_58777489.1-102304.tmp\n/proc/426959/fd/14 /dev/shm/cray-shared-mem-coll-setup-kvs_58777489.1-102304-0.tmp (deleted)\n/proc/426959/fd/15 /dev/nvidia0\n/proc/426959/fd/16 /dev/nvidia0\n/proc/426959/fd/17 /dev/nvidia0\n/proc/426959/fd/18 /dev/shm/cray-shared-mem-coll-kvs_58777489.1-0-0-102304-0.tmp (deleted)\n/proc/426959/fd/19 anon_inode:[eventfd]\n/proc/426959/fd/2 pipe:[696330]\n/proc/426959/fd/20 /dev/nvidia0\n/proc/426959/fd/21 /dev/nvidia0\n/proc/426959/fd/22 /dev/nvidia0\n/proc/426959/fd/23 /dev/nvidia0\n/proc/426959/fd/24 /dev/nvidia0\n/proc/426959/fd/25 /dev/nvidia0\n/proc/426959/fd/26 /dev/nvidia0\n/proc/426959/fd/27 /dev/nvidia0\n/proc/426959/fd/28 /dev/nvidia0\n/proc/426959/fd/29 /dev/nvidia0\n/proc/426959/fd/3 anon_inode:[eventfd]\n/proc/426959/fd/30 /dev/nvidia0\n/proc/426959/fd/31 /dev/nvidia0\n/proc/426959/fd/32 anon_inode:[eventfd]\n/proc/426959/fd/33 /dev/nvidia0\n/proc/426959/fd/34 /dev/nvidia0\n/proc/426959/fd/35 /dev/nvidia0\n/proc/426959/fd/36 /dev/nvidia0\n/proc/426959/fd/37 /dev/nvidia0\n/proc/426959/fd/38 /dev/nvidia0\n/proc/426959/fd/39 /dev/nvidia0\n/proc/426959/fd/4 pipe:[592346]\n/proc/426959/fd/40 /dev/nvidia0\n/proc/426959/fd/41 pipe:[592357]\n/proc/426959/fd/42 pipe:[592357]\n/proc/426959/fd/43 anon_inode:[eventfd]\n/proc/426959/fd/44 pipe:[592358]\n/proc/426959/fd/45 pipe:[592358]\n/proc/426959/fd/46 /dev/nvidia3\n/proc/426959/fd/47 /dev/shm/cray-shared-mem-coll-kvs_58777489.1-1-1-102304-0.tmp (deleted)\n/proc/426959/fd/48 /dev/nvidia3\n/proc/426959/fd/49 /dev/nvidia3\n/proc/426959/fd/5 pipe:[592346]\n/proc/426959/fd/50 /dev/nvidia1\n/proc/426959/fd/51 /dev/nvidia1\n/proc/426959/fd/52 /dev/nvidia1\n/proc/426959/fd/6 pipe:[592347]\n/proc/426959/fd/7 pipe:[592347]\n/proc/426959/fd/8 /dev/nvidiactl\n/proc/426959/fd/9 /dev/nvidia-uvm\nPID 426964\n/proc/426964/fd/0 /dev/null\n/proc/426964/fd/1 pipe:[696338]\n/proc/426964/fd/10 /dev/nvidia-uvm\n/proc/426964/fd/11 socket:[687194]\n/proc/426964/fd/12 /dev/shm/gtl-shared-mem-setup-kvs_58777489.1-102304.tmp\n/proc/426964/fd/13 /dev/shm/cray-shared-mem-coll-setup-kvs_58777489.1-102304-0.tmp (deleted)\n/proc/426964/fd/14 /dev/nvidia3\n/proc/426964/fd/15 /dev/shm/cray-shared-mem-coll-kvs_58777489.1-0-0-102304-0.tmp (deleted)\n/proc/426964/fd/16 anon_inode:[eventfd]\n/proc/426964/fd/17 /dev/nvidia3\n/proc/426964/fd/18 /dev/nvidia3\n/proc/426964/fd/19 /dev/nvidia3\n/proc/426964/fd/2 pipe:[696339]\n/proc/426964/fd/20 /dev/nvidia3\n/proc/426964/fd/21 /dev/nvidia3\n/proc/426964/fd/22 /dev/nvidia3\n/proc/426964/fd/23 /dev/nvidia3\n/proc/426964/fd/24 /dev/nvidia3\n/proc/426964/fd/25 /dev/nvidia3\n/proc/426964/fd/26 /dev/nvidia3\n/proc/426964/fd/27 /dev/nvidia3\n/proc/426964/fd/28 /dev/nvidia3\n/proc/426964/fd/29 /dev/nvidia3\n/proc/426964/fd/3 anon_inode:[eventfd]\n/proc/426964/fd/30 /dev/nvidia3\n/proc/426964/fd/31 /dev/nvidia3\n/proc/426964/fd/32 anon_inode:[eventfd]\n/proc/426964/fd/33 /dev/nvidia3\n/proc/426964/fd/34 /dev/nvidia3\n/proc/426964/fd/35 /dev/nvidia3\n/proc/426964/fd/36 /dev/nvidia3\n/proc/426964/fd/37 /dev/nvidia3\n/proc/426964/fd/38 /dev/nvidia3\n/proc/426964/fd/39 /dev/nvidia3\n/proc/426964/fd/4 pipe:[641332]\n/proc/426964/fd/40 /dev/nvidia3\n/proc/426964/fd/41 pipe:[613977]\n/proc/426964/fd/42 pipe:[613977]\n/proc/426964/fd/43 anon_inode:[eventfd]\n/proc/426964/fd/44 pipe:[613978]\n/proc/426964/fd/45 pipe:[613978]\n/proc/426964/fd/46 /dev/shm/cray-shared-mem-coll-kvs_58777489.1-1-1-102304-0.tmp (deleted)\n/proc/426964/fd/47 /dev/nvidia2\n/proc/426964/fd/48 /dev/nvidia2\n/proc/426964/fd/49 /dev/nvidia2\n/proc/426964/fd/5 pipe:[641332]\n/proc/426964/fd/50 /dev/nvidia0\n/proc/426964/fd/51 /dev/nvidia0\n/proc/426964/fd/52 /dev/nvidia0\n/proc/426964/fd/53 /pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build/reaudit-2026-09-21/restart-expanded-58777489/semi_implicit_mm-seed41/full/diags/chk000010/Level_0/fluid_density_N2plus[level=0]_D_00007\n/proc/426964/fd/6 pipe:[641333]\n/proc/426964/fd/7 pipe:[641333]\n/proc/426964/fd/8 /dev/nvidiactl\n/proc/426964/fd/9 /dev/nvidia-uvm\n"
+    },
+    "restart-filesystem-independent-read.log": {
+      "sha256": "1088ec4c8eae2af2d96dbefa3d63e6317ffb8e20ac9d43d7accd5b0334014220",
+      "text": "{\"host\": \"nid001576\", \"file\": \"/pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/Tools/Algorithms/PrescribedFluids/benchmark.py\", \"started\": true}\n{\"host\": \"nid001576\", \"bytes\": 24155, \"sha256\": \"ba14a15ab7037e192b9dda1a9627d3bac6bc622152a7390afeec58f152b40cbb\", \"seconds\": 0.0002518170003895648}\nnid001576 baseline status=0\n{\"host\": \"nid001577\", \"file\": \"/pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/Tools/Algorithms/PrescribedFluids/benchmark.py\", \"started\": true}\n{\"host\": \"nid001577\", \"bytes\": 24155, \"sha256\": \"ba14a15ab7037e192b9dda1a9627d3bac6bc622152a7390afeec58f152b40cbb\", \"seconds\": 0.00026877900018007495}\n{\"host\": \"nid001576\", \"file\": \"/pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build/reaudit-2026-09-21/restart-expanded-58777489/semi_implicit_mm-seed41/full/diags/chk000010/Level_0/fluid_density_N2plus[level=0]_D_00007\", \"started\": true}\n{\"host\": \"nid001576\", \"bytes\": 13448, \"sha256\": \"555113cbfac6ff22652347146a0f56b623f38424eaf5ad4e7c1050918ab254a1\", \"seconds\": 0.0009687609999673441}\nnid001577 baseline status=0\nnid001576 checkpoint status=0\n{\"host\": \"nid001577\", \"file\": \"/pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build/reaudit-2026-09-21/restart-expanded-58777489/semi_implicit_mm-seed41/full/diags/chk000010/Level_0/fluid_density_N2plus[level=0]_D_00007\", \"started\": true}\n{\"host\": \"nid001577\", \"bytes\": 13448, \"sha256\": \"555113cbfac6ff22652347146a0f56b623f38424eaf5ad4e7c1050918ab254a1\", \"seconds\": 0.0018062009985442273}\nnid001577 checkpoint status=0\n"
+    }
+  },
+  "runs": {
+    "semi_implicit_mm-seed41/full": {
+      "parameters": {
+        "beam": "fluid",
+        "ions": "fluid",
+        "mode": "coupled",
+        "solver": "semi_implicit_mm",
+        "cells": [
+          32,
+          256
+        ],
+        "max_grid_size": 32,
+        "radial_sigmas": 8.0,
+        "longitudinal_sigmas": 12.0,
+        "ppc": 16,
+        "electron_ppc": 4,
+        "seed": 41,
+        "steps": 20,
+        "dt": 5e-13,
+        "weight": 100.0,
+        "cap": 8,
+        "gas_density": 1e+23,
+        "temperature": 300.0,
+        "shape": 3,
+        "implicit_deposition": "villasenor",
+        "source_resolution": 8,
+        "subcycles": 2,
+        "mcc": true,
+        "mcc_all": true,
+        "no_self_fields": false,
+        "checkpoint": true,
+        "checkpoint_period": 10,
+        "restart": null,
+        "check_restored": null,
+        "snapshot_particles": true,
+        "profile": false,
+        "output": "result.json"
+      },
+      "revision": "242559e71b717af8afe461f9d4a602c07eb88e7b",
+      "warpx_version": "242559e71b71",
+      "benchmark_sha256": "ba14a15ab7037e192b9dda1a9627d3bac6bc622152a7390afeec58f152b40cbb",
+      "platform": "Linux-6.4.0-150600.23.125_15.0.29-cray_shasta_c-x86_64-with-glibc2.38",
+      "ranks": 8,
+      "backend": "CUDA",
+      "initialization_s": 3.768220623000161,
+      "timestep_s": [
+        0.15012175799984107,
+        0.12231580299976486,
+        0.011424543999964953,
+        0.012135808000039106,
+        0.011183839000295848,
+        0.013131241000337468,
+        0.026218878999770823,
+        0.08342410800014477,
+        0.021233457000107592,
+        73.02204409699971,
+        0.013135991000126523,
+        0.01378712900032042,
+        0.017043359999661334,
+        0.0872551890001887,
+        0.013335987000118621,
+        0.01390393400015455,
+        0.012848333999954775,
+        0.0129859700000452,
+        0.013080053000066982,
+        11.817469308
+      ],
+      "ordinary_step_median_s": 0.013335987000118621,
+      "checkpoint_step_s": 11.817469308,
+      "checkpoint_bytes": 6500871,
+      "fluid_density_bytes": {
+        "beam": 107584,
+        "N2plus": 107584,
+        "O2plus": 107584,
+        "Ominus": 107584,
+        "O2minus": 107584
+      },
+      "particle_payload_bytes": {
+        "electrons": 6162800
+      },
+      "device_reserved_bytes": 5910298624,
+      "history": [
+        {
+          "step": 0,
+          "time": 0.0,
+          "physical": {
+            "beam": 234677146.83613908,
+            "electrons": 0.0,
+            "N2plus": 0.0,
+            "O2plus": 0.0,
+            "Ominus": 0.0,
+            "O2minus": 0.0
+          },
+          "macroparticles": {
+            "electrons": 0,
+            "beam": 0,
+            "N2plus": 0,
+            "O2plus": 0,
+            "Ominus": 0,
+            "O2minus": 0
+          },
+          "electron_energy_J": 0.0,
+          "ion_energy_J": {
+            "N2plus": 0.0,
+            "O2plus": 0.0,
+            "Ominus": 0.0,
+            "O2minus": 0.0
+          },
+          "pending": {
+            "p_N2": 0.0,
+            "p_O2": 0.0
+          },
+          "primary_source_budgets": {
+            "p_N2": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "p_O2": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        },
+        {
+          "step": 10,
+          "time": 5e-12,
+          "physical": {
+            "beam": 234677146.83613908,
+            "electrons": 2703899.9999999995,
+            "N2plus": 2141699.9999999995,
+            "O2plus": 568600.0,
+            "Ominus": 3999.999999999999,
+            "O2minus": 2400.0
+          },
+          "macroparticles": {
+            "electrons": 27039,
+            "beam": 0,
+            "N2plus": 0,
+            "O2plus": 0,
+            "Ominus": 0,
+            "O2minus": 0
+          },
+          "electron_energy_J": 2.7492478223004083e-11,
+          "ion_energy_J": {
+            "N2plus": 0.0,
+            "O2plus": 0.0,
+            "Ominus": 0.0,
+            "O2minus": 0.0
+          },
+          "pending": {
+            "p_N2": 52733.14039121103,
+            "p_O2": 43953.354016389516
+          },
+          "primary_source_budgets": {
+            "p_N2": [
+              2129700.0,
+              2.1775205561834348e-11,
+              6.6852589907681595e-12,
+              1.3184157517484024e-14
+            ],
+            "p_O2": [
+              565000.0,
+              6.546179589633259e-12,
+              1.8054808325298388e-12,
+              3.508081435879557e-15
+            ]
+          }
+        },
+        {
+          "step": 20,
+          "time": 1e-11,
+          "physical": {
+            "beam": 234677146.83613905,
+            "electrons": 5502499.999999999,
+            "N2plus": 4350600.0,
+            "O2plus": 1182799.9999999998,
+            "Ominus": 15800.0,
+            "O2minus": 15099.999999999998
+          },
+          "macroparticles": {
+            "electrons": 55025,
+            "beam": 0,
+            "N2plus": 0,
+            "O2plus": 0,
+            "Ominus": 0,
+            "O2minus": 0
+          },
+          "electron_energy_J": 5.186290032564522e-11,
+          "ion_energy_J": {
+            "N2plus": 0.0,
+            "O2plus": 0.0,
+            "Ominus": 0.0,
+            "O2minus": 0.0
+          },
+          "pending": {
+            "p_N2": 59266.28078242553,
+            "p_O2": 48406.70803277999
+          },
+          "primary_source_budgets": {
+            "p_N2": [
+              4305600.0,
+              4.2692669669509215e-11,
+              1.3515542616636883e-11,
+              2.6761575792768564e-14
+            ],
+            "p_O2": [
+              1169500.0,
+              1.498759287897511e-11,
+              3.737185546271946e-12,
+              7.271758005825717e-15
+            ]
+          }
+        }
+      ],
+      "log_evidence": {
+        "sha256": "3e6f2207d427ac237fc0601ec3c59f0df96529cea3b42544e95803292c0c1a2f",
+        "restored_before_stepping": false,
+        "tail": "B       0   B       0   B       0   B     256   B     512   B\nFabArray::setVal(val, thecmd, scomp, ncomp)             15       0   B       0   B       0   B     512   B     512   B     512   B\nMLEBNodeFDLaplacian::prepareForSolve()                   2       0   B       0   B       0   B       0   B      64   B     512   B\nRelativisticExplicitES::ComputeSpaceChargeField          8       0   B       0   B       0   B     256   B     256   B     256   B\namrex::unpackBuffer                                    110     152   B     164   B     252   B     256   B     256   B     256   B\nWarpXFluidContainer::CommitDensityIncrement           1920       0   B       0   B       0   B     256   B     256   B     256   B\nWarpX::InitData()                                        8       0   B       0   B       0   B     256   B     256   B     256   B\nMLMG::actualBottomSolve()                               12       0   B       0   B       0   B       0   B      32   B     256   B\nMultiFab::contains_inf()                                32       0   B       0   B       0   B     256   B     256   B     256   B\nMultiFab::contains_nan()                                32       0   B       0   B       0   B     256   B     256   B     256   B\nParticleContainer::SortParticlesForDeposition()         28      20   B      80   B     147   B     256   B     256   B     256   B\nRedistribute_partition                                  58       0   B       0   B       0   B       0   B     128   B     256   B\nBackgroundMCCCollision::compactAttachedElectrons()      72       0   B       0   B       0   B       0   B      96   B     256   B\nPhysicalParticleContainer::Evolve()                    116       0   B       0   B       0   B       0   B     128   B     256   B\nPhysicalParticleContainer::DepositMassMatrices()        58       0   B       0   B       0   B       0   B     128   B     256   B\nParticleCopyPlan::buildMPIStart                          7       0   B       0   B       0   B       0   B      64   B     256   B\nParticleCopyPlan::build                                168       0   B       0   B       0   B     256   B     256   B     256   B\nParticleContainer::WriteParticles()                     16       0   B       0   B       0   B     256   B     256   B     256   B\n----------------------------------------------------------------------------------------------------------------------------------\n\nComms Memory Usage:\n---------------------------------------------------------------------------------------------------------------\nName                             Nalloc  AvgMem min  AvgMem avg  AvgMem max  MaxMem min  MaxMem avg  MaxMem max\n---------------------------------------------------------------------------------------------------------------\nThe_Comms_Arena::Initialize()         8       0   B       0   B       0   B    8192 KiB    8192 KiB    8192 KiB\nFillBoundary_nowait()             26406      16   B      26   B      35   B      14 KiB      14 KiB      14 KiB\nFabArray::ParallelCopy_nowait()     360       0   B       0   B       0   B    2560   B    4576   B    7680   B\n---------------------------------------------------------------------------------------------------------------\n\nTotal GPU global memory (MB) spread across MPI: [40440 ... 40440]\nFree  GPU global memory (MB) spread across MPI: [39536 ... 39930]\n[The         Arena] max space (MB) allocated spread across MPI: [64 ... 72]\n[The         Arena] max space (MB) used      spread across MPI: [61 ... 66]\n[The Managed Arena] max space (MB) allocated spread across MPI: [8 ... 8]\n[The Managed Arena] max space (MB) used      spread across MPI: [0 ... 0]\n[The  Pinned Arena] max space (MB) allocated spread across MPI: [16 ... 16]\n[The  Pinned Arena] max space (MB) used      spread across MPI: [12 ... 12]\n[The   Comms Arena] max space (MB) allocated spread across MPI: [8 ... 8]\n[The   Comms Arena] max space (MB) used      spread across MPI: [0 ... 0]\nAMReX (26.09-160-gd6d1aa11f38c) finalized\n"
+      }
+    },
+    "semi_implicit_mm-seed41/restart": {
+      "parameters": {
+        "beam": "fluid",
+        "ions": "fluid",
+        "mode": "coupled",
+        "solver": "semi_implicit_mm",
+        "cells": [
+          32,
+          256
+        ],
+        "max_grid_size": 32,
+        "radial_sigmas": 8.0,
+        "longitudinal_sigmas": 12.0,
+        "ppc": 16,
+        "electron_ppc": 4,
+        "seed": 41,
+        "steps": 20,
+        "dt": 5e-13,
+        "weight": 100.0,
+        "cap": 8,
+        "gas_density": 1e+23,
+        "temperature": 300.0,
+        "shape": 3,
+        "implicit_deposition": "villasenor",
+        "source_resolution": 8,
+        "subcycles": 2,
+        "mcc": true,
+        "mcc_all": true,
+        "no_self_fields": false,
+        "checkpoint": true,
+        "checkpoint_period": 10,
+        "restart": "/pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build/reaudit-2026-09-21/restart-expanded-58777489/semi_implicit_mm-seed41/full/diags/chk000010",
+        "check_restored": "/pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build/reaudit-2026-09-21/restart-expanded-58777489/semi_implicit_mm-seed41/full/result.npz",
+        "snapshot_particles": true,
+        "profile": false,
+        "output": "result.json"
+      },
+      "revision": "242559e71b717af8afe461f9d4a602c07eb88e7b",
+      "warpx_version": "242559e71b71",
+      "benchmark_sha256": "ba14a15ab7037e192b9dda1a9627d3bac6bc622152a7390afeec58f152b40cbb",
+      "platform": "Linux-6.4.0-150600.23.125_15.0.29-cray_shasta_c-x86_64-with-glibc2.38",
+      "ranks": 4,
+      "backend": "CUDA",
+      "initialization_s": 578.5487734609997,
+      "timestep_s": [
+        0.10993729500023619,
+        0.01901876200008701,
+        0.02391553899997234,
+        0.01612808900017626,
+        0.016143087999807904,
+        0.017235538000022643,
+        0.016394132999721478,
+        0.01613381999959529,
+        0.016605531000095652,
+        0.15957265799988818
+      ],
+      "ordinary_step_median_s": 0.016394132999721478,
+      "checkpoint_step_s": 0.15957265799988818,
+      "checkpoint_bytes": 6499233,
+      "fluid_density_bytes": {
+        "beam": 107584,
+        "N2plus": 107584,
+        "O2plus": 107584,
+        "Ominus": 107584,
+        "O2minus": 107584
+      },
+      "particle_payload_bytes": {
+        "electrons": 6159216
+      },
+      "device_reserved_bytes": 2995060736,
+      "history": [
+        {
+          "step": 10,
+          "time": 5e-12,
+          "physical": {
+            "beam": 234677146.83613908,
+            "electrons": 2703899.9999999995,
+            "N2plus": 2141699.9999999995,
+            "O2plus": 568600.0,
+            "Ominus": 3999.999999999999,
+            "O2minus": 2400.0
+          },
+          "macroparticles": {
+            "electrons": 27039,
+            "beam": 0,
+            "N2plus": 0,
+            "O2plus": 0,
+            "Ominus": 0,
+            "O2minus": 0
+          },
+          "electron_energy_J": 2.7492478223004083e-11,
+          "ion_energy_J": {
+            "N2plus": 0.0,
+            "O2plus": 0.0,
+            "Ominus": 0.0,
+            "O2minus": 0.0
+          },
+          "pending": {
+            "p_N2": 52733.14039121103,
+            "p_O2": 43953.354016389516
+          },
+          "primary_source_budgets": {
+            "p_N2": [
+              2129700.0,
+              2.1775205561834348e-11,
+              6.6852589907681595e-12,
+              1.3184157517484024e-14
+            ],
+            "p_O2": [
+              565000.0,
+              6.546179589633259e-12,
+              1.8054808325298388e-12,
+              3.508081435879557e-15
+            ]
+          }
+        },
+        {
+          "step": 20,
+          "time": 1e-11,
+          "physical": {
+            "beam": 234677146.83613905,
+            "electrons": 5499299.999999999,
+            "N2plus": 4349499.999999999,
+            "O2plus": 1182099.9999999998,
+            "Ominus": 17700.0,
+            "O2minus": 14599.999999999996
+          },
+          "macroparticles": {
+            "electrons": 54993,
+            "beam": 0,
+            "N2plus": 0,
+            "O2plus": 0,
+            "Ominus": 0,
+            "O2minus": 0
+          },
+          "electron_energy_J": 5.028829793729575e-11,
+          "ion_energy_J": {
+            "N2plus": 0.0,
+            "O2plus": 0.0,
+            "Ominus": 0.0,
+            "O2minus": 0.0
+          },
+          "pending": {
+            "p_N2": 59266.28078242553,
+            "p_O2": 48406.70803277999
+          },
+          "primary_source_budgets": {
+            "p_N2": [
+              4305600.0,
+              4.2692669669509215e-11,
+              1.3515542616636883e-11,
+              2.6761575792768564e-14
+            ],
+            "p_O2": [
+              1169500.0,
+              1.498759287897511e-11,
+              3.737185546271946e-12,
+              7.271758005825717e-15
+            ]
+          }
+        }
+      ],
+      "log_evidence": {
+        "sha256": "311c5177cf27319bc2bed04b7e6ca4fca0a6e3ebbe4cf95fdaa01e0f2e440801",
+        "restored_before_stepping": true,
+        "tail": "                                   43       0   B       0   B       0   B       0   B     320   B     512   B\nPhysicalParticleContainer::Evolve::GatherAndPush       148       0   B       0   B       0   B       0   B     256   B     512   B\nParticleContainer::SortParticlesForDeposition()         14       0   B       0   B       0   B       0   B     320   B     512   B\nMultiFab::min()                                        112     255   B     255   B     255   B     512   B     512   B     512   B\nParticleCopyPlan::build                                 44       0   B       0   B       0   B     256   B     256   B     256   B\nParticleCopyPlan::buildMPIStart                          6       0   B       0   B       0   B       0   B     128   B     256   B\nPhysicalParticleContainer::DepositMassMatrices()        37       0   B       0   B       0   B       0   B     128   B     256   B\nPhysicalParticleContainer::Evolve()                     74       0   B       0   B       0   B       0   B     128   B     256   B\nParticleContainer::WriteParticles()                      8       0   B       0   B       0   B     256   B     256   B     256   B\nMultiFab::contains_nan()                                60       0   B       0   B       0   B     256   B     256   B     256   B\nMultiFab::contains_inf()                                60       0   B       0   B       0   B     256   B     256   B     256   B\nJacobianFunctionMF::apply()                            240       0   B       0   B       0   B     256   B     256   B     256   B\nGMRES::cycle()                                         360       0   B       0   B       0   B     256   B     256   B     256   B\nWarpX::InitData()                                        4       0   B       0   B       0   B     256   B     256   B     256   B\nWarpXFluidContainer::CommitDensityIncrement            480       0   B       0   B       0   B     256   B     256   B     256   B\nWriteBinaryParticleData()                                8       0   B       0   B       0   B     256   B     256   B     256   B\nGMRES::GramSchmidt                                     720       0   B       0   B       0   B     256   B     256   B     256   B\nBackgroundMCCCollision::compactAttachedElectrons()      40       0   B       0   B       0   B       0   B     128   B     256   B\n----------------------------------------------------------------------------------------------------------------------------------\n\nComms Memory Usage:\n-------------------------------------------------------------------------------------------------------------\nName                           Nalloc  AvgMem min  AvgMem avg  AvgMem max  MaxMem min  MaxMem avg  MaxMem max\n-------------------------------------------------------------------------------------------------------------\nThe_Comms_Arena::Initialize()       4       0   B       0   B       0   B    8192 KiB    8192 KiB    8192 KiB\nFillBoundary_nowait()            5808       1   B       1   B       2   B      14 KiB      14 KiB      14 KiB\n-------------------------------------------------------------------------------------------------------------\n\nTotal GPU global memory (MB) spread across MPI: [40440 ... 40440]\nFree  GPU global memory (MB) spread across MPI: [39530 ... 39922]\n[The         Arena] max space (MB) allocated spread across MPI: [72 ... 80]\n[The         Arena] max space (MB) used      spread across MPI: [69 ... 74]\n[The Managed Arena] max space (MB) allocated spread across MPI: [8 ... 8]\n[The Managed Arena] max space (MB) used      spread across MPI: [0 ... 0]\n[The  Pinned Arena] max space (MB) allocated spread across MPI: [16 ... 16]\n[The  Pinned Arena] max space (MB) used      spread across MPI: [12 ... 13]\n[The   Comms Arena] max space (MB) allocated spread across MPI: [8 ... 8]\n[The   Comms Arena] max space (MB) used      spread across MPI: [0 ... 0]\nPASS: all saved fields, particles and source state restored before stepping\nAMReX (26.09-160-gd6d1aa11f38c) finalized\n"
+      }
+    },
+    "semi_implicit_mm-seed42/full": {
+      "parameters": {
+        "beam": "fluid",
+        "ions": "fluid",
+        "mode": "coupled",
+        "solver": "semi_implicit_mm",
+        "cells": [
+          32,
+          256
+        ],
+        "max_grid_size": 32,
+        "radial_sigmas": 8.0,
+        "longitudinal_sigmas": 12.0,
+        "ppc": 16,
+        "electron_ppc": 4,
+        "seed": 42,
+        "steps": 20,
+        "dt": 5e-13,
+        "weight": 100.0,
+        "cap": 8,
+        "gas_density": 1e+23,
+        "temperature": 300.0,
+        "shape": 3,
+        "implicit_deposition": "villasenor",
+        "source_resolution": 8,
+        "subcycles": 2,
+        "mcc": true,
+        "mcc_all": true,
+        "no_self_fields": false,
+        "checkpoint": true,
+        "checkpoint_period": 10,
+        "restart": null,
+        "check_restored": null,
+        "snapshot_particles": true,
+        "profile": false,
+        "output": "result.json"
+      },
+      "revision": "242559e71b717af8afe461f9d4a602c07eb88e7b",
+      "warpx_version": "242559e71b71",
+      "benchmark_sha256": "ba14a15ab7037e192b9dda1a9627d3bac6bc622152a7390afeec58f152b40cbb",
+      "platform": "Linux-6.4.0-150600.23.125_15.0.29-cray_shasta_c-x86_64-with-glibc2.38",
+      "ranks": 8,
+      "backend": "CUDA",
+      "initialization_s": 2.0846792349998395,
+      "timestep_s": [
+        0.04013555499977883,
+        0.08237578500029485,
+        0.011043818999951327,
+        0.01596598600008292,
+        0.011246581000250444,
+        0.012695288000031724,
+        0.016801758999918093,
+        0.08874186999992162,
+        0.015273518000412878,
+        0.2451947120002842,
+        0.013351105000310781,
+        0.013576631000432826,
+        0.01687979100006487,
+        0.08301638199964145,
+        0.0137462890002098,
+        0.014196178000020154,
+        0.013485604999914358,
+        0.013573024999914196,
+        0.013367606999963755,
+        0.3520102379998207
+      ],
+      "ordinary_step_median_s": 0.0137462890002098,
+      "checkpoint_step_s": 0.3520102379998207,
+      "checkpoint_bytes": 6497419,
+      "fluid_density_bytes": {
+        "beam": 107584,
+        "N2plus": 107584,
+        "O2plus": 107584,
+        "Ominus": 107584,
+        "O2minus": 107584
+      },
+      "particle_payload_bytes": {
+        "electrons": 6156752
+      },
+      "device_reserved_bytes": 7974354944,
+      "history": [
+        {
+          "step": 0,
+          "time": 0.0,
+          "physical": {
+            "beam": 234677146.83613908,
+            "electrons": 0.0,
+            "N2plus": 0.0,
+            "O2plus": 0.0,
+            "Ominus": 0.0,
+            "O2minus": 0.0
+          },
+          "macroparticles": {
+            "electrons": 0,
+            "beam": 0,
+            "N2plus": 0,
+            "O2plus": 0,
+            "Ominus": 0,
+            "O2minus": 0
+          },
+          "electron_energy_J": 0.0,
+          "ion_energy_J": {
+            "N2plus": 0.0,
+            "O2plus": 0.0,
+            "Ominus": 0.0,
+            "O2minus": 0.0
+          },
+          "pending": {
+            "p_N2": 0.0,
+            "p_O2": 0.0
+          },
+          "primary_source_budgets": {
+            "p_N2": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "p_O2": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        },
+        {
+          "step": 10,
+          "time": 5e-12,
+          "physical": {
+            "beam": 234677146.83613908,
+            "electrons": 2702099.9999999995,
+            "N2plus": 2142400.0,
+            "O2plus": 568199.9999999999,
+            "Ominus": 3999.999999999999,
+            "O2minus": 4499.999999999999
+          },
+          "macroparticles": {
+            "electrons": 27021,
+            "beam": 0,
+            "N2plus": 0,
+            "O2plus": 0,
+            "Ominus": 0,
+            "O2minus": 0
+          },
+          "electron_energy_J": 2.7461452314780018e-11,
+          "ion_energy_J": {
+            "N2plus": 0.0,
+            "O2plus": 0.0,
+            "Ominus": 0.0,
+            "O2minus": 0.0
+          },
+          "pending": {
+            "p_N2": 52733.14039121103,
+            "p_O2": 43953.354016389516
+          },
+          "primary_source_budgets": {
+            "p_N2": [
+              2129700.0,
+              2.2341849107187284e-11,
+              6.6852589907681595e-12,
+              1.3160252232011748e-14
+            ],
+            "p_O2": [
+              565000.0,
+              7.610442383756023e-12,
+              1.8054808325298388e-12,
+              3.5124518820374756e-15
+            ]
+          }
+        },
+        {
+          "step": 20,
+          "time": 1e-11,
+          "physical": {
+            "beam": 234677146.83613905,
+            "electrons": 5497099.999999999,
+            "N2plus": 4351000.0,
+            "O2plus": 1182399.9999999998,
+            "Ominus": 18599.999999999996,
+            "O2minus": 17699.999999999996
+          },
+          "macroparticles": {
+            "electrons": 54971,
+            "beam": 0,
+            "N2plus": 0,
+            "O2plus": 0,
+            "Ominus": 0,
+            "O2minus": 0
+          },
+          "electron_energy_J": 4.9955632825488195e-11,
+          "ion_energy_J": {
+            "N2plus": 0.0,
+            "O2plus": 0.0,
+            "Ominus": 0.0,
+            "O2minus": 0.0
+          },
+          "pending": {
+            "p_N2": 59266.28078242553,
+            "p_O2": 48406.70803277999
+          },
+          "primary_source_budgets": {
+            "p_N2": [
+              4305600.0,
+              4.350845736142936e-11,
+              1.3515542616636883e-11,
+              2.667945283389716e-14
+            ],
+            "p_O2": [
+              1169500.0,
+              1.38853180832032e-11,
+              3.737185546271946e-12,
+              7.251278038592918e-15
+            ]
+          }
+        }
+      ],
+      "log_evidence": {
+        "sha256": "e6f241616d8bdf047d46294e35c12c1513cf456bc740e6610cedda08b1dd8422",
+        "restored_before_stepping": false,
+        "tail": "B       1   B      10   B       0   B      64   B     512   B\nPhysicalParticleContainer::Evolve::GatherAndPush       232       0   B       3   B       8   B       0   B     256   B     512   B\nRedistribute_partition                                  58       0   B       0   B       0   B       0   B     128   B     256   B\namrex::unpackBuffer                                    110     108   B     111   B     138   B     256   B     256   B     256   B\namrex::packBuffer                                        1       0   B       8   B      66   B       0   B      32   B     256   B\nWarpXFluidContainer::CommitDensityIncrement           1920       2   B       3   B       4   B     256   B     256   B     256   B\nWarpX::InitData()                                        8       0   B       0   B       0   B     256   B     256   B     256   B\nMLMG::actualBottomSolve()                               12       0   B       0   B       0   B       0   B      32   B     256   B\nRelativisticExplicitES::ComputeSpaceChargeField          8       6   B       6   B       6   B     256   B     256   B     256   B\nMultiFab::contains_nan()                                32       0   B       0   B       0   B     256   B     256   B     256   B\nPhysicalParticleContainer::Evolve()                    116       0   B       0   B       0   B       0   B     128   B     256   B\nPhysicalParticleContainer::DepositMassMatrices()        58       0   B       0   B       0   B       0   B     128   B     256   B\nParticleCopyPlan::buildMPIStart                         11       0   B       0   B       0   B       0   B      64   B     256   B\nParticleCopyPlan::build                                168       0   B       0   B       0   B     256   B     256   B     256   B\nParticleContainer::WriteParticles()                     16       0   B       0   B       0   B     256   B     256   B     256   B\nParticleContainer::SortParticlesForDeposition()         27       0   B      37   B      66   B       0   B     224   B     256   B\nBackgroundMCCCollision::compactAttachedElectrons()      73       0   B       0   B       0   B       0   B      64   B     256   B\nMultiFab::contains_inf()                                32       0   B       0   B       0   B     256   B     256   B     256   B\n----------------------------------------------------------------------------------------------------------------------------------\n\nComms Memory Usage:\n---------------------------------------------------------------------------------------------------------------\nName                             Nalloc  AvgMem min  AvgMem avg  AvgMem max  MaxMem min  MaxMem avg  MaxMem max\n---------------------------------------------------------------------------------------------------------------\nThe_Comms_Arena::Initialize()         8       1   B       1   B       1   B    8192 KiB    8192 KiB    8192 KiB\nFillBoundary_nowait()             26406     429   B     568   B     680   B      14 KiB      14 KiB      14 KiB\nFabArray::ParallelCopy_nowait()     360      14   B      21   B      25   B    2560   B    4576   B    7680   B\n---------------------------------------------------------------------------------------------------------------\n\nTotal GPU global memory (MB) spread across MPI: [40440 ... 40440]\nFree  GPU global memory (MB) spread across MPI: [39044 ... 39930]\n[The         Arena] max space (MB) allocated spread across MPI: [64 ... 72]\n[The         Arena] max space (MB) used      spread across MPI: [61 ... 66]\n[The Managed Arena] max space (MB) allocated spread across MPI: [8 ... 8]\n[The Managed Arena] max space (MB) used      spread across MPI: [0 ... 0]\n[The  Pinned Arena] max space (MB) allocated spread across MPI: [16 ... 16]\n[The  Pinned Arena] max space (MB) used      spread across MPI: [12 ... 12]\n[The   Comms Arena] max space (MB) allocated spread across MPI: [8 ... 8]\n[The   Comms Arena] max space (MB) used      spread across MPI: [0 ... 0]\nAMReX (26.09-160-gd6d1aa11f38c) finalized\n"
+      }
+    },
+    "semi_implicit_mm-seed42/restart": {
+      "parameters": {
+        "beam": "fluid",
+        "ions": "fluid",
+        "mode": "coupled",
+        "solver": "semi_implicit_mm",
+        "cells": [
+          32,
+          256
+        ],
+        "max_grid_size": 32,
+        "radial_sigmas": 8.0,
+        "longitudinal_sigmas": 12.0,
+        "ppc": 16,
+        "electron_ppc": 4,
+        "seed": 42,
+        "steps": 20,
+        "dt": 5e-13,
+        "weight": 100.0,
+        "cap": 8,
+        "gas_density": 1e+23,
+        "temperature": 300.0,
+        "shape": 3,
+        "implicit_deposition": "villasenor",
+        "source_resolution": 8,
+        "subcycles": 2,
+        "mcc": true,
+        "mcc_all": true,
+        "no_self_fields": false,
+        "checkpoint": true,
+        "checkpoint_period": 10,
+        "restart": "/pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build/reaudit-2026-09-21/restart-expanded-58777489/semi_implicit_mm-seed42/full/diags/chk000010",
+        "check_restored": "/pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build/reaudit-2026-09-21/restart-expanded-58777489/semi_implicit_mm-seed42/full/result.npz",
+        "snapshot_particles": true,
+        "profile": false,
+        "output": "result.json"
+      },
+      "revision": "242559e71b717af8afe461f9d4a602c07eb88e7b",
+      "warpx_version": "242559e71b71",
+      "benchmark_sha256": "ba14a15ab7037e192b9dda1a9627d3bac6bc622152a7390afeec58f152b40cbb",
+      "platform": "Linux-6.4.0-150600.23.125_15.0.29-cray_shasta_c-x86_64-with-glibc2.38",
+      "ranks": 4,
+      "backend": "CUDA",
+      "initialization_s": 166.46339305399988,
+      "timestep_s": [
+        0.10751449400004276,
+        0.015048683999793866,
+        0.014582743999653758,
+        0.014334413999677054,
+        0.016148788000009517,
+        0.015265813000041817,
+        0.01611400000001595,
+        0.01438955999992686,
+        0.014444395999817061,
+        12.405949562000387
+      ],
+      "ordinary_step_median_s": 0.014582743999653758,
+      "checkpoint_step_s": 12.405949562000387,
+      "checkpoint_bytes": 6497637,
+      "fluid_density_bytes": {
+        "beam": 107584,
+        "N2plus": 107584,
+        "O2plus": 107584,
+        "Ominus": 107584,
+        "O2minus": 107584
+      },
+      "particle_payload_bytes": {
+        "electrons": 6156416
+      },
+      "device_reserved_bytes": 2994995200,
+      "history": [
+        {
+          "step": 10,
+          "time": 5e-12,
+          "physical": {
+            "beam": 234677146.83613908,
+            "electrons": 2702100.0,
+            "N2plus": 2142400.0,
+            "O2plus": 568199.9999999999,
+            "Ominus": 3999.999999999999,
+            "O2minus": 4499.999999999999
+          },
+          "macroparticles": {
+            "electrons": 27021,
+            "beam": 0,
+            "N2plus": 0,
+            "O2plus": 0,
+            "Ominus": 0,
+            "O2minus": 0
+          },
+          "electron_energy_J": 2.746145231478002e-11,
+          "ion_energy_J": {
+            "N2plus": 0.0,
+            "O2plus": 0.0,
+            "Ominus": 0.0,
+            "O2minus": 0.0
+          },
+          "pending": {
+            "p_N2": 52733.14039121103,
+            "p_O2": 43953.354016389516
+          },
+          "primary_source_budgets": {
+            "p_N2": [
+              2129700.0,
+              2.2341849107187284e-11,
+              6.6852589907681595e-12,
+              1.3160252232011748e-14
+            ],
+            "p_O2": [
+              565000.0,
+              7.610442383756023e-12,
+              1.8054808325298388e-12,
+              3.5124518820374756e-15
+            ]
+          }
+        },
+        {
+          "step": 20,
+          "time": 1e-11,
+          "physical": {
+            "beam": 234677146.83613905,
+            "electrons": 5496800.0,
+            "N2plus": 4348700.0,
+            "O2plus": 1183300.0,
+            "Ominus": 16800.0,
+            "O2minus": 18399.999999999996
+          },
+          "macroparticles": {
+            "electrons": 54968,
+            "beam": 0,
+            "N2plus": 0,
+            "O2plus": 0,
+            "Ominus": 0,
+            "O2minus": 0
+          },
+          "electron_energy_J": 4.9923398305319e-11,
+          "ion_energy_J": {
+            "N2plus": 0.0,
+            "O2plus": 0.0,
+            "Ominus": 0.0,
+            "O2minus": 0.0
+          },
+          "pending": {
+            "p_N2": 59266.28078242553,
+            "p_O2": 48406.70803277999
+          },
+          "primary_source_budgets": {
+            "p_N2": [
+              4305600.0,
+              4.350845736142936e-11,
+              1.3515542616636883e-11,
+              2.667945283389716e-14
+            ],
+            "p_O2": [
+              1169500.0,
+              1.38853180832032e-11,
+              3.737185546271946e-12,
+              7.251278038592918e-15
+            ]
+          }
+        }
+      ],
+      "log_evidence": {
+        "sha256": "1381a103542b86388cff46d4a182b5f7fd6b85a5c30eaf621195622f7d4ca50c",
+        "restored_before_stepping": true,
+        "tail": "                                   43       0   B      22   B      36   B       0   B     320   B     512   B\nPhysicalParticleContainer::Evolve::GatherAndPush       148       0   B       0   B       0   B       0   B     256   B     512   B\nParticleContainer::SortParticlesForDeposition()         14       0   B      22   B      36   B       0   B     320   B     512   B\nMultiFab::min()                                        112     253   B     253   B     253   B     512   B     512   B     512   B\nParticleCopyPlan::build                                 44       0   B       0   B       0   B     256   B     256   B     256   B\nParticleCopyPlan::buildMPIStart                          7       0   B       0   B       0   B       0   B     128   B     256   B\nPhysicalParticleContainer::DepositMassMatrices()        37       0   B       0   B       0   B       0   B     128   B     256   B\nPhysicalParticleContainer::Evolve()                     74       0   B       0   B       0   B       0   B     128   B     256   B\nParticleContainer::WriteParticles()                      8       0   B       0   B       0   B     256   B     256   B     256   B\nMultiFab::contains_nan()                                60       0   B       0   B       0   B     256   B     256   B     256   B\nMultiFab::contains_inf()                                60       0   B       0   B       0   B     256   B     256   B     256   B\nJacobianFunctionMF::apply()                            240       0   B       0   B       0   B     256   B     256   B     256   B\nGMRES::cycle()                                         360       0   B       0   B       0   B     256   B     256   B     256   B\nWarpX::InitData()                                        4       0   B       0   B       0   B     256   B     256   B     256   B\nWarpXFluidContainer::CommitDensityIncrement            480       0   B       0   B       0   B     256   B     256   B     256   B\nWriteBinaryParticleData()                                8       0   B       0   B       0   B     256   B     256   B     256   B\nGMRES::GramSchmidt                                     720       0   B       0   B       0   B     256   B     256   B     256   B\nBackgroundMCCCollision::compactAttachedElectrons()      40       0   B       0   B       0   B       0   B     128   B     256   B\n----------------------------------------------------------------------------------------------------------------------------------\n\nComms Memory Usage:\n-------------------------------------------------------------------------------------------------------------\nName                           Nalloc  AvgMem min  AvgMem avg  AvgMem max  MaxMem min  MaxMem avg  MaxMem max\n-------------------------------------------------------------------------------------------------------------\nThe_Comms_Arena::Initialize()       4       0   B       0   B       0   B    8192 KiB    8192 KiB    8192 KiB\nFillBoundary_nowait()            5808       3   B       5   B       8   B      14 KiB      14 KiB      14 KiB\n-------------------------------------------------------------------------------------------------------------\n\nTotal GPU global memory (MB) spread across MPI: [40440 ... 40440]\nFree  GPU global memory (MB) spread across MPI: [39530 ... 39922]\n[The         Arena] max space (MB) allocated spread across MPI: [72 ... 80]\n[The         Arena] max space (MB) used      spread across MPI: [69 ... 74]\n[The Managed Arena] max space (MB) allocated spread across MPI: [8 ... 8]\n[The Managed Arena] max space (MB) used      spread across MPI: [0 ... 0]\n[The  Pinned Arena] max space (MB) allocated spread across MPI: [16 ... 16]\n[The  Pinned Arena] max space (MB) used      spread across MPI: [12 ... 13]\n[The   Comms Arena] max space (MB) allocated spread across MPI: [8 ... 8]\n[The   Comms Arena] max space (MB) used      spread across MPI: [0 ... 0]\nPASS: all saved fields, particles and source state restored before stepping\nAMReX (26.09-160-gd6d1aa11f38c) finalized\n"
+      }
+    },
+    "semi_implicit_mm-seed43/full": {
+      "parameters": {
+        "beam": "fluid",
+        "ions": "fluid",
+        "mode": "coupled",
+        "solver": "semi_implicit_mm",
+        "cells": [
+          32,
+          256
+        ],
+        "max_grid_size": 32,
+        "radial_sigmas": 8.0,
+        "longitudinal_sigmas": 12.0,
+        "ppc": 16,
+        "electron_ppc": 4,
+        "seed": 43,
+        "steps": 20,
+        "dt": 5e-13,
+        "weight": 100.0,
+        "cap": 8,
+        "gas_density": 1e+23,
+        "temperature": 300.0,
+        "shape": 3,
+        "implicit_deposition": "villasenor",
+        "source_resolution": 8,
+        "subcycles": 2,
+        "mcc": true,
+        "mcc_all": true,
+        "no_self_fields": false,
+        "checkpoint": true,
+        "checkpoint_period": 10,
+        "restart": null,
+        "check_restored": null,
+        "snapshot_particles": true,
+        "profile": false,
+        "output": "result.json"
+      },
+      "revision": "242559e71b717af8afe461f9d4a602c07eb88e7b",
+      "warpx_version": "242559e71b71",
+      "benchmark_sha256": "ba14a15ab7037e192b9dda1a9627d3bac6bc622152a7390afeec58f152b40cbb",
+      "platform": "Linux-6.4.0-150600.23.125_15.0.29-cray_shasta_c-x86_64-with-glibc2.38",
+      "ranks": 8,
+      "backend": "CUDA",
+      "initialization_s": 1.9196647260000645,
+      "timestep_s": [
+        0.04073280800002976,
+        0.0809200920002695,
+        0.011058677999699285,
+        0.011539036000158376,
+        0.011188167999989673,
+        0.012850868999976228,
+        0.016324718999840115,
+        0.08239938899987465,
+        0.015228971999931673,
+        0.14234789800002545,
+        0.015702677000263066,
+        0.014312913000139815,
+        0.018166185000154655,
+        0.084188413999982,
+        0.013331537000340177,
+        0.013613762000204588,
+        0.01300228199988851,
+        0.012975490000371792,
+        0.013302441999712755,
+        0.2356337429996529
+      ],
+      "ordinary_step_median_s": 0.013613762000204588,
+      "checkpoint_step_s": 0.2356337429996529,
+      "checkpoint_bytes": 6496905,
+      "fluid_density_bytes": {
+        "beam": 107584,
+        "N2plus": 107584,
+        "O2plus": 107584,
+        "Ominus": 107584,
+        "O2minus": 107584
+      },
+      "particle_payload_bytes": {
+        "electrons": 6155856
+      },
+      "device_reserved_bytes": 5910429696,
+      "history": [
+        {
+          "step": 0,
+          "time": 0.0,
+          "physical": {
+            "beam": 234677146.83613908,
+            "electrons": 0.0,
+            "N2plus": 0.0,
+            "O2plus": 0.0,
+            "Ominus": 0.0,
+            "O2minus": 0.0
+          },
+          "macroparticles": {
+            "electrons": 0,
+            "beam": 0,
+            "N2plus": 0,
+            "O2plus": 0,
+            "Ominus": 0,
+            "O2minus": 0
+          },
+          "electron_energy_J": 0.0,
+          "ion_energy_J": {
+            "N2plus": 0.0,
+            "O2plus": 0.0,
+            "Ominus": 0.0,
+            "O2minus": 0.0
+          },
+          "pending": {
+            "p_N2": 0.0,
+            "p_O2": 0.0
+          },
+          "primary_source_budgets": {
+            "p_N2": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "p_O2": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        },
+        {
+          "step": 10,
+          "time": 5e-12,
+          "physical": {
+            "beam": 234677146.83613908,
+            "electrons": 2700699.9999999995,
+            "N2plus": 2140299.9999999995,
+            "O2plus": 568199.9999999999,
+            "Ominus": 4299.999999999999,
+            "O2minus": 3500.0
+          },
+          "macroparticles": {
+            "electrons": 27007,
+            "beam": 0,
+            "N2plus": 0,
+            "O2plus": 0,
+            "Ominus": 0,
+            "O2minus": 0
+          },
+          "electron_energy_J": 2.958895759259397e-11,
+          "ion_energy_J": {
+            "N2plus": 0.0,
+            "O2plus": 0.0,
+            "Ominus": 0.0,
+            "O2minus": 0.0
+          },
+          "pending": {
+            "p_N2": 52733.14039121103,
+            "p_O2": 43953.354016389516
+          },
+          "primary_source_budgets": {
+            "p_N2": [
+              2129700.0,
+              2.306717947763026e-11,
+              6.6852589907681595e-12,
+              1.3240375954581233e-14
+            ],
+            "p_O2": [
+              565000.0,
+              6.94515643563213e-12,
+              1.8054808325298388e-12,
+              3.5059803058643965e-15
+            ]
+          }
+        },
+        {
+          "step": 20,
+          "time": 1e-11,
+          "physical": {
+            "beam": 234677146.83613905,
+            "electrons": 5496299.999999999,
+            "N2plus": 4346200.0,
+            "O2plus": 1183899.9999999998,
+            "Ominus": 17000.0,
+            "O2minus": 16800.0
+          },
+          "macroparticles": {
+            "electrons": 54963,
+            "beam": 0,
+            "N2plus": 0,
+            "O2plus": 0,
+            "Ominus": 0,
+            "O2minus": 0
+          },
+          "electron_energy_J": 5.183857437800789e-11,
+          "ion_energy_J": {
+            "N2plus": 0.0,
+            "O2plus": 0.0,
+            "Ominus": 0.0,
+            "O2minus": 0.0
+          },
+          "pending": {
+            "p_N2": 59266.28078242553,
+            "p_O2": 48406.70803277999
+          },
+          "primary_source_budgets": {
+            "p_N2": [
+              4305600.0,
+              4.794935458771218e-11,
+              1.3515542616636883e-11,
+              2.680986716259771e-14
+            ],
+            "p_O2": [
+              1169500.0,
+              1.6232559487543874e-11,
+              3.737185546271946e-12,
+              7.239395437675676e-15
+            ]
+          }
+        }
+      ],
+      "log_evidence": {
+        "sha256": "54275a6d39ea5ac3666f192948e059a4a34523be509b66dd5916aeffc3cfeb26",
+        "restored_before_stepping": false,
+        "tail": "B       4   B      10   B       0   B     256   B     512   B\nFabArray::setVal(val, thecmd, scomp, ncomp)             15       0   B       0   B       0   B     512   B     512   B     512   B\nMLEBNodeFDLaplacian::prepareForSolve()                   2       0   B       1   B      11   B       0   B      64   B     512   B\nRelativisticExplicitES::ComputeSpaceChargeField          8       7   B       7   B       7   B     256   B     256   B     256   B\namrex::unpackBuffer                                    110     101   B     103   B     122   B     256   B     256   B     256   B\nWarpXFluidContainer::CommitDensityIncrement           1920       2   B       3   B       5   B     256   B     256   B     256   B\nWarpX::InitData()                                        8       0   B       0   B       0   B     256   B     256   B     256   B\nMLMG::actualBottomSolve()                               12       0   B       0   B       0   B       0   B      32   B     256   B\nMultiFab::contains_inf()                                32       0   B       0   B       0   B     256   B     256   B     256   B\nMultiFab::contains_nan()                                32       0   B       0   B       0   B     256   B     256   B     256   B\nParticleContainer::SortParticlesForDeposition()         28      25   B      40   B      61   B     256   B     256   B     256   B\nRedistribute_partition                                  58       0   B       0   B       0   B       0   B     128   B     256   B\nBackgroundMCCCollision::compactAttachedElectrons()      71       0   B       0   B       0   B       0   B      96   B     256   B\nPhysicalParticleContainer::Evolve()                    116       0   B       0   B       0   B       0   B     128   B     256   B\nPhysicalParticleContainer::DepositMassMatrices()        58       0   B       0   B       0   B       0   B     128   B     256   B\nParticleCopyPlan::buildMPIStart                          9       0   B       0   B       0   B       0   B      64   B     256   B\nParticleCopyPlan::build                                168       0   B       0   B       0   B     256   B     256   B     256   B\nParticleContainer::WriteParticles()                     16       0   B       0   B       0   B     256   B     256   B     256   B\n----------------------------------------------------------------------------------------------------------------------------------\n\nComms Memory Usage:\n---------------------------------------------------------------------------------------------------------------\nName                             Nalloc  AvgMem min  AvgMem avg  AvgMem max  MaxMem min  MaxMem avg  MaxMem max\n---------------------------------------------------------------------------------------------------------------\nThe_Comms_Arena::Initialize()         8       1   B       1   B       1   B    8192 KiB    8192 KiB    8192 KiB\nFillBoundary_nowait()             26406     496   B     651   B     780   B      14 KiB      14 KiB      14 KiB\nFabArray::ParallelCopy_nowait()     360      17   B      25   B      29   B    2560   B    4576   B    7680   B\n---------------------------------------------------------------------------------------------------------------\n\nTotal GPU global memory (MB) spread across MPI: [40440 ... 40440]\nFree  GPU global memory (MB) spread across MPI: [39536 ... 39930]\n[The         Arena] max space (MB) allocated spread across MPI: [64 ... 72]\n[The         Arena] max space (MB) used      spread across MPI: [61 ... 66]\n[The Managed Arena] max space (MB) allocated spread across MPI: [8 ... 8]\n[The Managed Arena] max space (MB) used      spread across MPI: [0 ... 0]\n[The  Pinned Arena] max space (MB) allocated spread across MPI: [16 ... 16]\n[The  Pinned Arena] max space (MB) used      spread across MPI: [12 ... 12]\n[The   Comms Arena] max space (MB) allocated spread across MPI: [8 ... 8]\n[The   Comms Arena] max space (MB) used      spread across MPI: [0 ... 0]\nAMReX (26.09-160-gd6d1aa11f38c) finalized\n"
+      }
+    },
+    "other-node-control": {
+      "log_evidence": {
+        "sha256": "cf58ff5ea7ca6cc6740c08807dfedee1233c6e6bf147c70eb6c00aea35c8ef9e",
+        "restored_before_stepping": false,
+        "tail": "Initializing AMReX (26.09-160-gd6d1aa11f38c)...\nMPI initialized with 4 MPI processes\nMPI initialized with thread support level 3\nInitializing CUDA...\nCUDA initialized with 4 devices.\nAMReX (26.09-160-gd6d1aa11f38c) initialized\nWarpX (242559e71b71)\n\n                                   ___\n    __        __             ___  /  /\n    \\ \\      / /_ _ _ __ _ __\\  \\/  /\n     \\ \\ /\\ / / _` | '__| '_ \\\\    /\n      \\ V  V / (_| | |  | |_) /    \\\n       \\_/\\_/ \\__,_|_|  | .__/__/\\  \\\n                        |_|       \\__\\\n\n--- INFO    : restart from checkpoint\n             /pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build/reaudit-2026-09-21/restart-expanded-58777489/semi_implicit_mm-seed41/full/diags/chk000010\nsrun: forcing job termination\nsrun: got SIGCONT\nsrun: Job step aborted: Waiting up to 32 seconds for job step to finish.\n[2026-09-23T05:18:16.022] error: *** STEP 58777489.6 ON nid001577 CANCELLED AT 2026-09-23T05:18:16 DUE to SIGNAL Killed ***\nsrun: error: nid001577: tasks 1,3: Killed\nsrun: Terminating StepId=58777489.6\nsrun: error: nid001577: task 2: Killed\n"
+      }
+    },
+    "semi_implicit_mm-seed43/restart": {
+      "log_evidence": {
+        "sha256": "95cb0dbcc9c1e7040b3d53a04ee79e534fb2fa0b06297f65b616d3d0acb9a931",
+        "restored_before_stepping": false,
+        "tail": "Initializing AMReX (26.09-160-gd6d1aa11f38c)...\nMPI initialized with 4 MPI processes\nMPI initialized with thread support level 3\nInitializing CUDA...\nCUDA initialized with 4 devices.\nAMReX (26.09-160-gd6d1aa11f38c) initialized\nWarpX (242559e71b71)\n\n                                   ___\n    __        __             ___  /  /\n    \\ \\      / /_ _ _ __ _ __\\  \\/  /\n     \\ \\ /\\ / / _` | '__| '_ \\\\    /\n      \\ V  V / (_| | |  | |_) /    \\\n       \\_/\\_/ \\__,_|_|  | .__/__/\\  \\\n                        |_|       \\__\\\n\n--- INFO    : restart from checkpoint\n             /pscratch/sd/s/ssarwar/warpx-rigid-fluid-validation/build/reaudit-2026-09-21/restart-expanded-58777489/semi_implicit_mm-seed43/full/diags/chk000010\n[2026-09-23T05:22:05.464] error: *** STEP 58777489.10 ON nid001576 CANCELLED AT 2026-09-23T05:22:05 DUE TO TIME LIMIT ***\n"
+      }
+    }
+  },
+  "storage_placement": {
+    "delayed_checkpoint_ost": 21,
+    "prior_successful_checkpoint_ost": 137,
+    "command": "lfs getstripe -i [checkpoint file]",
+    "checkpoint_file": "Level_0/fluid_density_N2plus[level=0]_D_00007"
+  }
+}

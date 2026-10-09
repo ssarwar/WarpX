@@ -7,9 +7,7 @@
 #include "CollisionHandler.H"
 
 #include "Particles/Collision/BackgroundMCC/BackgroundMCCCollision.H"
-#include "Particles/Collision/PulsedDecay/PulsedDecay.H"
 #include "Particles/Collision/BackgroundStopping/BackgroundStopping.H"
-#include "Particles/Collision/HybridResistiveDrag/HybridResistiveDrag.H"
 #include "Particles/Collision/BinaryCollision/BinaryCollision.H"
 #include "Particles/Collision/BinaryCollision/Bremsstrahlung/BremsstrahlungFunc.H"
 #include "Particles/Collision/BinaryCollision/Bremsstrahlung/PhotonCreationFunc.H"
@@ -20,16 +18,70 @@
 #include "Particles/Collision/BinaryCollision/LinearBreitWheeler/LinearBreitWheelerCollisionFunc.H"
 #include "Particles/Collision/BinaryCollision/LinearCompton/LinearComptonCollisionFunc.H"
 #include "Particles/Collision/BinaryCollision/ParticleCreationFunc.H"
-#include "Particles/Collision/InverseBremsstrahlung/InverseBremsstrahlung.H"
-#include "Utils/TextMsg.H"
-
-#include "Particles/ParticleCreation/SmartCopy.H"
 #ifdef WARPX_QED
 #include "Particles/Collision/BinaryCollision/VirtualPhotonCreation.H"
 #endif
-#include <AMReX_ParmParse.H>
+#include "Particles/Collision/HybridResistiveDrag/HybridResistiveDrag.H"
+#include "Particles/Collision/InverseBremsstrahlung/InverseBremsstrahlung.H"
+#include "Particles/Collision/ProtonImpactIonization/ProtonImpactIonization.H"
+#include "Particles/Collision/PulsedDecay/PulsedDecay.H"
+#include "Particles/ParticleCreation/SmartCopy.H"
+#include "Utils/TextMsg.H"
 
+#include <AMReX_ParmParse.H>
+#include <AMReX_ParallelDescriptor.H>
+#include <AMReX_VisMF.H>
+
+#include <algorithm>
+#include <cstdint>
+#include <filesystem>
+#include <fstream>
 #include <vector>
+
+std::string
+CollisionHandler::CheckpointConfiguration () const
+{
+    std::string configuration;
+    for (auto const& collision : allcollisions) { configuration += collision->CheckpointConfiguration(); }
+    return configuration;
+}
+
+void
+CollisionHandler::WriteCheckpoint (std::string const& directory) const
+{
+    auto const configuration = CheckpointConfiguration();
+    if (configuration.empty() || !amrex::ParallelDescriptor::IOProcessor()) { return; }
+    std::ofstream output(directory+"/PrescribedSources");
+    output << "WarpX prescribed sources 1\n" << configuration;
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(output.good(), "Cannot write prescribed-source checkpoint metadata.");
+}
+
+void
+CollisionHandler::ValidateRestart (std::string const& directory) const
+{
+    auto const configuration = CheckpointConfiguration();
+    auto const path = directory+"/PrescribedSources";
+    if (configuration.empty() && !std::filesystem::exists(path)) { return; }
+    amrex::Vector<char> contents;
+    amrex::ParallelDescriptor::ReadAndBcastFile(path, contents);
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(std::string(contents.data()) ==
+        "WarpX prescribed sources 1\n"+configuration,
+        "Prescribed collision sources or their immutable physics/sampling configuration changed.");
+    auto const& warpx = WarpX::GetInstance();
+    for (auto const& collision : allcollisions) {
+        for (auto const& field : collision->CheckpointFields()) {
+            auto const field_path = directory+"/Level_0/"+warpx.m_fields.mf_name(field, 0);
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(amrex::VisMF::Exist(field_path),
+                "Missing required prescribed-source checkpoint state: "+field_path);
+        }
+    }
+}
+
+void
+CollisionHandler::ValidateRestartState () const
+{
+    for (auto const& collision : allcollisions) { collision->ValidateRestartState(); }
+}
 
 CollisionHandler::CollisionHandler(MultiParticleContainer const * const mypc)
 {
@@ -42,6 +94,7 @@ CollisionHandler::CollisionHandler(MultiParticleContainer const * const mypc)
     auto const ncollisions = collision_names.size();
     collision_types.resize(ncollisions);
     allcollisions.resize(ncollisions);
+    m_schedule.reserve(ncollisions);
     for (int i = 0; i < static_cast<int>(ncollisions); ++i) {
         const amrex::ParmParse pp_collision_name(collision_names[i]);
 
@@ -66,6 +119,10 @@ CollisionHandler::CollisionHandler(MultiParticleContainer const * const mypc)
         }
         else if (type == "pulsed_decay") {
             allcollisions[i] = std::make_unique<PulsedDecay>(collision_names[i], mypc);
+        }
+        else if (type == "proton_impact_ionization") {
+            allcollisions[i] =
+                std::make_unique<ProtonImpactIonizationCollision>(collision_names[i], mypc);
         }
         else if (type == "background_stopping") {
             allcollisions[i] = std::make_unique<BackgroundStopping>(collision_names[i]);
@@ -162,27 +219,53 @@ void CollisionHandler::doCollisions ( int step, amrex::Real cur_time, amrex::Rea
         mypc->GenerateGlobalDebyeLength();
     }
 
-    for (auto& collision : allcollisions) {
+    bool const after_push = WarpX::GetInstance().evolve_scheme != EvolveScheme::Explicit;
+    auto const start_time = after_push ? cur_time-dt : cur_time;
+    m_schedule.clear();
+    for (int i = 0; i < static_cast<int>(allcollisions.size()); ++i) {
+        auto const& collision = allcollisions[i];
         // Skip collisions before their start step
         const int start_step = collision->get_start_step();
         if (step < start_step) { continue; }
 
         const int ndt = collision->get_ndt();
-        const auto collision_stepping_mode = collision->get_collision_stepping_mode();
+        if (collision->get_collision_stepping_mode() == CollisionSteppingMode::Subcycle) {
+            m_schedule.push_back({i, 0, ndt});
+        } else if ((step - start_step) % ndt == 0) {
+            m_schedule.push_back({i, 0, 1});
+        }
+    }
 
-        if (collision_stepping_mode == CollisionSteppingMode::Subcycle) {
-            // Subcycle: run ndt times per PIC step, each with dt_collision = dt / ndt
+    // Interleave coupled operators at their substep endpoints. Advancing every
+    // substep of one gas before the next retains a full-PIC-step splitting error.
+    // Integer fractions preserve coincident endpoints and input order, even for
+    // different subcycle counts. The heap stores one entry per collision object
+    // and reuses its allocation across PIC steps.
+    auto later = [after_push] (CollisionStep const& a, CollisionStep const& b) {
+        auto const left = (std::int64_t(a.m_substep) + int(after_push)) * b.m_subcycles;
+        auto const right = (std::int64_t(b.m_substep) + int(after_push)) * a.m_subcycles;
+        return left != right ? left > right : a.m_collision > b.m_collision;
+    };
+    std::make_heap(m_schedule.begin(), m_schedule.end(), later);
+    while (!m_schedule.empty()) {
+        std::pop_heap(m_schedule.begin(), m_schedule.end(), later);
+        auto next = m_schedule.back();
+        m_schedule.pop_back();
+        auto& collision = allcollisions[next.m_collision];
+        const int ndt = collision->get_ndt();
+        if (collision->get_collision_stepping_mode() == CollisionSteppingMode::Subcycle) {
             const amrex::Real dt_sub = dt / ndt;
-            for (int i_sub = 0; i_sub < ndt; ++i_sub) {
-                const amrex::Real sub_time = cur_time + i_sub * dt_sub;
-                collision->doCollisions(sub_time, dt_sub, mypc);
-            }
+            // Explicit collisions use left endpoints; implicit collisions use
+            // right endpoints. Both advance the same physical interval.
+            int const offset = after_push ? next.m_substep + 1 - ndt : next.m_substep;
+            collision->doCollisionsInInterval(cur_time + offset*dt_sub,
+                start_time + next.m_substep*dt_sub, dt_sub, mypc);
         } else {
-            // Supercycle: run once every ndt PIC steps (counted from start_step),
-            // with dt_collision = dt * ndt
-            if ( (step - start_step) % ndt == 0 ) {
-                collision->doCollisions(cur_time, dt*ndt, mypc);
-            }
+            collision->doCollisionsInInterval(cur_time, start_time, dt*ndt, mypc);
+        }
+        if (++next.m_substep < next.m_subcycles) {
+            m_schedule.push_back(next);
+            std::push_heap(m_schedule.begin(), m_schedule.end(), later);
         }
     }
 

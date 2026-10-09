@@ -3,8 +3,6 @@
 # --- Input file to test the particle scraper and the Python wrappers
 # --- to access the buffer of scraped particles.
 
-import numpy as np
-
 from pywarpx import libwarpx, particle_containers, picmi
 
 ##########################
@@ -134,7 +132,7 @@ scraped_steps = particle_buffer.get_particle_boundary_buffer(
     "electrons", "eb", "stepScraped", 0
 )
 for arr in scraped_steps:
-    assert all(np.array(arr, copy=False) > 40)
+    assert (arr > 40).all()
 
 weights = particle_buffer.get_particle_boundary_buffer("electrons", "eb", "w", 0)
 n = sum(len(arr) for arr in weights)
