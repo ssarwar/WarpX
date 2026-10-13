@@ -8,6 +8,33 @@ set(WarpX_RECIPROCAL_TEST_DATA "" CACHE PATH "warpx-data MCC_cross_sections with
 
 if(TARGET lib_1d)
     find_package(Python 3.8 COMPONENTS Interpreter REQUIRED)
+    set(WarpX_IAA_AIR_TEST_DATA "" CACHE PATH "Production IAA air MCC_cross_sections directory")
+    add_executable(test_iaa_angular test_iaa_angular.cpp)
+    target_link_libraries(test_iaa_angular PRIVATE lib_1d)
+    target_include_directories(test_iaa_angular PRIVATE ../../Source)
+    if(WarpX_COMPUTE STREQUAL CUDA)
+        setup_target_for_cuda_compilation(test_iaa_angular)
+    elseif(WarpX_COMPUTE STREQUAL HIP)
+        set_source_files_properties(test_iaa_angular.cpp PROPERTIES LANGUAGE HIP)
+    endif()
+    add_test(NAME test_1d_iaa_angular_analytic
+        COMMAND ${Python_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_iaa_angular.py
+            --program $<TARGET_FILE:test_iaa_angular>
+            --output ${CMAKE_CURRENT_BINARY_DIR}/iaa_angular_analytic)
+    set_tests_properties(test_1d_iaa_angular_analytic PROPERTIES TIMEOUT 30
+        ENVIRONMENT "OPENBLAS_NUM_THREADS=1")
+    if(WarpX_IAA_AIR_TEST_DATA)
+        add_test(NAME test_1d_iaa_air_sources
+            COMMAND ${Python_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_iaa_air.py
+                --data-dir ${WarpX_IAA_AIR_TEST_DATA})
+        add_test(NAME test_1d_iaa_angular_production
+            COMMAND ${Python_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_iaa_angular.py
+                --program $<TARGET_FILE:test_iaa_angular>
+                --output ${CMAKE_CURRENT_BINARY_DIR}/iaa_angular_production
+                --data-dir ${WarpX_IAA_AIR_TEST_DATA})
+        set_tests_properties(test_1d_iaa_air_sources test_1d_iaa_angular_production
+            PROPERTIES ENVIRONMENT "OPENBLAS_NUM_THREADS=1")
+    endif()
     add_executable(test_reciprocal_rotation test_reciprocal_rotation.cpp)
     target_link_libraries(test_reciprocal_rotation PRIVATE lib_1d)
     target_include_directories(test_reciprocal_rotation PRIVATE ../../Source)

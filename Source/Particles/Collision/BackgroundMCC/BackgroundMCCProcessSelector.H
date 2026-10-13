@@ -36,7 +36,7 @@ public:
         {
             int m_energy_index = 0;
             amrex::ParticleReal m_energy_fraction = 0.0;
-            amrex::ParticleReal m_total = 0.0;
+            double m_total = 0.0;
         };
 
         /** Select the process whose cumulative cross section contains a draw.
@@ -46,11 +46,9 @@ public:
          * @param selected_process selected process index, or -1 for a null event
          * @param total_cross_section interpolated sum of all process cross sections
          */
-        AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void select (
-            amrex::ParticleReal const collision_energy,
-            amrex::ParticleReal const cross_section_draw,
-            int& selected_process,
-            amrex::ParticleReal& total_cross_section) const noexcept
+        AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void
+        select (amrex::ParticleReal const collision_energy, double const cross_section_draw,
+                int& selected_process, double& total_cross_section) const noexcept
         {
             auto const state = interpolate(collision_energy);
             total_cross_section = state.m_total;
@@ -90,8 +88,7 @@ public:
 
         /** Select a channel using an already located energy interval. */
         [[nodiscard]] AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE int
-        select (Interpolation const& state,
-                amrex::ParticleReal const cross_section_draw) const noexcept
+        select (Interpolation const& state, double const cross_section_draw) const noexcept
         {
             if (!(cross_section_draw < state.m_total)) {
                 return -1;
@@ -120,17 +117,16 @@ public:
         }
 
         amrex::ParticleReal const* m_energies = nullptr;
-        amrex::ParticleReal const* m_cumulative_cross_sections = nullptr;
+        double const* m_cumulative_cross_sections = nullptr;
         int m_energy_count = 0;
         int m_process_count = 0;
         amrex::ParticleReal m_energy_lo = 0.0;
         amrex::ParticleReal m_energy_hi = 0.0;
 
     private:
-        [[nodiscard]] AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::ParticleReal
-        cumulativeCrossSection (
-            int const process_index, int const energy_index,
-            amrex::ParticleReal const energy_fraction) const noexcept
+        [[nodiscard]] AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE double
+        cumulativeCrossSection (int const process_index, int const energy_index,
+                                amrex::ParticleReal const energy_fraction) const noexcept
         {
             auto const index = process_index * m_energy_count + energy_index;
             auto const value_lo = m_cumulative_cross_sections[index];
@@ -157,7 +153,8 @@ public:
     }
 
     /** Host row containing the sum of all process cross sections. */
-    [[nodiscard]] amrex::ParticleReal const* totalCrossSectionGrid () const noexcept
+    [[nodiscard]] double const*
+    totalCrossSectionGrid () const noexcept
     {
         if (!enabled()) { return nullptr; }
         auto const row_offset =
@@ -168,8 +165,8 @@ public:
     /** Combined energy- and prefix-table bytes in each host or device copy. */
     [[nodiscard]] std::size_t tableBytes () const noexcept
     {
-        return sizeof(amrex::ParticleReal) *
-            (m_energies_h.size() + m_cumulative_cross_sections_h.size());
+        return sizeof(amrex::ParticleReal) * m_energies_h.size() +
+               sizeof(double) * m_cumulative_cross_sections_h.size();
     }
 
     [[nodiscard]] Executor const& executor () const
@@ -183,11 +180,11 @@ public:
 
 private:
     amrex::Gpu::HostVector<amrex::ParticleReal> m_energies_h;
-    amrex::Gpu::HostVector<amrex::ParticleReal> m_cumulative_cross_sections_h;
+    amrex::Gpu::HostVector<double> m_cumulative_cross_sections_h;
 
 #ifdef AMREX_USE_GPU
     amrex::Gpu::DeviceVector<amrex::ParticleReal> m_energies_d;
-    amrex::Gpu::DeviceVector<amrex::ParticleReal> m_cumulative_cross_sections_d;
+    amrex::Gpu::DeviceVector<double> m_cumulative_cross_sections_d;
     Executor m_executor_d;
 #endif
     Executor m_executor_h;

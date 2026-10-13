@@ -242,6 +242,8 @@ ScatteringProcess::readCrossSectionFileRaw (const std::string& cross_section_fil
 
     std::string line;
     int line_number = 0;
+    bool resample_native = false;
+    std::vector<double> source_energies;
     while (std::getline(infile, line))
     {
         ++line_number;
@@ -253,17 +255,24 @@ ScatteringProcess::readCrossSectionFileRaw (const std::string& cross_section_fil
         if (row.peek() == '#') {
             row.get();
             std::string key, equal, value;
-            if (metadata && row >> key &&
-                (key == "rbeq_model" || key == "rbeq_normalization" ||
-                 key == "rbeq_target" || key == "outside_energy_range" ||
-                 key == "energy_min_eV" || key == "energy_max_eV")) {
+            if (row >> key &&
+                (key == "rbeq_model" || key == "rbeq_normalization" || key == "rbeq_target" ||
+                 key == "outside_energy_range" || key == "energy_min_eV" ||
+                 key == "energy_max_eV" || key == "native_energy_grid")) {
                 std::string trailing;
                 WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
                     row >> equal >> value && equal == "=" && !(row >> trailing),
                     "Invalid cross-section metadata: " + key);
-                WARPX_ALWAYS_ASSERT_WITH_MESSAGE(metadata->count(key) == 0,
-                                                 "Duplicate cross-section metadata: " + key);
-                metadata->emplace(key, value);
+                if (key == "native_energy_grid") {
+                    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(value == "resample",
+                                                     "native_energy_grid must be resample.");
+                    resample_native = true;
+                }
+                if (metadata) {
+                    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(metadata->count(key) == 0,
+                                                     "Duplicate cross-section metadata: " + key);
+                    metadata->emplace(key, value);
+                }
             }
             continue;
         }
@@ -283,11 +292,42 @@ ScatteringProcess::readCrossSectionFileRaw (const std::string& cross_section_fil
             std::to_string(line_number) + " in " + cross_section_file + "."
         );
 
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            std::isfinite(energy) && energy >= 0.0 &&
+                (source_energies.empty() || energy > source_energies.back()),
+            "Source cross-section energies must be finite, non-negative and "
+            "strictly increasing.");
+        source_energies.push_back(energy);
         energies.push_back(static_cast<amrex::ParticleReal>(energy));
         sigmas.push_back(sigma);
     }
     if (infile.bad()) {
         WARPX_ABORT_WITH_MESSAGE("Failed to read cross-section data from file.");
+    }
+    if (resample_native && sizeof(amrex::ParticleReal) < sizeof(double) && !energies.empty()) {
+        // Resolve the source interpolant at representable particle energies.
+        // Keeping the first/last sigma in each rounded bin would bias onsets.
+        energies.erase(std::unique(energies.begin(), energies.end()), energies.end());
+        std::vector<double> resampled;
+        resampled.reserve(energies.size());
+        std::size_t interval = 0;
+        for (auto const native_energy : energies) {
+            double const energy = native_energy;
+            if (energy <= source_energies.front()) {
+                resampled.push_back(sigmas.front());
+            } else if (energy >= source_energies.back()) {
+                resampled.push_back(sigmas.back());
+            } else {
+                while (source_energies[interval + 1] < energy) {
+                    ++interval;
+                }
+                double const fraction = (energy - source_energies[interval]) /
+                                        (source_energies[interval + 1] - source_energies[interval]);
+                resampled.push_back((1 - fraction) * sigmas[interval] +
+                                    fraction * sigmas[interval + 1]);
+            }
+        }
+        sigmas = std::move(resampled);
     }
 }
 

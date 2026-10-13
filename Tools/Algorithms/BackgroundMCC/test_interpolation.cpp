@@ -27,6 +27,10 @@ main (int argc, char* argv[])
         amrex::Gpu::DeviceVector<Real> table(4), output(12);
         amrex::Vector<Real> host{Real(1), Real(2), Real(1.e-20), Real(1.e-37)};
         amrex::Gpu::copy(amrex::Gpu::hostToDevice, host.begin(), host.end(), table.begin());
+        amrex::Gpu::DeviceVector<double> cumulative(2);
+        amrex::Vector<double> cumulative_host{double(host[2]), double(host[3])};
+        amrex::Gpu::copy(amrex::Gpu::hostToDevice, cumulative_host.begin(), cumulative_host.end(),
+                         cumulative.begin());
         ScatteringProcess::Executor process{};
         process.m_energies_data = table.data();
         process.m_sigmas_data = table.data() + 2;
@@ -37,7 +41,7 @@ main (int argc, char* argv[])
         process.m_sigma_hi = host[3];
         BackgroundMCCProcessSelector::Executor selector;
         selector.m_energies = table.data();
-        selector.m_cumulative_cross_sections = table.data() + 2;
+        selector.m_cumulative_cross_sections = cumulative.data();
         selector.m_energy_count = 2;
         selector.m_process_count = 1;
         selector.m_energy_lo = 1;
@@ -46,7 +50,7 @@ main (int argc, char* argv[])
         amrex::ParallelFor(4, [=] AMREX_GPU_DEVICE(int i) noexcept {
             auto const energy = Real(i + 1);
             int selected;
-            Real total;
+            double total;
             selector.select(energy, Real(0), selected, total);
             result[3 * i] = process.getCrossSection(energy);
             result[3 * i + 1] = total;

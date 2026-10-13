@@ -28,7 +28,7 @@ namespace
     void readDifferentialCrossSection (
         std::string const& file_name, amrex::Gpu::HostVector<amrex::ParticleReal>& energies,
         std::vector<std::vector<double>>& differential_cross_sections,
-        double& screening_radius)
+        double& screening_radius, std::string& target_name)
     {
         std::ifstream input(file_name);
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
@@ -56,6 +56,7 @@ namespace
                 if (metadata_stream >> projectile >> separator >> target &&
                     label == "SPECIES:" && projectile == "e" && separator == "/")
                 {
+                    target_name = target;
                     if (target == "N2") {
                         screening_radius = 0.6052;
                     } else if (target == "O2") {
@@ -235,25 +236,71 @@ BackgroundMCCElasticScatteringModel::get (std::string const& differential_cross_
     static std::mutex mutex;
     static std::map<std::string, std::weak_ptr<BackgroundMCCElasticScatteringModel>> cache;
     auto const key = std::filesystem::canonical(differential_cross_section).string();
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        if (auto existing = cache[key].lock()) {
+            return existing;
+        }
+    }
+    // Descriptor construction loads a shared elastic model through this cache.
+    // Do not retain the mutex while constructing that dependency.
+    auto result = std::make_shared<BackgroundMCCElasticScatteringModel>(key);
     std::lock_guard<std::mutex> lock(mutex);
-    auto& entry = cache[key];
-    if (auto existing = entry.lock()) {
+    if (auto existing = cache[key].lock()) {
         return existing;
     }
-    auto result = std::make_shared<BackgroundMCCElasticScatteringModel>(key);
-    entry = result;
+    cache[key] = result;
     return result;
 }
 
 BackgroundMCCElasticScatteringModel::BackgroundMCCElasticScatteringModel (
     std::string const& differential_cross_section)
 {
+    std::string profile_file = differential_cross_section;
+    std::ifstream descriptor(differential_cross_section);
+    std::string magic;
+    descriptor >> magic;
+    if (magic == "WARPX_EXCITATION_ANGULAR_V1") {
+        std::string target, profile, fallback, trailing;
+        double lower = 0.0, upper = 0.0;
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            descriptor >> target >> profile >> fallback >> lower >> upper &&
+                !(descriptor >> trailing) && (target == "N2" || target == "O2") &&
+                std::isfinite(lower) && std::isfinite(upper) && lower > 0 && upper > lower,
+            "Invalid WARPX_EXCITATION_ANGULAR_V1 descriptor: " + differential_cross_section);
+        auto const parent = std::filesystem::path(differential_cross_section).parent_path();
+        profile_file = (parent / profile).string();
+        auto const fallback_file = (parent / fallback).string();
+        std::ifstream fallback_input(fallback_file);
+        std::string fallback_magic;
+        fallback_input >> fallback_magic;
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            fallback_input && fallback_magic != "WARPX_EXCITATION_ANGULAR_V1",
+            "An excitation descriptor must reference a legacy elastic DCS, not "
+            "another descriptor.");
+        m_fallback_model = get(fallback_file);
+        auto const& fallback_executor = m_fallback_model->m_executor_h;
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            m_fallback_model->m_legacy_target == target,
+            "Excitation target and elastic-fallback species must agree.");
+        m_executor_h.m_fallback = &fallback_executor;
+        m_executor_h.m_active_lo = static_cast<amrex::ParticleReal>(lower);
+        m_executor_h.m_active_hi = static_cast<amrex::ParticleReal>(upper);
+    }
     std::vector<std::vector<double>> differential_cross_sections;
     amrex::Gpu::HostVector<amrex::ParticleReal> energies;
     double screening_radius = 0.0;
-    readDifferentialCrossSection(
-        differential_cross_section, energies, differential_cross_sections,
-        screening_radius);
+    readDifferentialCrossSection(profile_file, energies, differential_cross_sections,
+                                 screening_radius, m_legacy_target);
+    if (m_fallback_model) {
+        constexpr double tolerance = 8 * std::numeric_limits<amrex::ParticleReal>::epsilon();
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            m_legacy_target.empty() && screening_radius == 0 &&
+                m_executor_h.m_active_lo >= double(energies.front()) * (1 - tolerance) &&
+                m_executor_h.m_active_hi <= double(energies.back()) * (1 + tolerance),
+            "Excitation profiles must cover the active interval and omit "
+            "legacy SPECIES metadata.");
+    }
     initializeInverseCdf(
         differential_cross_sections, m_inverse_cdf_deflection_h, m_row_integrals_h);
 
@@ -290,6 +337,13 @@ BackgroundMCCElasticScatteringModel::BackgroundMCCElasticScatteringModel (
         m_inverse_cdf_deflection_h.end(), m_inverse_cdf_deflection_d.begin());
 
     m_executor_d = m_executor_h;
+    if (m_fallback_model) {
+        m_fallback_executor_d.resize(1);
+        auto const& fallback_executor = m_fallback_model->executor();
+        amrex::Gpu::copyAsync(amrex::Gpu::hostToDevice, &fallback_executor, &fallback_executor + 1,
+                              m_fallback_executor_d.begin());
+        m_executor_d.m_fallback = m_fallback_executor_d.data();
+    }
     m_executor_d.m_log_energies = m_log_energies_d.data();
     m_executor_d.m_row_integrals = m_row_integrals_d.data();
     m_executor_d.m_inverse_cdf_deflection = m_inverse_cdf_deflection_d.data();

@@ -213,16 +213,16 @@ namespace BackgroundMCCElasticKinematics
      * laboratory range is projected to the nearest kinematically allowed angle.
      */
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void
-    computeExcitation (
-        amrex::ParticleReal const incident_ux, amrex::ParticleReal const incident_uy,
-        amrex::ParticleReal const incident_uz, amrex::ParticleReal const neutral_vx,
-        amrex::ParticleReal const neutral_vy, amrex::ParticleReal const neutral_vz,
-        double const electron_mass, double const neutral_mass,
-        amrex::ParticleReal const excitation_energy,
-        double const scattering_cosine, amrex::RandomEngine const& engine,
-        amrex::ParticleReal& electron_ux, amrex::ParticleReal& electron_uy,
-        amrex::ParticleReal& electron_uz, amrex::ParticleReal& recoil_ux,
-        amrex::ParticleReal& recoil_uy, amrex::ParticleReal& recoil_uz) noexcept
+    computeExcitation (amrex::ParticleReal const incident_ux, amrex::ParticleReal const incident_uy,
+                       amrex::ParticleReal const incident_uz, amrex::ParticleReal const neutral_vx,
+                       amrex::ParticleReal const neutral_vy, amrex::ParticleReal const neutral_vz,
+                       double const electron_mass, double const neutral_mass,
+                       amrex::ParticleReal const excitation_energy, double const scattering_cosine,
+                       amrex::RandomEngine const& engine, amrex::ParticleReal& electron_ux,
+                       amrex::ParticleReal& electron_uy, amrex::ParticleReal& electron_uz,
+                       amrex::ParticleReal& recoil_ux, amrex::ParticleReal& recoil_uy,
+                       amrex::ParticleReal& recoil_uz,
+                       double const scattering_deflection = -1.0) noexcept
     {
         using BackgroundMCCKinematics::Vector3;
         using BackgroundMCCKinematics::boostToLab;
@@ -291,6 +291,9 @@ namespace BackgroundMCCElasticKinematics
         auto const kallen_quarter = 0.25 * phase_space_1 * phase_space_2;
 
         auto cosine = amrex::max(-1.0, amrex::min(scattering_cosine, 1.0));
+        auto deflection = scattering_deflection >= 0.0
+                              ? amrex::max(0.0, amrex::min(scattering_deflection, 2.0))
+                              : 1.0 - cosine;
         auto const angular_scale = incident_pc * incident_pc *
             electron_rest_energy * electron_rest_energy;
         if (angular_scale > 0.0 && kallen_quarter < angular_scale)
@@ -299,7 +302,10 @@ namespace BackgroundMCCElasticKinematics
                 std::sqrt(amrex::max(1.0 - kallen_quarter / angular_scale, 0.0));
             // Squaring the energy equation also admits a backward cone with
             // negative outgoing momentum. Only the forward cone is physical.
-            cosine = amrex::max(cosine, minimum_cosine);
+            if (cosine < minimum_cosine) {
+                cosine = minimum_cosine;
+                deflection = 1.0 - cosine;
+            }
         }
 
         auto const total_energy = incident_total_energy + neutral_rest_energy;
@@ -310,8 +316,8 @@ namespace BackgroundMCCElasticKinematics
         auto const linear_term =
             electron_rest_energy * electron_rest_energy +
             neutral_rest_energy * (incident_total_energy - loss) - 0.5 * loss * loss;
-        auto const radicand = amrex::max(
-            kallen_quarter - angular_scale * (1.0 - cosine * cosine), 0.0);
+        auto const radicand =
+            amrex::max(kallen_quarter - angular_scale * deflection * (2.0 - deflection), 0.0);
         // Solve for pc instead of subtracting m_e*c^2 from the outgoing total
         // energy. Rationalize the backward root to avoid cancellation there
         // too.
@@ -336,7 +342,7 @@ namespace BackgroundMCCElasticKinematics
 
         auto const azimuth = two_pi * static_cast<double>(amrex::Random(engine));
         auto const outgoing_direction = directionFromPolarAngle(
-            incident_direction, transverse_1, transverse_2, cosine, azimuth);
+            incident_direction, transverse_1, transverse_2, cosine, azimuth, deflection);
         auto const electron_rest = scale(
             outgoing_direction,
             properSpeedFromKineticEnergy(outgoing_kinetic_energy, electron_mass));

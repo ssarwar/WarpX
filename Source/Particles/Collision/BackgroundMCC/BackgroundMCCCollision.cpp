@@ -1082,6 +1082,14 @@ BackgroundMCCCollision::doCollisions (
 
     if (first_call)
     {
+        std::size_t angular_bytes = 0;
+        for (auto const& model : m_differential_scattering_models) {
+            angular_bytes += model->tableBytes();
+        }
+        if (angular_bytes > 0) {
+            amrex::Print() << "Background MCC angular arrays: " << angular_bytes
+                           << " bytes per host/device copy\n";
+        }
         std::string selector_description;
         if (m_processes.empty())
         {
@@ -1342,7 +1350,7 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTileImpl (
     ABLASTR_PROFILE("BackgroundMCCCollision::selectAndScatter()");
     amrex::ignore_unused(product_counts, product_event_count, runtime_error);
     using namespace amrex::literals;
-    using Rate = std::conditional_t<use_reciprocal, double, amrex::ParticleReal>;
+    using Rate = double;
     using std::sqrt;
 
     const long np = pti.numParticles();
@@ -1535,7 +1543,7 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTileImpl (
                                : BackgroundMCCReciprocalRotation::Executor::
                                      Interpolation{};
 
-            amrex::ParticleReal total_cross_section = 0.0_prt;
+            double total_cross_section = 0.0;
             auto const interpolation = process_selector.interpolate(E_coll);
             if (process_selector.enabled())
             {
@@ -1603,16 +1611,13 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTileImpl (
                 }
                 auto const cross_section_draw =
                     rotation.enabled() || use_reciprocal
-                        ? static_cast<amrex::ParticleReal>(
-                              (rate_draw - family_rate) / v_coll)
-                        : static_cast<amrex::ParticleReal>(
-                              (process_draw / acceptance) *
-                              total_cross_section);
+                        ? static_cast<double>((rate_draw - family_rate) / v_coll)
+                        : (process_draw / acceptance) * total_cross_section;
                 chosen_process = -1;
                 if (process_selector.enabled()) {
                     chosen_process = process_selector.select(interpolation, cross_section_draw);
                 } else {
-                    amrex::ParticleReal cumulative = 0.0_prt;
+                    double cumulative = 0.0;
                     for (int i = 0; i < process_count; ++i) {
                         cumulative += processes[i].getCrossSection(E_coll);
                         if (cross_section_draw < cumulative) {
@@ -1762,21 +1767,22 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTileImpl (
             amrex::ParticleReal u2x_out, u2y_out, u2z_out;
             if (process.m_scattering_angle_model == ScatteringAngleModel::IAA)
             {
-                auto const cosine =
-                    differential_scattering_processes[chosen_process].sampleCosine(
+                auto const deflection =
+                    differential_scattering_processes[chosen_process].sampleDeflection(
                         E_coll, BackgroundMCCUtils::uniformDouble(engine));
+                auto const cosine = 1.0 - deflection;
                 if (process.m_type == ScatteringProcessType::ELASTIC)
                 {
                     BackgroundMCCElasticKinematics::compute(
-                        ux[ip], uy[ip], uz[ip], ua_x, ua_y, ua_z, m, M, cosine, engine,
-                        u1x_out, u1y_out, u1z_out, u2x_out, u2y_out, u2z_out);
+                        ux[ip], uy[ip], uz[ip], ua_x, ua_y, ua_z, m, M, cosine, engine, u1x_out,
+                        u1y_out, u1z_out, u2x_out, u2y_out, u2z_out, deflection);
                 }
                 else
                 {
                     BackgroundMCCElasticKinematics::computeExcitation(
-                        ux[ip], uy[ip], uz[ip], ua_x, ua_y, ua_z, m, M,
-                        process.m_energy_penalty, cosine, engine,
-                        u1x_out, u1y_out, u1z_out, u2x_out, u2y_out, u2z_out);
+                        ux[ip], uy[ip], uz[ip], ua_x, ua_y, ua_z, m, M, process.m_energy_penalty,
+                        cosine, engine, u1x_out, u1y_out, u1z_out, u2x_out, u2y_out, u2z_out,
+                        deflection);
                 }
             }
             else

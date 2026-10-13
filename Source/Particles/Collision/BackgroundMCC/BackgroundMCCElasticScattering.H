@@ -13,10 +13,11 @@
 #include <AMReX_REAL.H>
 
 #include <cmath>
+#include <cstddef>
 #include <memory>
 #include <string>
 
-/** Precomputed inverse angular CDF for an IAA/elmolcs elastic DCS table.
+/** Precomputed inverse angular CDF for an IAA elastic or excitation DCS table.
  *
  * Below 10 keV, differential cross sections are linear in sin(theta/2) and
  * log(E), following the IAA interpolation scheme. The inverse CDF stores
@@ -33,14 +34,34 @@ public:
 
     struct Executor
     {
-        /** Sample the cosine of the neutral-rest-frame electron scattering angle.
+        /** Sample 1-cos(theta), retaining small forward deflections. */
+        [[nodiscard]] AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE double
+        sampleDeflection (amrex::ParticleReal const collision_energy,
+                          double const angle_draw) const noexcept
+        {
+            if (m_fallback != nullptr &&
+                (collision_energy < m_active_lo || collision_energy > m_active_hi)) {
+                return m_fallback->sampleRowDeflection(collision_energy, angle_draw);
+            }
+            return sampleRowDeflection(collision_energy, angle_draw);
+        }
+
+        [[nodiscard]] AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE double
+        sampleCosine (amrex::ParticleReal const collision_energy,
+                      double const angle_draw) const noexcept
+        {
+            return 1.0 - sampleDeflection(collision_energy, angle_draw);
+        }
+
+        /** Sample a legacy table or its explicitly selected elastic
+         * continuation.
          *
          * @param collision_energy electron collision energy in eV
          * @param angle_draw uniform random number in [0, 1)
          */
         [[nodiscard]] AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE double
-        sampleCosine (amrex::ParticleReal const collision_energy,
-                      double const angle_draw) const noexcept
+        sampleRowDeflection (amrex::ParticleReal const collision_energy,
+                             double const angle_draw) const noexcept
         {
             using namespace amrex::literals;
 
@@ -59,12 +80,12 @@ public:
                     (4.0 * m_screening_radius * m_screening_radius * k_sq);
                 auto const deflection = 2.0 * eta * angle_draw /
                     (1.0 - angle_draw + eta);
-                return amrex::max(-1.0, amrex::min(1.0 - deflection, 1.0));
+                return amrex::max(0.0, amrex::min(deflection, 2.0));
             }
 
             if (m_energy_grid_size < 2)
             {
-                return 1.0 - 2.0 * angle_draw;
+                return 2.0 * angle_draw;
             }
 
             int row_index = 0;
@@ -131,9 +152,12 @@ public:
                 static_cast<double>(quantile_fraction) *
                     (static_cast<double>(m_inverse_cdf_deflection[index + 1]) -
                      static_cast<double>(m_inverse_cdf_deflection[index]));
-            return amrex::max(-1.0, amrex::min(1.0 - deflection, 1.0));
+            return amrex::max(0.0, amrex::min(deflection, 2.0));
         }
 
+        Executor const* m_fallback = nullptr;
+        amrex::ParticleReal m_active_lo = 0.0;
+        amrex::ParticleReal m_active_hi = 0.0;
         amrex::ParticleReal const* m_log_energies = nullptr;
         amrex::ParticleReal const* m_row_integrals = nullptr;
         amrex::ParticleReal const* m_inverse_cdf_deflection = nullptr;
@@ -150,6 +174,14 @@ public:
     static std::shared_ptr<BackgroundMCCElasticScatteringModel>
     get (std::string const& differential_cross_section);
 
+    /** Array storage per host/device copy, excluding shared dependencies. */
+    [[nodiscard]] std::size_t
+    tableBytes () const noexcept
+    {
+        return sizeof(amrex::ParticleReal) * (m_log_energies_h.size() + m_row_integrals_h.size() +
+                                              m_inverse_cdf_deflection_h.size());
+    }
+
     [[nodiscard]] Executor const& executor () const
     {
 #ifdef AMREX_USE_GPU
@@ -160,6 +192,11 @@ public:
     }
 
 private:
+    std::string m_legacy_target;
+    std::shared_ptr<BackgroundMCCElasticScatteringModel> m_fallback_model;
+#ifdef AMREX_USE_GPU
+    amrex::Gpu::DeviceVector<Executor> m_fallback_executor_d;
+#endif
     amrex::Gpu::HostVector<amrex::ParticleReal> m_log_energies_h;
     amrex::Gpu::HostVector<amrex::ParticleReal> m_row_integrals_h;
     amrex::Gpu::HostVector<amrex::ParticleReal> m_inverse_cdf_deflection_h;

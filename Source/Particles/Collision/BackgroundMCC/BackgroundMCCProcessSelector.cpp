@@ -43,7 +43,7 @@ BackgroundMCCProcessSelector::BackgroundMCCProcessSelector (
     auto const energy_count = union_energies.size();
     auto const process_count = static_cast<std::size_t>(processes.size());
     std::size_t const max_table_entries =
-        std::min(table_budget, maximum_table_bytes) / sizeof(amrex::ParticleReal);
+        std::min(table_budget, maximum_table_bytes) / sizeof(double);
     auto const table_column_count = process_count + 1u;
     if (energy_count < 2u ||
         energy_count > static_cast<std::size_t>(std::numeric_limits<int>::max()) ||
@@ -99,12 +99,12 @@ BackgroundMCCProcessSelector::BackgroundMCCProcessSelector (
             cumulative[energy_index] += cross_section;
             WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
                 std::isfinite(cumulative[energy_index]) &&
-                    cumulative[energy_index] <= static_cast<long double>(
-                        std::numeric_limits<amrex::ParticleReal>::max()),
-                "The total Background MCC cross section is not representable as ParticleReal."
-            );
+                    cumulative[energy_index] <=
+                        static_cast<long double>(std::numeric_limits<double>::max()),
+                "The total Background MCC cross section is not representable "
+                "as double.");
             m_cumulative_cross_sections_h[process_index * energy_count + energy_index] =
-                static_cast<amrex::ParticleReal>(cumulative[energy_index]);
+                static_cast<double>(cumulative[energy_index]);
         }
     }
 
