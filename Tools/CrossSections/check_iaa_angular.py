@@ -92,6 +92,17 @@ def run(program, output, data_dir=None):
     )
     np.savetxt(output / "large.txt", [[0, 1e-20], [20, 1e-20]])
     np.savetxt(output / "small.txt", [[0, 1e-30], [20, 1e-30]])
+    np.savetxt(
+        output / "unresolved.txt",
+        [[9.99999999, 0], [10, 2e-50], [10.00000001, 0]],
+        header="native_energy_grid = resample",
+    )
+    np.savetxt(
+        output / "zeros.txt",
+        [[9.9999999, 0], [10.0000001, 2e-20], [11.0000001, 0], [1e9, 0]],
+        header="native_energy_grid = resample\nenergy_min_eV = 0\n"
+        "energy_max_eV = 1000000000\noutside_energy_range = error",
+    )
     if data_dir:
         for gas in ["N2", "O2"]:
             root = data_dir / gas / "IAA/air/angular"
@@ -124,6 +135,7 @@ def run(program, output, data_dir=None):
                 f"native_grid={(output / 'native_m5.txt').resolve()}",
                 f"large_rate={(output / 'large.txt').resolve()}",
                 f"small_rate={(output / 'small.txt').resolve()}",
+                f"zero_grid={(output / 'zeros.txt').resolve()}",
             ],
             text=True,
             capture_output=True,
@@ -153,6 +165,22 @@ def run(program, output, data_dir=None):
             capture_output=True,
         )
         assert result.returncode != 0, name
+    command = [
+        str(program),
+        f"file={(output / 'dpi.angular').resolve()}",
+        f"reference={(output / 'dpi.reference').resolve()}",
+        f"native_grid={(output / 'unresolved.txt').resolve()}",
+        f"large_rate={(output / 'large.txt').resolve()}",
+        f"small_rate={(output / 'small.txt').resolve()}",
+        f"zero_grid={(output / 'zeros.txt').resolve()}",
+        "amrex.throw_exception=1",
+        "amrex.signal_handling=0",
+    ]
+    result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode:
+        assert "unresolved in particle precision" in result.stdout + result.stderr
+    else:
+        assert "particle_bits=64" in result.stdout
 
 
 if __name__ == "__main__":

@@ -55,9 +55,13 @@ main (int argc, char* argv[])
                                          ScatteringAngleModel::Isotropic);
             attachment.setCrossSectionMultiplier(2e25);
             auto const process = attachment.executor();
-            std::string large, small;
+            std::string large, small, zero_grid;
             pp.get("large_rate", large);
             pp.get("small_rate", small);
+            pp.get("zero_grid", zero_grid);
+            ScatteringProcess zero("excitation_zero", zero_grid, amrex::ParticleReal(9.9999999),
+                                   ScatteringAngleModel::Isotropic);
+            auto const zero_process = zero.executor();
             amrex::Vector<ScatteringProcess> processes;
             processes.emplace_back("excitation_large", large, 0, ScatteringAngleModel::Isotropic);
             processes.emplace_back("excitation_small", small, 0, ScatteringAngleModel::Isotropic);
@@ -68,11 +72,16 @@ main (int argc, char* argv[])
             amrex::ParallelFor(1, [=] AMREX_GPU_DEVICE(int) noexcept {
                 output[0] = process.getCrossSection(amrex::ParticleReal(10));
                 output[1] = select.select(select.interpolate(amrex::ParticleReal(10)), draw);
+                output[2] = zero_process.getCrossSection(amrex::ParticleReal(0));
+                output[3] = zero_process.getCrossSection(amrex::ParticleReal(12));
+                output[4] = zero_process.getCrossSection(amrex::ParticleReal(10.5));
             });
             amrex::Gpu::copy(amrex::Gpu::deviceToHost, device.begin(), device.end(), host.begin());
             AMREX_ALWAYS_ASSERT(std::abs(host[0] / 4e-25 - 1) <
                                 (sizeof(amrex::ParticleReal) == 4 ? 5e-7 : 1e-12));
             AMREX_ALWAYS_ASSERT(host[1] == 1);
+            AMREX_ALWAYS_ASSERT(host[2] == 0 && host[3] == 0);
+            AMREX_ALWAYS_ASSERT(host[4] > 0);
         }
         std::ifstream input(reference);
         AMREX_ALWAYS_ASSERT(input.good());
@@ -200,6 +209,7 @@ main (int argc, char* argv[])
         AMREX_ALWAYS_ASSERT(std::abs(host[0] / 2e-20 - 1) < 1e-5);
         std::cout << std::setprecision(12)
                   << "IAA_ANGULAR initialization_seconds=" << initialization
+                  << " particle_bits=" << 8 * sizeof(amrex::ParticleReal)
                   << " table_bytes=" << model->tableBytes() << " sample_seconds=" << seconds
                   << " samples=" << rows * double(count) * repeats << " PASS\n";
     }

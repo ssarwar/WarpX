@@ -307,13 +307,32 @@ ScatteringProcess::readCrossSectionFileRaw (const std::string& cross_section_fil
     if (resample_native && sizeof(amrex::ParticleReal) < sizeof(double) && !energies.empty()) {
         // Resolve the source interpolant at representable particle energies.
         // Keeping the first/last sigma in each rounded bin would bias onsets.
+        // Bracket source zeros with native neighbors. Otherwise rounding an
+        // onset upward removes the zero prefix, or rounding a terminal zero
+        // downward creates a spurious positive tail across a long zero interval.
+        std::vector<amrex::ParticleReal> native_zeros;
+        for (std::size_t i = 0; i < source_energies.size(); ++i) {
+            if (sigmas[i] == 0.0) {
+                auto const zero = static_cast<amrex::ParticleReal>(source_energies[i]);
+                native_zeros.push_back(zero);
+                if (zero > 0) {
+                    energies.push_back(std::nextafter(
+                        zero, -std::numeric_limits<amrex::ParticleReal>::infinity()));
+                    energies.push_back(
+                        std::nextafter(zero, std::numeric_limits<amrex::ParticleReal>::infinity()));
+                }
+            }
+        }
+        std::sort(energies.begin(), energies.end());
         energies.erase(std::unique(energies.begin(), energies.end()), energies.end());
         std::vector<double> resampled;
         resampled.reserve(energies.size());
         std::size_t interval = 0;
         for (auto const native_energy : energies) {
             double const energy = native_energy;
-            if (energy <= source_energies.front()) {
+            if (std::binary_search(native_zeros.begin(), native_zeros.end(), native_energy)) {
+                resampled.push_back(0.0);
+            } else if (energy <= source_energies.front()) {
                 resampled.push_back(sigmas.front());
             } else if (energy >= source_energies.back()) {
                 resampled.push_back(sigmas.back());
@@ -327,15 +346,19 @@ ScatteringProcess::readCrossSectionFileRaw (const std::string& cross_section_fil
                                     fraction * sigmas[interval + 1]);
             }
         }
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            std::any_of(resampled.begin(), resampled.end(),
+                        [] (double value) { return value > 0; }) ||
+                std::none_of(sigmas.begin(), sigmas.end(), [] (double value) { return value > 0; }),
+            "A cross-section channel is unresolved in particle precision; use double precision.");
         sigmas = std::move(resampled);
     }
 }
 
 void
-ScatteringProcess::readCrossSectionFile (
-    const std::string& cross_section_file,
-    amrex::Vector<amrex::ParticleReal>& energies,
-    amrex::Gpu::HostVector<amrex::ParticleReal>& sigmas)
+ScatteringProcess::readCrossSectionFile (const std::string& cross_section_file,
+                                         amrex::Vector<amrex::ParticleReal>& energies,
+                                         amrex::Gpu::HostVector<amrex::ParticleReal>& sigmas)
 {
     std::vector<double> raw_sigmas;
     readCrossSectionFileRaw(cross_section_file, energies, raw_sigmas);
