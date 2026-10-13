@@ -23,7 +23,7 @@ def write_json(path, content):
     )
 
 
-def export(archive_path, attachment, data_dir, integral_only=False):
+def export(archive_path, attachment, data_dir):
     archive = Archive(archive_path)
     sources = read_sources(archive, attachment)
     manifest = {
@@ -52,12 +52,8 @@ def export(archive_path, attachment, data_dir, integral_only=False):
         rates = [Rate(r) for r in records]
         elastic_file = root / "elastic.txt"
         grid = master_grid(rates, np.loadtxt(elastic_file)[:, 0])
-        profiles = (
-            {}
-            if integral_only
-            else select_profiles(
-                archive, gas, Elastic(root / "elastic_dcs.txt"), records
-            )
+        profiles = select_profiles(
+            archive, gas, Elastic(root / "elastic_dcs.txt"), records
         )
         angular_sources = [write_profile(out / "angular", p) for p in profiles.values()]
         write_json(
@@ -149,7 +145,9 @@ def export(archive_path, attachment, data_dir, integral_only=False):
                 )
             ),
             "master_energy_points": len(grid),
-            "native_float32_energy_points": len(np.unique(grid.astype(np.float32))),
+            "rounded_master_energy_points_float32": len(
+                np.unique(grid.astype(np.float32))
+            ),
             "channels": channels,
         }
         print(
@@ -171,13 +169,8 @@ def main():
         required=True,
         help="warpx-data MCC_cross_sections directory",
     )
-    parser.add_argument(
-        "--integral-only",
-        action="store_true",
-        help="Development export; do not publish without angular profiles",
-    )
     args = parser.parse_args()
-    export(args.archive, args.attachment, args.data_dir, args.integral_only)
+    export(args.archive, args.attachment, args.data_dir)
 
 
 if __name__ == "__main__":

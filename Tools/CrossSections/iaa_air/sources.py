@@ -195,6 +195,8 @@ def read_sources(archive, attachment):
             record["repairs"].append(
                 "Restore 20 eV, 1.225e-21 m2 and 30 eV, 2.66e-22 m2 from analytic-source file"
             )
+            record["repair_source_file"] = "Data/cs/N2/Cross section.e-N2"
+            record["repair_source_sha256"] = digest(original.encode())
         if record["id"].startswith("schumann_runge"):
             record["partition"] = "onset" if record["id"].endswith("onset") else "bulk"
             record["repairs"].append(
@@ -202,7 +204,7 @@ def read_sources(archive, attachment):
             )
         result[target].append(record)
 
-    for source, text in [("muroran", attachment.read_text())] + [
+    for source, text in [("muroran", attachment.read_bytes().decode())] + [
         (name, archive.read(f"Data/cs/O2/others/Cross section ({name}).e-O2"))
         for name in ["phelps", "biagi"]
     ]:
@@ -236,6 +238,19 @@ def read_sources(archive, attachment):
                 source_range_eV=[record["table"][0][0], record["table"][-1][0]],
             )
             result["O2"].append(record)
+    for records in result.values():
+        for record in records:
+            if record["family"] == "attachment":
+                record["reaction"] = (
+                    "e + O2 + O2 -> O2- + O2"
+                    if record["units"] == "m5"
+                    else "e + O2 -> O- + O"
+                )
+                record["temperature_dependence"] = (
+                    "No gas-temperature law is supplied by this effective source"
+                )
+            else:
+                record["reaction"] = record["original_process"].rsplit(",", 1)[0]
     for gas, count in [("N2", 35), ("O2", 55)]:
         records = result[gas]
         if len(records) != count or len({r["id"] for r in records}) != count:

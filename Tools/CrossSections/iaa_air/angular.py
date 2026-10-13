@@ -280,6 +280,14 @@ def select_profiles(archive, gas, elastic, records):
                 for r in data
                 if source in r["header"] and f"({raw_state})" in r["original_process"]
             ]
+            if gas == "O2" and key == "b":
+                for row in rows:
+                    if row["energy_eV"] in (5.0, 15.0):
+                        row["source_quality_note"] = (
+                            "Archive contains 94 at (5 eV, 12 deg) and 89 at (15 eV, 36 deg); "
+                            "possible decimal transcription outliers. Values retained verbatim "
+                            "pending confirmation from Shyn-Sweeney 1993."
+                        )
         selection[key] = Profile(gas, key, elastic, rows, record["loss_eV"])
     return selection
 

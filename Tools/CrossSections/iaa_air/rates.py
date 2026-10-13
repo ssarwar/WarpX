@@ -105,7 +105,7 @@ class Rate:
     def __init__(self, record):
         self.record = record
         self.energy, self.sigma = np.asarray(record["table"], dtype=float).T
-        self.maximum = self.energy[-1]
+        self.maximum = float(self.energy[-1])
         self.minimum = min(self.energy[0], record["loss_eV"])
         self.knots = np.unique(np.r_[self.minimum, self.energy])
         if "partition" in record:
@@ -290,9 +290,10 @@ def write_rate(path, rate, grid, source=False):
             pending.extend([(lo, worst), (worst, hi)])
     energy = energy[sorted(keep)]
     header = (
-        f"IAA {r['target']}: {r['original_process']}\n"
+        f"IAA {r['target']}: {r['reaction']}\n"
+        f"original_source_process = {r['original_process']}\n"
         f"source_file = {r['source_file']}\nsource_sha256 = {r['source_sha256']}\n"
-        f"configured_loss_eV = {r['loss_eV']:.17g}\nunits = {r['units']}\n"
+        f"configured_loss_eV = {r['loss_eV']:.12g}\nunits = {r['units']}\n"
         f"source_range_eV = {r['source_range_eV']}\n"
         f"continuation = {'none (source-bounded)' if source else rate.continuation}\n"
         f"native_energy_grid = resample\nenergy_min_eV = 0\nenergy_max_eV = {maximum:.17g}\noutside_energy_range = error\n"

@@ -103,7 +103,8 @@ def load_iaa_air_processes(
                 process["third_body_density"] = third_body_density
         else:
             raise ValueError(f"Unsupported IAA process: {kind}")
-        processes[kind + "_" + channel["id"]] = process
+        name = channel["id"]
+        processes[name if name.startswith(kind + "_") else kind + "_" + name] = process
     required = {"ionization"} if target == "N2" else set(selected)
     if groups != required:
         raise ValueError(f"Unknown or missing IAA model selection: {selected}")
