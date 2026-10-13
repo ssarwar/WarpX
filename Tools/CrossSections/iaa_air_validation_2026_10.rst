@@ -31,6 +31,18 @@ Native-grid tests check preserved zero prefixes and tails, unresolved-channel
 rejection, raw m5 values below binary32 range, and a channel with probability
 1e-10 next to a large channel.
 
+The O2 a/b source check independently transcribes all 130 measured entries in
+Table I of Shyn and Sweeney, Phys. Rev. A 47, 1006 (1993). Visual inspection
+of the supplied paper confirmed two missing decimal points in the archive:
+9.4 at 5 eV and 12 degrees, and 8.9 at 15 eV and 36 degrees for the b state,
+both in 1e-20 cm2/sr. The PDF text layer also drops these decimal points.
+The exporter records both repairs and the paper hash in physical provenance.
+Checks verify the exported normalized profiles against all measured angular
+ratios. The corrected b profile requires 104 energy rows instead of 132 at
+the same refinement tolerance. Source, all-profile sampler and O2 swarm checks
+were repeated successfully, including both particle precisions for runtime
+checks; integral rate files are unchanged.
+
 The actual MCC loop is tested against finite-step binomial cooling ladders,
 their Poisson limit, exponential attachment survival, competing reaction
 branching and third-body density scaling. Full-data cases cover N2, O2 and
@@ -51,22 +63,26 @@ The recorded workload used macOS arm64, AppleClang 21, Release/NOACC,
 double-precision particles, 8,192 initial electrons, 16 cells, dry air,
 64 timed steps and three independent seeded ensembles. Each representation
 had a separate warmup run; each trial excluded four warmup timesteps.
+The measurements below were repeated after the Shyn--Sweeney corrections.
 The dense reference inserts redundant knots into the same interpolants.
 
 ============================== ============ ============
 Measurement                    Compact      Dense
 ============================== ============ ============
-Mean timed steps (seconds)      0.4024       0.4356
-Timing standard deviation      0.0048       0.0027
+Mean timed steps (seconds)      0.4450       0.5253
+Timing standard deviation      0.0135       0.0474
 Selector arrays (bytes/copy)    13,663,752   66,317,592
-Angular arrays (bytes/copy)     25,921,480   99,717,592
+Angular arrays (bytes/copy)     25,691,432   98,797,400
 ============================== ============ ============
 
-Compact tables reduced timed-step cost by approximately 7.6% in this CPU
-workload. The optimized selector remained enabled. Energy observables agree
-within ensemble uncertainty. Three ensembles do not establish a reliable
-variance advantage; variance-times-cost is recorded rather than claimed to
-improve. Memory figures exclude the unchanged reciprocal rotational families.
+Compact tables had approximately 15.3% lower mean timed-step cost in this CPU
+run, with no detected regression against the dense representation. The timing
+scatter, sequential representation order and small ensemble limit any precise
+speedup claim. The optimized selector remained enabled. Energy observables
+differ by 0.50 combined standard errors. Three ensembles do not establish a
+reliable variance advantage; variance-times-cost is recorded rather than
+claimed to improve. Memory figures exclude the unchanged reciprocal rotational
+families.
 
 CUDA, HIP and SYCL compilers/devices were unavailable on this host. The tests
 use host/device kernels and the benchmark supports GPU particle arrays, but
@@ -82,10 +98,10 @@ These physical-model uncertainties exceed the numerical sampling errors.
 
 The MuroranIT m5 peak is preserved exactly. It differs by 0.0177724% from the
 nominal normalization in the paper; this is a source discrepancy, not a unit
-conversion adjustment. Two possible decimal transcription outliers in the
-archived Shyn--Sweeney O2 b-state DCS are preserved and flagged for confirmation
-against the original paper. The author's current public source retains the
-same values (blob ``b3500bfeb03ab802ecdcd9219244a46b162ccfa1``).
+conversion adjustment. The confirmed Shyn--Sweeney decimal repairs above are
+applied before angular completion and normalization. The archived source and
+its original values remain identifiable; no correction is inferred from the
+shape of neighboring values alone.
 
 Reproduction
 ------------

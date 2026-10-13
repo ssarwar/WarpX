@@ -100,9 +100,13 @@ state mappings. O2 uses Shyn--Sweeney 1993 for a/b, Shyn--Sweeney 2000 for
 Herzberg, and Suzuki 2011 for the other three bands. The per-profile provenance
 records the actual usable energy rows. Narrow forward-cone measurements are
 retained as references, not promoted to complete angular distributions.
-Two O2 b-state source entries are flagged as possible decimal transcription
-outliers in the provenance. The archived values are retained pending primary
-paper confirmation; no guessed correction is applied.
+Two O2 b-state archive entries are corrected against Table I(b), p. 1007 of
+`Shyn and Sweeney (1993) <https://doi.org/10.1103/PhysRevA.47.1006>`__:
+94 becomes 9.4 at 5 eV and 12 degrees, and 89 becomes 8.9 at 15 eV and
+36 degrees, in units of 1e-20 cm2/sr. The rendered paper confirms the decimal
+points, which are also missing from its text layer. Provenance retains the
+archived values, corrections, citation and verified PDF hash. The corrections
+affect the normalized angular profile; the integral rate and loss are unchanged.
 
 Measured angles are interpolated linearly in sin(theta/2). Missing endpoints
 use boundary-matched elastic shapes. Accepted rows require eight angles,

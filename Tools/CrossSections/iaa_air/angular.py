@@ -76,6 +76,36 @@ def read_dcs(text):
             }
 
 
+def repair_shyn_sweeney_b(rows):
+    """Restore two decimal points verified visually in Table I(b), p. 1007."""
+    for energy, angle, original, corrected in [(5, 12, 94, 9.4), (15, 36, 89, 8.9)]:
+        matches = [row for row in rows if row["energy_eV"] == energy]
+        if len(matches) != 1 or matches[0]["angles_deg"].count(angle) != 1:
+            raise ValueError("Missing or ambiguous Shyn-Sweeney O2 b-state repair")
+        row = matches[0]
+        index = row["angles_deg"].index(angle)
+        if row["values"][index] != original:
+            raise ValueError("Unexpected archived Shyn-Sweeney O2 b-state value")
+        row["values"][index] = corrected
+        row["source_repairs"] = [
+            {
+                "kind": "decimal_transcription",
+                "angle_deg": angle,
+                "original_value": original,
+                "corrected_value": corrected,
+                "units": "1e-20 cm2/sr",
+                "reference": "Shyn and Sweeney, Phys. Rev. A 47, 1006 (1993)",
+                "doi": "10.1103/PhysRevA.47.1006",
+                "location": "Table I(b), p. 1007",
+                "verification": "visual inspection of the published table; "
+                "the PDF text layer also omits these decimal points",
+                "source_pdf_sha256": (
+                    "81ae455b82ba89b7a39d34364d10a7feb539f8bb3ac27070d699b226f17fc3c9"
+                ),
+            }
+        ]
+
+
 def normalize(values):
     # Exact integral of a DCS linear in y=sin(theta/2), dOmega=8*pi*y*dy.
     y = HALF_SINE
@@ -281,13 +311,7 @@ def select_profiles(archive, gas, elastic, records):
                 if source in r["header"] and f"({raw_state})" in r["original_process"]
             ]
             if gas == "O2" and key == "b":
-                for row in rows:
-                    if row["energy_eV"] in (5.0, 15.0):
-                        row["source_quality_note"] = (
-                            "Archive contains 94 at (5 eV, 12 deg) and 89 at (15 eV, 36 deg); "
-                            "possible decimal transcription outliers. Values retained verbatim "
-                            "pending confirmation from Shyn-Sweeney 1993."
-                        )
+                repair_shyn_sweeney_b(rows)
         selection[key] = Profile(gas, key, elastic, rows, record["loss_eV"])
     return selection
 

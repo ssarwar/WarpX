@@ -18,6 +18,69 @@ from iaa_air.sources import file_stem
 from scipy.integrate import quad
 
 
+def check_shyn_sweeney(root, profiles):
+    # Independent transcription of Table I(a,b), p. 1007, Phys. Rev. A 47,
+    # 1006 (1993), checked against the rendered paper rather than its text layer.
+    # The parenthesized 168-degree points are extrapolations, not measurements.
+    angles = np.arange(12, 157, 12)
+    energies = [5, 7, 10, 15, 20]
+    measured = {
+        "a": [
+            [9.9, 9.5, 7.8, 5.8, 5.3, 5.7, 5.7, 6.2, 6.1, 4.9, 5.3, 6.3, 6.1],
+            [12.3, 11, 9.3, 6.9, 5.8, 6.4, 6.5, 7.4, 7.9, 8.6, 9.9, 11, 12],
+            [14, 11, 8.2, 7.4, 6.3, 6.2, 6.7, 7.0, 6.3, 6.9, 7.2, 7.6, 7.6],
+            [4.4, 2.9, 2.7, 2.4, 2.7, 2.9, 2.8, 3.2, 3.5, 3.7, 4.2, 4.3, 4.8],
+            [2.2, 1.7, 1.5, 1.6, 1.7, 1.7, 1.7, 1.7, 1.9, 1.9, 2.1, 2.1, 2.4],
+        ],
+        "b": [
+            [9.4, 15, 18, 17, 14, 16, 14, 15, 17, 19, 16, 19, 16],
+            [8.8, 23, 29, 31, 28, 27, 29, 26, 27, 30, 27, 25, 20],
+            [9.3, 16, 21, 24, 18, 19, 14, 14, 13, 11, 11, 11, 9.1],
+            [3.9, 8.5, 8.9, 10, 7.9, 7.4, 6.2, 5.5, 5.3, 4.5, 4.7, 3.5, 3.1],
+            [2.6, 4.7, 6.0, 6.1, 5.8, 5.7, 5.5, 5.0, 4.2, 3.3, 2.5, 1.8, 0.9],
+        ],
+    }
+    for key, expected in measured.items():
+        profile = next(p for p in profiles if p["profile"] == key)
+        rows = profile["rows"]
+        np.testing.assert_array_equal([r["energy_eV"] for r in rows], energies)
+        np.testing.assert_array_equal([r["values"] for r in rows], expected)
+        table = np.loadtxt(root / "angular" / f"{key}.txt")
+        assert table.shape[1] == 182
+        for row, values in zip(rows, expected):
+            np.testing.assert_array_equal(row["angles_deg"], angles)
+            assert row["accepted"]
+            # Normalization must preserve the measured shape at every source
+            # angle, including both repaired values, in the exported profile.
+            actual = table[table[:, 0] == row["energy_eV"], 1 + angles]
+            assert actual.shape == angles.shape
+            np.testing.assert_allclose(
+                actual / actual[3], np.array(values) / values[3], rtol=2e-12, atol=0
+            )
+            repairs = row.get("source_repairs", [])
+            if key == "b" and row["energy_eV"] in (5, 15):
+                assert len(repairs) == 1
+                repair = repairs[0]
+                expected_repair = (
+                    (12, 94, 9.4) if row["energy_eV"] == 5 else (36, 89, 8.9)
+                )
+                assert (
+                    tuple(
+                        repair[k]
+                        for k in ("angle_deg", "original_value", "corrected_value")
+                    )
+                    == expected_repair
+                )
+                assert repair["units"] == "1e-20 cm2/sr"
+                assert repair["doi"] == "10.1103/PhysRevA.47.1006"
+                assert repair["location"] == "Table I(b), p. 1007"
+                assert repair["source_pdf_sha256"] == (
+                    "81ae455b82ba89b7a39d34364d10a7feb539f8bb3ac27070d699b226f17fc3c9"
+                )
+            else:
+                assert not repairs
+
+
 def check(data_dir):
     manifest = json.loads((data_dir / "IAA/air/manifest.json").read_text())
     result = {}
@@ -60,9 +123,12 @@ def check(data_dir):
                     record["id"],
                 )
             point_count += len(energy)
-        for profile in json.loads((root / "angular/angular_sources.json").read_text())[
+        profiles = json.loads((root / "angular/angular_sources.json").read_text())[
             "profiles"
-        ]:
+        ]
+        if gas == "O2":
+            check_shyn_sweeney(root, profiles)
+        for profile in profiles:
             table = np.loadtxt(root / "angular" / (profile["file_stem"] + ".txt"))
             y = np.sin(np.linspace(0, np.pi, table.shape[1] - 1) / 2)
             # Adaptive quadrature over each original linear segment, independent
