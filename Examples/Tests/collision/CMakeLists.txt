@@ -1,6 +1,35 @@
 # Add tests (alphabetical order) ##############################################
 #
 
+foreach(steps IN ITEMS 32 128)
+    add_warpx_test(test_1d_iaa_analytical_cooling_${steps}_picmi 1 1
+        "inputs_test_1d_iaa_analytical_picmi.py --mode cooling --steps ${steps}"
+        OFF OFF OFF)
+endforeach()
+foreach(factor IN ITEMS 1 2)
+    add_warpx_test(test_1d_iaa_analytical_attachment_${factor}_picmi 1 1
+        "inputs_test_1d_iaa_analytical_picmi.py --mode attachment --third-body-factor ${factor}"
+        OFF OFF OFF)
+endforeach()
+
+if(WarpX_IAA_AIR_TEST_DATA)
+    foreach(gas IN ITEMS N2 O2 air)
+        add_warpx_test(test_1d_iaa_air_cooling_${gas}_picmi 1 1
+            "inputs_test_1d_iaa_air_picmi.py --data-dir ${WarpX_IAA_AIR_TEST_DATA} --target ${gas}"
+            OFF OFF OFF)
+        if(NOT gas STREQUAL "air")
+            add_warpx_test(test_1d_iaa_air_swarm_${gas}_picmi 1 1
+                "inputs_test_1d_iaa_air_picmi.py --data-dir ${WarpX_IAA_AIR_TEST_DATA} --target ${gas} --mode swarm"
+                OFF OFF OFF)
+        endif()
+    endforeach()
+    foreach(mode IN ITEMS swarm pulse)
+        add_warpx_test(test_1d_iaa_air_${mode}_picmi 1 1
+            "inputs_test_1d_iaa_air_picmi.py --data-dir ${WarpX_IAA_AIR_TEST_DATA} --mode ${mode}"
+            OFF OFF OFF)
+    endforeach()
+endif()
+
 set(WarpX_ELMOLCS_TEST_DATA "" CACHE PATH "Prepared offline elmolcs MCC test data")
 if(WarpX_ELMOLCS_TEST_DATA)
     add_warpx_test(
