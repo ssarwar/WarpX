@@ -1,5 +1,16 @@
 # Electron collision tables
 
+The complete N2/O2 electron-air set is described in
+[IAA electron--air collision data](../../Docs/source/theory/multiphysics/iaa_air.rst).
+`export_iaa_air.py` prepares source-bounded and production integral tables,
+normalized excitation angular profiles, source records, and an exclusive
+process manifest. `test_iaa_air.py` checks the source anchors and interpolation;
+`check_iaa_angular.py` exercises the compiled CPU/GPU sampler against independent
+quadrature and analytical limits. All generated physical data belong in
+warpx-data, while synthetic fixtures and benchmark outputs stay in the build
+directory. `benchmark_iaa_air.py` compares compact and redundant dense tables
+with identical physics and independent seeded ensembles.
+
 For production N₂/O₂ rotational scattering, start with the
 [complete rotational DCS specification](../../Docs/source/theory/multiphysics/rotational_scattering/rotational_dcs.rst)
 and the [continuing development guide](../../Docs/source/theory/multiphysics/rotational_scattering/development.rst).

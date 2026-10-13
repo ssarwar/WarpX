@@ -11,6 +11,7 @@ WarpX includes various extensions to the traditional PIC loop which enable it to
     multiphysics/collisions
     multiphysics/rotational_scattering
     multiphysics/mcc_iaa_sources
+    multiphysics/iaa_air
     multiphysics/proton_impact_ionization
     multiphysics/ionization
     multiphysics/qed
