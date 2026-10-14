@@ -3453,7 +3453,7 @@ class MCCCollisions(CollisionBase):
     )
     max_background_density: float | None = Field(
         default=None,
-        description="The maximum background density. When the background_density is an expression, this must also be specified.",
+        description="The maximum background density. When background_density is an expression, specify this unless nu_max is supplied.",
     )
     nu_max: float | None = Field(
         default=None,
@@ -3517,81 +3517,63 @@ class ProtonImpactIonizationCollisions(CollisionBase):
     and fluid projectiles; no total-cross-section file is required. Configure
     separate collision instances and neutral densities for N2 and O2.
 
-    Parameters
-    ----------
-    name: string
-        Name of the collision instance.
-
-    species: species instance
-        Positively charged projectile species. Its momentum is not changed.
-
-    product_species: list of species instances
-        Electron species followed by the singly charged molecular-ion species.
-
-    ionization_target: string
-        Molecular neutral target, either ``"N2"`` or ``"O2"``.
-
-    background_density: float or string
-        Neutral density in m^-3, or an expression in ``(x, y, z, t)``.
-
-    background_temperature: float or string
-        Neutral temperature in K, or an expression in ``(x, y, z, t)``.
-
-    fixed_product_weight: float
-        Desired electron-ion pair macroparticle weight.
-
-    max_products_per_cell: integer, optional
-        Maximum pairs created in one cell and collision call. Excess expected
-        weight is preserved by increasing the weight of each created pair. The
-        default is 64.
-
-    projectile_energy_min, projectile_energy_max: float, optional
-        Bounds in eV of the logarithmic PJG lookup table. The defaults are
-        5 keV and 10 GeV for protons, scaled by projectile/proton mass for
-        bare ions. A custom interval may narrow but not enlarge this range.
-        The total-data calibration is 5--4000 keV for protons; relativistic
-        energies and bare-ion scaling are constrained extrapolations.
-
-    ndt_supercycle: integer, optional
-        Run once every ``ndt_supercycle`` PIC steps.
-
-    ndt_subcycle: integer, optional
-        Run ``ndt_subcycle`` times per PIC step.
-
-    start_step: integer, optional
-        First PIC step on which to apply the collision, defaulting to zero.
-        Supercycle steps are counted from this offset.
-
-    source_sampling_points: integer, optional
-        Subintervals per longitudinal cell in the rigid beam's spatial sampling
-        CDF, with a default of 8. This does not change the integrated cell yield
-        or the product cap.
-
-    gas_quadrature_points: integer, optional
-        Subintervals per coordinate (r, z, time) in the positive composite
-        quadrature for a nonuniform background gas, from 1 to 16. The default is 2.
-
-    sampling_seed: integer, optional
-        Seed for the rigid fluid beam's quiet sequence; the default is zero.
-        Its cell counters are checkpointed. Rigid sources reject supercycling
-        above one; subcycling is supported.
     """
 
-    species: Species | FluidSpecies
-    product_species: list[Species | FluidSpecies] = Field(min_length=2, max_length=2)
-    ionization_target: Literal["N2", "O2", "n2", "o2"]
-    background_density: float | str
-    background_temperature: float | str
-    fixed_product_weight: float
-    max_products_per_cell: int | None = None
-    projectile_energy_min: float | None = None
-    projectile_energy_max: float | None = None
-    ndt_supercycle: int | None = Field(default=None, ge=1)
-    ndt_subcycle: int | None = Field(default=None, ge=1)
-    source_sampling_points: int | None = None
-    gas_quadrature_points: int | None = None
-    sampling_seed: int | None = None
-    start_step: int | None = Field(default=None, ge=0)
+    species: Species | FluidSpecies = Field(
+        description="Positively charged projectile species. Its momentum is not changed."
+    )
+    product_species: list[Species | FluidSpecies] = Field(
+        min_length=2,
+        max_length=2,
+        description="Electron species followed by the singly charged molecular-ion species.",
+    )
+    ionization_target: Literal["N2", "O2", "n2", "o2"] = Field(
+        description='Molecular neutral target, either ``"N2"`` or ``"O2"``.'
+    )
+    background_density: float | str = Field(
+        description="Neutral density in m^-3, or an expression in ``(x, y, z, t)``."
+    )
+    background_temperature: float | str = Field(
+        description="Neutral temperature in K, or an expression in ``(x, y, z, t)``."
+    )
+    fixed_product_weight: float = Field(
+        description="Desired electron-ion pair macroparticle weight."
+    )
+    max_products_per_cell: int | None = Field(
+        default=None,
+        description="Maximum pairs created in one cell and collision call. Excess expected weight is preserved by increasing the weight of each created pair. The default is 64.",
+    )
+    projectile_energy_min: float | None = Field(
+        default=None,
+        description="Bounds in eV of the logarithmic PJG lookup table. The defaults are 5 keV and 10 GeV for protons, scaled by projectile/proton mass for bare ions. A custom interval may narrow but not enlarge this range. The total-data calibration is 5--4000 keV for protons; relativistic energies and bare-ion scaling are constrained extrapolations.",
+    )
+    projectile_energy_max: float | None = Field(
+        default=None,
+        description="Bounds in eV of the logarithmic PJG lookup table. The defaults are 5 keV and 10 GeV for protons, scaled by projectile/proton mass for bare ions. A custom interval may narrow but not enlarge this range. The total-data calibration is 5--4000 keV for protons; relativistic energies and bare-ion scaling are constrained extrapolations.",
+    )
+    ndt_supercycle: int | None = Field(
+        default=None, ge=1, description="Run once every ``ndt_supercycle`` PIC steps."
+    )
+    ndt_subcycle: int | None = Field(
+        default=None, ge=1, description="Run ``ndt_subcycle`` times per PIC step."
+    )
+    source_sampling_points: int | None = Field(
+        default=None,
+        description="Subintervals per longitudinal cell in the rigid beam's spatial sampling CDF, with a default of 8. This does not change the integrated cell yield or the product cap.",
+    )
+    gas_quadrature_points: int | None = Field(
+        default=None,
+        description="Subintervals per coordinate (r, z, time) in the positive composite quadrature for a nonuniform background gas, from 1 to 16. The default is 2.",
+    )
+    sampling_seed: int | None = Field(
+        default=None,
+        description="Seed for the rigid fluid beam's quiet sequence; the default is zero. Its cell counters are checkpointed. Rigid sources reject supercycling above one; subcycling is supported.",
+    )
+    start_step: int | None = Field(
+        default=None,
+        ge=0,
+        description="First PIC step on which to apply the collision, defaulting to zero. Supercycle steps are counted from this offset.",
+    )
 
     def collision_initialize_inputs(self):
         collision = pywarpx.Collisions.newcollision(self.name)
