@@ -4017,8 +4017,7 @@ Details about the collision models can be found in the :ref:`theory section <mul
 .. pp:param:: <collision_name>.fixed_product_weight
     :type: ``float``
 
-    Desired fixed particle weight of product species for ``pulsed_decay`` and
-    ``proton_impact_ionization``.
+    Desired fixed particle weight of product species for ``proton_impact_ionization``.
     Can be estimated as :math:`n_{\text{target}}dV/N_{ppc}`, where :math:`n_{\text{target}}` is the target density of the product species, :math:`dV` is the cell volume, and :math:`N_{ppc}` is the target number of particle per cell for each product species.
     For ``proton_impact_ionization``, the accumulated fractional weight is
     checkpointed per cell. When ``max_products_per_cell`` limits creation, the
@@ -4089,6 +4088,13 @@ Details about the collision models can be found in the :ref:`theory section <mul
     limit. Relativistic values are extrapolations, not measured molecular
     calibration. This must exceed ``projectile_energy_min``; see
     :ref:`multiphysics-collisions-proton-impact-ionization`.
+.. pp:param:: <collision_name>.weight_ratio
+    :type: ``int``
+    :default: 1
+    :optional:
+
+    The ratio of the weight of the parent particle to the product particles (only for ``pulsed_decay``).
+    This can only be an integer, since this is the number of product particles of each species created from each parent particle.
 
 .. pp:param:: <collision_name>.productA_temperature_eV
     :type: `float array, size 3`
