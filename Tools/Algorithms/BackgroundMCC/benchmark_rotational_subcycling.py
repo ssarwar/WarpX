@@ -97,14 +97,19 @@ args.output.parent.mkdir(parents=True, exist_ok=True)
 for gas, fraction, mass in [("N2", 0.78084, 28.0134), ("O2", 0.20946, 31.9988)]:
     source = (args.data / gas / "IAA").resolve()
     elastic = dict(
-        cross_section=str(source / "elastic.txt"), scattering_angle_model="IAA"
+        cross_section=str(source / "elastic/cross_section.txt"),
+        scattering_angle_model="IAA",
     )
     if args.ordinary_elastic:
-        elastic["differential_cross_section"] = str(source / "elastic_dcs.txt")
+        elastic["differential_cross_section"] = str(
+            source / "elastic/differential_cross_section.txt"
+        )
     else:
         elastic.update(
             rotation_model="reciprocal_hybrid",
-            rotation_file=str(source / "reciprocal_hybrid_300K/thermal_rotation.rot"),
+            rotation_file=str(
+                source / "rotational/elastic_rotation_300K/thermal_rotation.rot"
+            ),
             rotational_temperature=300,
             rotation_sampling="cumulative" if args.cumulative else "alias",
         )

@@ -21,9 +21,9 @@ numerical curves; the specific papers below constrain their interpretation.
 
 Numerical inputs belong to warpx-data under ``MCC_cross_sections/N2/IAA`` and
 ``MCC_cross_sections/O2/IAA``. The parent directories contain readable
-integral and elastic DCS tables. ``reciprocal_sources`` contains the published
+integral and elastic DCS tables. ``rotational/sources`` contains the published
 or processed angular constraints, with source-specific README files.
-``reciprocal_hybrid_300K`` contains the prepared joint distributions.
+``rotational/elastic_rotation_300K`` contains the prepared joint distributions.
 The WarpX reference implementation is in ``Tools/CrossSections/reciprocal_rotation``.
 Changing a model assumption requires regenerating and revalidating the
 joint distributions; editing an unrelated source table does not update them.

@@ -16,6 +16,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+from iaa_air.layout import load_manifest
 
 
 def densify(source, destination, logarithmic=False):
@@ -53,12 +54,17 @@ def prepare_dense(source, destination):
         raise ValueError(
             "Dense benchmark data must be outside the production repository"
         )
-    manifest_path = source / "IAA/air/manifest.json"
-    manifest = json.loads(manifest_path.read_text())
-    (destination / "IAA/air").mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(manifest_path, destination / "IAA/air/manifest.json")
+    manifest = load_manifest(source)
+    legacy = source / "IAA/air/manifest.json"
+    if legacy.is_file():
+        (destination / "IAA/air").mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(legacy, destination / "IAA/air/manifest.json")
     angular = set()
-    for target in manifest["targets"].values():
+    for gas, target in manifest["targets"].items():
+        relative_manifest = Path(gas) / "IAA/manifest.json"
+        if (source / relative_manifest).is_file():
+            (destination / relative_manifest).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source / relative_manifest, destination / relative_manifest)
         for key in ["elastic", "elastic_dcs", "rotation"]:
             relative = Path(target[key])
             if key == "rotation":

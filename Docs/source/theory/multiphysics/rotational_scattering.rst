@@ -49,10 +49,10 @@ connects those equations to MCC selection, sampling and recoil.
 :ref:`rotation-data-format` specifies the production files and initialization.
 :ref:`rotation-validation` gives reproducible checks and measured limitations.
 
-Configure one elastic process per gas with its ordinary ``elastic.txt`` as
+Configure one elastic process per gas with its ordinary ``elastic/cross_section.txt`` as
 ``cross_section``, ``scattering_angle_model = IAA``, and
 ``rotation_model = reciprocal_hybrid``. Set ``rotation_file`` to
-``MCC_cross_sections/<gas>/IAA/reciprocal_hybrid_300K/thermal_rotation.rot``
+``MCC_cross_sections/<gas>/IAA/rotational/elastic_rotation_300K/thermal_rotation.rot``
 in warpx-data, ``rotational_temperature = 300``, and normally
 ``rotation_sampling = alias``. The combined bundle contains its angular law;
 there is no separate elastic DCS input for this option. The ordinary elastic

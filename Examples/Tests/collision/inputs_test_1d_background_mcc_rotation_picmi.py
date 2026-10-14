@@ -88,9 +88,9 @@ for target in ["N2"] if args.spectator else ["N2", "O2"]:
     file = (
         directory
         / (
-            "thermal_spectator.rot"
+            "rotational/spectator/thermal_spectator.rot"
             if args.spectator
-            else "thermal_rotation.rot"
+            else "rotational/source_model/thermal_rotation.rot"
             if args.elmolcs
             else f"{target}_analytic.rot"
         )
@@ -99,9 +99,9 @@ for target in ["N2"] if args.spectator else ["N2", "O2"]:
     inclusive = (
         directory
         / (
-            "elastic.txt"
+            "elastic/cross_section.txt"
             if args.spectator
-            else "thermal_rotation_elastic.txt"
+            else "rotational/source_model/cross_section.txt"
             if args.elmolcs or args.spectator
             else f"{target}_inclusive.txt"
         )
@@ -110,7 +110,7 @@ for target in ["N2"] if args.spectator else ["N2", "O2"]:
     elastic_dcs = (
         directory
         / (
-            "elastic_dcs.txt"
+            "elastic/differential_cross_section.txt"
             if args.elmolcs or args.spectator
             else f"{target}_{angular_file}.txt"
         )

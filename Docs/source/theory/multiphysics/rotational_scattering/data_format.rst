@@ -12,10 +12,13 @@ inputs and production collision distributions. Temporary reference
 checkpoints, synthetic parser fixtures, validation outputs, timing records,
 commit identifiers and benchmark results do not belong in warpx-data.
 
-The parent ``IAA`` directory holds readable ordinary cross sections and
-elastic DCS tables. ``reciprocal_sources`` holds source-specific numerical
+Each gas has an ``IAA`` directory with physical families in separate
+subdirectories. ``elastic`` holds the residual integral and angular DCS, and
+``rotational/state_to_state`` holds the elementary rotational source tables.
+``rotational/sources`` holds source-specific numerical
 constraints, including their units and interpretation. Each
-``reciprocal_hybrid_300K`` directory represents one combined collision family,
+``rotational/elastic_rotation_300K`` directory represents one combined
+collision family,
 not a collection of additional processes to add to the elastic rate.
 
 Why the original files were large

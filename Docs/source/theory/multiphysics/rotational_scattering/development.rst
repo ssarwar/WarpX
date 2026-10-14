@@ -45,9 +45,10 @@ local work and other active worktrees. The physical data directories are
    warpx-data/MCC_cross_sections/N2/IAA/
    warpx-data/MCC_cross_sections/O2/IAA/
 
-Each contains ``elastic.txt``, ``elastic_dcs.txt``, short elementary rotational
-source curves, ``reciprocal_sources/`` and
-``reciprocal_hybrid_300K/thermal_rotation.rot`` with its readable arrays.
+Each contains ``elastic/cross_section.txt``,
+``elastic/differential_cross_section.txt``, elementary rotational
+source curves in ``rotational/state_to_state``, ``rotational/sources/`` and
+``rotational/elastic_rotation_300K/thermal_rotation.rot`` with its readable arrays.
 Source inputs and production numerical data belong in warpx-data. Exporters,
 physics algorithms and tests belong in WarpX. Synthetic fixtures, reference
 checkpoints, fit diagnostics, validation records and benchmark outputs belong

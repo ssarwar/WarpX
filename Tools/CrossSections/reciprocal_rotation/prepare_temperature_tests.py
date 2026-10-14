@@ -52,7 +52,7 @@ def main():
                     / "data"
                     / args.target
                     / "IAA"
-                    / f"reciprocal_hybrid_{temperature:g}K"
+                    / f"rotational/elastic_rotation_{temperature:g}K"
                 ),
             ],
         ]

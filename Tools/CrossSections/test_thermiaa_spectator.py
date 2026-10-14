@@ -27,10 +27,11 @@ REST = 510998.95069
 class Reference:
     def __init__(self, directory, maximum_j):
         self.tables = [
-            np.loadtxt(directory / f"rotation_0_{rank}.txt") for rank in [0, 2, 4, 6]
+            np.loadtxt(directory / "rotational/state_to_state" / f"J0_to_J{rank}.txt")
+            for rank in [0, 2, 4, 6]
         ]
-        self.elastic = np.loadtxt(directory / "elastic.txt")
-        self.dcs = np.loadtxt(directory / "elastic_dcs.txt")
+        self.elastic = np.loadtxt(directory / "elastic/cross_section.txt")
+        self.dcs = np.loadtxt(directory / "elastic/differential_cross_section.txt")
         self.initial = np.arange(maximum_j + 1)[:, None]
         self.final = self.initial + 2 * np.arange(-3, 4)
         self.loss = B * (

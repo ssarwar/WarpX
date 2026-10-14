@@ -4,7 +4,7 @@
 #
 # License: BSD-3-Clause-LBNL
 
-"""Load the production electron-air process manifest from warpx-data.
+"""Load production electron-air process manifests from warpx-data.
 
 This module reads prepared physical data. It does not generate cross sections
 and has no dependency on elmolcs, NumPy, or the offline exporters.
@@ -27,24 +27,38 @@ def load_iaa_air_processes(
 ):
     """Return ``scattering_processes`` for a PICMI ``MCCCollisions`` object.
 
-    ``data_dir`` is the warpx-data MCC_cross_sections directory. For O2,
+    ``data_dir`` is the warpx-data MCC_cross_sections directory. Each gas uses
+    ``<target>/IAA/manifest.json`` with table paths relative to that IAA directory.
+    Older aggregate manifests remain supported. For O2,
     ``attachment_species`` maps ``dissociative`` and ``three_body`` to the O-
     and O2- product species. ``third_body_density`` is the O2 density in m^-3,
     independently of the total gas density. The supplied rotation bundle is
     for a 300 K rotational bath. Neutral populations are not evolved.
     """
-    root = Path(data_dir).resolve()
-    manifest = json.loads((root / "IAA/air/manifest.json").read_text())
-    if manifest.get("format") != "warpx_iaa_air_v1":
-        raise ValueError("Unsupported IAA air manifest format")
     if target not in ("N2", "O2"):
         raise ValueError("IAA air target must be N2 or O2")
+    root = Path(data_dir).resolve()
+    gas_root = root / target / "IAA"
+    manifest_file = gas_root / "manifest.json"
+    if manifest_file.is_file():
+        description = json.loads(manifest_file.read_text())
+        if (
+            description.get("format") != "warpx_iaa_gas_v1"
+            or description.get("target") != target
+        ):
+            raise ValueError(f"Invalid IAA gas manifest: {manifest_file}")
+        root = gas_root
+    else:
+        # Keep pinned datasets from before the gas-local reorganization usable.
+        manifest = json.loads((root / "IAA/air/manifest.json").read_text())
+        if manifest.get("format") != "warpx_iaa_air_v1":
+            raise ValueError("Unsupported IAA air manifest format")
+        description = manifest["targets"][target]
     selected = {
         "ionization": "ionization_" + ionization_model,
         "dissociative_attachment": "attachment_" + dissociative_attachment,
         "three_body_attachment": "three_body_" + three_body_attachment,
     }
-    description = manifest["targets"][target]
 
     def path(name):
         value = root / name

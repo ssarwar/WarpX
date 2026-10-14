@@ -3809,7 +3809,7 @@ Details about the collision models can be found in the :ref:`theory section <mul
 
     Path to the rotational data file for the selected ``rotation_model``.
     For production N2/O2 ``reciprocal_hybrid`` inputs, use
-    ``MCC_cross_sections/<gas>/IAA/reciprocal_hybrid_300K/thermal_rotation.rot``
+    ``MCC_cross_sections/<gas>/IAA/rotational/elastic_rotation_300K/thermal_rotation.rot``
     from warpx-data. The gas, physical model and temperature identify the data;
     WarpX identifies the storage layout automatically.
 

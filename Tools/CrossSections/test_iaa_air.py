@@ -8,13 +8,17 @@
 """Independent source anchors, interpolation and accounting checks for IAA air."""
 
 import argparse
+import copy
 import importlib.util
+import itertools
 import json
+import os
+import tempfile
 from pathlib import Path
 
 import numpy as np
+from iaa_air.layout import load_angular_sources, load_manifest, load_sources
 from iaa_air.rates import PEAK_FLOOR, SR_JOIN, TOLERANCE, Rate
-from iaa_air.sources import file_stem
 from scipy.integrate import quad
 
 
@@ -45,7 +49,7 @@ def check_shyn_sweeney(root, profiles):
         rows = profile["rows"]
         np.testing.assert_array_equal([r["energy_eV"] for r in rows], energies)
         np.testing.assert_array_equal([r["values"] for r in rows], expected)
-        table = np.loadtxt(root / "angular" / f"{key}.txt")
+        table = np.loadtxt(root / profile["profile_file"])
         assert table.shape[1] == 182
         for row, values in zip(rows, expected):
             np.testing.assert_array_equal(row["angles_deg"], angles)
@@ -82,11 +86,12 @@ def check_shyn_sweeney(root, profiles):
 
 
 def check(data_dir):
-    manifest = json.loads((data_dir / "IAA/air/manifest.json").read_text())
+    manifest = load_manifest(data_dir)
     result = {}
     for gas in ["N2", "O2"]:
-        root = data_dir / gas / "IAA/air"
-        sources = json.loads((root / "sources.json").read_text())["records"]
+        root = data_dir / gas / "IAA"
+        sources = load_sources(data_dir, gas)
+        channels = {r["id"]: r for r in manifest["targets"][gas]["channels"]}
         assert (
             sum(r["family"] == "vibrational" for r in sources)
             == {"N2": 15, "O2": 41}[gas]
@@ -96,7 +101,7 @@ def check(data_dir):
         point_count = 0
         for record in sources:
             rate = Rate(record)
-            table = np.loadtxt(root / "production" / (file_stem(record["id"]) + ".txt"))
+            table = np.loadtxt(data_dir / channels[record["id"]]["cross_section"])
             energy, sigma = table.T
             assert np.all(np.diff(energy) > 0) and energy[-1] == 1e9
             assert np.all(np.isfinite(table)) and np.all(sigma >= 0)
@@ -123,13 +128,11 @@ def check(data_dir):
                     record["id"],
                 )
             point_count += len(energy)
-        profiles = json.loads((root / "angular/angular_sources.json").read_text())[
-            "profiles"
-        ]
+        profiles = load_angular_sources(data_dir, gas)
         if gas == "O2":
             check_shyn_sweeney(root, profiles)
         for profile in profiles:
-            table = np.loadtxt(root / "angular" / (profile["file_stem"] + ".txt"))
+            table = np.loadtxt(root / profile["profile_file"])
             y = np.sin(np.linspace(0, np.pi, table.shape[1] - 1) / 2)
             # Adaptive quadrature over each original linear segment, independent
             # of the exporter's closed-form integral and the C++ CDF builder.
@@ -146,19 +149,19 @@ def check(data_dir):
             "maximum_relative_interpolation_error": maximum_error,
             "rate_points": point_count,
         }
-    n2 = np.loadtxt(data_dir / "N2/IAA/air/production/v01.txt")
+    n2 = np.loadtxt(data_dir / "N2/IAA/vibrational/v0_to_v01.txt")
     assert np.interp(20, n2[:, 0], n2[:, 1]) == 1.225e-21
     assert np.interp(30, n2[:, 0], n2[:, 1]) == 2.66e-22
     # Verify the archived m5 values without renormalizing the physical source.
     # Its peak differs by 0.0177724% from the nominal paper normalization
     # (1e-20 cm2 at 3.2188e16 cm^-3); report that source discrepancy separately.
-    o2 = np.loadtxt(data_dir / "O2/IAA/air/production/three_body_muroran.txt")
+    o2 = np.loadtxt(data_dir / "O2/IAA/attachment/three_body_muroran.txt")
     assert o2[:, 1].max() == 3.1073e-47
     result["O2"]["muroran_nominal_peak_relative_offset"] = float(
         o2[:, 1].max() * 3.2188e22 / 1e-24 - 1
     )
-    sr0 = np.loadtxt(data_dir / "O2/IAA/air/production/schumann_runge_onset.txt")
-    sr1 = np.loadtxt(data_dir / "O2/IAA/air/production/schumann_runge_bulk.txt")
+    sr0 = np.loadtxt(data_dir / "O2/IAA/electronic/schumann_runge_6.12_eV.txt")
+    sr1 = np.loadtxt(data_dir / "O2/IAA/electronic/schumann_runge_8.60_eV.txt")
     e = np.linspace(*SR_JOIN, 301)
     total = np.interp(e, sr0[:, 0], sr0[:, 1]) + np.interp(e, sr1[:, 0], sr1[:, 1])
     assert np.all(total > 0) and np.all(np.diff(total) > 0)
@@ -182,6 +185,68 @@ def check(data_dir):
             third_body_density=1e24,
         )
         assert len(processes) == {"N2": 37, "O2": 54}[gas]
+    # Exercise both public manifest formats with the same real physical files.
+    # Temporary metadata stays outside warpx-data; no duplicate tables are needed.
+    with tempfile.TemporaryDirectory(prefix="iaa-manifest-") as temporary:
+        legacy_root = Path(temporary).resolve()
+        targets = copy.deepcopy(manifest["targets"])
+        for description in targets.values():
+            for key in ("elastic", "elastic_dcs", "rotation"):
+                description[key] = os.path.relpath(
+                    data_dir / description[key], legacy_root
+                )
+            for channel in description["channels"]:
+                for key in (
+                    "cross_section",
+                    "source_cross_section",
+                    "differential_cross_section",
+                ):
+                    if key in channel:
+                        channel[key] = os.path.relpath(
+                            data_dir / channel[key], legacy_root
+                        )
+        legacy = legacy_root / "IAA/air/manifest.json"
+        legacy.parent.mkdir(parents=True)
+        legacy.write_text(
+            json.dumps({"format": "warpx_iaa_air_v1", "targets": targets})
+        )
+        for gas in ("N2", "O2"):
+            choices = itertools.product(
+                ("iaa_thesis_2023", "elmolcs_b8643810"),
+                ("iaa", "muroran") if gas == "O2" else ("iaa",),
+                ("muroran", "phelps", "biagi") if gas == "O2" else ("muroran",),
+            )
+            for ionization, dissociative, three_body in choices:
+                configurations = []
+                for root in (data_dir, legacy_root):
+                    processes = module.load_iaa_air_processes(
+                        root,
+                        gas,
+                        ion_species="ion",
+                        attachment_species={
+                            "dissociative": "Ominus",
+                            "three_body": "O2minus",
+                        },
+                        third_body_density=1e24,
+                        ionization_model=ionization,
+                        dissociative_attachment=dissociative,
+                        three_body_attachment=three_body,
+                    )
+                    for process in processes.values():
+                        for key in (
+                            "cross_section",
+                            "differential_cross_section",
+                            "rotation_file",
+                        ):
+                            if key in process:
+                                process[key] = str(Path(process[key]).resolve())
+                    configurations.append(processes)
+                assert configurations[0] == configurations[1], (
+                    gas,
+                    ionization,
+                    dissociative,
+                    three_body,
+                )
     return result
 
 

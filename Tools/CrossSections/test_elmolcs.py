@@ -78,19 +78,26 @@ def angular_moments(path, energy):
 
 def validate(target, directory, output):
     source = Source(target)
-    bundle = Bundle.read(directory / "thermal_rotation.rot")
+    bundle = Bundle.read(directory / "rotational/source_model/thermal_rotation.rot")
     rng = np.random.default_rng(5803)
     # Adaptive points are checked at new, randomly located probes, not just
     # the midpoints used to build the table.
     errors = []
-    sections = {"elastic.txt": (source.elastic, np.r_[source.residual.knots, 1e9])}
+    sections = {
+        "elastic/cross_section.txt": (source.elastic, np.r_[source.residual.knots, 1e9])
+    }
     for rank, cs in source.elementary.items():
-        sections[f"rotation_{source.ground}_{source.ground + rank}.txt"] = (
+        sections[
+            f"rotational/state_to_state/J{source.ground}_to_J{source.ground + rank}.txt"
+        ] = (
             cs,
             cs.knots,
         )
     if source.unchanged:
-        sections["rotation_0_0.txt"] = (source.unchanged, source.unchanged.knots)
+        sections["rotational/state_to_state/J0_to_J0.txt"] = (
+            source.unchanged,
+            source.unchanged.knots,
+        )
     for name, (function, knots) in sections.items():
         table = np.loadtxt(directory / name)
         np.testing.assert_allclose(
@@ -235,7 +242,9 @@ def validate(target, directory, output):
                 continue
             probability = r / total
             moments = [np.dot(probability, loss**n) for n in range(1, 5)]
-            angular = angular_moments(directory / "elastic_dcs.txt", energy)
+            angular = angular_moments(
+                directory / "elastic/differential_cross_section.txt", energy
+            )
             p0, pup, pdown = [
                 sum(probability[m]) for m in [loss == 0, loss > 0, loss < 0]
             ]
@@ -262,7 +271,11 @@ def validate(target, directory, output):
             fields = [temperature, energy, total, *expected, *square]
             output.write(
                 '"'
-                + str((directory / "thermal_rotation.rot").resolve())
+                + str(
+                    (
+                        directory / "rotational/source_model/thermal_rotation.rot"
+                    ).resolve()
+                )
                 + '" '
                 + " ".join(f"{v:.17g}" for v in fields)
                 + "\n"

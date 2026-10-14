@@ -13,8 +13,9 @@ from pathlib import Path
 
 import numpy as np
 from iaa_air.angular import THETA, Elastic, Profile
+from iaa_air.layout import load_angular_sources, load_manifest, load_sources
 from iaa_air.rates import REST, Rate
-from iaa_air.sources import Archive, blocks, file_stem
+from iaa_air.sources import Archive, blocks
 from scipy.integrate import trapezoid
 
 
@@ -28,7 +29,7 @@ def vector(path):
 
 
 def audit(data, archive):
-    manifest = json.loads((data / "IAA/air/manifest.json").read_text())
+    manifest = load_manifest(data)
     totals = [
         r
         for r in blocks(archive.read("Data/cs/Cross section.txt"))
@@ -45,7 +46,7 @@ def audit(data, archive):
         speed = (
             299792458 * np.sqrt(energies * (energies + 2 * REST)) / (energies + REST)
         )
-        root = data / gas / "IAA/air"
+        channels = {r["id"]: r for r in description["channels"]}
         rotation = (data / description["rotation"]).parent
         knots = vector(rotation / "energies.txt")
         rates = vector(rotation / "rates.txt")
@@ -66,7 +67,7 @@ def audit(data, archive):
             combined += multiplier * np.interp(energies, table[:, 0], table[:, 1])
         reference = np.asarray(next(r for r in totals if r["target"] == gas)["table"])
         reference_values = np.interp(energies, reference[:, 0], reference[:, 1])
-        records = json.loads((root / "sources.json").read_text())["records"]
+        records = load_sources(data, gas)
         tails = []
         for record in records:
             rate = Rate(record)
@@ -117,9 +118,9 @@ def audit(data, archive):
                     "maxwellian_rate_sensitivity": thermal,
                 }
             )
-        angles = json.loads((root / "angular/angular_sources.json").read_text())
+        angles = {"profiles": load_angular_sources(data, gas)}
         transition_sensitivity = []
-        elastic = Elastic(data / gas / "IAA/elastic_dcs.txt")
+        elastic = Elastic(data / description["elastic_dcs"])
         measure = 2 * np.pi * np.sin(THETA)
         cosine = np.cos(THETA)
         for entry in angles["profiles"]:
@@ -179,7 +180,7 @@ def audit(data, archive):
         for record in records:
             if record["type"] != "excitation":
                 continue
-            table = np.loadtxt(root / "production" / (file_stem(record["id"]) + ".txt"))
+            table = np.loadtxt(data / channels[record["id"]]["cross_section"])
             for order in range(3):
                 weight = record["loss_eV"] ** order
                 exact[order] += weight * Rate(record)(probes)

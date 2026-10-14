@@ -13,8 +13,8 @@ from pathlib import Path
 import numpy as np
 
 ROOT = Path(os.environ["WARPX_CROSS_SECTION_DATA"])
-N2 = ROOT / "N2/IAA/reciprocal_sources"
-O2 = ROOT / "O2/IAA/reciprocal_sources"
+N2 = ROOT / "N2/IAA/rotational/sources"
+O2 = ROOT / "O2/IAA/rotational/sources"
 GOTE = {float(k): v for k, v in json.loads((N2 / "n2_gote.json").read_text()).items()}
 JUNG = json.loads((N2 / "n2_jung.json").read_text())
 B = json.loads((O2 / "o2_bhattacharyya.json").read_text())

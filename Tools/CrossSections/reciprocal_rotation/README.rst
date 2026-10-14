@@ -53,19 +53,19 @@ After building the source reference, prepare and verify each gas separately::
     python Tools/CrossSections/reciprocal_rotation/adaptive_low_grid.py --target N2
     python Tools/CrossSections/reciprocal_rotation/export.py --target N2 \
         --reference-dir "$WARPX_ROTATION_OUTPUT" \
-        --output build/production/N2/IAA/reciprocal_hybrid_300K
+        --output build/production/N2/IAA/rotational/elastic_rotation_300K
     python Tools/CrossSections/reciprocal_rotation/verify.py \
         --reference-dir "$WARPX_ROTATION_OUTPUT" \
-        --bundle build/production/N2/IAA/reciprocal_hybrid_300K/thermal_rotation.rot
+        --bundle build/production/N2/IAA/rotational/elastic_rotation_300K/thermal_rotation.rot
     python Tools/CrossSections/reciprocal_rotation/verify_high.py \
-        --bundle build/production/N2/IAA/reciprocal_hybrid_300K/thermal_rotation.rot \
+        --bundle build/production/N2/IAA/rotational/elastic_rotation_300K/thermal_rotation.rot \
         --output build/reciprocal-rotation/high-N2.json
 
 Repeat with O2. After source validation, encode the readable production inputs::
 
     python Tools/CrossSections/reciprocal_rotation/text_bundle.py \
-        --bundle build/production/N2/IAA/reciprocal_hybrid_300K/thermal_rotation.rot \
-        --output build/readable/N2/IAA/reciprocal_hybrid_300K \
+        --bundle build/production/N2/IAA/rotational/elastic_rotation_300K/thermal_rotation.rot \
+        --output build/readable/N2/IAA/rotational/elastic_rotation_300K \
         --report build/reciprocal-rotation/readable-N2.json
 
 Run the sampler, decoded-probability and thermal checks on the readable input
@@ -87,8 +87,8 @@ distribution with cumulative sampling outside warpx-data. Text input selects eit
 sampler from the same readable input at initialization::
 
     python Tools/CrossSections/reciprocal_rotation/cumulative_reference.py \
-        --bundle build/production/N2/IAA/reciprocal_hybrid_300K/thermal_rotation.rot \
-        --output build/cumulative/N2/IAA/reciprocal_hybrid_300K
+        --bundle build/production/N2/IAA/rotational/elastic_rotation_300K/thermal_rotation.rot \
+        --output build/cumulative/N2/IAA/rotational/elastic_rotation_300K
 
 Configure runtime checks with
 ``-DWarpX_RECIPROCAL_TEST_DATA=/path/to/warpx-data/MCC_cross_sections``.

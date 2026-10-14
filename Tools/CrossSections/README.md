@@ -1,5 +1,13 @@
 # Electron collision tables
 
+Production IAA data are organized as `MCC_cross_sections/<gas>/IAA/`, with
+`elastic`, `rotational`, `vibrational`, `electronic`, `dissociation` and
+`ionization` families, plus `attachment` for O2. Production integral files sit
+directly in their family; `source_bounded/` and `angular/` keep alternative
+coverage and angular profiles beside the corresponding process. Each gas has
+its own `manifest.json`, with paths relative to its IAA directory. The runtime
+loader also supports the previous aggregate manifest layout.
+
 The complete N2/O2 electron-air set is described in
 [IAA electron--air collision data](../../Docs/source/theory/multiphysics/iaa_air.rst).
 `export_iaa_air.py` prepares source-bounded and production integral tables,
@@ -144,7 +152,7 @@ Prepare its source data offline in an environment with elmolcs:
 
 ```sh
 python Tools/CrossSections/thermiaa_spectator.py \
-    --output /path/to/warpx-data/MCC_cross_sections/N2/IAA/thermal_spectator.rot
+    --output /path/to/warpx-data/MCC_cross_sections/N2/IAA/rotational/spectator/thermal_spectator.rot
 ```
 
 The spectator data file has three ASCII header lines followed by a little-endian payload:

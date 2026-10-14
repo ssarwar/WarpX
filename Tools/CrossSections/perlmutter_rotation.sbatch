@@ -62,7 +62,7 @@ for rotation_mode in 0 1; do
     if [[ -n "${WARPX_SPECTATOR_DATA:-}" ]]; then
         srun -n 1 build/bin/test_mcc_rotation model=iaa_spectator \
             reference="${PWD}/build/Tools/CrossSections/spectator_reference/reference.txt" \
-            n2_dcs="${WARPX_SPECTATOR_DATA}/N2/IAA/elastic_dcs.txt" \
+            n2_dcs="${WARPX_SPECTATOR_DATA}/N2/IAA/elastic/differential_cross_section.txt" \
             output="${rotation_output}/sampler-${rotation_mode}.txt" \
             cumulative="${rotation_mode}" samples=1048576
     else

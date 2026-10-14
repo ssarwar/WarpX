@@ -302,10 +302,11 @@ class Source:
 def export(target, output, include_bundle):
     from elmolcs import reader
 
-    output.mkdir(parents=True, exist_ok=True)
+    (output / "elastic").mkdir(parents=True, exist_ok=True)
+    (output / "rotational/state_to_state").mkdir(parents=True, exist_ok=True)
     source = Source(target)
     write_cross_section(
-        output / "elastic.txt",
+        output / "elastic/cross_section.txt",
         source.elastic,
         np.r_[source.residual.knots, np.geomspace(6000, 1e9, 80)[1:]],
         f"e + {target}: vibrationally elastic residual; elmolcs iaa*, Schmalzried (2023), Eq. 11.10.\nAbove 6000 eV: elmolcs Elastic.gen_Born, matched continuously to the last residual datum.",
@@ -314,7 +315,7 @@ def export(target, output, include_bundle):
     # 75--106 rows. Above 10 keV WarpX uses its analytic angular continuation.
     dcs = reader.readDCS(target, format="grid")[0]["data"]
     np.savetxt(
-        output / "elastic_dcs.txt",
+        output / "elastic/differential_cross_section.txt",
         np.column_stack((np.asarray(dcs.columns, float), np.asarray(dcs).T)),
         fmt="%.10e",
         header=f"SPECIES: e / {target}\nelmolcs IAA vibrationally elastic DCS; Schmalzried (2023), Sec. 12.1.\nRows: energy (eV), followed by DCS (m^2/sr) at 0, 0.5, ..., 180 degrees.",
@@ -323,25 +324,27 @@ def export(target, output, include_bundle):
     for rank, section in source.elementary.items():
         i, f = source.ground, source.ground + rank
         write_cross_section(
-            output / f"rotation_{i}_{f}.txt",
+            output / "rotational/state_to_state" / f"J{i}_to_J{f}.txt",
             section,
             section.knots,
             f"e + {target}, J={i}->{f}; elmolcs {'iaa* (Itikawa/Kutz-Meyer)' if target == 'N2' else 'iaa (Takayanagi-Itikawa)'}; canonical rigid-rotor threshold.",
         )
     if source.unchanged is not None:
         write_cross_section(
-            output / "rotation_0_0.txt",
+            output / "rotational/state_to_state/J0_to_J0.txt",
             source.unchanged,
             source.unchanged.knots,
             "e + N2, J=0->0; elmolcs iaa*, Kutz and Meyer (1995), Fig. 7a.",
         )
     if include_bundle:
+        test_output = output / "rotational/source_model"
+        test_output.mkdir(parents=True, exist_ok=True)
         bundle = source.bundle()
-        bundle.write(output / "thermal_rotation.rot")
+        bundle.write(test_output / "thermal_rotation.rot")
         # A common grid keeps the inclusive cross-section check and the rate
         # table consistent, without exporting hundreds of MCC processes.
         write_cross_section(
-            output / "thermal_rotation_elastic.txt",
+            test_output / "cross_section.txt",
             source.inclusive,
             bundle.energies,
             f"e + {target}: ground-rotor reference inclusive rate for thermal_rotation.rot; source-matched family, not an additional elastic channel.",

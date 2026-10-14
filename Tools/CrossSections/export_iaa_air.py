@@ -13,8 +13,17 @@ from pathlib import Path
 
 import numpy as np
 from iaa_air.angular import Elastic, select_profiles, write_profile
+from iaa_air.layout import (
+    ELASTIC_DCS,
+    ELASTIC_RATE,
+    ROTATION_BUNDLE,
+    angular_family,
+    angular_paths,
+    family_name,
+    rate_path,
+)
 from iaa_air.rates import MAX_ENERGY, Rate, master_grid, write_rate
-from iaa_air.sources import ARCHIVE_SHA256, Archive, digest, file_stem, read_sources
+from iaa_air.sources import ARCHIVE_SHA256, Archive, digest, read_sources
 
 
 def write_json(path, content):
@@ -27,7 +36,7 @@ def export(archive_path, attachment, data_dir):
     archive = Archive(archive_path)
     sources = read_sources(archive, attachment)
     manifest = {
-        "format": "warpx_iaa_air_v1",
+        "format": "warpx_iaa_gas_v1",
         "archive_sha256": ARCHIVE_SHA256,
         "attachment_sha256": digest(attachment.read_bytes()),
         "maximum_energy_eV": MAX_ENERGY,
@@ -42,47 +51,52 @@ def export(archive_path, attachment, data_dir):
             "existing elastic/rotation family is preserved",
             "three-body stabilization uses O2 density, not total air density",
         ],
-        "targets": {},
     }
     for gas, records in sources.items():
         root = data_dir / gas / "IAA"
-        out = root / "air"
-        for sub in ["source", "production", "angular"]:
-            (out / sub).mkdir(parents=True, exist_ok=True)
+        for family in sorted({family_name(r) for r in records}):
+            (root / family / "source_bounded").mkdir(parents=True, exist_ok=True)
+        for family in ("vibrational", "electronic"):
+            (root / family / "angular").mkdir(parents=True, exist_ok=True)
         rates = [Rate(r) for r in records]
-        elastic_file = root / "elastic.txt"
+        elastic_file = root / ELASTIC_RATE
         grid = master_grid(rates, np.loadtxt(elastic_file)[:, 0])
-        profiles = select_profiles(
-            archive, gas, Elastic(root / "elastic_dcs.txt"), records
-        )
-        angular_sources = [write_profile(out / "angular", p) for p in profiles.values()]
-        write_json(
-            out / "angular" / "angular_sources.json",
-            {
-                "format": "warpx_iaa_angular_sources_v1",
-                "archive_sha256": ARCHIVE_SHA256,
-                "thesis": "Schmalzried 2023, section 11.3.2, equation 11.40",
-                "vibrational_transition_eV": [5, 10] if gas == "N2" else [20, 40],
-                "minimum_angles": 8,
-                "minimum_solid_angle_coverage": 0.75,
-                "maximum_angular_gap_degrees": 20,
-                "maximum_completion_probability": 0.5,
-                "profiles": angular_sources,
-            },
-        )
+        profiles = select_profiles(archive, gas, Elastic(root / ELASTIC_DCS), records)
+        angular_sources = [write_profile(root, p) for p in profiles.values()]
+        for family in ("vibrational", "electronic"):
+            write_json(
+                root / family / "angular/sources.json",
+                {
+                    "format": "warpx_iaa_angular_sources_v1",
+                    "archive_sha256": ARCHIVE_SHA256,
+                    "thesis": "Schmalzried 2023, section 11.3.2, equation 11.40",
+                    "vibrational_transition_eV": [5, 10] if gas == "N2" else [20, 40],
+                    "minimum_angles": 8,
+                    "minimum_solid_angle_coverage": 0.75,
+                    "maximum_angular_gap_degrees": 20,
+                    "maximum_completion_probability": 0.5,
+                    "target": gas,
+                    "family": family,
+                    "profiles": [
+                        p
+                        for p in angular_sources
+                        if angular_family(p["profile"]) == family
+                    ],
+                },
+            )
         channels = []
         for rate in rates:
             r = rate.record
-            source_path = out / "source" / (file_stem(r["id"]) + ".txt")
-            production_path = out / "production" / (file_stem(r["id"]) + ".txt")
+            source_path = root / rate_path(gas, r, source=True)
+            production_path = root / rate_path(gas, r)
             write_rate(source_path, rate, grid, source=True)
             points = write_rate(production_path, rate, grid)
             channel = {
                 k: v for k, v in r.items() if k not in ("table", "header", "fit")
             }
             channel.update(
-                cross_section=str(production_path.relative_to(data_dir)),
-                source_cross_section=str(source_path.relative_to(data_dir)),
+                cross_section=str(production_path.relative_to(root)),
+                source_cross_section=str(source_path.relative_to(root)),
                 continuation=rate.continuation,
                 points=points,
                 default=r["id"]
@@ -95,25 +109,28 @@ def export(archive_path, attachment, data_dir):
                 if key.startswith("schumann_runge"):
                     key = "schumann_runge"
                 if key in profiles:
-                    angle_file = out / "angular" / (file_stem(key) + ".angular")
+                    angle_file = root / angular_paths(gas, key)[0]
                     channel["angular_model"] = key
                 else:
-                    angle_file = root / "elastic_dcs.txt"
+                    angle_file = root / ELASTIC_DCS
                     channel["angular_model"] = "normalized_elastic_IAA"
                 channel["differential_cross_section"] = str(
-                    angle_file.relative_to(data_dir)
+                    angle_file.relative_to(root)
                 )
             channels.append(channel)
-        write_json(
-            out / "sources.json",
-            {
-                "format": "warpx_iaa_rate_sources_v1",
-                "archive_sha256": ARCHIVE_SHA256,
-                "records": records,
-            },
-        )
+        for family in sorted({family_name(r) for r in records}):
+            write_json(
+                root / family / "sources.json",
+                {
+                    "format": "warpx_iaa_rate_sources_v1",
+                    "archive_sha256": ARCHIVE_SHA256,
+                    "target": gas,
+                    "family": family,
+                    "records": [r for r in records if family_name(r) == family],
+                },
+            )
         for model in ["iaa_thesis_2023", "elmolcs_b8643810"]:
-            path = data_dir / "IAA" / "RBEQ" / f"{gas}_{model}.txt"
+            path = root / "ionization" / f"rbeq_{model}.txt"
             if not path.is_file():
                 raise ValueError(f"Generate the matching RBEQ table first: {path}")
             original = path.read_text()
@@ -127,7 +144,7 @@ def export(archive_path, attachment, data_dir):
                     "id": "ionization_" + model,
                     "type": "ionization",
                     "family": "ionization",
-                    "cross_section": str(path.relative_to(data_dir)),
+                    "cross_section": str(path.relative_to(root)),
                     "rbeq_model": model,
                     "rbeq_target": gas,
                     "alternative_group": "ionization",
@@ -136,27 +153,28 @@ def export(archive_path, attachment, data_dir):
                     "default": model == "iaa_thesis_2023",
                 }
             )
-        manifest["targets"][gas] = {
-            "elastic": str(elastic_file.relative_to(data_dir)),
-            "elastic_dcs": str((root / "elastic_dcs.txt").relative_to(data_dir)),
-            "rotation": str(
-                (root / "reciprocal_hybrid_300K" / "thermal_rotation.rot").relative_to(
-                    data_dir
-                )
-            ),
+        description = {
+            "elastic": str(elastic_file.relative_to(root)),
+            "elastic_dcs": str((root / ELASTIC_DCS).relative_to(root)),
+            "rotation": str(ROTATION_BUNDLE),
             "master_energy_points": len(grid),
             "rounded_master_energy_points_float32": len(
                 np.unique(grid.astype(np.float32))
             ),
             "channels": channels,
         }
+        gas_manifest = dict(manifest, target=gas, **description)
+        if gas == "N2":
+            gas_manifest["defaults"] = {
+                "ionization": manifest["defaults"]["ionization"]
+            }
+            gas_manifest["assumptions"] = manifest["assumptions"][:2]
+            gas_manifest.pop("attachment_sha256")
+        write_json(root / "manifest.json", gas_manifest)
         print(
             f"{gas}: {len(channels)} channels including alternatives; {len(grid)} union knots; {len(profiles)} shared angular profiles",
             flush=True,
         )
-    destination = data_dir / "IAA" / "air"
-    destination.mkdir(parents=True, exist_ok=True)
-    write_json(destination / "manifest.json", manifest)
 
 
 def main():

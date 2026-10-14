@@ -126,14 +126,17 @@ for gas, fraction in targets.items():
         args.data_dir
         / gas
         / "IAA"
-        / f"reciprocal_hybrid_{args.temperature:g}K"
+        / f"rotational/elastic_rotation_{args.temperature:g}K"
         / "thermal_rotation.rot"
     ).resolve()
     process = dict(
-        cross_section=str(source / "elastic.txt"), scattering_angle_model="IAA"
+        cross_section=str(source / "elastic/cross_section.txt"),
+        scattering_angle_model="IAA",
     )
     if args.disabled:
-        process["differential_cross_section"] = str(source / "elastic_dcs.txt")
+        process["differential_cross_section"] = str(
+            source / "elastic/differential_cross_section.txt"
+        )
     else:
         process.update(
             rotation_model="reciprocal_hybrid",
@@ -275,7 +278,9 @@ if comm is not None:
     elapsed = comm.allreduce(elapsed, op=MPI.MAX)
 final, final_pairs = statistics()
 if ion is not None:
-    elastic = np.loadtxt(args.source_dir / args.target / "IAA/elastic.txt")
+    elastic = np.loadtxt(
+        args.source_dir / args.target / "IAA/elastic/cross_section.txt"
+    )
     sigma_elastic = np.interp(args.energy, elastic[:, 0], elastic[:, 1])
     sigma_ion = np.interp(args.energy, ionization_table[:, 0], ionization_table[:, 1])
     speed = c * np.sqrt(args.energy * (args.energy + 2 * rest)) / (args.energy + rest)

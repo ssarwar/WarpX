@@ -64,13 +64,16 @@ for gas in ["N2", "O2"]:
                     scattering_processes={
                         "elastic": {
                             "cross_section": str(
-                                directory / "thermal_rotation_elastic.txt"
+                                directory / "rotational/source_model/cross_section.txt"
                             ),
-                            "rotation_file": str(directory / "thermal_rotation.rot"),
+                            "rotation_file": str(
+                                directory
+                                / "rotational/source_model/thermal_rotation.rot"
+                            ),
                             "rotation_model": "elastic_dcs",
                             "scattering_angle_model": "IAA",
                             "differential_cross_section": str(
-                                directory / "elastic_dcs.txt"
+                                directory / "elastic/differential_cross_section.txt"
                             ),
                             "rotational_temperature": temperature,
                         }

@@ -10,6 +10,7 @@ import re
 
 import numpy as np
 
+from .layout import angular_paths
 from .sources import N2_STATES, O2_STATES, digest, file_stem
 
 THETA = np.linspace(0, np.pi, 181)
@@ -348,22 +349,25 @@ def tabulate(profile):
 
 def write_profile(directory, profile):
     energy, pdf = tabulate(profile)
-    name = file_stem(profile.key)
+    descriptor, pdf_file = angular_paths(profile.gas, profile.key)
+    name = descriptor.stem
     np.savetxt(
-        directory / f"{name}.txt",
+        directory / pdf_file,
         np.column_stack((energy, pdf)),
         fmt=["%.17e"] + ["%.12e"] * len(THETA),
-        header=f"IAA {profile.gas} {name}: normalized excitation angular PDF (sr^-1)\n"
+        header=f"IAA {profile.gas} {file_stem(profile.key)}: normalized excitation angular PDF (sr^-1)\n"
         "Uniform theta grid 0..pi; runtime interpolation linear in sin(theta/2) and log(E).\n"
-        "Measured coverage, endpoint completion and transition assumptions: angular_sources.json",
+        "Measured coverage, endpoint completion and transition assumptions: sources.json",
     )
-    (directory / f"{name}.angular").write_text(
-        f"WARPX_EXCITATION_ANGULAR_V1\n{profile.gas}\n{name}.txt\n../../elastic_dcs.txt\n"
+    (directory / descriptor).write_text(
+        f"WARPX_EXCITATION_ANGULAR_V1\n{profile.gas}\n{pdf_file.name}\n../../elastic/differential_cross_section.txt\n"
         f"{profile.lo:.17g} {profile.hi:.17g}\n"
     )
     return {
         "profile": profile.key,
         "file_stem": name,
+        "profile_file": str(pdf_file),
+        "descriptor_file": str(descriptor),
         "active_range_eV": [profile.lo, profile.hi],
         "reference_energy_interpolation": "linear",
         "runtime_energy_interpolation": "logarithmic",

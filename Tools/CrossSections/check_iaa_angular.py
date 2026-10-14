@@ -8,11 +8,11 @@
 """Prepare independent angular quadrature references and run the portable sampler."""
 
 import argparse
-import json
 import subprocess
 from pathlib import Path
 
 import numpy as np
+from iaa_air.layout import load_angular_sources, load_manifest
 from scipy.special import eval_legendre
 
 
@@ -105,10 +105,10 @@ def run(program, output, data_dir=None):
     )
     if data_dir:
         for gas in ["N2", "O2"]:
-            root = data_dir / gas / "IAA/air/angular"
-            description = json.loads((root / "angular_sources.json").read_text())
-            for profile in description["profiles"]:
-                path = root / (profile["file_stem"] + ".txt")
+            root = data_dir / gas / "IAA"
+            description = load_manifest(data_dir, (gas,))["targets"][gas]
+            for profile in load_angular_sources(data_dir, gas):
+                path = root / profile["profile_file"]
                 table = np.loadtxt(path)
                 indices = np.unique(np.linspace(0, len(table) - 1, 7).astype(int))
                 energies = np.unique(
@@ -120,11 +120,11 @@ def run(program, output, data_dir=None):
                 rows = reference(path, energies)
                 lo, hi = profile["active_range_eV"]
                 rows += reference(
-                    data_dir / gas / "IAA/elastic_dcs.txt", [lo / 2, hi * 2]
+                    data_dir / description["elastic_dcs"], [lo / 2, hi * 2]
                 )
                 ref = output / f"{gas}_{profile['file_stem']}.reference"
                 np.savetxt(ref, rows, fmt="%.17e")
-                commands.append((path.with_suffix(".angular"), ref, False))
+                commands.append((root / profile["descriptor_file"], ref, False))
     for file, ref, relaxation in commands:
         result = subprocess.run(
             [

@@ -55,11 +55,11 @@ if(TARGET lib_1d)
                 --sampler $<TARGET_FILE:test_reciprocal_rotation>
                 --data-dir ${WarpX_RECIPROCAL_TEST_DATA} --output ${reciprocal_output}/bounds)
         foreach(gas IN ITEMS N2 O2)
-            set(reciprocal_bundle "${WarpX_RECIPROCAL_TEST_DATA}/${gas}/IAA/reciprocal_hybrid_300K/thermal_rotation.rot")
+            set(reciprocal_bundle "${WarpX_RECIPROCAL_TEST_DATA}/${gas}/IAA/rotational/elastic_rotation_300K/thermal_rotation.rot")
             add_test(NAME test_1d_reciprocal_sampler_${gas}
                 COMMAND test_reciprocal_rotation
                     file=${reciprocal_bundle}
-                    cross_section=${WarpX_RECIPROCAL_TEST_DATA}/${gas}/IAA/elastic.txt
+                    cross_section=${WarpX_RECIPROCAL_TEST_DATA}/${gas}/IAA/elastic/cross_section.txt
                     output=${reciprocal_output}/${gas}.txt samples=32768 lookup_check=1)
             set_tests_properties(test_1d_reciprocal_sampler_${gas} PROPERTIES
                 FIXTURES_SETUP reciprocal_sampler_${gas})
@@ -74,7 +74,7 @@ if(TARGET lib_1d)
             add_test(NAME test_1d_reciprocal_cumulative_sampler_${gas}
                 COMMAND test_reciprocal_rotation cumulative=1
                     file=${reciprocal_bundle}
-                    cross_section=${WarpX_RECIPROCAL_TEST_DATA}/${gas}/IAA/elastic.txt
+                    cross_section=${WarpX_RECIPROCAL_TEST_DATA}/${gas}/IAA/elastic/cross_section.txt
                     output=${reciprocal_output}/${gas}-cumulative.txt samples=32768 lookup_check=1)
             set_tests_properties(test_1d_reciprocal_cumulative_sampler_${gas} PROPERTIES
                 FIXTURES_SETUP reciprocal_cumulative_sampler_${gas})
@@ -157,7 +157,7 @@ if(TARGET lib_1d)
             COMMAND ${CMAKE_COMMAND} -E env OPENBLAS_NUM_THREADS=1
                 ${Python_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_thermiaa_spectator.py
                 --data-dir ${WarpX_SPECTATOR_TEST_DATA}
-                --bundle ${WarpX_SPECTATOR_TEST_DATA}/N2/IAA/thermal_spectator.rot
+                --bundle ${WarpX_SPECTATOR_TEST_DATA}/N2/IAA/rotational/spectator/thermal_spectator.rot
                 --output ${spectator_reference})
         set_tests_properties(test_1d_spectator_source_quadrature PROPERTIES
             FIXTURES_SETUP spectator_reference)
@@ -166,7 +166,7 @@ if(TARGET lib_1d)
                 COMMAND test_mcc_rotation model=iaa_spectator cumulative=${mode}
                     reference=${spectator_reference}/reference.txt
                     output=${spectator_reference}/sampler-${mode}.txt samples=32768
-                    n2_dcs=${WarpX_SPECTATOR_TEST_DATA}/N2/IAA/elastic_dcs.txt)
+                    n2_dcs=${WarpX_SPECTATOR_TEST_DATA}/N2/IAA/elastic/differential_cross_section.txt)
             set_tests_properties(test_1d_spectator_sampler_${mode} PROPERTIES
                 FIXTURES_REQUIRED spectator_reference)
         endforeach()

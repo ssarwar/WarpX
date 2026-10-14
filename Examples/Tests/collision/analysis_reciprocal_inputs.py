@@ -25,7 +25,8 @@ args = p.parse_args()
 program, sampler = args.program.resolve(), args.sampler.resolve()
 root = args.output.resolve()
 root.mkdir(parents=True, exist_ok=True)
-source = (args.source_dir or args.data_dir).resolve() / "O2/IAA/rotation_1_3.txt"
+source_root = (args.source_dir or args.data_dir).resolve() / "O2/IAA"
+source = source_root / "rotational/state_to_state/J1_to_J3.txt"
 raw = np.loadtxt(source)
 legacy = root / "legacy-source.txt"
 legacy.write_text(
@@ -91,10 +92,10 @@ benchmark.warmup = 1
     if reciprocal:
         prefix = args.data_dir.resolve() / "O2/IAA"
         text += f'''gas.scattering_processes = elastic
-gas.elastic_cross_section = "{source.parent / "elastic.txt"}"
+gas.elastic_cross_section = "{source_root / "elastic/cross_section.txt"}"
 gas.elastic_scattering_angle_model = IAA
 gas.elastic_rotation_model = reciprocal_hybrid
-gas.elastic_rotation_file = "{prefix / "reciprocal_hybrid_300K/thermal_rotation.rot"}"
+gas.elastic_rotation_file = "{prefix / "rotational/elastic_rotation_300K/thermal_rotation.rot"}"
 gas.elastic_rotational_temperature = 300
 '''
     else:
@@ -187,7 +188,10 @@ for name, replacement in [
     table.write_text("\n".join(lines) + "\n")
     run(inputs(name, table=table), failure=True)
 
-bundle = args.data_dir.resolve() / "O2/IAA/reciprocal_hybrid_300K/thermal_rotation.rot"
+bundle = (
+    args.data_dir.resolve()
+    / "O2/IAA/rotational/elastic_rotation_300K/thermal_rotation.rot"
+)
 base = bundle.read_text().splitlines()
 text_format = base[0] in ("WARPX_RECIPROCAL_ROTATION", "WARPX_THERMAL_ROTATION_V7")
 if text_format:
@@ -221,7 +225,7 @@ for name, mutate in [
         [
             str(sampler),
             f"file={index}",
-            f"cross_section={source.parent / 'elastic.txt'}",
+            f"cross_section={source_root / 'elastic/cross_section.txt'}",
             f"output={directory / 'samples.txt'}",
             "samples=16",
             "amrex.the_arena_init_size=8388608",
@@ -280,7 +284,7 @@ if lookup is not None and not text_format:
         [
             str(sampler),
             f"file={directory / 'thermal_rotation.rot'}",
-            f"cross_section={source.parent / 'elastic.txt'}",
+            f"cross_section={source_root / 'elastic/cross_section.txt'}",
             f"output={directory / 'samples.txt'}",
             "samples=16",
             "amrex.the_arena_init_size=8388608",
@@ -313,7 +317,7 @@ if text_format:
             [
                 str(sampler),
                 f"file={directory / 'thermal_rotation.rot'}",
-                f"cross_section={source.parent / 'elastic.txt'}",
+                f"cross_section={source_root / 'elastic/cross_section.txt'}",
                 f"output={directory / 'samples.txt'}",
                 "samples=16",
                 "amrex.the_arena_init_size=8388608",

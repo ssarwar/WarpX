@@ -52,7 +52,7 @@ def infer(data):
 
 if __name__ == "__main__":
     directory = (
-        Path(os.environ["WARPX_CROSS_SECTION_DATA"]) / "N2/IAA/reciprocal_sources"
+        Path(os.environ["WARPX_CROSS_SECTION_DATA"]) / "N2/IAA/rotational/sources"
     )
     inferred = infer(json.loads((directory / "n2_jung_digitization.json").read_text()))
     reference = json.loads((directory / "n2_jung.json").read_text())

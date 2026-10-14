@@ -3,8 +3,9 @@
 IAA electron--air collision data
 ===============================
 
-The production IAA manifest in ``warpx-data/MCC_cross_sections/IAA/air``
-combines the existing elastic/rotation families with source-resolved
+The gas-specific IAA manifests in
+``warpx-data/MCC_cross_sections/<gas>/IAA/manifest.json``
+combine the existing elastic/rotation families with source-resolved
 vibrational excitation, electronic excitation, residual dissociation,
 RBEQ ionization and oxygen attachment. Neutral internal states and neutral
 fragments are not evolved. Each excitation retains its own energy loss.
@@ -18,6 +19,14 @@ convention and does not change the existing elastic/rotation family.
 
 Data and regeneration
 ---------------------
+
+Each gas has ``elastic``, ``rotational``, ``vibrational``, ``electronic``,
+``dissociation`` and ``ionization`` directories, with ``attachment`` for O2.
+Production integral tables are directly inside each family. ``source_bounded``
+contains the source-limited counterparts, while ``angular`` contains normalized
+profiles and their reader descriptors. Molecular-state and transition names are
+explicit in filenames. Table paths in each gas manifest are relative to its ``IAA``
+directory. The PICMI loader also accepts the older aggregate manifest layout.
 
 ``Tools/CrossSections/export_iaa_air.py`` reads the pinned elmolcs archive
 without executing package code. NumPy is needed only by the offline exporter;
@@ -131,8 +140,8 @@ descriptor; paths are relative to the descriptor:
 
    WARPX_EXCITATION_ANGULAR_V1
    N2
-   v01.txt
-   ../../elastic_dcs.txt
+   v0_to_v01_pdf.txt
+   ../../elastic/differential_cross_section.txt
    0.00001 112.5
 
 The last line is the inclusive active energy interval. Outside it, the shared

@@ -82,13 +82,13 @@ for rotation_gas in N2 O2; do
             rotation_cumulative=1
         fi
         srun -n 1 --gpus-per-task=1 "${rotation_build}/bin/test_reciprocal_rotation" \
-            "file=${rotation_root}/${rotation_gas}/IAA/reciprocal_hybrid_300K/thermal_rotation.rot" \
-            "cross_section=${WARPX_ROTATION_SOURCE_DATA}/${rotation_gas}/IAA/elastic.txt" \
+            "file=${rotation_root}/${rotation_gas}/IAA/rotational/elastic_rotation_300K/thermal_rotation.rot" \
+            "cross_section=${WARPX_ROTATION_SOURCE_DATA}/${rotation_gas}/IAA/elastic/cross_section.txt" \
             "output=${rotation_output}/${rotation_gas}-${rotation_mode}.txt" \
             "cumulative=${rotation_cumulative}" samples=1048576 timing_repetitions=8 \
             amrex.the_arena_init_size=8388608
         "${WARPX_ROTATION_PYTHON}" Tools/CrossSections/reciprocal_rotation/sampling_reference.py \
-            --bundle "${rotation_root}/${rotation_gas}/IAA/reciprocal_hybrid_300K/thermal_rotation.rot" \
+            --bundle "${rotation_root}/${rotation_gas}/IAA/rotational/elastic_rotation_300K/thermal_rotation.rot" \
             --sampler "${rotation_output}/${rotation_gas}-${rotation_mode}.txt" --samples 1048576
     done
     # This isolated sampler has no device MPI traffic. Cray MPICH probes host
@@ -98,8 +98,8 @@ for rotation_gas in N2 O2; do
         AMREX_DEFAULT_INIT=amrex.use_gpu_aware_mpi=0 \
         compute-sanitizer --tool memcheck --error-exitcode=99 \
         "${rotation_build}/bin/test_reciprocal_rotation" \
-        "file=${WARPX_ROTATION_DATA}/${rotation_gas}/IAA/reciprocal_hybrid_300K/thermal_rotation.rot" \
-        "cross_section=${WARPX_ROTATION_SOURCE_DATA}/${rotation_gas}/IAA/elastic.txt" \
+        "file=${WARPX_ROTATION_DATA}/${rotation_gas}/IAA/rotational/elastic_rotation_300K/thermal_rotation.rot" \
+        "cross_section=${WARPX_ROTATION_SOURCE_DATA}/${rotation_gas}/IAA/elastic/cross_section.txt" \
         "output=${rotation_output}/${rotation_gas}-memcheck.txt" samples=4096 \
         amrex.the_arena_init_size=8388608
 done
