@@ -8,49 +8,22 @@ including collisions between kinetic particles (Coulomb collisions, DSMC,
 nuclear fusion) as well as collisions between kinetic particles and a fixed
 (i.e. non-evolving) background species (MCC, background stopping).
 
-.. _multiphysics-collisions-mcc:
+Models for neutral gases
+------------------------
 
-Background Monte Carlo Collisions (MCC)
----------------------------------------
+Start with :ref:`usage-beam-air` to combine beam ionization, electron collisions
+and prescribed ion densities. The following pages specify the collision models,
+their source data and approximations. Input options remain in
+:ref:`running-cpp-parameters-collision`.
 
-Several types of collisions between simulation particles and a neutral
-background gas are supported including elastic scattering, back scattering,
-charge exchange, excitation collisions and impact ionization.
+.. toctree::
+   :maxdepth: 1
 
-The so-called null collision strategy is used in order to minimize the
-computational burden of the MCC module. This strategy is standard in PIC-MCC and
-a detailed description can be found elsewhere, for example in :cite:t:`b-Birdsall1991`.
-In short the maximum collision probability is found over a sensible range of
-energies and is used to pre-select the appropriate number of macroparticles for
-collision consideration. Only these pre-selected particles are then individually
-considered for a collision based on their energy and the cross-sections of all
-the different collisional processes included.
-
-The MCC implementation assumes that the background neutral particles are **thermal**,
-and are moving at non-relativistic velocities in the lab frame. For each
-simulation particle considered for a collision, a velocity vector for a neutral
-particle is randomly chosen given the user specified neutral temperature. The
-particle velocity is then boosted to the stationary frame of the neutral through
-a Galilean transformation. The energy of the collision is calculated using the
-particle utility function, ``ParticleUtils::getCollisionEnergy()``, as
-
-    .. math::
-
-       \begin{aligned}
-        E_{coll} &= \sqrt{(\gamma mc^2 + Mc^2)^2 - (mu)^2} - (mc^2 + Mc^2) \\
-                 &= \frac{2Mmu^2}{M + m + \sqrt{M^2+m^2+2\gamma mM}}\frac{1}{\gamma + 1}
-       \end{aligned}
-
-where :math:`u` is the speed of the particle as tracked in WarpX (i.e.
-:math:`u = \gamma v` with :math:`v` the particle speed), while :math:`m` and
-:math:`M` are the rest masses of the simulation and background species,
-respectively. The Lorentz factor is defined in the usual way,
-:math:`\gamma \equiv \sqrt{1 + u^2/c^2}`. Note that if :math:`\gamma\to1` the above
-expression reduces to the classical equation
-:math:`E_{coll} = \frac{1}{2}\frac{Mm}{M+m} u^2`. The collision cross-sections
-for all scattering processes are evaluated at the energy as calculated above.
-
-Once a particle is selected for a specific collision process, that process determines how the particle is scattered as outlined below.
+   collisions/background_mcc
+   collisions/electron_air
+   collisions/electron_ionization
+   collisions/elastic_rotation/index
+   collisions/proton_ionization/index
 
 .. _multiphysics-collisions-pulseddecay:
 

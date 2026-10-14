@@ -32,6 +32,7 @@ from .Collisions import collisions  # noqa
 from .Constants import my_constants  # noqa
 from .Diagnostics import diagnostics, reduced_diagnostics  # noqa
 from .EB2 import eb2  # noqa
+from .Fluids import fluids, new_fluid_species  # noqa
 from .Geometry import geometry  # noqa
 from .HybridPICModel import hybridpicmodel, external_vector_potential  # noqa
 from .Interpolation import interpolation  # noqa

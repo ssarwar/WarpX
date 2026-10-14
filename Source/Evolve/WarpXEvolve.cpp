@@ -837,7 +837,7 @@ void WarpX::HandleParticlesAtBoundaries (int step, amrex::Real cur_time, int num
     }
 }
 
-void WarpX::SyncCurrentAndRho ()
+void WarpX::SyncCurrentAndRho (bool sync_rho)
 {
     using ablastr::fields::Direction;
     using warpx::fields::FieldType;
@@ -853,7 +853,7 @@ void WarpX::SyncCurrentAndRho ()
             // TODO Replace current_cp with current_cp_vay once Vay deposition is implemented with MR
 
             SyncCurrent(current_fp_string);
-            SyncRho();
+            if (sync_rho) { SyncRho(); }
 
         }
         else // no periodic single box
@@ -865,7 +865,7 @@ void WarpX::SyncCurrentAndRho ()
                 current_deposition_algo != CurrentDepositionAlgo::Vay)
             {
                 SyncCurrent("current_fp");
-                SyncRho();
+                if (sync_rho) { SyncRho(); }
             }
 
             if (current_deposition_algo == CurrentDepositionAlgo::Vay)
@@ -881,13 +881,13 @@ void WarpX::SyncCurrentAndRho ()
     else // FDTD
     {
         SyncCurrent("current_fp");
-        SyncRho();
+        if (sync_rho) { SyncRho(); }
     }
 
     // Reflect charge and current density over PEC boundaries, if needed.
     for (int lev = 0; lev <= finest_level; ++lev)
     {
-        if (m_fields.has(FieldType::rho_fp, lev)) {
+        if (sync_rho && m_fields.has(FieldType::rho_fp, lev)) {
             ApplyRhofieldBoundary(lev, m_fields.get(FieldType::rho_fp,lev), PatchType::fine);
         }
         ApplyJfieldBoundary(lev,
@@ -896,7 +896,7 @@ void WarpX::SyncCurrentAndRho ()
             m_fields.get(FieldType::current_fp, Direction{2}, lev),
             PatchType::fine);
         if (lev > 0) {
-            if (m_fields.has(FieldType::rho_cp, lev)) {
+            if (sync_rho && m_fields.has(FieldType::rho_cp, lev)) {
                 ApplyRhofieldBoundary(lev, m_fields.get(FieldType::rho_cp,lev), PatchType::coarse);
             }
             ApplyJfieldBoundary(lev,

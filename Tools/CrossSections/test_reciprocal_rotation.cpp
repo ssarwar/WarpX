@@ -1,0 +1,398 @@
+/* Copyright 2026 The WarpX Community
+ *
+ * This file is part of WarpX.
+ *
+ * License: BSD-3-Clause-LBNL
+ */
+#include "Particles/Collision/BackgroundMCC/BackgroundMCCReciprocalRotation.H"
+#include "Particles/Collision/BackgroundMCC/BackgroundMCCUtils.H"
+#include "Particles/Collision/ScatteringProcess.H"
+
+#include <AMReX.H>
+#include <AMReX_Gpu.H>
+#include <AMReX_GpuLaunch.H>
+#include <AMReX_ParmParse.H>
+#include <AMReX_Print.H>
+#include <AMReX_Random.H>
+
+#include <array>
+#include <chrono>
+#include <cmath>
+#include <fstream>
+#include <iomanip>
+#include <limits>
+#include <sstream>
+#include <string>
+#include <vector>
+
+namespace {
+struct Result {
+    amrex::GpuArray<double, 18> m_values;
+    bool m_valid;
+};
+} // namespace
+
+int
+main (int argc, char* argv[]) {
+    amrex::Initialize(argc, argv);
+    {
+        amrex::ParmParse pp;
+        std::string file, cross_section, output;
+        pp.get("file", file);
+        pp.get("cross_section", cross_section);
+        pp.get("output", output);
+        int samples = 32768;
+        int timing_repetitions = 0;
+        bool lookup_check = false;
+        bool cumulative = false;
+        double temperature = 300;
+        pp.query("samples", samples);
+        pp.query("timing_repetitions", timing_repetitions);
+        pp.query("lookup_check", lookup_check);
+        pp.query("cumulative", cumulative);
+        pp.query("temperature", temperature);
+        auto const free_before = amrex::Gpu::Device::freeMemAvailable();
+        auto const start = std::chrono::steady_clock::now();
+        auto model =
+            BackgroundMCCReciprocalRotation::get(file, temperature, cumulative);
+        amrex::Gpu::synchronize();
+        double const load_seconds =
+            std::chrono::duration<double>(std::chrono::steady_clock::now() -
+                                          start)
+                .count();
+        auto const free_after = amrex::Gpu::Device::freeMemAvailable();
+        amrex::Print() << "TABLE_LOAD_SECONDS " << load_seconds
+                       << " DEVICE_ALLOCATION_BYTES "
+                       << free_before - free_after << '\n';
+        auto shared =
+            BackgroundMCCReciprocalRotation::get(file, temperature, cumulative);
+        AMREX_ALWAYS_ASSERT(model == shared);
+        ScatteringProcess source("elastic", cross_section, 0,
+                                 ScatteringAngleModel::IAA);
+        model->checkInclusiveRate(source);
+        auto const executor = model->executor();
+        std::string cell_output;
+        if (pp.query("cell_output", cell_output)) {
+            // Deterministically decode every stored cell, independently of the
+            // event sampler. This also checks float32 alias packing and rare
+            // tails.
+            std::ifstream index(file);
+            std::string line;
+            int cells = 0;
+            while (std::getline(index, line)) {
+                std::istringstream fields(line);
+                std::string name, type;
+                if (fields >> name >> type && name == "cell_offsets") {
+                    fields >> cells;
+                    --cells;
+                    break;
+                }
+            }
+            AMREX_ALWAYS_ASSERT(cells > 0);
+            using Moments = amrex::GpuArray<double, 8>;
+            amrex::Gpu::DeviceVector<Moments> device_cells(cells);
+            auto* decoded = device_cells.data();
+            amrex::ParallelFor(cells, [=] AMREX_GPU_DEVICE(int cell) noexcept {
+                Moments sum{};
+                auto const first = executor.m_cell_offsets[cell];
+                auto const end = executor.m_cell_offsets[cell + 1];
+                for (auto i = first; i < end; ++i) {
+                    for (int part = 0; part < (executor.m_cumulative ? 1 : 2);
+                         ++part) {
+                        double probability;
+                        std::uint16_t outcome;
+                        if (executor.m_cumulative) {
+                            probability =
+                                executor.m_cdf[i] -
+                                (i == first ? 0 : executor.m_cdf[i - 1]);
+                            outcome = executor.m_outcome_ids[i];
+                        } else {
+                            auto const entry = executor.m_aliases[i];
+                            probability =
+                                (part == 0 ? entry.m_probability
+                                           : 1.0 - entry.m_probability) /
+                                double(end - first);
+                            outcome =
+                                part == 0
+                                    ? entry.m_outcome
+                                    : entry.m_alternate;
+                        }
+                        double const loss = executor.m_outcomes[outcome].m_loss;
+                        sum[0] += probability;
+                        sum[1] += probability * (loss == 0);
+                        sum[2] += probability * (loss > 0);
+                        sum[3] += probability * (loss < 0);
+                        sum[4] += probability * amrex::max(loss, 0.0);
+                        sum[5] += probability * amrex::max(-loss, 0.0);
+                        sum[6] += probability * loss * loss;
+                        sum[7] += probability * loss * loss * loss * loss;
+                    }
+                }
+                decoded[cell] = sum;
+            });
+            std::vector<Moments> moments(cells);
+            amrex::Gpu::copy(amrex::Gpu::deviceToHost, device_cells.begin(),
+                             device_cells.end(), moments.begin());
+            std::ofstream output_cells(cell_output);
+            output_cells << std::setprecision(17);
+            for (auto const& row : moments) {
+                for (auto value : row) {
+                    output_cells << value << ' ';
+                }
+                output_cells << '\n';
+            }
+        }
+        auto const& host = model->hostExecutor();
+        AMREX_ALWAYS_ASSERT(host.inRange(host.m_maximum_energy));
+        auto const endpoint =
+            static_cast<amrex::ParticleReal>(host.m_maximum_energy);
+        AMREX_ALWAYS_ASSERT(host.inRange(std::nextafter(
+            endpoint, std::numeric_limits<amrex::ParticleReal>::infinity())));
+        AMREX_ALWAYS_ASSERT(!host.inRange(
+            host.m_maximum_energy *
+            (1 + 16 * std::numeric_limits<amrex::ParticleReal>::epsilon())));
+        AMREX_ALWAYS_ASSERT(!host.inRange(1.001 * host.m_maximum_energy));
+        AMREX_ALWAYS_ASSERT(!host.inRange(-1));
+        AMREX_ALWAYS_ASSERT(
+            !host.inRange(std::numeric_limits<double>::quiet_NaN()));
+        if (lookup_check && host.m_energy_lookup != nullptr) {
+            // Compare the accelerated device interpolation with the original
+            // full search at every physical knot and dyadic lookup boundary,
+            // their adjacent floating-point values, and a broad energy sweep.
+            std::vector<double> queries;
+            auto add_query = [&] (double value) {
+                if (std::isfinite(value) && value >= 0 && value <= host.m_maximum_energy) {
+                    queries.push_back(value);
+                }
+            };
+            auto add_neighbors = [&] (double value) {
+                add_query(std::nextafter(value, -std::numeric_limits<double>::infinity()));
+                add_query(value);
+                add_query(std::nextafter(value, std::numeric_limits<double>::infinity()));
+            };
+            for (double value : model->energies()) { add_neighbors(value); }
+            int const bins = BackgroundMCCReciprocalRotation::Executor::energy_lookup_bins;
+            for (int bin = 0; bin < host.m_energy_lookup_size; ++bin) {
+                add_neighbors(std::ldexp(1.0 + double(bin % bins) / bins,
+                    host.m_energy_lookup_min_exponent - 1 + bin / bins));
+            }
+            for (int i = 0; i < 32768; ++i) {
+                double const fraction = (i + 0.5) / 32768;
+                add_query(std::exp((1 - fraction) * std::log(model->energies()[1]) +
+                                   fraction * std::log(host.m_maximum_energy)));
+            }
+            amrex::Gpu::DeviceVector<double> device_queries(queries.size());
+            amrex::Gpu::copy(amrex::Gpu::hostToDevice, queries.begin(), queries.end(),
+                             device_queries.begin());
+            amrex::Gpu::DeviceVector<int> device_valid(queries.size());
+            auto const* input = device_queries.data();
+            auto* valid = device_valid.data();
+            auto reference = executor;
+            reference.m_energy_lookup = nullptr;
+            amrex::ParallelFor(static_cast<amrex::Long>(queries.size()),
+                [=] AMREX_GPU_DEVICE (amrex::Long i) noexcept {
+                    auto const fast = executor.interpolate(input[i]);
+                    auto const full = reference.interpolate(input[i]);
+                    valid[i] = fast.m_index == full.m_index &&
+                               fast.m_fraction == full.m_fraction &&
+                               fast.m_rate == full.m_rate && fast.m_energy == full.m_energy;
+                });
+            std::vector<int> valid_queries(queries.size());
+            amrex::Gpu::copy(amrex::Gpu::deviceToHost, device_valid.begin(), device_valid.end(),
+                             valid_queries.begin());
+            for (int value : valid_queries) {
+                AMREX_ALWAYS_ASSERT_WITH_MESSAGE(value,
+                    "Energy lookup changed the exact rotational interpolation.");
+            }
+            amrex::Print() << "PASS: exact energy lookup agrees with full search at "
+                           << queries.size() << " boundary/energy queries.\n";
+        }
+        if (lookup_check && executor.m_cell_lookup != nullptr) {
+            std::ifstream index(file);
+            std::string line;
+            int cells = 0;
+            while (std::getline(index, line)) {
+                std::istringstream fields(line);
+                std::string name, type;
+                if (fields >> name >> type && name == "cell_offsets") {
+                    fields >> cells;
+                    --cells;
+                    break;
+                }
+            }
+            AMREX_ALWAYS_ASSERT(cells > 0);
+            amrex::Gpu::DeviceVector<int> device_valid(cells);
+            auto* valid = device_valid.data();
+            auto reference = executor;
+            reference.m_cell_lookup = nullptr;
+            amrex::ParallelFor(cells, [=] AMREX_GPU_DEVICE (int cell) noexcept {
+                constexpr int bins = BackgroundMCCReciprocalRotation::Executor::cell_lookup_bins;
+                double const boundary = double(cell % bins) / bins;
+                double const draws[]{0, 0.5, std::nextafter(1.0, 0.0),
+                    std::nextafter(boundary, 0.0), boundary,
+                    std::nextafter(boundary, 1.0)};
+                bool same = true;
+                for (double draw : draws) {
+                    auto const fast = executor.sampleCell(cell, draw);
+                    auto const full = reference.sampleCell(cell, draw);
+                    same = same && fast.m_loss == full.m_loss &&
+                                   fast.m_initial_energy == full.m_initial_energy;
+                }
+                valid[cell] = same;
+            });
+            std::vector<int> valid_cells(cells);
+            amrex::Gpu::copy(amrex::Gpu::deviceToHost, device_valid.begin(), device_valid.end(),
+                             valid_cells.begin());
+            for (int value : valid_cells) {
+                AMREX_ALWAYS_ASSERT_WITH_MESSAGE(value,
+                    "Outcome CDF lookup changed a sampled rotational state.");
+            }
+            amrex::Print() << "PASS: exact outcome CDF bounds agree in all "
+                           << cells << " cells.\n";
+        }
+        std::vector<double> energy{
+            0,     1e-9,  0.0001, 0.001, 0.0015, 0.003,
+            0.01,  0.025, 0.1,    1,     1.25,   2.22,
+            2.47,  10,    20,     100,   205,    211.04623958760578,
+            500,   999,   1000,   6000,  8000,   9000,
+            10000, 1e6,   2.5e6,  1e9};
+        amrex::Vector<Result> result(samples);
+        amrex::Gpu::DeviceVector<Result> device(samples);
+        auto* values = device.data();
+        // Binary32 uniforms in [1/2,1) all lie on the 2^-24 grid. Verify that
+        // the actual device RNG used for rare acceptance and outcome tails
+        // resolves that interval more finely, including in all-single builds.
+        amrex::ParallelForRNG(
+            samples, [=] AMREX_GPU_DEVICE(
+                         int i, amrex::RandomEngine const& rng) noexcept {
+                double const draw = BackgroundMCCUtils::uniformDouble(rng);
+                double const coordinate = draw * 16777216.0;
+                values[i].m_valid = draw >= 0 && draw < 1;
+                values[i].m_values[0] =
+                    draw >= .5 && coordinate != std::floor(coordinate) ? 1 : 0;
+            });
+        amrex::Gpu::copy(amrex::Gpu::deviceToHost, device.begin(), device.end(),
+                         result.begin());
+        int resolved = 0;
+        for (auto const& value : result) {
+            AMREX_ALWAYS_ASSERT(value.m_valid);
+            resolved += int(value.m_values[0]);
+        }
+        if (samples >= 4096) {
+            AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
+                resolved > .4 * samples,
+                "Reciprocal sampling uniforms lost resolution in the upper "
+                "half interval.");
+        }
+        std::ofstream stream(output);
+        stream << std::setprecision(17);
+        for (double e : energy) {
+            if (!host.inRange(e)) {
+                continue;
+            }
+            auto draw_samples = [&] {
+                amrex::ParallelForRNG(
+                    samples, [=] AMREX_GPU_DEVICE(
+                                 int i, amrex::RandomEngine const& rng) {
+                        auto const state = executor.interpolate(e);
+                        auto const draw = executor.sample(
+                            state, BackgroundMCCUtils::uniformDouble(rng),
+                            BackgroundMCCUtils::uniformDouble(rng));
+                        double const loss = draw.m_outcome.m_loss;
+                        double const base[6]{
+                            loss == 0 ? 1.0 : 0.0,  loss > 0 ? 1.0 : 0.0,
+                            loss < 0 ? 1.0 : 0.0,   amrex::max(loss, 0.0),
+                            amrex::max(-loss, 0.0), loss * loss};
+                        for (int k = 0; k < 6; ++k) {
+                            values[i].m_values[3 * k] = base[k];
+                            values[i].m_values[3 * k + 1] =
+                                base[k] * draw.m_deflection;
+                            values[i].m_values[3 * k + 2] =
+                                base[k] * draw.m_deflection * draw.m_deflection;
+                        }
+                        values[i].m_valid = draw.m_valid &&
+                                            draw.m_deflection >= 0 &&
+                                            draw.m_deflection <= 2;
+                    });
+            };
+            draw_samples();
+            if (timing_repetitions > 0) {
+                amrex::Gpu::synchronize();
+                auto const begin = std::chrono::steady_clock::now();
+                for (int repeat = 0; repeat < timing_repetitions; ++repeat) {
+                    draw_samples();
+                }
+                amrex::Gpu::synchronize();
+                double const seconds =
+                    std::chrono::duration<double>(
+                        std::chrono::steady_clock::now() - begin)
+                        .count();
+                amrex::Print() << "SAMPLER_SECONDS " << seconds << " ENERGY_EV "
+                               << e << " SAMPLES "
+                               << double(samples) * timing_repetitions << '\n';
+            }
+            amrex::Gpu::copy(amrex::Gpu::deviceToHost, device.begin(),
+                             device.end(), result.begin());
+            std::array<double, 18> sum{}, square{};
+            for (auto const& r : result) {
+                AMREX_ALWAYS_ASSERT_WITH_MESSAGE(r.m_valid,
+                                                 "Invalid reciprocal sample.");
+                for (int k = 0; k < 18; ++k) {
+                    sum[k] += r.m_values[k];
+                    square[k] += r.m_values[k] * r.m_values[k];
+                }
+            }
+            stream << e << ' ' << host.interpolate(e).m_rate;
+            for (int k = 0; k < 18; ++k) {
+                double const mean = sum[k] / samples;
+                double const variance =
+                    std::max(0.0, square[k] / samples - mean * mean);
+                stream << ' ' << mean << ' ' << std::sqrt(variance / samples);
+            }
+            stream << '\n';
+            if (lookup_check &&
+                (executor.m_angular_lookup || executor.m_conditional_lookup ||
+                 executor.m_cell_lookup)) {
+                auto reference = executor;
+                reference.m_angular_lookup = nullptr;
+                reference.m_conditional_lookup = nullptr;
+                reference.m_cell_lookup = nullptr;
+                amrex::ParallelForRNG(
+                    samples,
+                    [=] AMREX_GPU_DEVICE(
+                        int i, amrex::RandomEngine const& rng) noexcept {
+                        auto const state = executor.interpolate(e);
+                        double const angle =
+                            BackgroundMCCUtils::uniformDouble(rng);
+                        double const outcome =
+                            BackgroundMCCUtils::uniformDouble(rng);
+                        auto const fast =
+                            executor.sample(state, angle, outcome);
+                        auto const slow =
+                            reference.sample(state, angle, outcome);
+                        values[i].m_valid =
+                            fast.m_valid == slow.m_valid &&
+                            fast.m_deflection == slow.m_deflection &&
+                            fast.m_outcome.m_loss == slow.m_outcome.m_loss &&
+                            fast.m_outcome.m_initial_energy ==
+                                slow.m_outcome.m_initial_energy;
+                    });
+                amrex::Gpu::copy(amrex::Gpu::deviceToHost, device.begin(),
+                                 device.end(), result.begin());
+                for (auto const& value : result) {
+                    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
+                        value.m_valid,
+                        "Quantile lookup changed a sampled event.");
+                }
+            }
+        }
+        if (lookup_check) {
+            amrex::Print() << "PASS: indexed and full searches agree for "
+                              "identical uniforms.\n";
+        }
+        amrex::Print()
+            << "Reciprocal tables: " << model->tableBytes()
+            << " bytes; valid samples and shared storage verified.\n";
+    }
+    amrex::Finalize();
+}

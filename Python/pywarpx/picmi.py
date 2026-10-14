@@ -119,6 +119,200 @@ def warpx_options(picmi_base):
     return lambda name: name if name in standard_options else f"warpx_{name}"
 
 
+class FluidSpecies(picmistandard.PICMI_Extension):
+    """A mesh species registered with :py:meth:`Simulation.add_fluid_species`.
+
+    ``model`` is ``"cold_relativistic"`` (the default), ``"rigid_beam"``, or
+    ``"immobile"``. Mass [kg], charge [C], and ``particle_type`` follow
+    :py:class:`Species`. No particle layout is used.
+
+    ``initial_density`` is a number density [m^-3] or a parser expression in
+    ``(x,y,z)``; in RZ, ``x`` is radius and ``y`` is zero. It defaults to zero
+    for cold and immobile fluids. ``directed_velocity`` is the cold fluid's
+    proper velocity gamma*v [m/s], as in the particle distributions.
+
+    A rigid beam requires exactly one of ``kinetic_energy`` [eV] and signed
+    ``velocity_z`` [m/s], and one of ``sigma_z`` [m] and ``sigma_t`` [s].
+    Specify either ``sigma_r`` [m], the Cartesian transverse RMS width of
+    exp(-r^2/(2*sigma_r^2)), or ``r_rms`` [m] = sqrt(2)*sigma_r. These widths
+    refer to the untruncated Gaussian. ``cutoff_r`` and ``cutoff_z`` default
+    to eight sigma; -1 disables truncation.
+
+    Pulse centers cross ``z_reference`` [m] at ``pulse_times`` [s], or at
+    ``first_pulse_time + k*pulse_period`` for ``pulse_count`` pulses. Optional
+    ``pulse_amplitudes`` scale each pulse. Exactly one positive normalization
+    is required: ``peak_current`` [A], ``bunch_charge`` [C], or ``peak_density``
+    [m^-3]. Current and bunch charge are magnitudes integrated over the
+    truncated Gaussian, before domain clipping. ``initialize_self_fields``
+    initializes a rigid beam's electromagnetic self fields.
+    """
+
+    name: str
+    model: Literal["cold_relativistic", "rigid_beam", "immobile"] = "cold_relativistic"
+    particle_type: str | None = None
+    mass: float | str | None = None
+    charge: float | str | None = None
+    charge_state: int | None = None
+    initial_density: float | str | None = None
+    directed_velocity: list[float] | None = Field(
+        default=None, min_length=3, max_length=3
+    )
+    kinetic_energy: float | None = None
+    velocity_z: float | None = None
+    sigma_r: float | None = None
+    r_rms: float | None = None
+    sigma_z: float | None = None
+    sigma_t: float | None = None
+    z_reference: float = 0.0
+    pulse_times: list[float] | None = None
+    first_pulse_time: float | None = None
+    pulse_period: float | None = None
+    pulse_count: int | None = None
+    pulse_amplitudes: list[float] | None = None
+    cutoff_r: float = 8.0
+    cutoff_z: float = 8.0
+    peak_current: float | None = None
+    bunch_charge: float | None = None
+    peak_density: float | None = None
+    initialize_self_fields: bool = False
+    do_not_deposit: bool = Field(default=False, alias="warpx_do_not_deposit")
+
+    _species_type: str | None = PrivateAttr(default=None)
+    _fluid: pywarpx.Bucket.Bucket | None = PrivateAttr(default=None)
+
+    @property
+    def fluid(self):
+        """The WarpX inputs of this fluid, available after initialization."""
+        return self._fluid
+
+    def model_post_init(self, context) -> None:
+        super().model_post_init(context)
+        if (
+            not isinstance(self.name, str)
+            or not self.name
+            or any(c.isspace() for c in self.name)
+        ):
+            raise ValueError("A fluid species requires a nonempty name without spaces")
+        # Reuse the particle interface's physical-species and isotope conversion.
+        physical = Species(
+            name=self.name,
+            particle_type=self.particle_type,
+            mass=self.mass,
+            charge=self.charge,
+            charge_state=self.charge_state,
+        )
+        self._species_type = physical._species_type
+        self.mass, self.charge = physical.mass, physical.charge
+
+        beam_options = [
+            self.kinetic_energy,
+            self.velocity_z,
+            self.sigma_r,
+            self.r_rms,
+            self.sigma_z,
+            self.sigma_t,
+            self.pulse_times,
+            self.first_pulse_time,
+            self.pulse_period,
+            self.pulse_count,
+            self.pulse_amplitudes,
+            self.peak_current,
+            self.bunch_charge,
+            self.peak_density,
+        ]
+        if self.model == "rigid_beam":
+            for names, values in [
+                (
+                    "kinetic_energy or velocity_z",
+                    [self.kinetic_energy, self.velocity_z],
+                ),
+                ("sigma_r or r_rms", [self.sigma_r, self.r_rms]),
+                ("sigma_z or sigma_t", [self.sigma_z, self.sigma_t]),
+                (
+                    "peak_current, bunch_charge or peak_density",
+                    [self.peak_current, self.bunch_charge, self.peak_density],
+                ),
+            ]:
+                if sum(value is not None for value in values) != 1:
+                    raise ValueError(f"A rigid beam requires exactly one of {names}")
+            train = [self.first_pulse_time, self.pulse_period, self.pulse_count]
+            if self.pulse_times is not None:
+                if (
+                    any(value is not None for value in train)
+                    or len(self.pulse_times) == 0
+                ):
+                    raise ValueError(
+                        "Specify nonempty pulse_times or a finite pulse train"
+                    )
+            elif any(value is None for value in train):
+                raise ValueError(
+                    "A pulse train requires first_pulse_time, pulse_period and pulse_count"
+                )
+            if self.initial_density is not None or self.directed_velocity is not None:
+                raise ValueError(
+                    "A rigid beam uses its prescribed Gaussian density and axial velocity"
+                )
+        elif (
+            any(value is not None for value in beam_options)
+            or self.initialize_self_fields
+        ):
+            raise ValueError(
+                "Beam profile and self-field options require model='rigid_beam'"
+            )
+        if self.model == "immobile" and self.directed_velocity is not None:
+            raise ValueError("An immobile fluid has no velocity")
+
+    def fluid_initialize_inputs(self):
+        self._fluid = pywarpx.new_fluid_species(
+            self.name,
+            model=self.model,
+            species_type=self._species_type,
+            mass=self.mass,
+            charge=self.charge,
+            do_not_deposit=self.do_not_deposit,
+        )
+        if self.model == "rigid_beam":
+            for name in [
+                "kinetic_energy",
+                "velocity_z",
+                "sigma_r",
+                "r_rms",
+                "sigma_z",
+                "sigma_t",
+                "z_reference",
+                "pulse_times",
+                "first_pulse_time",
+                "pulse_period",
+                "pulse_count",
+                "pulse_amplitudes",
+                "cutoff_r",
+                "cutoff_z",
+                "peak_current",
+                "bunch_charge",
+                "peak_density",
+                "initialize_self_fields",
+            ]:
+                setattr(self.fluid, name, getattr(self, name))
+        else:
+            density = 0.0 if self.initial_density is None else self.initial_density
+            if isinstance(density, str):
+                self.fluid.profile = "parse_density_function"
+                setattr(self.fluid, "density_function(x,y,z)", density)
+            else:
+                self.fluid.profile = "constant"
+                self.fluid.density = density
+            if self.model == "cold_relativistic":
+                velocity = (
+                    [0.0, 0.0, 0.0]
+                    if self.directed_velocity is None
+                    else self.directed_velocity
+                )
+                self.fluid.momentum_distribution_type = "constant"
+                self.fluid.ux, self.fluid.uy, self.fluid.uz = (
+                    np.asarray(velocity) / constants.c
+                )
+
+
 class Species(picmistandard.PICMI_Species):
     """
     See `Input Parameters <https://warpx.readthedocs.io/en/latest/usage/parameters.html>`__ for more information.
@@ -3213,8 +3407,45 @@ class MCCCollisions(CollisionBase):
     background_temperature: float | str = Field(
         description="The temperature of the background. An string expression as a function of (x, y, z, t) can be used."
     )
-    scattering_processes: dict[str, dict[str, Species | int | float | str]] = Field(
-        description="The scattering process to use and any needed information"
+    scattering_processes: dict[
+        str, dict[str, Species | FluidSpecies | int | float | str]
+    ] = Field(
+        description=(
+            "The scattering processes and their parameters. Each entry requires a "
+            "``cross_section`` path. Background-MCC ionization and attachment entries "
+            "also require a product ``species``. Attachment entries require "
+            '``cross_section_units`` equal to ``"m2"`` or ``"m5"``; ``"m5"`` '
+            "additionally requires ``third_body_density`` in m^-3. Ionization entries "
+            'can select ``energy_sharing_model="RBEQ"`` with an ``rbeq_target`` of '
+            '``"N2"`` or ``"O2"``, independently of their ``scattering_angle_model``. '
+            '``rbeq_model`` selects ``"iaa_thesis_2023"`` (default) or '
+            '``"elmolcs_b8643810"``. IAA ionization uses the relativistic secondary '
+            "angular closure of Schmalzried Eq. (2.66) at all energies. "
+            "One elastic process can specify ``rotation_model``, ``rotation_file`` "
+            "and a fixed ``rotational_temperature`` (default: constant background "
+            'temperature). Use ``rotation_model="elastic_dcs"`` with the ordinary '
+            "elastic DCS. Rotational outcomes are independent of the scattering angle; "
+            "excitation requires the canonical internal-energy threshold. "
+            '``rotation_model="iaa_spectator"`` instead selects discrete N2 outcomes '
+            "conditioned on that angle, using pretabulated IAA spectator weights. "
+            "It retains the ordinary elastic rate; angular averaging determines the "
+            "effective rotational rates. The normalized spectator closure does not "
+            "impose detailed balance. Neither model evolves neutral rotational states. "
+            '``rotation_model="reciprocal_hybrid"`` uses prepared N2/O2 joint '
+            "distributions from a V6 ``rotation_file``. Its fixed temperature must "
+            "match ``rotational_temperature``. The bundle supplies the aggregate "
+            "rate and elastic angular marginal; omit ``differential_cross_section`` "
+            "for this option. All rotational tables and samplers are constructed "
+            "offline. The supplied ordinary elastic ``cross_section`` remains a "
+            "source-consistency input. Queries outside the supported collision-energy "
+            "range fail instead of extrapolating an endpoint. "
+            '``rotation_sampling="cumulative"`` selects the explicit reference '
+            'sampler; the default is ``"alias"``. '
+            "For V6 the representation must already be present in the supplied file. "
+            'The ``"IAA"`` angle model implements IAA ionization kinematics or, for '
+            "elastic electron scattering, samples the required "
+            "``differential_cross_section`` table. "
+        )
     )
     background_mass: float | None = Field(
         default=None,
@@ -3223,6 +3454,10 @@ class MCCCollisions(CollisionBase):
     max_background_density: float | None = Field(
         default=None,
         description="The maximum background density. When the background_density is an expression, this must also be specified.",
+    )
+    nu_max: float | None = Field(
+        default=None,
+        description="Null-collision majorant [s^-1], bounding the total frequency at every encountered state. If supplied, automatic construction is skipped.",
     )
     ndt_supercycle: int | None = Field(
         default=None,
@@ -3258,6 +3493,7 @@ class MCCCollisions(CollisionBase):
             collision.background_temperature = self.background_temperature
         collision.background_mass = self.background_mass
         collision.max_background_density = self.max_background_density
+        collision.nu_max = self.nu_max
         collision.ndt_supercycle = self.ndt_supercycle
         collision.ndt_subcycle = self.ndt_subcycle
         collision.start_step = self.start_step
@@ -3268,6 +3504,123 @@ class MCCCollisions(CollisionBase):
                 if key == "species":
                     val = val.name
                 collision.add_new_attr(process + "_" + key, val)
+
+
+class ProtonImpactIonizationCollisions(CollisionBase):
+    """Configure rigid-beam proton or bare-ion impact ionization.
+
+    The calibrated PJG-type N2/O2 SDCS represents inclusive electron yield
+    with effective electron/ion pairs, not exclusive single ionization.
+    All secondary energies are kinetic. Kinetic product ions inherit neutral
+    thermal velocities; immobile fluid products receive density increments.
+    Total cross sections are calculated from the built-in SDCS for particle
+    and fluid projectiles; no total-cross-section file is required. Configure
+    separate collision instances and neutral densities for N2 and O2.
+
+    Parameters
+    ----------
+    name: string
+        Name of the collision instance.
+
+    species: species instance
+        Positively charged projectile species. Its momentum is not changed.
+
+    product_species: list of species instances
+        Electron species followed by the singly charged molecular-ion species.
+
+    ionization_target: string
+        Molecular neutral target, either ``"N2"`` or ``"O2"``.
+
+    background_density: float or string
+        Neutral density in m^-3, or an expression in ``(x, y, z, t)``.
+
+    background_temperature: float or string
+        Neutral temperature in K, or an expression in ``(x, y, z, t)``.
+
+    fixed_product_weight: float
+        Desired electron-ion pair macroparticle weight.
+
+    max_products_per_cell: integer, optional
+        Maximum pairs created in one cell and collision call. Excess expected
+        weight is preserved by increasing the weight of each created pair. The
+        default is 64.
+
+    projectile_energy_min, projectile_energy_max: float, optional
+        Bounds in eV of the logarithmic PJG lookup table. The defaults are
+        5 keV and 10 GeV for protons, scaled by projectile/proton mass for
+        bare ions. A custom interval may narrow but not enlarge this range.
+        The total-data calibration is 5--4000 keV for protons; relativistic
+        energies and bare-ion scaling are constrained extrapolations.
+
+    ndt_supercycle: integer, optional
+        Run once every ``ndt_supercycle`` PIC steps.
+
+    ndt_subcycle: integer, optional
+        Run ``ndt_subcycle`` times per PIC step.
+
+    start_step: integer, optional
+        First PIC step on which to apply the collision, defaulting to zero.
+        Supercycle steps are counted from this offset.
+
+    source_sampling_points: integer, optional
+        Subintervals per longitudinal cell in the rigid beam's spatial sampling
+        CDF, with a default of 8. This does not change the integrated cell yield
+        or the product cap.
+
+    gas_quadrature_points: integer, optional
+        Subintervals per coordinate (r, z, time) in the positive composite
+        quadrature for a nonuniform background gas, from 1 to 16. The default is 2.
+
+    sampling_seed: integer, optional
+        Seed for the rigid fluid beam's quiet sequence; the default is zero.
+        Its cell counters are checkpointed. Rigid sources reject supercycling
+        above one; subcycling is supported.
+    """
+
+    species: Species | FluidSpecies
+    product_species: list[Species | FluidSpecies] = Field(min_length=2, max_length=2)
+    ionization_target: Literal["N2", "O2", "n2", "o2"]
+    background_density: float | str
+    background_temperature: float | str
+    fixed_product_weight: float
+    max_products_per_cell: int | None = None
+    projectile_energy_min: float | None = None
+    projectile_energy_max: float | None = None
+    ndt_supercycle: int | None = Field(default=None, ge=1)
+    ndt_subcycle: int | None = Field(default=None, ge=1)
+    source_sampling_points: int | None = None
+    gas_quadrature_points: int | None = None
+    sampling_seed: int | None = None
+    start_step: int | None = Field(default=None, ge=0)
+
+    def collision_initialize_inputs(self):
+        collision = pywarpx.Collisions.newcollision(self.name)
+        collision.type = "proton_impact_ionization"
+        collision.species = self.species.name
+        collision.product_species = [species.name for species in self.product_species]
+        collision.ionization_target = self.ionization_target
+        if isinstance(self.background_density, str):
+            collision.__setattr__(
+                "background_density(x,y,z,t)", self.background_density
+            )
+        else:
+            collision.background_density = self.background_density
+        if isinstance(self.background_temperature, str):
+            collision.__setattr__(
+                "background_temperature(x,y,z,t)", self.background_temperature
+            )
+        else:
+            collision.background_temperature = self.background_temperature
+        collision.fixed_product_weight = self.fixed_product_weight
+        collision.max_products_per_cell = self.max_products_per_cell
+        collision.projectile_energy_min = self.projectile_energy_min
+        collision.projectile_energy_max = self.projectile_energy_max
+        collision.ndt_supercycle = self.ndt_supercycle
+        collision.ndt_subcycle = self.ndt_subcycle
+        collision.source_sampling_points = self.source_sampling_points
+        collision.gas_quadrature_points = self.gas_quadrature_points
+        collision.sampling_seed = self.sampling_seed
+        collision.start_step = self.start_step
 
 
 class DSMCCollisions(CollisionBase):
@@ -3875,6 +4228,11 @@ class Simulation(picmistandard.PICMI_Simulation):
         description="Macroscopic material properties added with add_macroscopic_property",
     )
 
+    fluid_species: list[FluidSpecies] = Field(
+        default_factory=list,
+        description="Mesh species registered with add_fluid_species",
+    )
+
     # --- Runtime state (not user inputs).
     _inputs_initialized: bool = PrivateAttr(default=False)
     _warpx_initialized: bool = PrivateAttr(default=False)
@@ -3886,6 +4244,21 @@ class Simulation(picmistandard.PICMI_Simulation):
                 "This Simulation was finalized. Create new PICMI objects to "
                 "set up another simulation."
             )
+
+    def add_fluid_species(self, species):
+        """Register a :py:class:`FluidSpecies` before initializing the simulation."""
+        self._check_not_finalized()
+        if self._inputs_initialized:
+            raise RuntimeError(
+                "Add fluid species before initializing simulation inputs"
+            )
+        if not isinstance(species, FluidSpecies):
+            raise TypeError("add_fluid_species requires a FluidSpecies instance")
+        if any(
+            other.name == species.name for other in self.species + self.fluid_species
+        ):
+            raise ValueError(f"Species name {species.name!r} is already registered")
+        self.fluid_species.append(species)
 
     def initialize_inputs(self):
         self._check_not_finalized()
@@ -3969,7 +4342,7 @@ class Simulation(picmistandard.PICMI_Simulation):
                 particle_shape = s.particle_shape
 
         if particle_shape is not None and (
-            len(self.species) > 0 or len(self.lasers) > 0
+            len(self.species) > 0 or len(self.fluid_species) > 0 or len(self.lasers) > 0
         ):
             if isinstance(particle_shape, str):
                 interpolation_order = {
@@ -4015,6 +4388,13 @@ class Simulation(picmistandard.PICMI_Simulation):
                 self.injection_plane_positions[i],
                 self.injection_plane_normal_vectors[i],
             )
+
+        for fluid in self.fluid_species:
+            if fluid.name in pywarpx.particles.species_names:
+                raise ValueError(
+                    f"Species name {fluid.name!r} is also used by a kinetic species"
+                )
+            fluid.fluid_initialize_inputs()
 
         for interaction in self.interactions:
             if not isinstance(interaction, FieldIonization):
@@ -5037,6 +5417,8 @@ class ReducedDiagnostic(
         "FieldPoyntingFlux",
         "RhoMaximum",
         "ParticleNumber",
+        "ParticleCharge",
+        "PrescribedSourceBudget",
         "LoadBalanceCosts",
         "LoadBalanceEfficiency",
         "Timestep",
@@ -5120,6 +5502,8 @@ class ReducedDiagnostic(
         "FieldPoyntingFlux",
         "RhoMaximum",
         "ParticleNumber",
+        "ParticleCharge",
+        "PrescribedSourceBudget",
         "LoadBalanceCosts",
         "LoadBalanceEfficiency",
         "Timestep",

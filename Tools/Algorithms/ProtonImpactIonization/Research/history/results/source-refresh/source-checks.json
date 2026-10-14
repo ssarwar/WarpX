@@ -1,0 +1,77 @@
+{
+  "N2": {
+    "loss_grid_relative_change_1025_to_4097": {
+      "total": 3.306140472503216e-09,
+      "kinetic": 1.7675130692396124e-08,
+      "binding": 2.8192612688826557e-09,
+      "kinetic_second": 1.0363928604206762e-08
+    },
+    "fitting_grid_total_relative_change_1025_to_4097": 1.3535284004717596e-11,
+    "fitting_grid_mean_relative_change_1025_to_4097": 1.3516743280206356e-11,
+    "different_grid_total_relative_difference": 3.407518711640023e-11,
+    "soft_oscillator_strength_by_trial": {
+      "baseline": 10.89713333040738,
+      "J_only": 10.89713333040738,
+      "six_optical_weight_0.5": 8.88675336117069,
+      "six_optical_weight_1": 8.4386603791745,
+      "six_optical_weight_2": 8.261694029752181,
+      "five_center_numerator_zero": 8.38042215369829
+    },
+    "two_additional_starts": [
+      {
+        "success": true,
+        "evaluations": 11,
+        "objective_norm": 0.20395474210092776,
+        "maximum_spectral_relative_change": 1.277071901117921e-06
+      },
+      {
+        "success": true,
+        "evaluations": 11,
+        "objective_norm": 0.20395474210036227,
+        "maximum_spectral_relative_change": 2.4756279883852983e-06
+      }
+    ]
+  },
+  "O2": {
+    "loss_grid_relative_change_1025_to_4097": {
+      "total": 2.187335867986917e-09,
+      "kinetic": 6.125579599114417e-09,
+      "binding": 2.0399240074908676e-09,
+      "kinetic_second": 6.726251333688538e-09
+    },
+    "fitting_grid_total_relative_change_1025_to_4097": 8.695044684259301e-12,
+    "fitting_grid_mean_relative_change_1025_to_4097": 7.818190539410352e-12,
+    "different_grid_total_relative_difference": 1.2372880497935057e-11,
+    "soft_oscillator_strength_by_trial": {
+      "baseline": 12.471816942523574,
+      "J_only": 12.471816942523574,
+      "six_optical_weight_0.5": 12.020641502495373,
+      "six_optical_weight_1": 11.249455201785198,
+      "six_optical_weight_2": 10.990942116207322,
+      "five_center_numerator_zero": 11.139265195803377
+    },
+    "two_additional_starts": [
+      {
+        "success": true,
+        "evaluations": 9,
+        "objective_norm": 0.2163774633881854,
+        "maximum_spectral_relative_change": 3.7016022125246906e-07
+      },
+      {
+        "success": true,
+        "evaluations": 8,
+        "objective_norm": 0.2163774633882436,
+        "maximum_spectral_relative_change": 1.275100961484199e-06
+      }
+    ]
+  },
+  "cheng_50keV_last_point": {
+    "secondary_eV": 294.705170255181,
+    "rudd_formula_to_digitized_ratio": 0.43794622500258,
+    "two_pixel_corner_shift_ratio_range": [
+      0.3296779901486173,
+      0.580120559213625
+    ],
+    "interpretation": "Sensitivity only, not an experimental confidence interval."
+  }
+}

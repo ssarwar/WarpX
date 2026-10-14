@@ -270,6 +270,13 @@ void BeamRelevant::ComputeDiags (int step)
         ( values_per_rank_1st.data(), static_cast<int>(values_per_rank_1st.size()), ParallelDescriptor::Communicator());
 
         const ParticleReal w_sum   = values_per_rank_1st.at(0);
+        if (w_sum < std::numeric_limits<Real>::min() )
+        {
+            for (auto& item: m_data) { item = 0.0_rt; }
+
+            return;
+        }
+
         const ParticleReal x_mean  = values_per_rank_1st.at(1) /= w_sum;
         const ParticleReal y_mean  = values_per_rank_1st.at(2) /= w_sum;
         const ParticleReal z_mean  = values_per_rank_1st.at(3) /= w_sum;
@@ -277,13 +284,6 @@ void BeamRelevant::ComputeDiags (int step)
         const ParticleReal uy_mean = values_per_rank_1st.at(5) /= w_sum;
         const ParticleReal uz_mean = values_per_rank_1st.at(6) /= w_sum;
         const ParticleReal gm_mean = values_per_rank_1st.at(7) /= w_sum;
-
-        if (w_sum < std::numeric_limits<Real>::min() )
-        {
-            for (auto& item: m_data) { item = 0.0_rt; }
-
-            return;
-        }
 
         // number of reduction operations in second concurrent batch
         constexpr size_t num_red_ops_2 = 11;
@@ -376,8 +376,8 @@ void BeamRelevant::ComputeDiags (int step)
         m_data[14] = std::sqrt(x_ms*ux_ms-xux*xux) / PhysConst::c;
         m_data[15] = std::sqrt(y_ms*uy_ms-yuy*yuy) / PhysConst::c;
         m_data[16] = std::sqrt(z_ms*uz_ms-zuz*zuz) / PhysConst::c;
-        m_data[17] = - (PhysConst::c * xux) / std::sqrt(x_ms*ux_ms-xux*xux);
-        m_data[18] = - (PhysConst::c * yuy) / std::sqrt(y_ms*uy_ms-yuy*yuy);
+        m_data[17] = - xux / std::sqrt(x_ms*ux_ms-xux*xux);
+        m_data[18] = - yuy / std::sqrt(y_ms*uy_ms-yuy*yuy);
         m_data[19] = (PhysConst::c * x_ms) / std::sqrt(x_ms*ux_ms-xux*xux);
         m_data[20] = (PhysConst::c * y_ms) / std::sqrt(y_ms*uy_ms-yuy*yuy);
         m_data[21] = charge;
@@ -396,7 +396,7 @@ void BeamRelevant::ComputeDiags (int step)
         m_data[11] = std::sqrt(gm_ms);
         m_data[12] = std::sqrt(x_ms*ux_ms-xux*xux) / PhysConst::c;
         m_data[13] = std::sqrt(z_ms*uz_ms-zuz*zuz) / PhysConst::c;
-        m_data[14] = - (PhysConst::c * xux) / std::sqrt(x_ms*ux_ms-xux*xux);
+        m_data[14] = - xux / std::sqrt(x_ms*ux_ms-xux*xux);
         m_data[15] = (PhysConst::c * x_ms) / std::sqrt(x_ms*ux_ms-xux*xux);
         m_data[16] = charge;
         amrex::ignore_unused(y_mean, y_ms, yuy);
@@ -412,7 +412,7 @@ void BeamRelevant::ComputeDiags (int step)
         m_data[8]  = std::sqrt(uz_ms) * m;
         m_data[9]  = std::sqrt(gm_ms);
         m_data[10] = std::sqrt(x_ms*ux_ms-xux*xux) / PhysConst::c;
-        m_data[11] = - (PhysConst::c * xux) / std::sqrt(x_ms*ux_ms-xux*xux);
+        m_data[11] = - xux / std::sqrt(x_ms*ux_ms-xux*xux);
         m_data[12] = (PhysConst::c * x_ms) / std::sqrt(x_ms*ux_ms-xux*xux);
         m_data[13] = charge;
         amrex::ignore_unused(y_ms, yuy, z_mean, z_ms, zuz);

@@ -9,6 +9,7 @@
 #define WARPX_SMART_CREATE_H_
 
 #include "DefaultInitialization.H"
+#include "SmartUtils.H"
 
 #include <AMReX.H>
 #include <AMReX_AmrCore.H>

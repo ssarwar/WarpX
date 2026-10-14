@@ -11,26 +11,32 @@
 class PartPerCellFunctor final : public ComputeDiagFunctor
 {
 public:
-    /** Constructor.
-     * \param[in] mf_src source multifab. Must be nullptr as not source MF is needed
-     *            to compute the number of particles per cell, banane.
-     * \param[in] lev level of multifab. Used for averaging in rz.
-     * \param[in] crse_ratio for interpolating field values from simulation MultiFabs
-                  to the output diagnostic MultiFab mf_dst.
-     * \param[in] species_index Index of species to dump part_per_cell per species. This argument
-     *                          is optional and defaults to -1 (dump total rho)
-     * \param[in] ncomp Number of component of mf_src to cell-center in dst multifab.
-     */
-    PartPerCellFunctor(const amrex::MultiFab* mf_src, int lev,
-                       amrex::IntVect crse_ratio, int species_index=-1, int ncomp=1);
+  /** Constructor.
+   * \param[in] mf_src source multifab. Must be nullptr as not source MF is
+   needed
+   *            to compute the number of particles per cell, banane.
+   * \param[in] lev level of multifab. Used for averaging in rz.
+   * \param[in] crse_ratio for interpolating field values from simulation
+   MultiFabs to the output diagnostic MultiFab mf_dst.
+   * \param[in] species_index Species index in the diagnostic registry (kinetic,
+   then fluid).
+   *                          Defaults to -1 for the total macroparticle count.
+   *                          Fluid species have zero macroparticles.
+   * \param[in] ncomp Number of component of mf_src to cell-center in dst
+   multifab.
+   */
+  PartPerCellFunctor (const amrex::MultiFab* mf_src, int lev,
+                      amrex::IntVect crse_ratio, int species_index = -1,
+                      int ncomp = 1);
 
-    /** \brief Compute the number of particles per cell directly into mf_dst.
-     *
-     * \param[out] mf_dst output MultiFab where the result is written
-     * \param[in] dcomp first component of mf_dst in which cell-centered
-     *            data is stored
-     */
-    void operator()(amrex::MultiFab& mf_dst, int dcomp, int /*i_buffer=0*/) const override;
+  /** \brief Compute the number of particles per cell directly into mf_dst.
+   *
+   * \param[out] mf_dst output MultiFab where the result is written
+   * \param[in] dcomp first component of mf_dst in which cell-centered
+   *            data is stored
+   */
+  void operator()(amrex::MultiFab& mf_dst, int dcomp,
+                  int /*i_buffer=0*/) const override;
 private:
     int m_lev; /**< level on which mf_src is defined */
 

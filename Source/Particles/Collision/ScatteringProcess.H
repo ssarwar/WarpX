@@ -18,7 +18,10 @@
 #include <AMReX_RandomEngine.H>
 #include <AMReX_Vector.H>
 
+#include <limits>
+#include <map>
 #include <string>
+#include <vector>
 
 enum class ScatteringProcessType {
     INVALID,
@@ -27,6 +30,7 @@ enum class ScatteringProcessType {
     CHARGE_EXCHANGE,
     EXCITATION,
     IONIZATION,
+    ATTACHMENT,
 };
 
 class ScatteringProcess
@@ -76,9 +80,9 @@ public:
                                 );
 
     struct Executor {
-        /** Get the collision cross-section using a simple linear interpolator. If
-         * the energy value is lower (higher) than the given energy range the
-         * first (last) cross-section value is used.
+        /** Get the collision cross section by linear interpolation. Unmarked
+         * tables use their first/last value outside the tabulated interval.
+         * Explicitly bounded tables reject queries outside their supported range.
          *
          * @param E_coll collision energy in eV
          *
@@ -87,6 +91,15 @@ public:
         AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
         amrex::ParticleReal getCrossSection (amrex::ParticleReal E_coll) const
         {
+            if (m_bounded_energy) {
+                constexpr double tolerance =
+                    8 * std::numeric_limits<amrex::ParticleReal>::epsilon();
+                AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
+                    double(E_coll) >= m_valid_energy_lo * (1 - tolerance) &&
+                        double(E_coll) <= m_valid_energy_hi * (1 + tolerance),
+                    "Collision energy is outside the cross-section file's "
+                    "supported range.");
+            }
             if (E_coll < m_energy_lo) {
                 return m_sigma_lo;
             } else if (E_coll > m_energy_hi) {
@@ -103,7 +116,10 @@ public:
                 const amrex::ParticleReal temp =
                     (E_coll - m_energies_data[idx_1])
                     / (m_energies_data[idx_2] - m_energies_data[idx_1]);
-                return m_sigmas_data[idx_1] + (m_sigmas_data[idx_2] - m_sigmas_data[idx_1]) * temp;
+                // A convex sum preserves small positive endpoints on a falling
+                // table; lo + f*(hi-lo) can cancel even at the last knot.
+                return (amrex::ParticleReal(1) - temp) * m_sigmas_data[idx_1] +
+                       temp * m_sigmas_data[idx_2];
             }
         }
 
@@ -114,9 +130,11 @@ public:
         amrex::ParticleReal m_energy_penalty;
         ScatteringProcessType m_type;
         ScatteringAngleModel m_scattering_angle_model;
-        /** True if this process creates new product particles (ionization, charge exchange,
-         *  two-product reaction); false for purely scattering processes (elastic, excitation). **/
+        /** True if this process creates or removes particles. */
         bool m_produces_products = false;
+        bool m_bounded_energy = false;
+        double m_valid_energy_lo = 0;
+        double m_valid_energy_hi = std::numeric_limits<double>::infinity();
     };
 
     [[nodiscard]]
@@ -133,22 +151,72 @@ public:
         return m_exe_h.getCrossSection(E_coll);
     }
 
+    /** Set a one-time multiplicative conversion from the tabulated values to m^2.
+     *
+     * The unscaled values are retained in double precision. This is important for
+     * three-body attachment tables in m^5, whose entries can underflow in a
+     * single-precision build before multiplication by the third-body density.
+     */
+    void setCrossSectionMultiplier (double multiplier);
+
+    /** Replace a combined family's ordinary rate by zero on its own energy
+     * knots. */
+    void useZeroRateGrid (amrex::Gpu::HostVector<amrex::ParticleReal> const& energies);
+
     [[nodiscard]] amrex::ParticleReal getEnergyPenalty () const { return m_exe_h.m_energy_penalty; }
     [[nodiscard]] amrex::ParticleReal getMinEnergyInput () const { return m_exe_h.m_energy_lo; }
     [[nodiscard]] amrex::ParticleReal getMaxEnergyInput () const { return m_exe_h.m_energy_hi; }
     [[nodiscard]] amrex::ParticleReal getEnergyInputStep () const { return m_exe_h.m_dE; }
+    [[nodiscard]] double
+    validEnergyMin () const {
+        return m_exe_h.m_valid_energy_lo;
+    }
+    [[nodiscard]] double
+    validEnergyMax () const {
+        return m_exe_h.m_valid_energy_hi;
+    }
 
+    [[nodiscard]] amrex::Vector<amrex::ParticleReal> const& getEnergyGrid () const
+    {
+        return m_energies;
+    }
+
+    [[nodiscard]] amrex::Gpu::HostVector<amrex::ParticleReal> const& getCrossSectionGrid () const
+    {
+        return m_sigmas_h;
+    }
+
+    /** Read a recognized source identifier from a cross-section comment. */
+    [[nodiscard]] std::string
+    metadata (std::string const& key) const
+    {
+        auto const entry = m_metadata.find(key);
+        return entry == m_metadata.end() ? std::string{} : entry->second;
+    }
+
+    [[nodiscard]] std::string const& name () const { return m_name; }
     [[nodiscard]] ScatteringProcessType type () const { return m_exe_h.m_type; }
+    [[nodiscard]] ScatteringAngleModel scatteringAngleModel () const
+    {
+        return m_exe_h.m_scattering_angle_model;
+    }
 
     static
     ScatteringProcessType parseProcessType(const std::string& process);
 
 private:
+  static void readCrossSectionFileRaw (const std::string& cross_section_file,
+                                       amrex::Vector<amrex::ParticleReal>& energies,
+                                       std::vector<double>& sigmas,
+                                       std::map<std::string, std::string>* metadata = nullptr);
 
-    void init (const std::string& scattering_process, amrex::ParticleReal energy,
-               ScatteringAngleModel scattering_angle_model);
+  void init (const std::string& scattering_process, amrex::ParticleReal energy,
+             ScatteringAngleModel scattering_angle_model);
 
-    amrex::Vector<amrex::ParticleReal> m_energies;
+  std::string m_name;
+  std::map<std::string, std::string> m_metadata;
+  amrex::Vector<amrex::ParticleReal> m_energies;
+  std::vector<double> m_sigmas_unscaled;
 
 #ifdef AMREX_USE_GPU
     amrex::Gpu::DeviceVector<amrex::ParticleReal> m_energies_d;

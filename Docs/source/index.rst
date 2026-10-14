@@ -80,6 +80,8 @@ Usage
 
    usage/how_to_run
    usage/examples
+   usage/beam_air
+   usage/collision_data
    usage/parameters
    usage/python
    usage/workflows

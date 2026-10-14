@@ -1,0 +1,4 @@
+# Preserve checksummed PJG evidence, including original source line endings.
+Tools/Algorithms/ProtonImpactIonization/Research/** -text
+# Attributed input snapshots retain their original whitespace as well.
+Tools/Algorithms/ProtonImpactIonization/Research/inputs/** -whitespace

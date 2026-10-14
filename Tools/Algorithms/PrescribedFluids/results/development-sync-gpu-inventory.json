@@ -1,0 +1,84 @@
+{
+  "note": "CUDA build inventory only; no physics execution in this check. Disjoint groups exactly cover all eligible tests, with restart dependency guards applied.",
+  "eligible": 1099,
+  "excluded": 47,
+  "groups": {
+    "1d": {
+      "selected": 148,
+      "excluded": {},
+      "units": [
+        "pytest.WarpX.1d"
+      ]
+    },
+    "2d": {
+      "selected": 341,
+      "excluded": {
+        "test_2d_qed_breit_wheeler.run": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_2d_qed_breit_wheeler.analysis": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_2d_qed_breit_wheeler.checksum": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_2d_qed_breit_wheeler_opmd.run": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_2d_qed_breit_wheeler_opmd.analysis": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_2d_qed_breit_wheeler_opmd.checksum": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_2d_qed_quantum_sync.run": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_2d_qed_quantum_sync.analysis": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_2d_qed_quantum_sync.checksum": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF"
+      },
+      "units": [
+        "pytest.WarpX.2d"
+      ]
+    },
+    "rz": {
+      "selected": 226,
+      "excluded": {},
+      "units": [
+        "pytest.WarpX.rz"
+      ]
+    },
+    "3d": {
+      "selected": 384,
+      "excluded": {
+        "test_3d_collider_diagnostics.run": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_3d_collider_diagnostics.analysis": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_3d_collider_diagnostics.checksum": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_3d_nodal_electrostatic_solver.run": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_3d_nodal_electrostatic_solver.analysis": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_3d_nodal_electrostatic_solver.checksum": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_3d_qed_breit_wheeler.run": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_3d_qed_breit_wheeler.analysis": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_3d_qed_breit_wheeler.checksum": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_3d_qed_breit_wheeler_opmd.run": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_3d_qed_breit_wheeler_opmd.analysis": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_3d_qed_breit_wheeler_opmd.checksum": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_3d_qed_quantum_sync.run": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_3d_qed_quantum_sync.analysis": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_3d_qed_quantum_sync.checksum": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_3d_qed_schwinger_1.run": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_3d_qed_schwinger_1.analysis": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_3d_qed_schwinger_1.checksum": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_3d_qed_schwinger_2.run": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_3d_qed_schwinger_2.analysis": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_3d_qed_schwinger_2.checksum": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_3d_qed_schwinger_3.run": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_3d_qed_schwinger_3.analysis": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_3d_qed_schwinger_3.checksum": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_3d_qed_schwinger_4.run": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_3d_qed_schwinger_4.analysis": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_3d_qed_schwinger_4.checksum": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_3d_beamsize_effect.run": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_3d_beamsize_effect.analysis": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_3d_beamsize_effect.checksum": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_3d_virtual_photons.run": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_3d_virtual_photons.analysis": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_3d_virtual_photons.checksum": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_3d_beam_beam_collision.run": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_3d_beam_beam_collision.checksum": "Requires compiled QED processes/diagnostics; WarpX_QED=OFF",
+        "test_3d_ion_beam_extraction.run": "Requires embedded-boundary injection; WarpX_EB=OFF",
+        "test_3d_ion_beam_extraction.analysis": "Requires embedded-boundary injection; WarpX_EB=OFF",
+        "test_3d_ion_beam_extraction.checksum": "Requires embedded-boundary injection; WarpX_EB=OFF"
+      },
+      "units": [
+        "pytest.WarpX.3d"
+      ]
+    }
+  }
+}

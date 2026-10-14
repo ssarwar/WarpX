@@ -39,6 +39,7 @@ Simulation and Grid Setup
 
 .. autopydantic_model:: pywarpx.picmi.Simulation
     :inherited-members: BaseModel
+    :members: step, add_species, add_fluid_species, add_laser, add_applied_field, add_interaction, add_diagnostic, write_input_file
 
 .. autopydantic_model:: pywarpx.picmi.Cartesian3DGrid
     :inherited-members: BaseModel
@@ -193,6 +194,15 @@ For instance, background plasma electrons, background plasma ions and an externa
 .. autopydantic_model:: pywarpx.picmi.MultiSpecies
     :inherited-members: BaseModel
 
+Fluids use mesh fields and are registered with ``Simulation.add_fluid_species`` without
+a particle layout. Their model and parameters are described under
+:ref:`running-cpp-parameters-fluids`. The low-level interface exposes
+``pywarpx.new_fluid_species(name, **parameters)`` and ``pywarpx.fluids``; its parameter
+names are identical to text inputs. Finalizing a simulation clears this registry.
+
+.. autopydantic_model:: pywarpx.picmi.FluidSpecies
+    :inherited-members: BaseModel
+
 Particle distributions can be used for to initialize particles in a particle species.
 Any of them is passed as :py:data:`~picmistandard.PICMI_AnyDistribution` to ``Species(initial_distribution=...)``.
 
@@ -236,6 +246,14 @@ Other operations related to particles:
 
 .. autopydantic_model:: pywarpx.picmi.MCCCollisions
     :inherited-members: BaseModel
+
+.. autopydantic_model:: pywarpx.picmi.ProtonImpactIonizationCollisions
+    :inherited-members: BaseModel
+
+For complete N2/O2 production process dictionaries, see
+:ref:`usage-collision-data` and :ref:`usage-beam-air`.
+
+.. autofunction:: pywarpx.iaa_air.load_iaa_air_processes
 
 .. autopydantic_model:: pywarpx.picmi.FieldIonization
     :inherited-members: BaseModel

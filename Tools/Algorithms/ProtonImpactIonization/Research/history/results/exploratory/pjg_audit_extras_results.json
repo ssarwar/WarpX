@@ -1,0 +1,26 @@
+{
+  "N2": {
+    "replace_above_100_keV_diagnostic": {
+      "total_relative_change": 5.802094673379443e-06,
+      "mean_relative_change": 0.035424502850107675,
+      "second_moment_relative_change": 0.2314724589528645
+    },
+    "angular_forward_atom_probability": {
+      "1000.0": 0.15959360261890143,
+      "50000.0": 0.0011885083131658093,
+      "800000000.0": 4.315026076147317e-12
+    }
+  },
+  "O2": {
+    "replace_above_100_keV_diagnostic": {
+      "total_relative_change": 1.0743584927919159e-05,
+      "mean_relative_change": 0.05115107360764326,
+      "second_moment_relative_change": 0.35126206267355786
+    },
+    "angular_forward_atom_probability": {
+      "1000.0": 0.15936122728874932,
+      "50000.0": 0.0030184212940103467,
+      "800000000.0": 3.3780816436982144e-12
+    }
+  }
+}

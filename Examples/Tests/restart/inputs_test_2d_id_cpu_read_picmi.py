@@ -146,7 +146,8 @@ sim.step(max_steps)
 ids_sum = 0
 cpu_sum = 0
 for pti in electrons.iterator(level=0):
-    idcpu = pti["idcpu"]
+    # The unpacking helpers require host arrays, including in GPU runs.
+    idcpu = pti.soa().get_idcpu_data().to_numpy(copy=True)
     ids = libwarpx.amr.unpack_ids(idcpu)
     cpu = libwarpx.amr.unpack_cpus(idcpu)
 

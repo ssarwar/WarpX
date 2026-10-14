@@ -1,0 +1,3 @@
+# Synthetic constant-rate regression fixture; energy [eV], cross section [m^2].
+0 1e-20
+1e8 1e-20

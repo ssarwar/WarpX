@@ -57,6 +57,7 @@ Species Representations
 
    kinetic_particles
    cold_fluid_model
+   prescribed_fluids
 
 Boundary Conditions
 ===================

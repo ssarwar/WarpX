@@ -49,6 +49,26 @@ def check_restart(filename, tolerance=1e-12):
         dims=ds_benchmark.domain_dimensions,
     )
 
+    # GPU redistribution and checkpoint reading need not preserve storage order.
+    # Match every attribute by the persistent (creation CPU, particle ID) pair.
+    # Check identities exactly before comparing physical values at the existing
+    # tolerance, so missing or duplicated particles cannot be hidden by sorting.
+    particle_orders = {}
+    for species, attribute in ds_benchmark.field_list:
+        if attribute != "particle_id":
+            continue
+        orders, identities = [], []
+        for data in (ad_benchmark, ad_restart):
+            ids = data[species, "particle_id"].v.reshape(-1)
+            cpus = data[species, "particle_cpu"].v.reshape(-1)
+            order = np.lexsort((ids, cpus))
+            pairs = np.column_stack((cpus[order], ids[order]))
+            assert not np.any(np.all(pairs[1:] == pairs[:-1], axis=1)), species
+            orders.append(order)
+            identities.append(pairs)
+        np.testing.assert_array_equal(*identities, err_msg=species)
+        particle_orders[species] = orders
+
     # Loop over all fields (all particle species, all particle attributes, all grid fields)
     # and compare output data generated from initial run with output data generated after restart
     print(f"\ntolerance = {tolerance}")
@@ -56,6 +76,13 @@ def check_restart(filename, tolerance=1e-12):
     for field in ds_benchmark.field_list:
         dr = ad_restart[field].squeeze().v
         db = ad_benchmark[field].squeeze().v
+        if field[0] in particle_orders:
+            benchmark_order, restart_order = particle_orders[field[0]]
+            db = db.reshape(-1)[benchmark_order]
+            dr = dr.reshape(-1)[restart_order]
+        assert dr.shape == db.shape, field
+        if db.size == 0:
+            continue
         error = np.amax(np.abs(dr - db))
         if np.amax(np.abs(db)) != 0.0:
             error /= np.amax(np.abs(db))

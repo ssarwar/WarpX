@@ -61,9 +61,8 @@ SpectralFieldDataRZ::SpectralFieldDataRZ (const int lev,
 
     // Allocate and initialize the FFT plans and Hankel transformer.
     forward_plan = FFTplans(spectralspace_ba, dm);
-#ifndef AMREX_USE_CUDA
-    // The backward plan is not needed with CUDA since it would be the same
-    // as the forward plan anyway.
+#if !defined(AMREX_USE_CUDA) && !defined(AMREX_USE_SYCL)
+    // CUDA and SYCL use the same complex plan for both directions.
     backward_plan = FFTplans(spectralspace_ba, dm);
 #endif
 
@@ -153,6 +152,11 @@ SpectralFieldDataRZ::SpectralFieldDataRZ (const int lev,
                 "rocfft_plan_description_destroy failed!\n",
                 ablastr::warn_manager::WarnPriority::high);
         }
+#elif defined(AMREX_USE_SYCL)
+        // Each radial index is a separate strided z transform, as with cuFFT.
+        // The same unnormalized plan is applied to each azimuthal mode.
+        forward_plan[mfi] = std::make_unique<ablastr::math::anyfft::BatchedMklFFT>(
+            grid_size[1], grid_size[0]);
 #else
         // Create FFTW plans.
         fftw_iodim dims[1];
@@ -230,6 +234,8 @@ SpectralFieldDataRZ::~SpectralFieldDataRZ()
 #elif defined(AMREX_USE_HIP)
             rocfft_plan_destroy(forward_plan[mfi]);
             rocfft_plan_destroy(backward_plan[mfi]);
+#elif defined(AMREX_USE_SYCL)
+            forward_plan[mfi].reset();
 #else
             // Destroy FFTW plans.
 #  ifdef AMREX_USE_FLOAT
@@ -317,6 +323,11 @@ SpectralFieldDataRZ::FABZForwardTransform (amrex::MFIter const & mfi, amrex::Box
     amrex::Gpu::streamSynchronize();
     amrex::The_Arena()->free(buffer);
     result = rocfft_execution_info_destroy(execinfo);
+#elif defined(AMREX_USE_SYCL)
+    for (int mode = 0; mode < n_rz_azimuthal_modes; ++mode) {
+        forward_plan[mfi]->Forward(tempHTransformed[mfi].dataPtr(mode),
+                                   tmpSpectralField[mfi].dataPtr(mode));
+    }
 #else
 #  ifdef AMREX_USE_FLOAT
     fftwf_execute(forward_plan[mfi]);
@@ -417,7 +428,7 @@ SpectralFieldDataRZ::FABZBackwardTransform (amrex::MFIter const & mfi, amrex::Bo
     rocfft_execution_info execinfo = nullptr;
     rocfft_status result = rocfft_execution_info_create(&execinfo);
     std::size_t buffersize = 0;
-    result = rocfft_plan_get_work_buffer_size(forward_plan[mfi], &buffersize);
+    result = rocfft_plan_get_work_buffer_size(backward_plan[mfi], &buffersize);
     void* buffer = amrex::The_Arena()->alloc(buffersize);
     result = rocfft_execution_info_set_work_buffer(execinfo, buffer, buffersize);
     result = rocfft_execution_info_set_stream(execinfo, amrex::Gpu::gpuStream());
@@ -436,6 +447,11 @@ SpectralFieldDataRZ::FABZBackwardTransform (amrex::MFIter const & mfi, amrex::Bo
     amrex::Gpu::streamSynchronize();
     amrex::The_Arena()->free(buffer);
     result = rocfft_execution_info_destroy(execinfo);
+#elif defined(AMREX_USE_SYCL)
+    for (int mode = 0; mode < n_rz_azimuthal_modes; ++mode) {
+        forward_plan[mfi]->Backward(tmpSpectralField[mfi].dataPtr(mode),
+                                    tempHTransformed[mfi].dataPtr(mode));
+    }
 #else
 #  ifdef AMREX_USE_FLOAT
     fftwf_execute(backward_plan[mfi]);

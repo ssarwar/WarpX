@@ -1536,11 +1536,10 @@ amrex::IntVect WarpX::ApplyVolumeWeightedFilter (amrex::MultiFab& dst, const amr
     // direction, ending at src.ng + npass.
     amrex::IntVect ng_avail = ng_tmp;
 
-    // Physical (non-periodic) domain boundaries: no smoothing flux crosses
-    // them, so the filter never exchanges with guard cells that nothing
-    // folds back -- the volume integral over the valid domain is conserved
-    // exactly. Periodic directions keep the ordinary flux (the guard sum
-    // restores it).
+    // Charge has no smoothing flux through physical domain boundaries, so
+    // its valid-domain volume integral is conserved. The staggered axial
+    // current uses the compatible face condition below. Periodic directions
+    // keep the ordinary smoothing flux (the guard sum restores it).
     const amrex::Box& domain = Geom(lev).Domain();
     const amrex::Periodicity& period = Geom(lev).periodicity();
 
@@ -1587,6 +1586,17 @@ amrex::IntVect WarpX::ApplyVolumeWeightedFilter (amrex::MultiFab& dst, const amr
             const amrex::Box domain_t = amrex::convert(domain, in.ixType().toIntVect());
             const int dom_lo = domain_t.smallEnd(dir);
             const int dom_hi = domain_t.bigEnd(dir);
+#ifdef WARPX_DIM_RZ
+            // On the staggered grid Jz is cell-centered in z, whereas rho is
+            // nodal. Smoothing valid current faces with the full stencil and
+            // retaining the exterior faces makes D_z S_J = S_rho D_z, including
+            // boundary charge nodes. Closing smoothing flux separately at the
+            // first/last current cell would break discrete charge continuity.
+            bool const axial_current = WarpX::grid_type ==
+                ablastr::utils::enums::GridType::Staggered && !in.ixType()[1];
+#else
+            bool const axial_current = false;
+#endif
 
             if (dir == 0) {
                 amrex::ParallelFor(tb, ncomp,
@@ -1617,10 +1627,17 @@ amrex::IntVect WarpX::ApplyVolumeWeightedFilter (amrex::MultiFab& dst, const amr
                     amrex::Real w_lo = 1._rt;
                     amrex::Real w_hi = 1._rt;
                     if (!dir_periodic) {
-                        if (j >= dom_hi) { w_hi = 0._rt; }
-                        if (j <= dom_lo) { w_lo = 0._rt; }
-                        if (j > dom_hi)  { w_lo = 0._rt; }
-                        if (j < dom_lo)  { w_hi = 0._rt; }
+                        if (axial_current) {
+                            if (j < dom_lo || j > dom_hi) {
+                                w_lo = 0._rt;
+                                w_hi = 0._rt;
+                            }
+                        } else {
+                            if (j >= dom_hi) { w_hi = 0._rt; }
+                            if (j <= dom_lo) { w_lo = 0._rt; }
+                            if (j > dom_hi)  { w_lo = 0._rt; }
+                            if (j < dom_lo)  { w_hi = 0._rt; }
+                        }
                     }
                     v(i,j,k,n) = u(i,j,k,n) + 0.25_rt *
                         ( w_hi*(u(i,j+1,k,n) - u(i,j,k,n))

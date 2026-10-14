@@ -1,0 +1,104 @@
+{
+  "source": {
+    "title": "Oscillator strength spectra and related quantities of 9 atoms and 23 molecules over the entire energy region",
+    "authors": "Sakamoto et al.",
+    "report": "NIFS-DATA-109",
+    "published": "2010-04-08",
+    "retrieved": "2026-09-09",
+    "url": "https://nifs-repository.repo.nii.ac.jp/record/11706/files/NIFS-DATA-109.pdf",
+    "sha256": "432332e8835a00c1e0fcee32d1cc8a85d4a983f8841c799abd832f9e19af76d7",
+    "kind": "evaluated total photoabsorption, based on Berkowitz (2002)",
+    "normalization": "selected using TRK and polarizability sum rules; these checks are not independent validation",
+    "continuum_columns": [
+      "loss_eV",
+      "df_dloss_per_eV",
+      "absorption_Mb",
+      "mass_attenuation_cm2_per_g",
+      "wavelength_angstrom"
+    ],
+    "line_columns": [
+      "loss_eV",
+      "oscillator_strength",
+      "wavelength_angstrom"
+    ],
+    "band_columns": [
+      "lower_eV",
+      "upper_eV",
+      "integrated_strength"
+    ]
+  },
+  "targets": {
+    "N2": {
+      "linear": {
+        "strength_through_100keV": 14.030663188550001,
+        "strength_over_electron_count": 1.0021902277535715,
+        "log_mean_excitation_eV": 83.8437970671572,
+        "polarizability_a0_cubed": 11.957147675256046,
+        "unresolved_band_polarizability_bounds": [
+          11.957147675256046,
+          11.957147675256046
+        ],
+        "sub_ionization_strength": 1.2218033135,
+        "continuum_25_100eV_strength": 5.5484100000000005,
+        "above_100eV_strength": 5.044956515050001,
+        "notes": "Finite tabulated range only; no above-100-keV tail added. Sum rules influenced source selection. This is not independent validation."
+      },
+      "log": {
+        "strength_through_100keV": 13.899386460276595,
+        "strength_over_electron_count": 0.9928133185911854,
+        "log_mean_excitation_eV": 83.16475971551355,
+        "polarizability_a0_cubed": 11.915759016338873,
+        "unresolved_band_polarizability_bounds": [
+          11.915759016338873,
+          11.915759016338873
+        ],
+        "sub_ionization_strength": 1.2159428367609564,
+        "continuum_25_100eV_strength": 5.508747766948703,
+        "above_100eV_strength": 4.962489010135727,
+        "notes": "Finite tabulated range only; no above-100-keV tail added. Sum rules influenced source selection. This is not independent validation."
+      },
+      "model_fixed_channel_loss_density_ratio_25_100eV": {
+        "minimum": 1.1060771868918704,
+        "maximum": 1.7495437664797904,
+        "log_rms": 0.34120732739795984,
+        "warning": "Diagnostic only: total absorption is not inclusive electron yield; fixed PJG channel allocation and absent core/decay channels limit this comparison."
+      }
+    },
+    "O2": {
+      "linear": {
+        "strength_through_100keV": 15.972462047750001,
+        "strength_over_electron_count": 0.9982788779843751,
+        "log_mean_excitation_eV": 97.58022604441231,
+        "polarizability_a0_cubed": 10.64790165899669,
+        "unresolved_band_polarizability_bounds": [
+          10.642385324014702,
+          10.65371900554775
+        ],
+        "sub_ionization_strength": 0.1896841565,
+        "continuum_25_100eV_strength": 7.18843,
+        "above_100eV_strength": 5.99961884875,
+        "notes": "Finite tabulated range only; no above-100-keV tail added. Sum rules influenced source selection. This is not independent validation."
+      },
+      "log": {
+        "strength_through_100keV": 15.809790944772725,
+        "strength_over_electron_count": 0.9881119340482953,
+        "log_mean_excitation_eV": 96.97539545228527,
+        "polarizability_a0_cubed": 10.545040033667094,
+        "unresolved_band_polarizability_bounds": [
+          10.539523698685107,
+          10.550857380218154
+        ],
+        "sub_ionization_strength": 0.18890519316801288,
+        "continuum_25_100eV_strength": 7.15235992248677,
+        "above_100eV_strength": 5.895634437839456,
+        "notes": "Finite tabulated range only; no above-100-keV tail added. Sum rules influenced source selection. This is not independent validation."
+      },
+      "model_fixed_channel_loss_density_ratio_25_100eV": {
+        "minimum": 0.9679865428740198,
+        "maximum": 1.4567524365994138,
+        "log_rms": 0.23347537321107545,
+        "warning": "Diagnostic only: total absorption is not inclusive electron yield; fixed PJG channel allocation and absent core/decay channels limit this comparison."
+      }
+    }
+  }
+}
