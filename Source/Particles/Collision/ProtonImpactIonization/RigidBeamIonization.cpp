@@ -372,7 +372,7 @@ ProtonImpactIonizationCollision::ProduceFromFluid (amrex::Real cur_time, amrex::
                 auto const products = ProtonImpactIonization::compute(
                     frame, secondary, threshold, projectile_mass, neutral_mass,
                     shiftedKronecker<double>(sample_index, angle_shift, 0x6a09e667u),
-                    2 * static_cast<double>(MathConst::pi) *
+                    2 * MathConst::pi_v<double> *
                         shiftedKronecker<double>(sample_index, azimuth_shift, 0xbb67ae85u));
                 if (!products.m_valid) {
                     AMREX_IF_ON_DEVICE(

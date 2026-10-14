@@ -139,7 +139,7 @@ namespace
         constexpr int quantile_count =
             BackgroundMCCElasticScatteringModel::quantile_grid_size;
         auto const angle_count = differential_cross_sections.front().size();
-        auto const angle_step = static_cast<double>(MathConst::pi) /
+        auto const angle_step = MathConst::pi_v<double> /
                                 static_cast<double>(angle_count - 1u);
         inverse_cdf_deflection.resize(
             differential_cross_sections.size() * quantile_count);

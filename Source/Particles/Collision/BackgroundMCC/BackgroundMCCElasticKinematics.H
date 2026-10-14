@@ -76,7 +76,7 @@ namespace BackgroundMCCElasticKinematics
         transverseDirections(axis, transverse1, transverse2);
         auto const direction =
             directionFromPolarAngle(axis, transverse1, transverse2, cosine,
-                                    2 * static_cast<double>(MathConst::pi) * amrex::Random(engine),
+                                    2 * MathConst::pi_v<double> * amrex::Random(engine),
                                     deflection);
         auto const electron_pc = scale(direction, std::sqrt(outgoing * (outgoing + 2 * m)));
         auto const recoil_pc = subtract(scale(axis, p), electron_pc);
@@ -125,7 +125,7 @@ namespace BackgroundMCCElasticKinematics
         constexpr double c2 = PhysConst::c2_v<double>;
         constexpr double inv_c2 = PhysConst::inv_c2_v<double>;
         constexpr double elementary_charge = PhysConst::q_e_v<double>;
-        constexpr double two_pi = 2.0 * static_cast<double>(MathConst::pi);
+        constexpr double two_pi = 2.0 * MathConst::pi_v<double>;
 
         Vector3 const neutral_velocity{static_cast<double>(neutral_vx),
                                        static_cast<double>(neutral_vy),
@@ -238,7 +238,7 @@ namespace BackgroundMCCElasticKinematics
         constexpr double c2 = PhysConst::c2_v<double>;
         constexpr double inv_c2 = PhysConst::inv_c2_v<double>;
         constexpr double elementary_charge = PhysConst::q_e_v<double>;
-        constexpr double two_pi = 2.0 * static_cast<double>(MathConst::pi);
+        constexpr double two_pi = 2.0 * MathConst::pi_v<double>;
 
         Vector3 const neutral_velocity{static_cast<double>(neutral_vx),
                                        static_cast<double>(neutral_vy),

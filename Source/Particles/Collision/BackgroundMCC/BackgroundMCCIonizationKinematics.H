@@ -159,7 +159,7 @@ namespace BackgroundMCCIonizationKinematics
         constexpr double c2 = PhysConst::c2_v<double>;
         constexpr double inv_c2 = PhysConst::inv_c2_v<double>;
         constexpr double elementary_charge = PhysConst::q_e_v<double>;
-        constexpr double two_pi = 2.0 * static_cast<double>(MathConst::pi);
+        constexpr double two_pi = 2.0 * MathConst::pi_v<double>;
 
         Vector3 const neutral_velocity{static_cast<double>(neutral_vx),
                                        static_cast<double>(neutral_vy),
@@ -221,7 +221,7 @@ namespace BackgroundMCCIonizationKinematics
                                                         transverse_2, primary_cosine, azimuth);
             secondary_direction = directionFromPolarAngle(
                 incident_direction, transverse_1, transverse_2, secondary_cosine,
-                azimuth + static_cast<double>(MathConst::pi));
+                azimuth + MathConst::pi_v<double>);
         }
         else if (angle_model == ScatteringAngleModel::Forward)
         {

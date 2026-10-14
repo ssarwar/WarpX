@@ -138,7 +138,8 @@ compareParticles (double dx, double cutoff) {
     for (int p = 0; p < samples; ++p) {
         double const z = -cutoff * sigma + (p + 0.5) * spacing;
         double const weight = spacing * std::exp(-z * z / (2 * sigma * sigma));
-        amrex::Real values[Order + 1];
+        // This quadrature is a double-precision reference even in a single-Real build.
+        double values[Order + 1];
         int const left = compute(values, (z + center) / dx + cells);
         for (int i = 0; i <= Order; ++i) {
             reference[left + i] += weight * values[i] / dx;

@@ -34,7 +34,7 @@ namespace ProtonImpactIonization
         constexpr double rydberg = 13.605693122994;
         constexpr double bohr_radius = 5.29177210544e-11;
         constexpr double bethe_constant =
-            4.0 * MathConst::pi * bohr_radius * bohr_radius * rydberg * rydberg;
+            4.0 * MathConst::pi_v<double> * bohr_radius * bohr_radius * rydberg * rydberg;
 
         bool
         inCalibrationRange (double const energy, double const mass)
