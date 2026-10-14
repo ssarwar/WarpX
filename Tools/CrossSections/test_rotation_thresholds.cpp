@@ -5,6 +5,7 @@
  * License: BSD-3-Clause-LBNL
  */
 #include "Particles/Collision/BackgroundMCC/BackgroundMCCElasticKinematics.H"
+#include "Particles/Collision/BackgroundMCC/BackgroundMCCSpectator.H"
 #include "Particles/Collision/BackgroundMCC/BackgroundMCCThermalRotation.H"
 
 #include <AMReX.H>
@@ -19,6 +20,57 @@
 
 namespace
 {
+    void checkForwardSpectator ()
+    {
+        // Two angular basis functions exchange all probability between the
+        // unchanged and J=0 -> J=2 outcomes over a tiny but nonzero angle.
+        // Its cosine rounds to one even in double precision.
+        constexpr double deflection = 1e-24;
+        amrex::Vector<double> energies{0, 2};
+        amrex::Vector<int> offsets{0, 3, 6};
+        float const y = static_cast<float>(std::sqrt(.5 * deflection));
+        amrex::Vector<float> angles{0, y, 1, 0, y, 1};
+        amrex::Vector<float> basis{1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0,
+                                    1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0};
+        amrex::Vector<float> weights(56, 0);
+        weights[12] = weights[28 + 12] = 1;
+        weights[17] = weights[28 + 17] = 1;
+        amrex::Vector<BackgroundMCCSpectator::Alias> aliases{{1, 0, 0}};
+        amrex::Gpu::DeviceVector<double> de(energies.size()), result(2);
+        amrex::Gpu::DeviceVector<int> di(offsets.size());
+        amrex::Gpu::DeviceVector<float> da(angles.size()), db(basis.size()), dw(weights.size());
+        amrex::Gpu::DeviceVector<BackgroundMCCSpectator::Alias> dl(aliases.size());
+        auto upload = [] (auto const& host, auto& device) {
+            amrex::Gpu::copy(amrex::Gpu::hostToDevice, host.begin(), host.end(), device.begin());
+        };
+        upload(energies, de);
+        upload(offsets, di);
+        upload(angles, da);
+        upload(basis, db);
+        upload(weights, dw);
+        upload(aliases, dl);
+        BackgroundMCCSpectator::Executor sampler;
+        sampler.m_energies = de.data();
+        sampler.m_energy_count = 2;
+        sampler.m_maximum_energy = 2;
+        sampler.m_angle_offsets = di.data();
+        sampler.m_angles = da.data();
+        sampler.m_angular_basis = db.data();
+        sampler.m_weights = dw.data();
+        sampler.m_initial_alias = dl.data();
+        sampler.m_population_count = 1;
+        sampler.m_state_count = 1;
+        auto* output = result.data();
+        amrex::ParallelFor(1, [=] AMREX_GPU_DEVICE (int) noexcept {
+            output[0] = sampler.sample(1, 1 - deflection, .5, .5, .5, deflection).m_loss;
+            output[1] = sampler.sample(1, 1, .5, .5, .5, 0).m_loss;
+        });
+        amrex::Vector<double> host(2);
+        amrex::Gpu::copy(amrex::Gpu::deviceToHost, result.begin(), result.end(), host.begin());
+        AMREX_ALWAYS_ASSERT(host[0] == 6 * .0002477204284695341 && host[1] == 0);
+        std::cout << "PASS: spectator outcomes retain sub-ulp forward deflections\n";
+    }
+
     struct Case
     {
         double m_energy, m_loss, m_cosine;
@@ -368,5 +420,6 @@ main (int argc, char *argv[])
     }
     checkIndependentSampler();
     checkMovingRecoil();
+    checkForwardSpectator();
     amrex::Finalize();
 }

@@ -1679,29 +1679,30 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTileImpl (
                     double const angle_draw = BackgroundMCCUtils::uniformDouble(engine);
                     // A zero relative momentum has no incident axis. Superelastic
                     // emission then uses the rotationally invariant angular limit.
-                    double const cosine =
+                    double const deflection =
                         rotation_energy == 0
-                            ? 1 - 2 * angle_draw
-                            : differential_scattering_processes[rotation_process].sampleCosine(
+                            ? 2 * angle_draw
+                            : differential_scattering_processes[rotation_process].sampleDeflection(
                                   E_coll, angle_draw);
+                    double const cosine = 1 - deflection;
                     auto const outcome = integral_rotation
                         ? rotation.sample(rotational_interpolation, amrex::Random(engine),
                                           amrex::Random(engine))
                         : spectator.sample(rotation_energy, cosine, amrex::Random(engine),
-                                           amrex::Random(engine), amrex::Random(engine));
+                                           amrex::Random(engine), amrex::Random(engine), deflection);
                     amrex::ParticleReal ex, ey, ez, nx, ny, nz;
                     bool physical = true;
                     if (outcome.m_loss == 0) {
                         BackgroundMCCElasticKinematics::compute(ux[ip], uy[ip], uz[ip], ua_x, ua_y,
                                                                 ua_z, m, M, cosine, engine, ex, ey, ez,
-                                                                nx, ny, nz);
+                                                                nx, ny, nz, deflection);
                     } else {
                         physical = BackgroundMCCElasticKinematics::computeRotation(
                             ux[ip], uy[ip], uz[ip], ua_x, ua_y, ua_z, m,
                             static_cast<double>(M) + outcome.m_initial_energy *
                                                          PhysConst::q_e_v<double> /
                                                          PhysConst::c2_v<double>,
-                            outcome.m_loss, cosine, engine, ex, ey, ez, nx, ny, nz);
+                            outcome.m_loss, cosine, engine, ex, ey, ez, nx, ny, nz, deflection);
                     }
                     if (physical) {
                         ux[ip] = ex;

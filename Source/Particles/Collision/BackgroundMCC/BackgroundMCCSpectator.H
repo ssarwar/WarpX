@@ -50,7 +50,7 @@ class BackgroundMCCSpectator
 
         [[nodiscard]] AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE Outcome
         sample (double energy, double cosine, double row_draw, double initial_draw,
-                double outcome_draw) const noexcept
+                double outcome_draw, double deflection = -1) const noexcept
         {
             int const lower = energy >= m_maximum_energy
                                   ? m_energy_count - 2
@@ -82,7 +82,8 @@ class BackgroundMCCSpectator
                 initial = m_initial_alias[lo].m_outcome;
             }
 
-            double const y = std::sqrt(amrex::max(0.0, (1 - cosine) * 0.5));
+            double const y = std::sqrt(amrex::max(
+                0.0, (deflection >= 0 ? deflection : 1 - cosine) * 0.5));
             int const first = m_angle_offsets[row];
             int const last = m_angle_offsets[row + 1] - 1;
             int const angle = y >= 1 ? last - 1 : amrex::bisect(m_angles, first, last, float(y));

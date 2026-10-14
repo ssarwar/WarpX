@@ -14,6 +14,7 @@
 #include <AMReX_REAL.H>
 #include <AMReX_Vector.H>
 
+#include <cmath>
 #include <cstddef>
 
 /** Exact cumulative cross-section table for Background MCC process selection.
@@ -32,6 +33,8 @@ public:
 
     struct Executor
     {
+        static constexpr int energy_lookup_bins = 64;
+
         struct Interpolation
         {
             int m_energy_index = 0;
@@ -74,8 +77,7 @@ public:
             }
             else if (collision_energy > m_energy_lo)
             {
-                energy_index = amrex::bisect(
-                    m_energies, 0, m_energy_count - 1, collision_energy);
+                energy_index = energyInterval(collision_energy);
                 energy_fraction =
                     (collision_energy - m_energies[energy_index]) /
                     (m_energies[energy_index + 1] - m_energies[energy_index]);
@@ -84,6 +86,26 @@ public:
             auto const total =
                 cumulativeCrossSection(m_process_count - 1, energy_index, energy_fraction);
             return {energy_index, energy_fraction, total};
+        }
+
+        /** Shorten the exact search using bounds at power-of-two subdivisions.
+         * The grid, interpolation and channel probabilities are unchanged.
+         */
+        [[nodiscard]] AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE int
+        energyInterval (amrex::ParticleReal const energy) const noexcept
+        {
+            if (m_energy_lookup == nullptr) {
+                return amrex::bisect(m_energies, 0, m_energy_count - 1, energy);
+            }
+            if (energy < m_energies[1]) { return 0; }
+            int exponent;
+            auto const mantissa = std::frexp(energy, &exponent);
+            int const bin = amrex::max(0, amrex::min(
+                (exponent - m_energy_lookup_min_exponent) * energy_lookup_bins +
+                    static_cast<int>((2 * mantissa - 1) * energy_lookup_bins),
+                m_energy_lookup_size - 2));
+            return amrex::bisect(m_energies, m_energy_lookup[bin],
+                                 m_energy_lookup[bin + 1] + 1, energy);
         }
 
         /** Select a channel using an already located energy interval. */
@@ -118,6 +140,9 @@ public:
 
         amrex::ParticleReal const* m_energies = nullptr;
         double const* m_cumulative_cross_sections = nullptr;
+        int const* m_energy_lookup = nullptr;
+        int m_energy_lookup_size = 0;
+        int m_energy_lookup_min_exponent = 0;
         int m_energy_count = 0;
         int m_process_count = 0;
         amrex::ParticleReal m_energy_lo = 0.0;
@@ -166,7 +191,8 @@ public:
     [[nodiscard]] std::size_t tableBytes () const noexcept
     {
         return sizeof(amrex::ParticleReal) * m_energies_h.size() +
-               sizeof(double) * m_cumulative_cross_sections_h.size();
+               sizeof(double) * m_cumulative_cross_sections_h.size() +
+               sizeof(int) * m_energy_lookup_h.size();
     }
 
     [[nodiscard]] Executor const& executor () const
@@ -181,10 +207,12 @@ public:
 private:
     amrex::Gpu::HostVector<amrex::ParticleReal> m_energies_h;
     amrex::Gpu::HostVector<double> m_cumulative_cross_sections_h;
+    amrex::Gpu::HostVector<int> m_energy_lookup_h;
 
 #ifdef AMREX_USE_GPU
     amrex::Gpu::DeviceVector<amrex::ParticleReal> m_energies_d;
     amrex::Gpu::DeviceVector<double> m_cumulative_cross_sections_d;
+    amrex::Gpu::DeviceVector<int> m_energy_lookup_d;
     Executor m_executor_d;
 #endif
     Executor m_executor_h;

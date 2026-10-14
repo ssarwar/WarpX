@@ -148,6 +148,11 @@ lose the entire deflection. The transverse component is evaluated from
 kinematic intermediates also use double precision; alias cutoffs use float32
 and local/selected indices use checked uint16 values.
 
+The alternative integral and spectator models also carry the sampled
+deflection directly into recoil. Spectator interpolation uses
+:math:`\sin(\theta/2)=\sqrt{d/2}`, so rounding the cosine cannot turn a
+nonzero angle into the forward-limit rotational distribution.
+
 The reciprocal collision and sampling draws use adequately resolved double
 uniforms even in all-single builds. CUDA, HIP and SYCL use their backend's
 double-uniform generation; the CPU construction combines random integer

@@ -115,6 +115,35 @@ BackgroundMCCProcessSelector::BackgroundMCCProcessSelector (
     m_executor_h.m_energy_lo = m_energies_h.front();
     m_executor_h.m_energy_hi = m_energies_h.back();
 
+    // Small grids do not benefit from the extra indirection. Each entry
+    // brackets the original grid at an exactly representable dyadic boundary.
+    // The next entry gives a conservative upper bound for the same bisection.
+    if (energy_count > 32u) {
+        int last_exponent;
+        std::frexp(m_energies_h[1], &m_executor_h.m_energy_lookup_min_exponent);
+        std::frexp(m_energies_h.back(), &last_exponent);
+        constexpr int bins = Executor::energy_lookup_bins;
+        int const count =
+            (last_exponent - m_executor_h.m_energy_lookup_min_exponent + 1) * bins;
+        auto const remaining_bytes = std::min(table_budget, maximum_table_bytes) - tableBytes();
+        if (static_cast<std::size_t>(count + 1) <= remaining_bytes / sizeof(int)) {
+            m_energy_lookup_h.resize(count + 1);
+            std::size_t interval = 0;
+            for (int bin = 0; bin <= count; ++bin) {
+                auto const boundary = std::ldexp(
+                    amrex::ParticleReal(1) + amrex::ParticleReal(bin % bins) / bins,
+                    m_executor_h.m_energy_lookup_min_exponent - 1 + bin / bins);
+                while (interval + 1 < energy_count - 1 &&
+                       m_energies_h[interval + 1] <= boundary) {
+                    ++interval;
+                }
+                m_energy_lookup_h[bin] = static_cast<int>(interval);
+            }
+            m_executor_h.m_energy_lookup = m_energy_lookup_h.data();
+            m_executor_h.m_energy_lookup_size = count + 1;
+        }
+    }
+
 #ifdef AMREX_USE_GPU
     m_energies_d.resize(m_energies_h.size());
     m_cumulative_cross_sections_d.resize(m_cumulative_cross_sections_h.size());
@@ -127,6 +156,12 @@ BackgroundMCCProcessSelector::BackgroundMCCProcessSelector (
     m_executor_d = m_executor_h;
     m_executor_d.m_energies = m_energies_d.data();
     m_executor_d.m_cumulative_cross_sections = m_cumulative_cross_sections_d.data();
+    if (!m_energy_lookup_h.empty()) {
+        m_energy_lookup_d.resize(m_energy_lookup_h.size());
+        amrex::Gpu::copyAsync(amrex::Gpu::hostToDevice,
+            m_energy_lookup_h.begin(), m_energy_lookup_h.end(), m_energy_lookup_d.begin());
+        m_executor_d.m_energy_lookup = m_energy_lookup_d.data();
+    }
     amrex::Gpu::streamSynchronize();
 #endif
 }

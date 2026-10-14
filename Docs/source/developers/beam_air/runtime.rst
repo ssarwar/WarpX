@@ -61,6 +61,13 @@ they were combined at initialization. The selector cost is
 linear process scan. For example, 64 processes require at most six prefix
 comparisons after the energy search.
 
+For union grids with more than 32 knots, a small optional lookup brackets the
+energy search using 64 exact power-of-two subdivisions per exponent. The
+search still uses the original knots and interpolation; it does not quantize
+the collision energy. This lookup shares the 64 MiB budget with the energy
+and prefix arrays and is omitted when that budget has no room. Its cost is
+four bytes per subdivision boundary.
+
 "One energy search" refers specifically to the integral cross sections used
 for event acceptance and process choice. A selected IAA angular DCS has its own
 independent energy grid and performs one additional DCS bisection, but only for
