@@ -68,6 +68,14 @@ the collision energy. This lookup shares the 64 MiB budget with the energy
 and prefix arrays and is omitted when that budget has no room. Its cost is
 four bytes per subdivision boundary.
 
+``test_1d_mcc_selector_search`` compares the bounded search with the full search
+and a standard-library interval reference at every knot, adjacent floating-point
+values, lookup boundaries and reproducible random energies. The standalone
+``test_mcc_selector`` executable also accepts ``points=8192 repeats=400`` to time
+both searches on identical queries. Run it from a build directory, where it
+writes its synthetic tables. These lookup timings do not measure a complete
+MCC or PIC timestep.
+
 "One energy search" refers specifically to the integral cross sections used
 for event acceptance and process choice. A selected IAA angular DCS has its own
 independent energy grid and performs one additional DCS bisection, but only for
@@ -85,7 +93,7 @@ ionization or attachment event records the same process index for the grouped
 particle-creation pass, so cumulative selection cannot disconnect a product
 from its channel.
 
-The storage in one host or device copy is
+The energy and prefix arrays in one host or device copy require
 
     .. math::
 
@@ -95,20 +103,20 @@ The storage in one host or device copy is
 where the union energy grid uses particle precision and the :math:`P` prefix
 rows use double precision. Selection draws and cumulative sums in the fallback
 also use double precision, preserving rare channels alongside large rates.
-WarpX enables the selector only when this total is at most
-64 MiB. Consequently,
+The admission check conservatively reserves eight bytes per energy knot in
+both particle precisions and limits the base arrays to 64 MiB. Consequently,
 
     .. math::
 
        U_{\max} = \left\lfloor
        \frac{64\,\mathrm{MiB}}
-            {\mathrm{sizeof}(\mathtt{ParticleReal})+
-              P\,\mathrm{sizeof}(\mathtt{double})}
+            {(P+1)\,\mathrm{sizeof}(\mathtt{double})}
        \right\rfloor.
 
-For 64 processes this permits 129,055 union points with double-precision
-particles or 130,055 with single-precision particles. For 128 processes the
-limits are 65,027 and 65,280 points, respectively. Typical cross-section sets
+For 64 processes this permits 129,055 union points in either particle
+precision. For 128 processes the limit is 65,027 points. The optional search
+lookup uses only the budget remaining after the actual base allocations.
+Typical cross-section sets
 are far smaller: if 64 channels each use the same 100-point grid, then
 :math:`U=100`, not 6,400. Only completely distinct knots can make :math:`U`
 approach the sum of the individual grid sizes. A GPU build retains one host

@@ -153,7 +153,7 @@ deflection directly into recoil. Spectator interpolation uses
 :math:`\sin(\theta/2)=\sqrt{d/2}`, so rounding the cosine cannot turn a
 nonzero angle into the forward-limit rotational distribution.
 
-The reciprocal collision and sampling draws use adequately resolved double
+The collision and rotational sampling draws use adequately resolved double
 uniforms even in all-single builds. CUDA, HIP and SYCL use their backend's
 double-uniform generation; the CPU construction combines random integer
 bits. Drawing a binary32 uniform and merely casting it to double would not

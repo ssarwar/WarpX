@@ -1685,11 +1685,16 @@ BackgroundMCCCollision::doBackgroundCollisionsWithinTileImpl (
                             : differential_scattering_processes[rotation_process].sampleDeflection(
                                   E_coll, angle_draw);
                     double const cosine = 1 - deflection;
+                    // Discrete rotational probabilities need more than the
+                    // binary32 uniform grid even when fields are single precision.
                     auto const outcome = integral_rotation
-                        ? rotation.sample(rotational_interpolation, amrex::Random(engine),
-                                          amrex::Random(engine))
-                        : spectator.sample(rotation_energy, cosine, amrex::Random(engine),
-                                           amrex::Random(engine), amrex::Random(engine), deflection);
+                        ? rotation.sample(rotational_interpolation,
+                                          BackgroundMCCUtils::uniformDouble(engine),
+                                          BackgroundMCCUtils::uniformDouble(engine))
+                        : spectator.sample(rotation_energy, cosine,
+                                           BackgroundMCCUtils::uniformDouble(engine),
+                                           BackgroundMCCUtils::uniformDouble(engine),
+                                           BackgroundMCCUtils::uniformDouble(engine), deflection);
                     amrex::ParticleReal ex, ey, ez, nx, ny, nz;
                     bool physical = true;
                     if (outcome.m_loss == 0) {
