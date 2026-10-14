@@ -9,7 +9,7 @@ resampling or increasing another rotational channel's rate.
 
 The angle is drawn independently from the existing elastic DCS. Recoil remains
 exact outside the small energy-only continuation band documented in
-`Docs/source/theory/multiphysics/mcc_iaa_sources.rst`. Inside that band, the electron retains
+`Docs/source/theory/multiphysics/collisions/electron_air.rst`. Inside that band, the electron retains
 `E-loss`; the virtual neutral receives the momentum difference, and its recoil
 energy is neglected in the electron update. Tests bound the resulting energy
 defect by `2*m_e/M*E`. This selected approximation does not enforce exact
@@ -141,7 +141,7 @@ performed; single particle precision was validated on the CPU.
 Synthetic verification inputs for the angle-independent model are generated in
 build directories. Production data and numerical source constraints are stored
 in warpx-data. The current reciprocal model's physics and GPU validation are
-documented in `Docs/source/theory/multiphysics/rotational_scattering/validation.rst`.
+documented in `Docs/source/developers/beam_air/validation.rst`.
 The records below describe the earlier independent-angle source audit and do
 not describe the current production model.
 

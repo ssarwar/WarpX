@@ -47,6 +47,9 @@ Laser-Plasma Interaction
 Particle Accelerator & Beam Physics
 -----------------------------------
 
+For proton pulse trains in a neutral N2/O2 background, see
+:ref:`usage-beam-air`, including kinetic and prescribed-fluid examples.
+
 .. toctree::
    :maxdepth: 1
 

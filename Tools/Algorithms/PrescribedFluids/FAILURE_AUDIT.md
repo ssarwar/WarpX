@@ -193,7 +193,7 @@ is required for either projectile representation.
 
 The SDCS represents inclusive electron yield through effective electron/ion
 pairs. The 800 MeV use is an extrapolation of the calibrated molecular model,
-as documented in [the theory](../../../Docs/source/theory/multiphysics/proton_impact_ionization.rst).
+as documented in [the theory](../../../Docs/source/theory/multiphysics/collisions/proton_ionization/index.rst).
 Automatic numerical integration does not supply new experimental validation.
 
 ## Evidence and reproduction

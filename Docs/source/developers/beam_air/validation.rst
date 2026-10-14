@@ -1,7 +1,242 @@
+.. _beam-air-validation:
+
+Physics verification and performance
+====================================
+
+This page separates independent physics checks, numerical precision, physical
+model uncertainty and backend measurements. Test commands and recorded limits
+apply to the feature versions identified in each campaign.
+
+Independent analytical references
+---------------------------------
+
+The analytical fixtures use synthetic data under WarpX build directories, never
+under warpx-data. They isolate a known solution from source-model uncertainty.
+State the fixed-energy, stationary/heavy-neutral assumptions when using angular
+or fixed-loss references; finite recoil changes those idealized problems.
+
+* **Angular sampling.** Isotropy has :math:`p(\mu)=1/2`,
+  :math:`\langle\mu\rangle=0` and :math:`\langle\mu^2\rangle=1/3`.
+  For the N2 :math:`d\pi` law, the exact CDF is
+
+  .. math::
+
+     F(\mu)=\frac12+\frac{15}{28}
+         \left(\mu-\mu^3+\frac{14}{15}\mu^5\right),
+
+  with :math:`\langle\mu^2\rangle=3/7`,
+  :math:`\langle\mu^4\rangle=137/441`, and Legendre moments
+  :math:`a_2=1/7`, :math:`a_4=8/63`. Mixture CDFs and moments are the
+  probability-weighted sums of component CDFs and moments.
+
+* **Angular relaxation.** In a fixed-energy Lorentz gas with collision rate
+  :math:`\nu` and single-event moment :math:`a_\ell`, continuous relaxation is
+  :math:`A_\ell(t)=A_\ell(0)e^{-\nu(1-a_\ell)t}`. With one event permitted per
+  substep, the exact discrete expectation after :math:`N` steps is instead
+  :math:`A_\ell(0)[1-p(1-a_\ell)]^N`, where
+  :math:`p=1-e^{-\nu\Delta t}`. Check this expression first, then demonstrate
+  convergence to the continuous solution. A repeated sampler test does not
+  exercise the complete MCC dispatch, gas sampling and majorant path.
+
+* **Attachment.** For constant competing rates :math:`\nu_j`, electron survival
+  is :math:`e^{-\nu t}`, with :math:`\nu=\sum_j\nu_j`, and product fraction
+  :math:`(\nu_j/\nu)(1-e^{-\nu t})`. Raw three-body data require
+  :math:`\nu_3=n_{O_2}n_Mv\sigma_3`. Change each density factor independently.
+  Unequal particle weights require weighted Bernoulli variance, not a count-only
+  Poisson error estimate.
+
+* **Discrete cooling.** For loss :math:`Q`, constant rate above threshold and
+  terminal level :math:`K=\lfloor E_0/Q\rfloor`, levels :math:`k<K` follow
+  :math:`{N\choose k}p^k(1-p)^{N-k}` after :math:`N` one-event steps. The
+  absorbing level has the remaining probability. The continuous limit is the
+  corresponding Poisson ladder with mean :math:`\nu t`. The constant-rate,
+  heavy-target fixture must not be confused with real energy-dependent cooling.
+
+* **Kinematics and sources.** Independent invariant endpoints and energy,
+  momentum and charge accounting check accepted collision products. Gaussian
+  antiderivatives check beam normalization and space-time yield; a separate
+  Coulomb Green-function calculation checks unbounded Gaussian fields and
+  their Lorentz transform. Discrete continuity and exact electron/ion charge
+  footprints are checked independently of that continuum field reference.
+
+Permanent test entry points
+---------------------------
+
+With a configured 1D Python build, enable real production data explicitly:
+
+.. code-block:: bash
+
+   cmake -S . -B build -DWarpX_DIMS=1 -DWarpX_PYTHON=ON \
+       -DWarpX_IAA_AIR_TEST_DATA=/path/to/warpx-data/MCC_cross_sections \
+       -DWarpX_RECIPROCAL_TEST_DATA=/path/to/warpx-data/MCC_cross_sections
+   cmake --build build -j 8
+   ctest --test-dir build -N -R 'iaa|reciprocal|rotation_thresholds'
+   ctest --test-dir build --output-on-failure \
+       -R 'test_1d_(iaa|reciprocal|rotation_thresholds)'
+
+Select the compiler, MPI and accelerator options appropriate to the machine.
+The test listing is important: an omitted external-data option can omit the
+production checks entirely. Repeat in a separate particle-single build using
+``WarpX_PARTICLE_PRECISION=SINGLE``; record field precision independently.
+
+``Tools/CrossSections/check_iaa_angular.py`` checks the actual sampler against
+independent angular quadrature, analytic distributions and mixtures.
+``test_iaa_air.py`` checks source anchors, channel accounting, repairs, RBEQ
+pairing, units, continuation and manifest selections. The complete-MCC
+``inputs_test_1d_iaa_analytical_picmi.py`` checks attachment and cooling.
+The committed relaxation fixture is a repeated angular-kernel test; the wider
+full-MCC relaxation audit has not yet become a permanent CTest.
+
+Separate standalone CMake projects under ``Tools/Algorithms/BackgroundMCC``,
+``ProtonImpactIonization`` and ``PrescribedFluids`` test the production C++
+helpers with independent references. Their READMEs give build commands and
+dependencies. In an RZ Python build, tests under ``langmuir_fluids``,
+``collision``, ``implicit`` and ``reduced_diags`` cover beam continuity,
+immobile products, solver coupling, source budgets and restart guards.
+Distributed and long performance studies are separate from short CPU CI.
+
+Current production-air coverage and limits
+------------------------------------------
+
+The October 13, 2026 audit exercised WarpX ``30a2685e67267289320ddbeb6bb01aaf7fa32dc0``
+and warpx-data ``f39ddb790bb9cb5ce6ff7d4695b2d6a6f117f04d`` on Perlmutter
+**A100-SXM4-40GB** GPUs in double and single particle precision. The subsequent
+gas-directory reorganization preserved numerical data and process ordering.
+These production-air results are distinct from the earlier elastic/rotation
+campaigns below. HIP and SYCL GPU physics and performance remain untested.
+Earlier SYCL compilation of prescribed-fluid support does not close that gap.
+
+The campaign covered analytical attachment/cooling, full-MCC angular relaxation,
+production cooling/swarm/pulse checks, and compact versus dense representations
+of the same physical interpolants. The audit's full-MCC isotropic, d-pi and
+mixture relaxation cases checked P1--P4 with analytical estimator variances.
+Private audit fixtures are additional evidence, not maintained regression tests.
+
+Independent host quadrature of all 2,992 actual angular-table rows found maximum
+CDF error :math:`5.245\times10^{-4}` and P1--P4 moment errors below
+:math:`2.8\times10^{-4}` in both particle precisions. These are numerical row
+errors. Endpoint completion, angular transition choices and uncertain
+high-energy continuations have separate, larger model uncertainties.
+
+At 1,048,576 particles and five paired ensembles, compact-table full-PIC median
+costs were about 1.1--3.4% lower in double precision and 1.4--5.5% lower in single
+precision across the measured workloads. The double-precision selector storage
+was 13,663,752 versus 66,317,592 bytes across the gases; angular storage was
+25,691,432 versus 98,797,400 bytes. These figures exclude unchanged rotational
+families and are not peak process memory. Perlmutter jobs ``59745672`` and the
+single-precision continuation campaign supplied the full-step timings; isolated
+lookup measurements were run separately. No new timing measurement is implied
+by this documentation reorganization.
+
+The following gaps prevent describing the full beam--air model as validated:
+
+* Production cooling/swarm tests check charge, cooling and drift direction.
+  They do not establish mobility, diffusion, ionization/attachment coefficients
+  or an energy distribution against independent experiments or a Boltzmann solver.
+* In the A100 dry-air cooling refinement (job ``59754199``), 20 eV initial
+  electrons evolved for 72 steps of 1e-13 s. Changing 16 to 64 coupled subcycles
+  changed final mean energy by 0.489%, with paired 95% interval 0.372--0.607%.
+  The 32-to-64 difference was still resolved. Convergence at 64 is not established.
+* The reduced 800 MeV pulse regression is homogeneous and uses different pulse
+  widths/spacing from the beam paper. A geometry- and time-matched experimental
+  yield comparison remains incomplete. Older prescribed-fluid studies with
+  synthetic electron rates validate representation choices, not IAA chemistry.
+* Single-particle native lookup exceeds the offline 0.05% pointwise rate budget
+  near some rounded zeros/thresholds. O2 RBEQ reaches about 0.0726%, above its
+  0.02% export target. Observable sensitivity and a separate runtime precision
+  budget are needed. A malformed negative raw value can also vanish before the
+  resampled reader validates it; production files do not contain negative rates.
+* A 7 eV loss at 1 GeV can disappear when the final momentum is stored in float.
+  Tiny oblique deflections can disappear as well. Double intermediate
+  ``1-cos(theta)`` does not overcome final-storage precision. Use double
+  particles when these transfers must be resolved.
+* Ordinary MCC rejects a positive-loss event below its recoil-shifted threshold
+  before calling the excitation helper. Direct helper calls below that threshold
+  can clamp inaccessible phase space and must not be interpreted as conservative
+  events. Permanent checks around the boundary, moving neutrals and oblique
+  stored-momentum changes remain incomplete.
+* Completion/transition/tail sensitivity has not been propagated through a
+  converged beam or swarm calculation. Source-table loss moments alone do not
+  validate the complete recoil and ionization transfer moments.
+* The new complete-data GPU campaign used one GPU and 1D without MPI, FFT or
+  openPMD. Earlier distributed rotational/fluid tests do not substitute for
+  multi-GPU, RZ or application-scale validation of the complete IAA inventory.
+  The default GPU CI smoke-test selection does not run this production-data suite.
+
+Keep these limits separate from implementation pass/fail results. Do not loosen
+physics assertions to turn an unresolved discrepancy into a passing check.
+
+Prescribed-fluid and integration evidence
+-----------------------------------------
+
+``Tools/Algorithms/PrescribedFluids/README.md`` gives independent Gaussian
+references, quiet/ordinary particle controls, equal-error studies, source-weight
+and mesh refinement, and Perlmutter submission scripts. Its ``VALIDATION.md``,
+``REAUDIT.md`` and ``DEVELOPMENT_SYNC.md`` retain dated hardware, solver and
+restart evidence. ``Tools/Algorithms/BackgroundMCC/development_sync_2026_10.rst``
+and ``dsmc_branch_audit_2026_10.rst`` record unchanged-stock controls and
+integration failures. Historical results must be read with their recorded
+revision, physics inputs, GPU memory variant and unresolved limitations.
+
+GPU performance validation
+--------------------------
+
+CPU timing and accelerator compilation are necessary checks, but neither proves
+a GPU speedup. Validate a performance change with reference and candidate
+builds on the target cluster. Use the same compiler, optimization flags, GPU
+architecture, AMReX options, MPI layout, particle decomposition, input data and
+random seed. Discard a warm-up run, collect at least 20 timed repetitions and
+compare medians together with a confidence interval rather than a single wall
+time.
+
+The ``inputs_test_1d_background_mcc_many_attachment_picmi.py`` test accepts
+``--particle-count``, ``--process-count``, ``--steps``, ``--subcycles``,
+``--cell-count``, ``--max-grid-size`` and ``--target-acceptance`` arguments for
+stand-alone performance runs. ``--particle-count`` is the global source count
+and must be divisible by ``--cell-count``. Multiple cells and a smaller maximum
+grid size create enough boxes to occupy multiple MPI ranks and GPUs. Pass
+``--mpi-timing`` under ``mpiexec`` with a ``WarpX_MPI=ON`` build so only rank
+zero writes the generated table and the reported time is the maximum over
+ranks. The benchmark aborts if the MPI world sizes do not agree. When specified,
+``--target-acceptance`` chooses an explicit conservative majorant and, with one
+step and one subcycle, an optical depth whose expected product-event fraction
+is the requested value. Large values are useful lifecycle stress tests, but are
+not time-converged physical simulations.
+
+Exercise at least the following matrix:
+
+* 1, 8, 32, 64 and 128 processes, using both shared and different energy grids;
+* attachment-only, ionization-only and representative elastic/excitation/product
+  mixtures;
+* approximately 0, 1, 10, 50 and 90 percent product-event fractions;
+* both small and large particle tiles and single- and double-precision particles;
+* one GPU, every GPU on one node and a multi-node weak- and strong-scaling case.
+
+Use the ABLASTR profiler regions
+``BackgroundMCCCollision::selectAndScatter()``,
+``BackgroundMCCCollision::createProducts()``,
+``BackgroundMCCCollision::compactAttachedElectrons()`` and
+``BackgroundMCCCollision::doCollisions()`` to separate selection, creation,
+removal and total MCC time. Also inspect a GPU timeline and kernel metrics with
+an appropriate vendor profiler. In particular, check kernel-launch count,
+device-to-host synchronization, allocation time, atomic contention, achieved
+occupancy, register spills, cache and memory throughput, and MPI idle time.
+
+Accept an optimization only if it preserves particle counts, charge, weights,
+discrete losses and the statistical angle and energy distributions, reduces
+the total MCC median for the intended workload, does not regress the
+low-acceptance production regime and keeps peak device memory bounded. This
+measurement is also what determines the next optimization: for example,
+profiles dominated by per-tile allocation or count synchronization motivate
+reusable scratch storage or batched count transfers, while atomic-dominated
+high-acceptance runs motivate a scan-based event queue. Such changes should not
+be selected from CPU timings alone.
+
+
 .. _rotation-validation:
 
-Validation and performance
-==========================
+Elastic and rotational validation campaigns
+-------------------------------------------
 
 The 300 K production data use real elmolcs inputs and the published constraints
 listed in :ref:`rotation-sources`. Numerical accuracy refers to the prescribed model;
@@ -10,7 +245,7 @@ the high-J continuation. Detailed logs and temporary data belong in build
 folders, outside warpx-data.
 
 Physics and precision
----------------------
+~~~~~~~~~~~~~~~~~~~~~
 
 Independent source evaluations and decoded distributions gave maximum
 low-energy interpolation errors of 0.120% for N2 and 0.100% for O2, including
@@ -51,7 +286,7 @@ stationary-target tests include tiny deflections, backward scattering, signed
 losses, and the documented narrow nominal-threshold continuation.
 
 A100 measurements
------------------
+~~~~~~~~~~~~~~~~~
 
 The Perlmutter campaign uses A100-SXM4-40GB devices, CUDA compilation for
 ``sm_80``, and double field/particle precision. Five independent seeds are
@@ -106,7 +341,7 @@ Five seeds give only a coarse estimate of the variance ratio; an apparent
 noise advantage should not be inferred from that small sample alone.
 
 Exact search indices
-~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^
 
 The production bundles include optional quantile lookup bounds. They add
 7,849,816 bytes, including alignment, bringing both gases to 751,195,072 bytes
@@ -134,7 +369,7 @@ reference. The original full-grid lookup remains supported for prepared binary b
 without the optional indices.
 
 Subcycled MCC runtime optimization
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The October 2026 integration adds exact energy-search bounds, resolves alias
 alternates to outcome identifiers at initialization, and specializes kernels
@@ -220,7 +455,7 @@ kernel/API activity; Nsight Compute could not acquire the driver's profiling
 resource, so these results do not claim measured cache-hit rates or occupancy.
 
 Readable-data validation
-------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 The readable probability encoding has its own accuracy budget and is checked
 against the decoded, previously validated probability cells. It preserves all
@@ -276,7 +511,7 @@ allocation was 1415643136 bytes for both text and binary cases; that includes
 particles, fields and other allocations as well as rotational tables.
 
 Reproducing numerical checks
-----------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Use the commands in ``Tools/CrossSections/reciprocal_rotation/README.rst``.
 The independent checks have different responsibilities:
@@ -305,7 +540,7 @@ The independent checks have different responsibilities:
   subcycling and restart. Benchmarks measure complete MCC and PIC costs.
 
 Grid selection and error measures
----------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The source reference uses mixed logarithmic/linear energy grids with physical
 thresholds and source joins inserted explicitly, plus angular quadrature in
@@ -343,7 +578,7 @@ contributions. The printed experimental uncertainty is not part of a
 numerical discretization tolerance.
 
 Open physical limits
---------------------
+~~~~~~~~~~~~~~~~~~~~
 
 An accurate numerical sampler cannot supply missing experimental physics.
 The O2 1--20 eV bridge, the unmeasured N2 angular tails, unresolved O2 spin,

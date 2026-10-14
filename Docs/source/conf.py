@@ -192,7 +192,6 @@ numfig_format = {
 html_static_path = ["_static"]
 
 html_css_files = [
-    "rotational_scattering.css",
     "custom.css",
 ]
 

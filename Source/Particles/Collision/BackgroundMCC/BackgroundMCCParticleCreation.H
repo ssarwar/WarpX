@@ -121,10 +121,12 @@ public:
      *
      * @param source_species source electron particle container
      * @param source_tile source electron particle tile
-     * @param product_species product particle containers, ordered by group
-     * @param product_tiles product particle tiles, ordered by group
+     * @param product_species kinetic or immobile-fluid destinations, ordered by group
+     * @param product_tiles kinetic product tiles, or null for fluid destinations
      * @param product_events compact selected product-changing events
      * @param product_counts number of selected events in each product group
+     * @param lev AMR level containing the source tile
+     * @param mfi mesh iterator supplying tile geometry for fluid product deposition
      */
     [[nodiscard]] amrex::Long
     operator() (

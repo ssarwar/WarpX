@@ -2,7 +2,7 @@
 
 The September 2026 source search and assessments are recorded in the
 [dataset audit](history/reports/DATASET_AUDIT.md), [final report](history/reports/FINAL_PJG.md)
-and [theory chapter](../../../../Docs/source/theory/multiphysics/proton_impact_ionization.rst).
+and [theory chapter](../../../../Docs/source/theory/multiphysics/collisions/proton_ionization/index.rst).
 This archive freezes the files actually used, rather than replacing them
 with whatever a mutable download URL supplies later. Retrieval dates are
 not measurement dates. No new literature search or refit is claimed by this

@@ -111,7 +111,7 @@ fragmentation, multiple charge states, electron capture or ion recoil.
 The numerical proton interval is 5 keV–10 GeV, but the total-yield calibration
 uses 5–4000 keV data. The measured spectral calibration extends to 1 MeV for
 N2 and 150 keV for O2. **The 800 MeV molecular spectrum is an extrapolation.**
-See the [full model derivation](../../../Docs/source/theory/multiphysics/proton_impact_ionization.rst).
+See the [full model derivation](../../../Docs/source/theory/multiphysics/collisions/proton_ionization/index.rst).
 
 The created electrons then collide with the prescribed gas through
 `picmi.MCCCollisions`. For a sampled neutral velocity, the total rate is
@@ -162,7 +162,7 @@ conditional rotational probabilities. Initialization reconstructs those
 probabilities and builds sampling tables once; source fitting and reciprocal
 normalization remain offline. Previously prepared binary inputs are also supported.
 The complete model, source derivations, algorithm and data format are documented
-in [the multiphysics theory manual](../../../Docs/source/theory/multiphysics/rotational_scattering.rst). A distinct rotational temperature requires an offline-prepared bundle
+in [the multiphysics theory manual](../../../Docs/source/theory/multiphysics/collisions/elastic_rotation/index.rst). A distinct rotational temperature requires an offline-prepared bundle
 at that temperature; the translational temperature remains independent.
 
 The bundle's rate replaces the ordinary elastic rate. It includes rotation,

@@ -54,7 +54,7 @@ def high_tables(target, temperature=300.0, ratio=1.01):
     def phase_average(z):
         # Average the normalized discrete probabilities, not their mean loss.
         # The 2x2 identity and the slowly varying envelope assumption are derived
-        # in theory/multiphysics/rotational_scattering/continuations.
+        # in theory/multiphysics/collisions/elastic_rotation/sources.
         V = np.column_stack(
             (
                 np.sqrt(2 * L + 1) * spherical_jn(L, z),

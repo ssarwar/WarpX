@@ -4,7 +4,7 @@ The production model is the calibrated PJG-type inclusive electron source for
 N2 and O2. Its total is the integral of its SDCS. The complete equations,
 original PJG comparison (including the 1977 erratum), fitted coefficients,
 data provenance, residuals, stopping powers and limitations are in the
-[theory chapter](../../../Docs/source/theory/multiphysics/proton_impact_ionization.rst).
+[theory chapter](../../../Docs/source/theory/multiphysics/collisions/proton_ionization/index.rst).
 The original printed model is retained only as an offline comparison; there
 is no runtime selector for a superseded calibration.
 

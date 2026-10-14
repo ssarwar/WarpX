@@ -21,7 +21,7 @@
 
 /** Host-only decoding of readable probability tables. No source-model fitting
  * or per-particle work occurs here. See
- * theory/multiphysics/rotational_scattering.
+ * theory/multiphysics/collisions/elastic_rotation/index.rst.
  */
 namespace BackgroundMCCReciprocalText {
 class Input {

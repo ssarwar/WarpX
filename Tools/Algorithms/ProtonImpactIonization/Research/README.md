@@ -6,7 +6,7 @@ assembled on 2026-09-14 on `codex/proton-impact-ionization-development-sync`,
 starting from `967f48efa1a1f473916c9019118901d75b97b228`. Archiving does not
 change the SDCS, coefficients, angular closure or collision implementation.
 
-Start with the [complete theory chapter](../../../../Docs/source/theory/multiphysics/proton_impact_ionization.rst)
+Start with the [complete theory chapter](../../../../Docs/source/theory/multiphysics/collisions/proton_ionization/index.rst)
 for the equations, printed parameters, 1977 corrections, derivations, final
 parameters, fit objective, data comparisons and physical limitations.
 The [production reference guide](../README.md) describes the current code and

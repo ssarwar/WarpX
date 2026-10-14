@@ -45,7 +45,7 @@ def smooth(x):
 def cg_array(initial, final, ranks):
     """Squared Clebsch--Gordan coupling (IAA 11.24), using the factorial 3j identity.
 
-    See theory/multiphysics/rotational_scattering/sources for the derivation.
+    See theory/multiphysics/collisions/elastic_rotation/sources for the derivation.
     A nonzero tensor rank can contribute to an unchanged final rotor state.
     """
     i = np.asarray(initial)[:, None]
@@ -286,7 +286,7 @@ class Priors:
         """Reduced angular strengths before reciprocal inclusive normalization.
 
         The complete piecewise formulas and joins are specified in
-        Docs/source/theory/multiphysics/rotational_scattering/rotational_dcs.rst.
+        Docs/source/theory/multiphysics/collisions/elastic_rotation/angular_models.rst.
         Rank zero is a placeholder where solve() protects the changing kernels.
         """
         arr = np.zeros((self.nr + self.ns, len(self.y)))

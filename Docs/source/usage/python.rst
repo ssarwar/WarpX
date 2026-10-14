@@ -191,6 +191,11 @@ Other operations related to particles:
 
 .. autoclass:: pywarpx.picmi.ProtonImpactIonizationCollisions
 
+For complete N2/O2 production process dictionaries, see
+:ref:`usage-collision-data` and :ref:`usage-beam-air`.
+
+.. autofunction:: pywarpx.iaa_air.load_iaa_air_processes
+
 .. autoclass:: pywarpx.picmi.FieldIonization
 
 Laser Pulses

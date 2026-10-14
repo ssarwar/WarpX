@@ -23,7 +23,7 @@ remain unchanged.
 - [Fluid validation](VALIDATION.md), its compact JSON measurements and figures
   record the implementation assumptions, independent references, convergence,
   CPU/A100 measurements and known coverage limits through `3ac32229a`.
-- [Proton model theory](../../../Docs/source/theory/multiphysics/proton_impact_ionization.rst)
+- [Proton model theory](../../../Docs/source/theory/multiphysics/collisions/proton_ionization/index.rst)
   and the [PJG research archive](../ProtonImpactIonization/Research/README.md)
   preserve the equations, calibration, input provenance, superseded approaches
   and uncertainty of the 800 MeV extrapolation.

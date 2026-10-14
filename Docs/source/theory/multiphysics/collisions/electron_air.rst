@@ -1,7 +1,8 @@
 .. _theory-iaa-air:
+.. _mcc-iaa-sources:
 
 IAA electron--air collision data
-===============================
+================================
 
 The gas-specific IAA manifests in
 ``warpx-data/MCC_cross_sections/<gas>/IAA/manifest.json``
@@ -17,8 +18,41 @@ already excludes predissociation; oxygen's dissociative electronic bands
 are counted once. Adding complements follows the source's completion
 convention and does not change the existing elastic/rotation family.
 
-Data and regeneration
----------------------
+.. list-table:: Production process inventory
+   :header-rows: 1
+   :widths: 25 37 38
+   :class: rotational-scattering-table
+
+   * - Family
+     - N2
+     - O2
+   * - Elastic and rotation
+     - One combined reciprocal family
+     - One combined reciprocal family
+   * - Bound vibration
+     - All 15 supplied ground-state transitions
+     - All 41 supplied ground-state transitions
+   * - Neutral dissociation
+     - Residual dissociation, already excluding predissociation
+     - Resonant vibrational dissociation
+   * - Electronic excitation
+     - 17 states and 7/14 eV complements
+     - a, b, Herzberg, two Schumann--Runge losses, longest/second bands,
+       and 11 eV complement
+   * - Ionization
+     - One matched RBEQ total and secondary model
+     - One matched RBEQ total and secondary model
+   * - Attachment
+     - None
+     - One dissociative and one three-body source
+
+The default dictionaries have 37 N2 and 54 O2 processes, including each combined
+elastic family. The ledger also retains exclusive source alternatives; they
+are not simultaneous event rates. Ionization shell selection remains internal
+to one process. :ref:`electron-impact-ionization` specifies that sampling.
+
+Integral data and continuations
+-------------------------------
 
 Each gas has ``elastic``, ``rotational``, ``vibrational``, ``electronic``,
 ``dissociation`` and ``ionization`` directories, with ``attachment`` for O2.
@@ -28,16 +62,10 @@ profiles and their reader descriptors. Molecular-state and transition names are
 explicit in filenames. Table paths in each gas manifest are relative to its ``IAA``
 directory. The PICMI loader also accepts the older aggregate manifest layout.
 
+The reader and manifest interfaces are documented in :ref:`usage-collision-data`;
+offline reproduction is in :ref:`beam-air-data-preparation`.
 ``Tools/CrossSections/export_iaa_air.py`` reads the pinned elmolcs archive
-without executing package code. NumPy is needed only by the offline exporter;
-WarpX does not generate physical tables during startup or time stepping.
-
-.. code-block:: bash
-
-   python Tools/CrossSections/export_iaa_air.py \
-       --archive /path/to/elmolcs-main.tar.gz \
-       --attachment /path/to/O2_attachment.txt \
-       --data-dir /path/to/warpx-data/MCC_cross_sections
+without executing package code. NumPy is needed only by the offline exporter.
 
 The source archive SHA256 is
 ``b864381086120fff37eb8c658dfcb0f150b80969cf9add626a38d89bab0a3c38``.
@@ -74,6 +102,33 @@ to the final decreasing segment; the N2 14 eV complement uses its dipole-forbidd
 asymptote. Documented zero tails remain zero. The continuation is a model
 assumption, not an extension of experimental coverage.
 
+Tabulated positive source values interpolate log--log; intervals touching zero
+interpolate linearly. Analytic electronic fits are evaluated directly from the
+source ``genA``/``genF`` equations and their archived coefficients, not from a
+coarse plot. The canonical numerical ``iaa`` inventory supplies bound vibrations;
+``iaa*`` alone does not contain every transition. ``sources.json`` retains the
+original equation variant, threshold and coefficients, and
+``Tools/CrossSections/iaa_air/rates.py`` implements the variants explicitly.
+
+For a positive-ended resonant channel, the production continuation is
+
+.. math::
+
+   \sigma(E)=\sigma(E_h)(E/E_h)^p,\qquad E>E_h,\quad p<0.
+
+The fit uses at least three points from the terminal decreasing segment, at
+most its last five points, and matches the endpoint exactly. The fit interval
+and exponent are recorded. N2's 14 eV complement fixes :math:`p=-1` from its
+dipole-forbidden asymptote. An unsupported or increasing tail is rejected.
+Source-bounded files retain the source endpoint instead.
+
+For Schumann--Runge, with :math:`a=9.955581` eV and :math:`b=10.213826` eV,
+the partition uses :math:`w=\operatorname{clip}[(E-a)/(b-a),0,1]`:
+:math:`\sigma_{6.12}=(1-w)\sigma_{\rm SR}` and
+:math:`\sigma_{8.60}=w\sigma_{\rm SR}`. It preserves one analytic total and two
+different losses. The longest-band loss is 9.97 eV, correcting the archive's
+9.7 eV header. No second fragmentation event is added after a dissociative band.
+
 Angular distributions
 ---------------------
 
@@ -104,11 +159,54 @@ through 20 eV and join elastic IAA over 20--40 eV. These O2 boundaries are an
 adopted modeling choice; the thesis does not supply numerical boundaries.
 Vibrational dissociation uses elastic fallback.
 
+For N2 v=0->1 above 5 eV, the measured reference uses Linert--Zubek at 5, 10,
+15 and 20 eV and Truhlar at 30, 50 and 75 eV. Sparse 35/45 eV and isolated
+higher-vibration measurements remain validation references. Higher N2
+vibrations join elastic fallback over 5--10 eV where channel data are absent.
+
 N2 electronic profiles use Khakoo 2005/2008 and Malone 2009, with canonical
 state mappings. O2 uses Shyn--Sweeney 1993 for a/b, Shyn--Sweeney 2000 for
 Herzberg, and Suzuki 2011 for the other three bands. The per-profile provenance
 records the actual usable energy rows. Narrow forward-cone measurements are
 retained as references, not promoted to complete angular distributions.
+
+.. list-table:: Measured electronic angular intervals before boundary blending
+   :header-rows: 1
+   :widths: 47 28 25
+   :class: rotational-scattering-table
+
+   * - Channels
+     - Source
+     - Incident energy
+   * - N2 A, B, W
+     - Khakoo 2005
+     - 10--100 eV
+   * - N2 B', a', a, w
+     - Khakoo 2005
+     - 12.5--100 eV
+   * - N2 C, E, a''
+     - Malone 2009
+     - 13--100 eV
+   * - N2 b, c3, o3, b', c4', G, F
+     - Khakoo 2008
+     - 17.5--50 eV
+   * - O2 a and b
+     - Shyn--Sweeney 1993
+     - 5--20 eV
+   * - O2 Herzberg
+     - Shyn--Sweeney 2000
+     - 10--30 eV
+   * - O2 Schumann--Runge, longest and second bands
+     - Suzuki 2011
+     - 15--50 eV
+
+Canonical states, original header labels and corrections are retained together.
+In particular, Malone's E and a'' headers map to :math:`E^3\Sigma_g^+` and
+:math:`a''{}^1\Sigma_g^+`. Unknown/ambiguous mappings are rejected.
+Schumann--Runge losses share one angular distribution. Aggregate angular data
+do not add an event rate. The N2 Rydberg 100 eV and O2 100--200 eV rows, and
+Green's forward Herzberg measurements, remain partial-angle references.
+
 Two O2 b-state archive entries are corrected against Table I(b), p. 1007 of
 `Shyn and Sweeney (1993) <https://doi.org/10.1103/PhysRevA.47.1006>`__:
 94 becomes 9.4 at 5 eV and 12 degrees, and 89 becomes 8.9 at 15 eV and
@@ -126,7 +224,14 @@ are recorded independently of numerical errors.
 
 Outside a measured interval, boundary profiles join energy-dependent elastic
 IAA over one neighboring logarithmic energy interval, limited below by the
-channel loss. Mixture weights use :math:`3s^2-2s^3`, where :math:`s` is the
+configured channel loss :math:`Q`. For usable energies
+:math:`E_0<E_1<\cdots<E_n`, the transition ends are
+:math:`E_L=\max(Q,E_0^2/E_1)` and :math:`E_H=E_n^2/E_{n-1}`. At least two
+usable rows are required. Freeze the nearest measured boundary profile while
+evaluating the elastic component at the actual incident energy. Use pure
+elastic outside those finite transition intervals. The explicit vibrational
+intervals above override this generic rule.
+Mixture weights use :math:`3s^2-2s^3`, where :math:`s` is the
 fractional logarithmic energy. Shared profiles are tabulated offline against
 the existing runtime log-energy interpolation, with CDF and first-four-Legendre
 moment errors below 1e-3. Startup prepares inverse CDFs; device sampling uses
@@ -150,8 +255,8 @@ layout but omits legacy ``SPECIES:`` metadata. Its fallback must be a legacy
 elastic table of the specified molecule, not another descriptor. The explicit
 fallback includes the existing elastic high-energy continuation.
 
-Attachment and PICMI
---------------------
+Attachment
+----------
 
 The default dissociative attachment is IAA; MuroranIT is an alternative.
 Three-body alternatives are MuroranIT (default), Phelps and Biagi. Their
@@ -166,26 +271,10 @@ For the default third-body convention,
 density factor. These effective rates approximate stabilization competing with
 autodetachment; they are not an exact pressure-dependent resonance model.
 
-.. code-block:: python
-
-   from pywarpx.iaa_air import load_iaa_air_processes
-
-   processes = load_iaa_air_processes(
-       data_dir, "O2", ion_species=O2plus,
-       attachment_species={"dissociative": Ominus, "three_body": O2minus},
-       third_body_density=n_O2,
-   )
-   collision = picmi.MCCCollisions(
-       name="electron_O2", species=electrons,
-       background_density=n_O2, background_temperature=300,
-       background_mass=31.9988 * 1.66053906660e-27,
-       scattering_processes=processes,
-   )
-
-The helper reads only the production manifest and uses the supplied 300 K
-rotational bundle. Other rotational temperatures require independently prepared
-families. The RBEQ alternative selects both its total and secondary model.
-No neutral-state species are introduced.
+The manifest helper and exclusive-source arguments are specified in
+:ref:`usage-collision-data`, with a PICMI example in :ref:`usage-beam-air`.
+Attachment has no outgoing free-electron angle. Its effective negative ion
+does not resolve a dissociation-fragment spectrum.
 
 Verification
 ------------
@@ -193,7 +282,9 @@ Verification
 Set ``WarpX_IAA_AIR_TEST_DATA`` to the external ``MCC_cross_sections`` directory
 to enable production source and angular checks. Analytical angular tests do not
 need external data. They check isotropy, exact d-pi moments, mixtures, finite-step
-Lorentz-gas relaxation and preservation of very small excitation deflections.
+angular-kernel relaxation and an axial very-small-deflection case. These do not
+establish complete-MCC relaxation or arbitrary-direction stored-momentum accuracy;
+:ref:`beam-air-validation` records the wider audit and remaining gaps.
 Synthetic fixtures are generated in the build directory.
 
 ``inputs_test_1d_iaa_air_picmi.py`` runs pure-gas and dry-air cooling, a driven

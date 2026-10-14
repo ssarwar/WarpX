@@ -1,16 +1,81 @@
 .. _rotation-development:
+.. _beam-air-data-preparation:
 
-Continuing development and reproducing results
-==============================================
+Preparing and maintaining collision data
+========================================
 
-This is the entry point for continuing this work in a new checkout or task.
+Use this workflow when regenerating or changing the physical data.
 The physics specification and numerical inputs are maintained in the
 repositories; no chat transcript or temporary build directory is required to
 understand the model. Local build outputs are useful caches, not authoritative
 scientific inputs.
 
-Authoritative material
-----------------------
+Offline tools by physical model
+-------------------------------
+
+* ``Tools/CrossSections/export_elmolcs.py`` imports the physical elastic,
+  angular and elementary rotational sources. ``test_elmolcs.py`` checks source
+  knots, independent interpolation probes and thermal references.
+* ``Tools/CrossSections/reciprocal_rotation`` prepares the coupled rotational
+  family. Its source normalization and distribution preparation are described
+  below. Other fixed rotational temperatures require new prepared data.
+* ``Tools/CrossSections/export_rbeq.cpp`` exports a total from the same selected
+  RBEQ source definition used for secondary sampling. The independent
+  ``Examples/Tests/collision/analysis_rbeq_sources.py`` uses separate quadrature.
+* ``Tools/CrossSections/export_iaa_air.py`` imports the full vibrational and
+  electronic inventory, attachment alternatives, normalized excitation profiles
+  and per-gas manifests. It needs existing elastic/rotation and matching RBEQ
+  assets and the pinned archive and attachment source.
+* ``Tools/Algorithms/ProtonImpactIonization`` retains the PJG reference,
+  fitting scripts and frozen calibration archive. Its runtime total is
+  constructed internally; it is not a tabulated electron MCC input.
+
+Work in a staging tree under the WarpX build directory. For an inelastic-only
+regeneration, copy the existing gas directories there to retain prerequisite
+elastic, rotation and RBEQ assets, then export and check the result:
+
+.. code-block:: bash
+
+   export WARPX_CROSS_SECTION_DATA=/path/to/warpx-data/MCC_cross_sections
+   export WARPX_IAA_STAGE="$PWD/build/iaa-data/MCC_cross_sections"
+   mkdir -p "$WARPX_IAA_STAGE"
+   cp -R "$WARPX_CROSS_SECTION_DATA/N2" "$WARPX_IAA_STAGE/"
+   cp -R "$WARPX_CROSS_SECTION_DATA/O2" "$WARPX_IAA_STAGE/"
+   python Tools/CrossSections/export_iaa_air.py \
+       --archive /path/to/elmolcs-main.tar.gz \
+       --attachment /path/to/O2_attachment.txt --data-dir "$WARPX_IAA_STAGE"
+   python Tools/CrossSections/test_iaa_air.py --data-dir "$WARPX_IAA_STAGE"
+
+Use a fresh staging directory for each comparison. Compare regenerated
+numerical payloads, canonical IDs, losses, source repairs and exclusive groups
+with the pinned production manifest before publishing. Then run the native
+reader, sampler and complete-MCC checks in :ref:`beam-air-validation`.
+The exporter reproducing itself is not an independent physics check.
+
+For RBEQ preparation, the standalone cross-section build provides
+``export_rbeq <N2|O2> <iaa_thesis_2023|elmolcs_b8643810> <output>``.
+Its optional ``raw`` mode retains signed source totals for analysis; never
+publish those as physical MCC rates. The production sum uses nonnegative
+shell partials and must retain model/target/normalization metadata.
+
+For PJG, run the independent Python tests and frozen calibration comparison:
+
+.. code-block:: bash
+
+   python -m unittest discover -s Tools/Algorithms/ProtonImpactIonization -v
+   python Tools/Algorithms/ProtonImpactIonization/fit_pjg.py \
+       --nifs Tools/Algorithms/ProtonImpactIonization/Research/inputs/nifs-optical.json \
+       --o2-leiden Tools/Algorithms/ProtonImpactIonization/Research/inputs/leiden-o2.txt \
+       --output build/pjg-data/frozen-results.json \
+       --figures build/pjg-data/figures --frozen
+
+The tool README and ``Research/REPRODUCING.md`` specify dependencies, source
+licenses and hashes. Retain historical fits as evidence, not alternative
+production coefficients. Numerical constraints are scientific inputs;
+plots, fits, benchmarks and synthetic fixtures remain outside warpx-data.
+
+Rotational model specification
+------------------------------
 
 * :ref:`rotation-dcs` is the complete piecewise N2/O2 rotational DCS
   specification: raw source strengths, energy and angular joins, reciprocal
@@ -29,21 +94,14 @@ Authoritative material
 * :ref:`rotation-validation` identifies tests, numerical error budgets,
   measured CPU/GPU behavior and what has not been established physically.
 
-Repository locations and working branches
------------------------------------------
+Repository responsibilities
+---------------------------
 
-The original implementation is on WarpX's
-``codex/rigid-beam-immobile-ions-development-sync`` branch. The October 2026
-development integration and subsequent optimizations are maintained on
-``codex/beam-air-development-sync-2026-10``; production numerical
-inputs are on warpx-data's ``codex/elmolcs-elastic-rotation`` branch. Before
-editing, check each checkout's status and fetch its requested branch. Preserve
-local work and other active worktrees. The physical data directories are
-
-.. code-block:: text
-
-   warpx-data/MCC_cross_sections/N2/IAA/
-   warpx-data/MCC_cross_sections/O2/IAA/
+Production physical data and usable manifests are maintained on warpx-data's
+``IAA`` branch under ``MCC_cross_sections/N2/IAA`` and
+``MCC_cross_sections/O2/IAA``. Pin a data commit and a compatible WarpX commit
+for reproducible simulations. See :ref:`usage-collision-data` for the directory
+layout and file contracts.
 
 Each contains ``elastic/cross_section.txt``,
 ``elastic/differential_cross_section.txt``, elementary rotational
@@ -140,8 +198,7 @@ Local builds and quick runtime tests
 ------------------------------------
 
 Use the repository's ``AGENTS.md`` and keep build directories inside its root.
-The ``warpx-cpu-mpich-dev`` environment supplies the CPU development tools on
-the original workstation. With an appropriate environment and existing build,
+With an appropriate compiler/Python environment and an existing build,
 
 .. code-block:: bash
 
@@ -208,6 +265,4 @@ Assumptions that require a deliberate physics decision
 If one of these assumptions is changed, update the equations, source rationale,
 preparation code, production data, numerical budgets and independent tests
 together. Preserve ordinary MCC and other physical models when this feature is
-disabled. Follow WarpX commenting/documentation style, make normally sized
-validated commits, and push to the intended branches. Do not open a pull
-request without explicit instruction.
+disabled. Follow the repository contribution and documentation conventions.

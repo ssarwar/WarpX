@@ -25,7 +25,7 @@ class ScatteringProcess;
 
 /** Immutable thermal rotational distributions and their elastic marginal.
  * Text inputs prepare the sampling representation once on the host; binary
- * inputs contain prepared arrays. See theory/multiphysics/rotational_scattering.
+ * inputs contain prepared arrays. See theory/multiphysics/collisions/elastic_rotation/index.rst.
  */
 class BackgroundMCCReciprocalRotation
 {

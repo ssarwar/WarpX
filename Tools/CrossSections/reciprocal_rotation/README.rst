@@ -2,8 +2,9 @@ Reciprocal rotational scattering
 ================================
 
 For continuation in another task, start with
-``Docs/source/theory/multiphysics/rotational_scattering/development.rst``.
-The complete piecewise angular model is in the adjacent ``rotational_dcs.rst``.
+``Docs/source/developers/beam_air/data_preparation.rst``.
+The complete piecewise angular model is in
+``Docs/source/theory/multiphysics/collisions/elastic_rotation/angular_models.rst``.
 
 These are offline reference and export tools for a fixed N2 or O2 rotational
 bath. They implement the model described in ``IMPLEMENTATION.rst``; source

@@ -9,7 +9,7 @@ its own `manifest.json`, with paths relative to its IAA directory. The runtime
 loader also supports the previous aggregate manifest layout.
 
 The complete N2/O2 electron-air set is described in
-[IAA electron--air collision data](../../Docs/source/theory/multiphysics/iaa_air.rst).
+[IAA electron--air collision data](../../Docs/source/theory/multiphysics/collisions/electron_air.rst).
 `export_iaa_air.py` prepares source-bounded and production integral tables,
 normalized excitation angular profiles, source records, and an exclusive
 process manifest. `test_iaa_air.py` checks the source anchors and interpolation;
@@ -20,8 +20,8 @@ directory. `benchmark_iaa_air.py` compares compact and redundant dense tables
 with identical physics and independent seeded ensembles.
 
 For production N₂/O₂ rotational scattering, start with the
-[complete rotational DCS specification](../../Docs/source/theory/multiphysics/rotational_scattering/rotational_dcs.rst)
-and the [continuing development guide](../../Docs/source/theory/multiphysics/rotational_scattering/development.rst).
+[complete rotational DCS specification](../../Docs/source/theory/multiphysics/collisions/elastic_rotation/angular_models.rst)
+and the [continuing development guide](../../Docs/source/developers/beam_air/data_preparation.rst).
 They record the physics, data provenance, implementation map, reproducible
 commands and validation requirements needed in a fresh task or checkout.
 The tools below also cover ionization and alternative rotational models.
@@ -44,8 +44,10 @@ span the outer-shell threshold to 1 GeV and target 0.02% linear-interpolation
 error (with an absolute floor of 1e-8 of the peak). Their metadata are checked
 by WarpX. The independent check requires NumPy and SciPy.
 
-See `Docs/source/theory/multiphysics/mcc_iaa_sources.rst` for the source distinctions,
-near-threshold continuation, and rotational production gates.
+See the [electron ionization reference](../../Docs/source/theory/multiphysics/collisions/electron_ionization.rst)
+for source distinctions and the near-threshold continuation, and the
+[alternative rotational models](../../Docs/source/theory/multiphysics/collisions/elastic_rotation/alternatives.rst)
+for their production gates.
 
 ## Thermal rotation
 

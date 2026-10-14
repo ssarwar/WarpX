@@ -14,6 +14,7 @@ Implementation Details
    accelerator_lattice
    initialization
    diagnostics
+   beam_air/index
    moving_window
    portability
    warning_logger

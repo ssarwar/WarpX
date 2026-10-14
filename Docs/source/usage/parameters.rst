@@ -2306,6 +2306,10 @@ Particle initialization
 Fluid species
 -------------
 
+For a complete configuration, see :ref:`usage-beam-air`; the projection,
+ionization source and charge-conservation algorithms are described in
+:ref:`theory-prescribed-fluids`.
+
 .. pp:param:: fluids.species_names
     :type: ``strings``, separated by spaces
 
@@ -3205,6 +3209,11 @@ Note that elements of the same type cannot overlap each other.
 Collision models
 ----------------
 
+See :ref:`usage-beam-air` for combining proton sources and electron MCC, and
+:ref:`usage-collision-data` for physical tables, units and model alternatives.
+The :ref:`collision theory <multiphysics-collisions>` separates the models and
+their applicability.
+
 WarpX provides several particle collision models, using varying degrees of approximation.
 Details about the collision models can be found in the :ref:`theory section <multiphysics-collisions>`.
 
@@ -3747,7 +3756,7 @@ Details about the collision models can be found in the :ref:`theory section <mul
     Selects the shell parameters and dipole correction for RBEQ energy sharing.
     ``iaa_thesis_2023`` uses thesis Table 11.12 and Eq. (11.121).
     ``elmolcs_b8643810`` uses the archived fitted parameters and finite-energy
-    correction described in :ref:`mcc-iaa-sources`. Both use positive shell
+    correction described in :ref:`electron-impact-ionization`. Both use positive shell
     partials and the bounded uniform near-threshold sharing continuation.
     Generate matching rates with ``Tools/CrossSections/export_rbeq.cpp``.
     Recognized comments ``# rbeq_model = ...``, ``# rbeq_target = ...`` and
@@ -3801,7 +3810,7 @@ Details about the collision models can be found in the :ref:`theory section <mul
     Kutz--Meyer integrals. This probability closure does not impose integral or
     differential detailed balance and is not an equilibrium-preserving model.
     Its source approximations and angular validity are described in
-    :ref:`mcc-iaa-sources`.
+    :ref:`rotation-alternatives`.
 
 .. pp:param:: <collision_name>.<scattering_process>_rotation_file
     :type: ``string``
@@ -3835,7 +3844,7 @@ Details about the collision models can be found in the :ref:`theory section <mul
     then prepares the small Boltzmann sampler. Its elastic rate remains supplied
     by ``cross_section``. A finite zero-energy elastic cross section therefore
     gives a vanishing collision rate for stationary zero-energy electrons.
-    These alternative physical models are described in :ref:`mcc-iaa-sources`;
+    These alternative physical models are described in :ref:`rotation-alternatives`;
     a sampler test alone does not establish their physical accuracy.
 
 .. pp:param:: <collision_name>.<scattering_process>_rotational_temperature
