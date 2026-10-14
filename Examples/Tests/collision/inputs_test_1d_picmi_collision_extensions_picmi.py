@@ -84,6 +84,24 @@ for name, kind in [("charge", "ParticleCharge"), ("budget", "PrescribedSourceBud
         picmi.ReducedDiagnostic(name=name, diag_type=kind, period=1)
     )
 
+histogram = picmi.ReducedDiagnostic(
+    name="histogram",
+    diag_type="ParticleHistogram2D",
+    species=electrons,
+    period=1,
+    bin_number_abs=4,
+    bin_number_ord=8,
+    bin_min_abs=-1,
+    bin_max_abs=1,
+    bin_min_ord=-1,
+    bin_max_ord=1,
+    histogram_function_abs="ux",
+    histogram_function_ord="uz",
+    value_function="w",
+)
+histogram.openpmd_backend = "h5"
+simulation.add_diagnostic(histogram)
+
 # A nested collision must retain its concrete type and all physical parameters.
 restored = picmi.Simulation.model_validate_json(simulation.model_dump_json())
 assert isinstance(restored.collisions[0], picmi.ProtonImpactIonizationCollisions)
@@ -129,6 +147,9 @@ with tempfile.TemporaryDirectory() as directory:
         "mcc.elastic_rotation_file": "thermal_rotation.rot",
         "charge.type": "ParticleCharge",
         "budget.type": "PrescribedSourceBudget",
+        "histogram.type": "ParticleHistogram2D",
+        "histogram.openpmd_backend": "h5",
+        "histogram.value_function(t,x,y,z,ux,uy,uz,w)": "w",
     }
     for key, value in expected.items():
         assert parameters[key] == value, (key, parameters[key], value)

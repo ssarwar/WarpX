@@ -5446,6 +5446,7 @@ class ReducedDiagnostic(
             "filter_function": "filter_function(t,x,y,z,ux,uy,uz)",
         },
         "ParticleHistogram2D": {
+            "openpmd_backend": "openpmd_backend",
             "bin_number_abs": "bin_number_abs",
             "bin_number_ord": "bin_number_ord",
             "bin_min_abs": "bin_min_abs",
@@ -5551,6 +5552,10 @@ class ReducedDiagnostic(
     )
 
     # ParticleHistogram2D
+    openpmd_backend: str | None = Field(
+        default=None,
+        description="For ParticleHistogram2D, the openPMD backend file format, such as h5 or bp.",
+    )
     bin_max_abs: float | None = Field(
         default=None,
         description="For diagnostic type 'ParticleHistogram2D', the maximum value of the bins for the abscissa axis.",
