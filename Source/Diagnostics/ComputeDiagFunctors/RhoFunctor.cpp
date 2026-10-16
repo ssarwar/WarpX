@@ -44,7 +44,7 @@ RhoFunctor::operator() ( amrex::MultiFab& mf_dst, const int dcomp, const int /*i
     // Dump total rho
     if (m_species_index == -1) {
         auto& mypc = warpx.GetPartContainer();
-        rho = mypc.GetChargeDensity(m_lev, true);
+        rho = mypc.GetChargeDensityOnLevel(m_lev, true, /*finalize*/false);
         if (warpx.DoFluidSpecies()) {
             auto& myfl = warpx.GetFluidContainer();
             myfl.DepositCharge(warpx.m_fields, *rho, m_lev);
@@ -53,13 +53,13 @@ RhoFunctor::operator() ( amrex::MultiFab& mf_dst, const int dcomp, const int /*i
     // Dump rho per species
     else if (m_species_index < warpx.GetPartContainer().nSpecies()) {
         auto& mypc = warpx.GetPartContainer().GetParticleContainer(m_species_index);
-        rho = mypc.GetChargeDensity(m_lev, true);
+        rho = mypc.GetChargeDensityOnLevel(m_lev, true, /*finalize*/false);
     } else {
         auto& fluid = warpx.GetFluidContainer().GetFluidContainer(
             m_species_index-warpx.GetPartContainer().nSpecies());
         auto const& number = *warpx.m_fields.get(fluid.name_mf_N, m_lev);
         rho = std::make_unique<amrex::MultiFab>(number.boxArray(), number.DistributionMap(),
-                                               1, number.nGrowVect());
+                                               WarpX::ncomps, number.nGrowVect());
         rho->setVal(0.0);
         fluid.DepositCharge(warpx.m_fields, *rho, m_lev);
     }
@@ -67,6 +67,7 @@ RhoFunctor::operator() ( amrex::MultiFab& mf_dst, const int dcomp, const int /*i
     // Handle the parallel transfers of guard cells and
     // apply the filtering if requested.
     warpx.ApplyFilterandSumBoundaryRho(m_lev, m_lev, *rho, 0, rho->nComp());
+    warpx.FinalizeRhoOnLevel(m_lev, rho.get(), PatchType::fine);
 
 #if (defined WARPX_DIM_RZ) && (defined WARPX_USE_FFT)
     // Apply k-space filtering when using the PSATD solver

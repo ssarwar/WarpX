@@ -332,11 +332,15 @@ for step in range(start + 1, steps + 1):
         np.testing.assert_allclose(totals[..., 0].sum(), emitted, rtol=2e-14)
         assert np.all(totals[..., 1:] >= 0)
         erho = host(
-            sim.particles.get(electron.name).get_charge_density(lev=0, local=False)[...]
+            sim.particles.get(electron.name).get_charge_density(
+                lev=0, local=False, finalize=True
+            )[...]
         )
         if mode == "kinetic":
             irho = host(
-                sim.particles.get(ion.name).get_charge_density(lev=0, local=False)[...]
+                sim.particles.get(ion.name).get_charge_density(
+                    lev=0, local=False, finalize=True
+                )[...]
             )
             np.testing.assert_allclose(population(ion.name), emitted, rtol=2e-14)
         else:

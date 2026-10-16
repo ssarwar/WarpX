@@ -223,6 +223,10 @@ void init_WarpX (py::module& m)
         .def("sync_rho",
             [](WarpX& wx){ wx.SyncRho(); }
         )
+        .def("finalize_rho",
+            [](WarpX& wx){ wx.FinalizeRho(); },
+            R"pbdoc(Apply charge boundary conditions and radial volume scaling once, after sync_rho)pbdoc"
+        )
 #if defined(WARPX_DIM_RZ) || defined(WARPX_DIM_RCYLINDER) || defined(WARPX_DIM_RSPHERE)
         .def("apply_inverse_volume_scaling_to_charge_density",
             [](WarpX& wx, amrex::MultiFab* rho, int const lev) {

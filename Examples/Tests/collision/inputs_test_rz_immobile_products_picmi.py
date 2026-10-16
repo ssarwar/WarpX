@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 from mpi4py import MPI
 
-from pywarpx import amr, picmi, warpx
+from pywarpx import amr, amrex, picmi, warpx
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -25,7 +25,13 @@ parser.add_argument("--small-tiles", action="store_true")
 parser.add_argument("--empty-rank", action="store_true")
 parser.add_argument("--max-grid-size", type=int, default=16)
 parser.add_argument("--cells-z", type=int, default=32)
+parser.add_argument("--solver-charge", action="store_true")
+parser.add_argument("--filter", action="store_true")
 args = parser.parse_args()
+if args.solver_charge:
+    assert args.kind == "proton" and args.restart is None
+    amrex.throw_exception = 1
+    amrex.signal_handling = 0
 
 grid = picmi.CylindricalGrid(
     number_of_cells=[16, args.cells_z],
@@ -46,7 +52,10 @@ grid = picmi.CylindricalGrid(
     n_azimuthal_modes=1,
 )
 solver = picmi.ElectromagneticSolver(
-    grid=grid, method="PSATD" if args.solver == "PSATD" else "Yee", stencil_order=[8, 8]
+    grid=grid,
+    method="PSATD" if args.solver == "PSATD" else "Yee",
+    stencil_order=[8, 8],
+    divE_cleaning=args.solver_charge and args.solver != "PSATD",
 )
 frozen = dict(
     warpx_do_not_push=True, warpx_do_not_gather=True, warpx_do_not_deposit=True
@@ -61,6 +70,8 @@ neutral_mass = 28.0134 * 1.66053906660e-27
 mi = neutral_mass + (me if args.kind == "attachment" else -me)
 ion_fluid = picmi.Species(name="ion_fluid", charge=qe, mass=mi)
 electrons = picmi.Species(name="electrons", particle_type="electron", **frozen)
+if args.solver_charge:
+    electrons.do_not_deposit = False
 species = [electrons]
 collisions = []
 if args.kind == "proton":
@@ -132,6 +143,7 @@ sim = picmi.Simulation(
     particle_shape=args.shape,
     warpx_collisions=collisions,
     warpx_random_seed=47,
+    warpx_use_filter=args.filter if args.solver_charge else None,
     warpx_current_deposition_algo="direct"
     if args.solver.startswith("semi_implicit")
     else None,
@@ -156,6 +168,9 @@ for sp in species:
 if args.kind == "attachment":
     sim.add_diagnostic(picmi.Checkpoint(name="chk", period=2))
 sim.initialize_inputs()
+if args.solver_charge and args.filter and args.solver != "PSATD":
+    # RZ FDTD supports only axial real-space filtering; PSATD filters in k-space.
+    warpx.filter_npass_each_dir = [0, 1]
 if args.small_tiles:
     # Neighboring OpenMP tiles scatter into shared nodes of the same FAB.
     warpx.get_bucket("particles").do_tiling = True
@@ -167,6 +182,9 @@ fluid = warpx.get_bucket("ion_fluid")
 fluid.model = "immobile"
 fluid.charge = -qe if args.kind == "attachment" else qe
 fluid.mass = mi
+if args.solver_charge:
+    fluid.profile = "constant"
+    fluid.density = 1e8
 sim.initialize_warpx()
 if args.empty_rank:
     assert args.kind != "proton" and args.restart is None
@@ -184,9 +202,12 @@ def host(array):
 
 
 def rho(name):
-    mf = sim.particles.get(name).get_charge_density(lev=0, local=True)
+    mf = sim.particles.get(name).get_charge_density(lev=0, local=True, finalize=False)
     periodicity = sim.extension.warpx.Geom(0).periodicity()
     mf.sum_boundary(0, 1, mf.n_grow_vect, mf.n_grow_vect, periodicity)
+    # Compare the unreflected physical footprint with persistent number density.
+    # Physical-wall boundary conditions belong to the transient solver charge.
+    sim.extension.warpx.apply_inverse_volume_scaling_to_charge_density(mf, 0)
     return host(mf[0:3j, -2j:3j]).copy()
 
 
@@ -207,6 +228,9 @@ def state():
     return dict(particles=particles, density=density)
 
 
+initial_fluid_density = host(
+    sim.fields.get("fluid_density_ion_fluid", level=0)[0:3j, -2j:3j]
+).copy()
 start = sim.extension.warpx.getistep(lev=0)
 if args.restart:
     assert args.kind == "attachment" and start == 2
@@ -254,11 +278,19 @@ for step in range(start, 3):
     actual = fluid.charge * host(
         sim.fields.get("fluid_density_ion_fluid", level=0)[0:3j, -2j:3j]
     )
+    if args.solver_charge:
+        actual -= fluid.charge * initial_fluid_density
     scale = np.max(np.abs(expected))
     assert scale > 0, "The fixture emitted no products"
     np.testing.assert_allclose(actual, expected, rtol=2e-12, atol=2e-14 * scale)
     assert np.max(np.abs(actual - previous)) > 0, "No new collision increment was added"
     previous = actual.copy()
+    if args.solver_charge:
+        # Proton ionization creates colocated opposite charges. The transient
+        # solver rho must retain only the uniform initial ion charge, including
+        # the axis and shared grid nodes, after synchronization and finalization.
+        deposited = host(sim.fields.get("rho_fp", level=0)[...])
+        np.testing.assert_allclose(deposited, qe * 1e8, rtol=2e-12, atol=0)
     if args.kind == "attachment":
         saved_state = state()
         probability = np.exp(-attachment_rate * sim.extension.warpx.gett_new(lev=0))

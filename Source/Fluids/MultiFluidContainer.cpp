@@ -6,6 +6,7 @@
  * License: BSD-3-Clause-LBNL
  */
 #include "MultiFluidContainer.H"
+#include "Fluids/FluidChargeDeposition.H"
 #include "Fluids/WarpXFluidContainer.H"
 #include "Utils/Parser/ParserUtils.H"
 #include "Utils/TextMsg.H"
@@ -271,7 +272,27 @@ MultiFluidContainer::PrepareImmobileCharge (ablastr::fields::MultiFabRegister co
     if (first) {
         m_immobile_charge.reset();
         m_immobile_charge_owners.reset();
+        return;
     }
+#if defined(WARPX_DIM_RZ) || defined(WARPX_DIM_RCYLINDER) || defined(WARPX_DIM_RSPHERE)
+    // Convert once per prepared state, not once per implicit residual. Persistent
+    // number densities remain physical; the cache matches unscaled PIC deposits.
+    auto const& warpx = WarpX::GetInstance();
+    const amrex::Real dr = WarpX::CellSize(0)[0];
+    const bool use_axis_correction = warpx.UseVerboncoeurAxisCorrection();
+    for (amrex::MFIter mfi(*m_immobile_charge, amrex::TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+        auto const charge = m_immobile_charge->array(mfi);
+        auto const box = mfi.tilebox();
+        const amrex::Real rmin = WarpX::LowerCorner(box, 0, 0.0_rt).x
+            + (m_immobile_charge->ixType()[0] ? 0.0_rt : 0.5_rt*dr);
+        const int irmin = box.smallEnd(0);
+        amrex::ParallelFor(mfi.growntilebox(),
+            [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                charge(i,j,k) *= warpx::fluids::RadialVolumeFactor(
+                    rmin + (i-irmin)*dr, dr, use_axis_correction);
+            });
+    }
+#endif
 }
 
 void
@@ -286,8 +307,8 @@ MultiFluidContainer::DepositImmobileCharge (amrex::MultiFab& rho, int component)
         m_immobile_charge_owners = amrex::OwnerMask(rho, warpx.Geom(0).periodicity(), grow);
         m_immobile_charge_grow = grow;
     }
-    // Cache physical charge, not a filtered or previously summed rho deposit.
-    // Each residual receives a fresh owned footprint for the normal SyncRho path.
+    // Each residual receives a fresh owned, unscaled footprint. Synchronization,
+    // filtering, boundary folding and inverse-volume scaling follow deposition.
     for (amrex::MFIter mfi(rho, amrex::TilingIfNotGPU()); mfi.isValid(); ++mfi) {
         auto const charge = m_immobile_charge->const_array(mfi);
         auto const owner = m_immobile_charge_owners->const_array(mfi);

@@ -173,6 +173,23 @@ foreach(kind IN ITEMS ionization attachment)
     )
 endforeach()
 
+foreach(solver IN ITEMS Yee PSATD semi_implicit_em semi_implicit_mm)
+    if(solver STREQUAL "PSATD" AND NOT WarpX_FFT)
+        continue()
+    endif()
+    foreach(filter IN ITEMS unfiltered filtered)
+        set(filter_arg "")
+        if(filter STREQUAL "filtered")
+            set(filter_arg " --filter")
+        endif()
+        add_warpx_test(
+            test_rz_immobile_solver_charge_${solver}_${filter}_picmi RZ 2
+            "inputs_test_rz_immobile_products_picmi.py --kind proton --solver ${solver} --solver-charge${filter_arg}"
+            OFF OFF OFF
+        )
+    endforeach()
+endforeach()
+
 foreach(kind IN ITEMS proton ionization attachment)
     foreach(shape RANGE 1 4)
         add_warpx_test(

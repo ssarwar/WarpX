@@ -393,9 +393,9 @@ def main():
             return values("fluid_density_" + species.name)
         return np.squeeze(
             host(
-                sim.particles.get(species.name).get_charge_density(lev=0, local=False)[
-                    ...
-                ]
+                sim.particles.get(species.name).get_charge_density(
+                    lev=0, local=False, finalize=True
+                )[...]
             )
         ).copy() / (qe if species.name == "beam" else species.charge or -qe)
 
