@@ -705,11 +705,18 @@ public:
 
     /**
      * \brief Synchronize J and rho:
-     * filter (if used), exchange guard cells, interpolate across MR levels
-     * and apply current boundary conditions. Finalize fresh charge separately
-     * with FinalizeRho(); sync_rho=false preserves an existing charge density.
+     * filter (if used), exchange guard cells, and interpolate across MR levels.
+     * Finalize current and fresh charge separately with FinalizeJ() and FinalizeRho();
+     * sync_rho=false preserves an existing charge density.
      */
     void SyncCurrentAndRho (bool sync_rho = true);
+
+    /** Apply physical boundary conditions to fine- and coarse-patch currents. */
+    void FinalizeJ ();
+
+    /** Apply physical boundary conditions to the supplied current components. */
+    void FinalizeJOnLevel (int lev, amrex::MultiFab* Jx, amrex::MultiFab* Jy,
+                           amrex::MultiFab* Jz, PatchType patch_type);
 
     /**
      * \brief Finalize deposited rho on all fine and coarse patches.

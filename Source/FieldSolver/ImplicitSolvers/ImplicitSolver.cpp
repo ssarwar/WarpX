@@ -1171,6 +1171,7 @@ void ImplicitSolver::PreRHSOp (const amrex::Real a_cur_time,
     // finalizing it again would also repeat boundary folding and volume scaling.
     m_WarpX->SyncCurrentAndRho(charge_was_reset);
     if (charge_was_reset) { m_WarpX->FinalizeRho(); }
+    m_WarpX->FinalizeJ();
 
 }
 
