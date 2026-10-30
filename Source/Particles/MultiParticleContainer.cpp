@@ -78,6 +78,7 @@
 #include <fstream>
 #include <limits>
 #include <map>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -596,7 +597,7 @@ void
 MultiParticleContainer::DepositCurrent (
     ablastr::fields::MultiLevelVectorField const & J,
     const amrex::Real dt, const amrex::Real relative_time,
-    const PushType push_type)
+    const PushType push_type, const std::optional<int> particle_shape)
 {
     // Reset the J arrays
     for (const auto& J_lev : J)
@@ -609,7 +610,7 @@ MultiParticleContainer::DepositCurrent (
     // Call the deposition kernel for each species
     for (auto& pc : allcontainers)
     {
-        pc->DepositCurrent(J, dt, relative_time, push_type);
+        pc->DepositCurrent(J, dt, relative_time, push_type, particle_shape);
     }
 
 #if defined(WARPX_DIM_RZ) || defined(WARPX_DIM_RCYLINDER) || defined(WARPX_DIM_RSPHERE)
