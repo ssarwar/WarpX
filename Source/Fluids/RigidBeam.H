@@ -171,8 +171,10 @@ public:
                                amrex::Real padding = 0.0) const;
 
     void UpdateDensity (amrex::MultiFab& density, amrex::Geometry const& geom, amrex::Real time);
+    /** Add raw PIC current for later finalization. Disable radial volume
+     *  weighting only when accumulating a physical-current diagnostic. */
     void DepositCurrent (amrex::MultiFab& current, amrex::Geometry const& geom, amrex::Real start,
-                         amrex::Real dt);
+                         amrex::Real dt, bool use_volume_weighting = true);
     void UpdateCurrentDiagnostic (amrex::MultiFab& current, amrex::Geometry const& geom,
                                   amrex::Real time);
 

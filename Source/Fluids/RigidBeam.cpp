@@ -6,6 +6,7 @@
  */
 #include "RigidBeam.H"
 
+#include "Fluids/FluidChargeDeposition.H"
 #include "Utils/Parser/ParserUtils.H"
 #include "Utils/TextMsg.H"
 #include "Utils/WarpXConst.H"
@@ -310,7 +311,7 @@ RigidBeam::UpdateDensity (amrex::MultiFab& density, amrex::Geometry const& geom,
 
 void
 RigidBeam::DepositCurrent (amrex::MultiFab& current, amrex::Geometry const& geom, amrex::Real start,
-                           amrex::Real dt)
+                           amrex::Real dt, bool use_volume_weighting)
 {
 #ifdef WARPX_DIM_RZ
     if (!active(geom, start, dt, (WarpX::nox + 1) * geom.CellSize(1))) {
@@ -367,18 +368,28 @@ RigidBeam::DepositCurrent (amrex::MultiFab& current, amrex::Geometry const& geom
     }
     auto const mask = amrex::OwnerMask(current, geom.periodicity(), grow);
     int const rlo = m_radial_lo, zlo = box.smallEnd(1);
+    const amrex::Real dr = geom.CellSize(0);
+    const amrex::Real rmin = geom.ProbLo(0);
+    const int domain_rlo = geom.Domain().smallEnd(0);
+    const amrex::Real rshift = current.ixType()[0] ? amrex::Real(0.0) : amrex::Real(0.5);
+    const bool use_axis_correction = WarpX::GetInstance().UseVerboncoeurAxisCorrection();
     for (amrex::MFIter mfi(current, amrex::TilingIfNotGPU()); mfi.isValid(); ++mfi) {
         auto const a = current.array(mfi);
         auto const owner = mask->const_array(mfi);
         amrex::ParallelFor(
             mfi.growntilebox(grow), [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
                 if (owner(i, j, k)) {
-                    a(i, j, k) += static_cast<amrex::Real>(radial[i - rlo] * axial[j - zlo]);
+                    const amrex::Real volume_factor = use_volume_weighting
+                        ? warpx::fluids::RadialVolumeFactor(
+                            rmin + (i - domain_rlo + rshift)*dr, dr, use_axis_correction)
+                        : amrex::Real(1.0);
+                    a(i, j, k) += static_cast<amrex::Real>(
+                        volume_factor * radial[i - rlo] * axial[j - zlo]);
                 }
             });
     }
 #else
-    amrex::ignore_unused(current, geom, start, dt);
+    amrex::ignore_unused(current, geom, start, dt, use_volume_weighting);
 #endif
 }
 
@@ -389,7 +400,7 @@ RigidBeam::UpdateCurrentDiagnostic (amrex::MultiFab& current, amrex::Geometry co
     // Instantaneous, unfiltered prescribed current at the density output time.
     // The Maxwell solver separately receives the time-integrated interval current.
     current.setVal(0.0);
-    DepositCurrent(current, geom, time, 0.0);
+    DepositCurrent(current, geom, time, 0.0, /*use_volume_weighting=*/false);
     current.SumBoundary(geom.periodicity());
     current.FillBoundary(geom.periodicity());
 }

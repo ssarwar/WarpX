@@ -15,7 +15,7 @@
 
 namespace warpx::fluids
 {
-    /** Radial factor removed by ApplyInverseVolumeScalingToChargeDensity. */
+    /** Radial factor removed by charge/current inverse-volume scaling. */
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
     amrex::Real RadialVolumeFactor (
         [[maybe_unused]] amrex::Real r, [[maybe_unused]] amrex::Real dr,
